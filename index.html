@@ -323,7 +323,7 @@
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-xs text-gray-400 mb-1">VTuber 名稱</label><input type="text" value={editingVtuber.name} onChange={e=>setEditingVtuber({...editingVtuber, name: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div><label className="block text-xs text-gray-400 mb-1">所屬勢力</label><select value={editingVtuber.agency} onChange={e=>setEditingVtuber({...editingVtuber, agency: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>個人勢</option><option>企業勢</option><option>社團勢</option><option>準備中</option></select></div>
+                      <div><label className="block text-xs text-gray-400 mb-1">所屬勢力</label><select value={editingVtuber.agency} onChange={e=>setEditingVtuber({...editingVtuber, agency: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>個人勢</option><option>企業勢</option><option>社團勢</option></select></div>
                       <div><label className="block text-xs text-gray-400 mb-1">演出型態</label><select value={editingVtuber.streamingStyle} onChange={e=>setEditingVtuber({...editingVtuber, streamingStyle: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
                     </div>
                   </div>
@@ -760,7 +760,7 @@
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label>
-                        <select value={profileForm.agency} onChange={e=>setProfileForm({...profileForm, agency: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"><option>個人勢</option><option>企業勢</option><option>社團勢</option><option>準備中</option></select>
+                        <select value={profileForm.agency} onChange={e=>setProfileForm({...profileForm, agency: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"><option>個人勢</option><option>企業勢</option><option>社團勢</option></select>
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label>
@@ -801,11 +801,19 @@
                     <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
                     <p className="text-xs text-gray-300 mb-4 leading-relaxed">
                       為了保護創作者不被假冒，請協助我們確認您是頻道的真實擁有者。您可以使用以下任一方式：<br/>
-                      1. 在您的 X (Twitter) 或 YouTube 簡介中暫時加上 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span> 的字樣。<br/>
-                      2. 使用您的官方帳號私訊我們的 X 官方帳號 (@VNexus_Official)。
+                      方法一：您的 X (Twitter) 或 YouTube 簡介中暫時加上 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span> 的字樣。<br/>
+                      方法二：使用您的官方帳號私訊管理員帳號 (@ApexDasa)。
                     </p>
                     <label className="block text-sm font-bold text-gray-300 mb-2">請在此告訴管理員您的驗證方式：</label>
                     <input type="text" value={profileForm.verificationNote} onChange={e=>setProfileForm({...profileForm, verificationNote: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="例：我已經在 X 簡介加上字樣了！ / 我已經發送推特私訊！" />
+                  </div>
+
+                  {/* 新增：平台嚴格審核規範警告 */}
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5 mt-4">
+                    <h3 className="text-red-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-triangle-exclamation"></i> 平台審核規範聲明</h3>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      本平台專為「尋找實質連動與企劃夥伴」的活躍創作者打造。為維護社群連動品質與防範非創作目的之交友行為，目前 <span className="text-red-400 font-bold">不開放「準備中」或「超過一個月未有實況/影片產出」之帳號入駐</span>。若經人工審核未達活躍標準，名片將逕行退回或刪除，敬請見諒。
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
