@@ -80,23 +80,42 @@
       return null;
     };
 
-    // 自動擷取 YouTube 標題與說明的工具函數 (透過跨域代理 API)
+    // 自動擷取 YouTube 標題與說明的工具函數 (透過跨域代理 API 結合 oEmbed)
     const fetchYouTubeData = async (url) => {
       try {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
         const match = url.match(regExp);
         if (match && match[2].length === 11) {
           const targetUrl = `https://www.youtube.com/watch?v=${match[2]}`;
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-          const response = await fetch(proxyUrl);
-          if (response.ok) {
-            const data = await response.json();
-            const html = data.contents;
-            const doc = new DOMParser().parseFromString(html, "text/html");
-            const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title')?.innerText?.replace(' - YouTube', '') || '';
-            const description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
-            return { title, description };
-          }
+          let title = '';
+          let description = '';
+
+          // 1. 抓取標題 (使用 YouTube 官方 OEmbed API 確保 100% 抓取率)
+          try {
+            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
+            const oembedRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`);
+            if (oembedRes.ok) {
+              const oembedData = await oembedRes.json();
+              const ytJson = JSON.parse(oembedData.contents);
+              title = ytJson.title || '';
+            }
+          } catch (e) { console.error("oEmbed fetch failed", e); }
+
+          // 2. 抓取說明 (解析 HTML Meta Tags)
+          try {
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const htmlRes = await fetch(proxyUrl);
+            if (htmlRes.ok) {
+              const htmlData = await htmlRes.json();
+              const doc = new DOMParser().parseFromString(htmlData.contents, "text/html");
+              if (!title) {
+                title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title')?.innerText?.replace(' - YouTube', '') || '';
+              }
+              description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+            }
+          } catch (e) { console.error("HTML fetch failed", e); }
+
+          return { title, description };
         }
       } catch (err) {
         console.error("無法抓取 YT 資訊:", err);
@@ -123,18 +142,18 @@
           大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？<br className="hidden md:block" />
           註冊你的名片，找尋你的夥伴吧！
         </p>
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
-          <button onClick={() => navigate('grid')} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
+          <button onClick={() => navigate('grid')} className="h-14 bg-purple-600 hover:bg-purple-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center">
             <i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴
           </button>
-          <button onClick={() => navigate('dashboard')} className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto">
+          <button onClick={() => navigate('dashboard')} className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center">
             <i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片
           </button>
-          <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0">
-            <a href="https://t.co/pSbScwAIqh" target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
+          <div className="flex flex-col items-center w-full sm:w-auto">
+            <a href="https://t.co/pSbScwAIqh" target="_blank" rel="noopener noreferrer" className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
               <i className="fa-solid fa-clipboard-list mr-2"></i>初期意見調查
             </a>
-            <span className="text-gray-500 text-[10px] mt-1.5 font-bold">(歡迎不吝提供建議)</span>
+            <span className="text-gray-500 text-[10px] mt-2 font-bold">(歡迎不吝提供建議)</span>
           </div>
         </div>
       </section>
@@ -560,6 +579,7 @@
       const [currentView, setCurrentView] = useState(getInitialView());
       const [selectedVTuber, setSelectedVTuber] = useState(null);
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+      const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false); // 新增：手機版進階篩選開關
       
       // 新增 Loading 狀態
       const [isLoading, setIsLoading] = useState(true);
@@ -685,11 +705,19 @@
         showToast("已成功登出。");
       };
 
-      // 3. 整合真假資料
+      // 3. 整合真假資料並進行隨機洗牌排序 (Fisher-Yates Shuffle)
       const displayVtubers = useMemo(() => {
         const list = [...realVtubers];
         const mockList = MOCK_VTUBERS.filter(m => !list.find(r => r.id === m.id));
-        return [...list, ...mockList];
+        const combined = [...list, ...mockList];
+        
+        // 隨機排列 (洗牌演算法)
+        for (let i = combined.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [combined[i], combined[j]] = [combined[j], combined[i]];
+        }
+        
+        return combined;
       }, [realVtubers]);
 
       // 動態抓取所有 VTuber 的「願意連動類型」作為篩選標籤
@@ -1117,7 +1145,15 @@
 
             {currentView === 'grid' && (
               <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
-                <aside className="w-full lg:w-72 flex-shrink-0 space-y-6">
+                
+                {/* 手機版：進階篩選展開按鈕 */}
+                <div className="lg:hidden flex justify-end mb-[-16px]">
+                  <button onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)} className="bg-gray-800 border border-gray-700 text-gray-300 hover:text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+                    <i className="fa-solid fa-filter"></i> {isMobileFilterOpen ? '隱藏進階篩選' : '顯示進階篩選'}
+                  </button>
+                </div>
+
+                <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
                   <div className="relative">
                     <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     <input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-purple-500" />
