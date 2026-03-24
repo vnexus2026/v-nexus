@@ -129,17 +129,37 @@
     );
 
     // --- 系統管理員後台元件 ---
-    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '' });
       const [editTips, setEditTips] = useState(tips);
+      
+      // 用來存放「目前正在編輯的名片資料」
+      const [editingVtuber, setEditingVtuber] = useState(null);
 
       // 分離已審核與未審核名單
       const pendingVtubers = vtubers.filter(v => !v.isVerified);
       const verifiedVtubers = vtubers.filter(v => v.isVerified);
 
+      const handleEditClick = (v) => {
+        setEditingVtuber({
+          ...v,
+          tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '',
+          collabTypes: Array.isArray(v.collabTypes) ? v.collabTypes.join(', ') : v.collabTypes || '',
+          subscribers: v.subscribers || '',
+          channelUrl: v.channelUrl || '',
+          mainPlatform: v.mainPlatform || 'YouTube',
+          streamingStyle: v.streamingStyle || '一般型態'
+        });
+      };
+
+      const handleSaveEdit = () => {
+        onUpdateVtuber(editingVtuber.id, editingVtuber);
+        setEditingVtuber(null);
+      };
+
       return (
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="max-w-5xl mx-auto px-4 py-8 relative">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2>
             <p className="text-sm text-gray-400">目前身分認證：apex.dasa@gmail.com</p>
@@ -183,6 +203,7 @@
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button onClick={() => onVerifyVtuber(v.id)} className="text-green-400 bg-green-500/10 hover:bg-green-500 hover:text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors"><i className="fa-solid fa-check mr-1"></i>通過審核</button>
+                          <button onClick={() => handleEditClick(v)} className="text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors"><i className="fa-solid fa-pen"></i></button>
                           <button onClick={() => onDeleteVtuber(v.id)} className="text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors"><i className="fa-solid fa-trash"></i></button>
                         </div>
                       </div>
@@ -204,7 +225,10 @@
                             <p className="text-xs text-gray-500">{v.agency}</p>
                           </div>
                         </div>
-                        <button onClick={() => onDeleteVtuber(v.id)} className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">下架刪除</button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleEditClick(v)} className="text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">編輯</button>
+                          <button onClick={() => onDeleteVtuber(v.id)} className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">下架刪除</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -258,6 +282,48 @@
               </div>
             )}
           </div>
+
+          {/* 管理員專屬編輯名片彈窗 */}
+          {editingVtuber && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in-up shadow-2xl">
+                <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+                  <h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square text-blue-400 mr-2"></i>強制編輯名片：{editingVtuber.name}</h3>
+                  <button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">VTuber 名稱</label><input type="text" value={editingVtuber.name} onChange={e=>setEditingVtuber({...editingVtuber, name: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><label className="block text-xs text-gray-400 mb-1">所屬勢力</label><select value={editingVtuber.agency} onChange={e=>setEditingVtuber({...editingVtuber, agency: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>個人勢</option><option>企業勢</option><option>社團勢</option><option>準備中</option></select></div>
+                      <div><label className="block text-xs text-gray-400 mb-1">演出型態</label><select value={editingVtuber.streamingStyle} onChange={e=>setEditingVtuber({...editingVtuber, streamingStyle: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
+                    </div>
+                  </div>
+                  <div><label className="block text-xs text-gray-400 mb-1">一句話自我介紹</label><textarea rows="2" value={editingVtuber.description} onChange={e=>setEditingVtuber({...editingVtuber, description: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm resize-none outline-none focus:border-blue-500" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">內容標籤 (逗號分隔)</label><input type="text" value={editingVtuber.tags} onChange={e=>setEditingVtuber({...editingVtuber, tags: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">願意連動類型 (逗號分隔)</label><input type="text" value={editingVtuber.collabTypes} onChange={e=>setEditingVtuber({...editingVtuber, collabTypes: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">可連動時段</label><input type="text" value={editingVtuber.schedule} onChange={e=>setEditingVtuber({...editingVtuber, schedule: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">訂閱人數</label><input type="text" value={editingVtuber.subscribers} onChange={e=>setEditingVtuber({...editingVtuber, subscribers: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">頭像圖片網址</label><input type="url" value={editingVtuber.avatar} onChange={e=>setEditingVtuber({...editingVtuber, avatar: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">橫幅背景網址</label><input type="url" value={editingVtuber.banner} onChange={e=>setEditingVtuber({...editingVtuber, banner: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">主打平台</label><select value={editingVtuber.mainPlatform} onChange={e=>setEditingVtuber({...editingVtuber, mainPlatform: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>YouTube</option><option>Twitch</option><option>其他</option></select></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">頻道首頁連結</label><input type="url" value={editingVtuber.channelUrl} onChange={e=>setEditingVtuber({...editingVtuber, channelUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
+                  <div className="pt-4 border-t border-gray-800 flex justify-end gap-3">
+                    <button onClick={() => setEditingVtuber(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors">取消</button>
+                    <button onClick={handleSaveEdit} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-colors">強制儲存更新</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     };
@@ -472,6 +538,26 @@
         } catch (err) { showToast("審核失敗"); }
       };
       
+      const handleAdminUpdateVtuber = async (id, updatedData) => {
+        if (!isAdmin) return;
+        try {
+          const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
+          const collabArray = typeof updatedData.collabTypes === 'string' ? updatedData.collabTypes.split(',').map(t => t.trim()).filter(t => t) : updatedData.collabTypes;
+          
+          await setDoc(doc(db, getPath('vtubers'), id), {
+            ...updatedData,
+            tags: tagsArray,
+            collabTypes: collabArray,
+            updatedAt: Date.now()
+          }, { merge: true });
+          
+          showToast("已強制更新名片內容！");
+        } catch (err) {
+          console.error(err);
+          showToast("更新失敗");
+        }
+      };
+
       const handleDeleteVtuber = async (id) => {
         if (!isAdmin) return;
         if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return;
@@ -821,7 +907,7 @@
             {currentView === 'admin' && isAdmin && (
               <AdminPage 
                 vtubers={displayVtubers} bulletins={displayBulletins} collabs={displayCollabs} tips={realTips}
-                onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onDeleteBulletin={handleDeleteBulletin}
+                onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin}
                 onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveTips={handleSaveTips}
               />
             )}
