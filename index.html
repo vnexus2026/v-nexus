@@ -294,7 +294,7 @@
       const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
       const [profileForm, setProfileForm] = useState({
-        name: '', agency: '個人勢', subscribers: '0', tags: '', description: '',
+        name: '', agency: '個人勢', subscribers: '', tags: '', description: '',
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}&backgroundColor=b6e3f4`,
         banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
         schedule: '', collabTypes: '', mainPlatform: 'YouTube', channelUrl: '',
@@ -354,7 +354,8 @@
                 ...myProfile,
                 tags: Array.isArray(myProfile.tags) ? myProfile.tags.join(', ') : myProfile.tags || '',
                 collabTypes: Array.isArray(myProfile.collabTypes) ? myProfile.collabTypes.join(', ') : myProfile.collabTypes || '',
-                streamingStyle: myProfile.streamingStyle || '一般型態'
+                streamingStyle: myProfile.streamingStyle || '一般型態',
+                subscribers: myProfile.subscribers || ''
               });
             }
           }
@@ -634,7 +635,10 @@
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={profileForm.tags} onChange={e=>setProfileForm({...profileForm, tags: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 歌回, APEX" /></div>
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">願意連動類型 (逗號分隔)</label><input type="text" value={profileForm.collabTypes} onChange={e=>setProfileForm({...profileForm, collabTypes: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: FPS雙排, 歌回接力" /></div>
                   </div>
-                  <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段</label><input type="text" value={profileForm.schedule} onChange={e=>setProfileForm({...profileForm, schedule: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 每週三五六晚上 20:00 後" /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段</label><input type="text" value={profileForm.schedule} onChange={e=>setProfileForm({...profileForm, schedule: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 每週三五六晚上 20:00 後" /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">目前訂閱 / 追隨人數 (可填大概數字)</label><input type="text" value={profileForm.subscribers} onChange={e=>setProfileForm({...profileForm, subscribers: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 1.5K, 500, 未公開" /></div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址 (請貼上圖片連結)</label>
