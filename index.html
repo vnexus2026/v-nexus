@@ -136,6 +136,22 @@
       return null;
     };
 
+    // 解析訂閱數轉換為真實數字供排序使用
+    const parseSubscribers = (v) => {
+      const parseStr = (str) => {
+        if (!str) return 0;
+        let num = parseFloat(str.replace(/[^0-9.]/g, ''));
+        if (isNaN(num)) return 0;
+        if (str.toUpperCase().includes('K')) num *= 1000;
+        if (str.toUpperCase().includes('M')) num *= 1000000;
+        if (str.toUpperCase().includes('萬')) num *= 10000;
+        return num;
+      };
+      const yt = parseStr(v.youtubeSubscribers || v.subscribers);
+      const tw = parseStr(v.twitchFollowers);
+      return yt + tw;
+    };
+
     const TagBadge = ({ text, onClick, selected }) => (
       <span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>
     );
@@ -208,11 +224,11 @@
           <button onClick={() => navigate('dashboard')} className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center">
             <i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片
           </button>
-          <div className="flex flex-col items-center w-full sm:w-auto">
+          <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0">
             <a href="https://t.co/pSbScwAIqh" target="_blank" rel="noopener noreferrer" className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
               <i className="fa-solid fa-clipboard-list mr-2"></i>初期意見調查
             </a>
-            <span className="text-gray-500 text-[10px] mt-2 font-bold">(歡迎不吝提供建議)</span>
+            <span className="text-gray-500 text-[10px] mt-1.5 font-bold">(歡迎不吝提供建議)</span>
           </div>
         </div>
       </section>
@@ -487,7 +503,7 @@
     };
 
     // --- 系統管理員後台元件 ---
-    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips, showToast }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips, showToast, onResetAllCollabTypes }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', description: '', streamUrl: '', coverUrl: '' });
       const [editTips, setEditTips] = useState(tips);
@@ -641,6 +657,15 @@
                     ))}
                   </div>
                 </div>
+                
+                {/* 危險操作區塊：強制重置所有名片的連動類型 */}
+                <div className="mt-12 pt-6 border-t border-red-500/50">
+                  <h3 className="text-xl font-bold text-red-400 mb-2"><i className="fa-solid fa-triangle-exclamation mr-2"></i>危險操作區</h3>
+                  <p className="text-sm text-gray-400 mb-4">因為系統標籤升級，您可以在此一鍵清除所有名片上的「主要願意連動類型」，迫使用戶重新登入勾選新版標籤。</p>
+                  <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white border border-red-500 px-6 py-3 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-red-500/20">
+                    <i className="fa-solid fa-bomb mr-2"></i>重置所有名片的連動類型 (要求重新勾選)
+                  </button>
+                </div>
               </div>
             )}
 
@@ -740,7 +765,7 @@
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">橫幅背景網址</label>
                       <input type="url" value={editingVtuber.banner} onChange={e=>setEditingVtuber({...editingVtuber, banner: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" />
-                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X (Twitter) 首頁 &gt; 大頭貼 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
+                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X (Twitter) 首頁 &gt; 橫幅 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -778,6 +803,7 @@
       const [selectedVTuber, setSelectedVTuber] = useState(null);
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
       const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+      const [sortOrder, setSortOrder] = useState('random'); // 新增：探索列表的排序狀態
       
       // 新增 Loading 狀態與目前時間狀態 (用於即時判斷連動是否正在進行)
       const [isLoading, setIsLoading] = useState(true);
@@ -917,25 +943,16 @@
         showToast("已成功登出。");
       };
 
-      // 3. 整合真假資料並進行隨機洗牌排序 (Fisher-Yates Shuffle)
+      // 3. 整合真假資料
       const displayVtubers = useMemo(() => {
         const list = [...realVtubers];
         const mockList = MOCK_VTUBERS.filter(m => !list.find(r => r.id === m.id));
-        const combined = [...list, ...mockList];
-        
-        // 隨機排列 (洗牌演算法)
-        for (let i = combined.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [combined[i], combined[j]] = [combined[j], combined[i]];
-        }
-        
-        return combined;
+        return [...list, ...mockList];
       }, [realVtubers]);
 
       // 動態抓取所有 VTuber 的「願意連動類型」作為篩選標籤
       const dynamicCollabTypes = useMemo(() => {
         const types = new Set();
-        // 僅抓取「已審核」或是「使用者自己的名片」的連動類型
         const verifiedOrMine = displayVtubers.filter(v => v.isVerified || (user && v.id === user.uid) || v.id.startsWith('mock'));
         verifiedOrMine.forEach(v => {
           if (Array.isArray(v.collabTypes)) {
@@ -950,7 +967,7 @@
 
       const displayBulletins = useMemo(() => {
         const list = [...realBulletins, ...MOCK_BULLETINS]
-          .filter(b => !b.recruitEndTime || b.recruitEndTime > Date.now()) // 過濾：只顯示尚未超過截止時間的招募文
+          .filter(b => !b.recruitEndTime || b.recruitEndTime > Date.now()) 
           .map(b => {
             const vt = displayVtubers.find(v => v.id === b.userId) || { name: "匿名創作者", agency: "未知", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon&backgroundColor=374151" };
             return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt) };
@@ -961,27 +978,42 @@
       const displayCollabs = useMemo(() => {
         const THREE_HOURS = 3 * 60 * 60 * 1000;
         const list = [...realCollabs, ...MOCK_COLLABS].filter(c => {
-          if (!c.startTimestamp) return true; // 舊資料無時間戳則保留
-          // 過濾：開始時間 + 3小時 之後，自動從列表中移除
+          if (!c.startTimestamp) return true;
           return currentTime <= c.startTimestamp + THREE_HOURS;
         });
-        // 依照時間先後順序排列 (即將到來的在最上面)
         return list.sort((a, b) => (a.startTimestamp || a.createdAt || 0) - (b.startTimestamp || b.createdAt || 0));
       }, [realCollabs, currentTime]);
 
-      // 4. 搜尋篩選 (公開列表只顯示已審核的，或是使用者自己的)
+      // 4. 搜尋、篩選與「強大排序功能」
       const filteredVTubers = useMemo(() => {
-        // 先過濾出「已審核」或是「使用者自己的名片」
         const verifiedOrMine = displayVtubers.filter(v => v.isVerified || (user && v.id === user.uid) || v.id.startsWith('mock'));
         
-        return verifiedOrMine.filter(v => {
+        let result = verifiedOrMine.filter(v => {
           const matchSearch = v.name?.toLowerCase().includes(searchQuery.toLowerCase()) || v.description?.toLowerCase().includes(searchQuery.toLowerCase());
-          // 篩選改為比對「願意連動類型 (collabTypes)」
           const matchTags = selectedTags.length === 0 || selectedTags.every(t => v.collabTypes?.includes(t));
           const matchAgency = selectedAgency === 'All' || v.agency?.includes(selectedAgency);
           return matchSearch && matchTags && matchAgency;
         });
-      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, user]);
+
+        // 依據選擇的排序方式進行排序
+        if (sortOrder === 'likes') {
+          result.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+        } else if (sortOrder === 'subscribers') {
+          result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a));
+        } else if (sortOrder === 'newest') {
+          result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        } else {
+          // 隨機排序 (洗牌演算法)
+          let shuffled = [...result];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          result = shuffled;
+        }
+
+        return result;
+      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, user, sortOrder]); // 依賴 sortOrder 變化
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
@@ -993,13 +1025,11 @@
           const ref = doc(db, getPath('vtubers'), user.uid);
           const tagsArray = profileForm.tags.split(',').map(t => t.trim()).filter(t => t);
           
-          // 整合勾選與自訂的連動類型
           let finalCollabs = [...profileForm.collabTypes];
           if (profileForm.isOtherCollab && profileForm.otherCollabText.trim()) {
             finalCollabs.push(profileForm.otherCollabText.trim());
           }
           
-          // 檢查是否是第一次建立，如果是，將 isVerified 設為 false
           const existingProfile = realVtubers.find(v => v.id === user.uid);
           const isVerified = existingProfile ? existingProfile.isVerified : false;
 
@@ -1008,7 +1038,7 @@
             tags: tagsArray, 
             collabTypes: finalCollabs, 
             likes: profileForm.likes || 0, 
-            likedBy: profileForm.likedBy || [], // 記錄誰推薦過
+            likedBy: profileForm.likedBy || [], 
             status: profileForm.status || '歡迎邀請', 
             isVerified: isVerified,
             updatedAt: Date.now() 
@@ -1071,20 +1101,17 @@
           return showToast("不能推薦自己喔！");
         }
         
-        // 檢查是否已經推薦過
         if (targetVtuber.likedBy && targetVtuber.likedBy.includes(user.uid)) {
           return showToast("您已經推薦過這位創作者囉！不能重複推薦。");
         }
 
         try {
-          // 在資料庫中將推薦數 + 1，並將 user.uid 存入 likedBy 陣列防止重複點擊
           await setDoc(doc(db, getPath('vtubers'), targetVtuber.id), { 
             likes: (targetVtuber.likes || 0) + 1,
             likedBy: [...(targetVtuber.likedBy || []), user.uid]
           }, { merge: true });
           
           showToast("✅ 已送出您的推薦！");
-          // 本地即時更新畫面
           setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
         } catch (err) {
           console.error(err);
@@ -1093,6 +1120,29 @@
       };
 
       // --- Admin 管理功能 ---
+      const handleAdminResetAllCollabTypes = async () => {
+        if (!isAdmin) return;
+        if (!confirm("⚠️ 極度危險操作：這將會清除「所有」VTuber 名片上的『主要願意連動類型』，強制他們重新勾選。確定要執行嗎？")) return;
+        try {
+          const confirmText = prompt("請輸入 'CONFIRM' (全大寫) 來確認清除所有連動類型資料：");
+          if (confirmText !== 'CONFIRM') {
+            showToast("已取消操作。");
+            return;
+          }
+          showToast("開始清除中，請稍候...");
+          
+          // 迴圈清除每個 VTuber 的連動類型
+          for (const v of realVtubers) {
+            if (v.id.startsWith('mock')) continue;
+            await setDoc(doc(db, getPath('vtubers'), v.id), { collabTypes: [] }, { merge: true });
+          }
+          showToast("✅ 已成功清除所有 VTuber 的連動類型！");
+        } catch (err) {
+          console.error(err);
+          showToast("清除失敗，請檢查權限。");
+        }
+      };
+
       const handleVerifyVtuber = async (id) => {
         if (!isAdmin) return;
         try { 
@@ -1234,8 +1284,8 @@
                 </div>
               </div>
 
-              {/* 第二層：電腦版分頁按鈕 ( lg 以上才顯示 ) */}
-              <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto">
+              {/* 第二層：電腦版分頁按鈕 ( lg 以上才顯示，強制不換行 ) */}
+              <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <button onClick={() => navigate('home')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'home' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>尋找 VTuber 夥伴</button>
                 <button onClick={() => navigate('match')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對</button>
@@ -1404,10 +1454,20 @@
                 </aside>
 
                 <div className="flex-1">
-                  <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
-                    尋找 VTuber 夥伴 
-                    {user && realVtubers.find(v => v.id === user.uid && !v.isVerified) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30 ml-2"><i className="fa-solid fa-eye-slash mr-1"></i>您的名片審核中，目前僅自己可見</span>}
-                  </h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      尋找 VTuber 夥伴 
+                      {user && realVtubers.find(v => v.id === user.uid && !v.isVerified) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30 ml-2"><i className="fa-solid fa-eye-slash mr-1"></i>您的名片審核中，目前僅自己可見</span>}
+                    </h2>
+                    
+                    {/* 排序下拉選單 */}
+                    <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none shadow-lg w-full sm:w-auto cursor-pointer">
+                      <option value="random">🔀 隨機排列</option>
+                      <option value="likes">👍 最推薦 (讚數最高)</option>
+                      <option value="subscribers">📺 最多訂閱數 (YT+Twitch)</option>
+                      <option value="newest">✨ 最新加入</option>
+                    </select>
+                  </div>
                   
                   {isLoading ? (
                     /* 骨架屏讀取動畫 Skeleton Loader */
@@ -1591,8 +1651,8 @@
                 </div>
                 
                 <div className="bg-gray-800/60 border border-purple-500/30 rounded-3xl p-6 mb-10 shadow-lg">
-                  <h3 className="font-bold text-white mb-4"><i className="fa-solid fa-wand-magic-sparkles text-purple-400 mr-2"></i>發布招募需求</h3>
-                  <textarea value={newBulletin.content} onChange={e=>setNewBulletin({...newBulletin, content: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white mb-4 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none" rows="3" placeholder="想找人一起玩什麼遊戲或做什麼企劃呢？簡單說明一下吧！" />
+                  <h3 className="font-bold text-white mb-4"><i className="fa-solid fa-wand-magic-sparkles text-purple-400 mr-2"></i>發布招募需求 <span className="text-red-400">*</span></h3>
+                  <textarea value={newBulletin.content} onChange={e=>setNewBulletin({...newBulletin, content: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white mb-4 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none" rows="3" placeholder="想找人一起玩什麼遊戲或做什麼企劃呢？簡單說明一下吧！ (必填)" />
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div>
@@ -1723,6 +1783,7 @@
                 vtubers={displayVtubers} bulletins={displayBulletins} collabs={displayCollabs} tips={realTips}
                 onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin}
                 onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveTips={handleSaveTips} showToast={showToast}
+                onResetAllCollabTypes={handleAdminResetAllCollabTypes}
               />
             )}
           </main>
