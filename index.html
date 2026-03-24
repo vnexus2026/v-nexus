@@ -6,7 +6,6 @@
   <title>V-Nexus | 專為 VTuber 打造的聯動平台</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- 將 FontAwesome 升級至 6.5.1 版本，修復 fa-x-twitter 顯示為方塊的問題 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -85,7 +84,7 @@
       return `${month}/${date} ${hours}:${mins}`;
     };
 
-    // 格式化可連動時段的工具函數
+    // 格式化可連動時段的工具函數 (包含排除模式)
     const formatSchedule = (v) => {
       if (v.isScheduleAnytime) return "我都可以 (隨時可約)";
       if (v.isScheduleExcept && v.scheduleSlots && v.scheduleSlots.length > 0) {
@@ -228,7 +227,7 @@
     };
 
     // --- 獨立元件區 ---
-    const HomePage = ({ navigate }) => (
+    const HomePage = ({ navigate, onOpenRules }) => (
       <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-6">
           <i className="fa-solid fa-rocket"></i> <span>專為 VTuber 打造的聯動平台</span>
@@ -254,6 +253,11 @@
               <i className="fa-solid fa-clipboard-list mr-2"></i>初期意見調查
             </a>
             <span className="text-gray-500 text-[10px] mt-2 font-bold">(歡迎不吝提供建議)</span>
+          </div>
+          <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0">
+            <button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
+              <i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範
+            </button>
           </div>
         </div>
       </section>
@@ -405,7 +409,7 @@
         setMatchedVtuber(null);
 
         setTimeout(() => {
-          const candidates = (vtubers || []).filter(v => v.isVerified);
+          const candidates = (vtubers || []).filter(v => v.isVerified && !v.isBlacklisted);
           if (candidates.length === 0) {
             setIsMatching(false);
             return showToast("目前資料庫尚無可配對的已認證創作者！");
@@ -502,15 +506,18 @@
     };
 
     // --- 系統管理員後台元件 ---
-    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips, showToast, onResetAllCollabTypes }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
+      const [editRules, setEditRules] = useState(rules);
       const [editTips, setEditTips] = useState(tips);
       
       const [editingVtuber, setEditingVtuber] = useState(null);
 
-      const pendingVtubers = vtubers.filter(v => !v.isVerified);
-      const verifiedVtubers = vtubers.filter(v => v.isVerified);
+      // 分為三區：待審核、已上架、黑名單
+      const pendingVtubers = vtubers.filter(v => !v.isVerified && !v.isBlacklisted);
+      const verifiedVtubers = vtubers.filter(v => v.isVerified && !v.isBlacklisted);
+      const blacklistedVtubers = vtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
 
       const handleEditClick = (v) => {
         const standard = (v.collabTypes || []).filter(t => PREDEFINED_COLLABS.includes(t));
@@ -533,7 +540,8 @@
           igUrl: v.igUrl || '',
           contactEmail: v.contactEmail || '',
           streamingStyle: v.streamingStyle || '一般型態',
-          likes: v.likes || 0
+          likes: v.likes || 0,
+          dislikes: v.dislikes || 0
         });
       };
 
@@ -569,7 +577,7 @@
                 { id: 'vtubers', icon: 'fa-address-card', label: '名片與審核管理' },
                 { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' },
                 { id: 'collabs', icon: 'fa-broadcast-tower', label: '連動時間表' },
-                { id: 'tips', icon: 'fa-lightbulb', label: '小技巧範本' }
+                { id: 'settings', icon: 'fa-gear', label: '系統設定與規範' }
               ].map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   <i className={`fa-solid ${tab.icon}`}></i> {tab.label}
@@ -629,12 +637,36 @@
                             <img src={v.avatar} className="w-10 h-10 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
                             <div>
                               <p className="font-bold text-white text-sm flex items-center gap-1">{v.name} <i className="fa-solid fa-circle-check text-blue-400 ml-1 text-xs" title="已認證"></i></p>
-                              <p className="text-xs text-gray-500">{v.agency}</p>
+                              <p className="text-xs text-gray-500">{v.agency} | 倒讚數: <span className={v.dislikes > 0 ? "text-red-400 font-bold" : ""}>{v.dislikes || 0}</span></p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button onClick={() => handleEditClick(v)} className="text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">編輯</button>
                             <button onClick={() => onDeleteVtuber(v.id)} className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">下架刪除</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 黑名單區塊 */}
+                  <div>
+                    <h3 className="text-xl font-bold text-red-500 mb-4 border-b border-gray-700 pb-2"><i className="fa-solid fa-skull-crossbones mr-2"></i>黑單避雷區 ({blacklistedVtubers.length})</h3>
+                    <p className="text-sm text-gray-400 mb-3">累積達 10 個倒讚或被管理員強制黑單的名片將移至此區，並且不會出現在首頁探索中。</p>
+                    {blacklistedVtubers.length === 0 && <p className="text-gray-500 text-sm">目前無黑單紀錄</p>}
+                    <div className="space-y-3">
+                      {blacklistedVtubers.map(v => (
+                        <div key={v.id} className="flex items-center justify-between bg-red-950/20 p-4 rounded-xl border border-red-900/50">
+                          <div className="flex items-center gap-4">
+                            <img src={v.avatar} className="w-10 h-10 rounded-lg bg-gray-800 object-cover flex-shrink-0 opacity-50 grayscale" />
+                            <div>
+                              <p className="font-bold text-gray-400 text-sm line-through">{v.name}</p>
+                              <p className="text-xs text-red-400 font-bold">倒讚數: {v.dislikes || 0}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleEditClick(v)} className="text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">審視/編輯</button>
+                            <button onClick={() => onDeleteVtuber(v.id)} className="text-red-400 hover:text-white bg-red-900/50 hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">徹底刪除</button>
                           </div>
                         </div>
                       ))}
@@ -672,8 +704,8 @@
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                       <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" /></div>
                       <div className="relative">
-                        <label className="text-xs text-gray-400 mb-1 block">直播連結 (YT待機室/Twitch) <span className="text-red-400">*</span></label>
-                        <input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
+                        <label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label>
+                        <input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none pr-3" />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -697,9 +729,24 @@
 
               {activeTab === 'tips' && (
                 <div className="space-y-4">
-                  <h3 className="text-xl font-bold text-white mb-4">編輯邀約小技巧範本</h3>
+                  <h3 className="text-xl font-bold text-white mb-4">編輯【邀約小技巧】範本</h3>
                   <textarea value={editTips} onChange={e=>setEditTips(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none" rows="10" />
-                  <button onClick={() => onSaveTips(editTips)} className="bg-red-600 hover:bg-red-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2"><i className="fa-solid fa-floppy-disk"></i> 儲存並發布更新</button>
+                  <div className="pt-4 border-t border-gray-700 flex justify-end">
+                    <button onClick={() => onSaveSettings(editTips, undefined)} className="bg-red-600 hover:bg-red-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2"><i className="fa-solid fa-floppy-disk"></i> 儲存並發布更新</button>
+                  </div>
+                </div>
+              )}
+              
+              {activeTab === 'settings' && (
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-4">編輯【V-NEXUS聯動規範】彈窗內容</h3>
+                    <p className="text-xs text-gray-400 mb-2">此內容會顯示在首頁的聯動規範彈窗中。若要紅字高亮，可使用 HTML 標籤（例如：<code>&lt;span className="text-red-400 font-bold"&gt;重點文字&lt;/span&gt;</code>，或在此處先使用純文字即可）</p>
+                    <textarea value={editRules} onChange={e=>setEditRules(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none" rows="8" />
+                  </div>
+                  <div className="pt-4 border-t border-gray-700 flex justify-end">
+                    <button onClick={() => onSaveSettings(undefined, editRules)} className="bg-red-600 hover:bg-red-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2"><i className="fa-solid fa-floppy-disk"></i> 儲存規範內容</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -737,6 +784,7 @@
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div><label className="block text-xs text-gray-400 mb-1">推薦數 (管理員修改)</label><input type="number" value={editingVtuber.likes} onChange={e=>setEditingVtuber({...editingVtuber, likes: Number(e.target.value)})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">倒讚數/檢舉數 (10次自動下架)</label><input type="number" value={editingVtuber.dislikes} onChange={e=>setEditingVtuber({...editingVtuber, dislikes: Number(e.target.value)})} className="w-full bg-red-900/50 border border-red-700 rounded-lg p-2 text-white text-sm outline-none focus:border-red-500" /></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-xs text-gray-400 mb-1">YouTube 訂閱數</label><input type="text" value={editingVtuber.youtubeSubscribers} onChange={e=>setEditingVtuber({...editingVtuber, youtubeSubscribers: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
@@ -746,12 +794,12 @@
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">頭像圖片網址</label>
                       <input type="url" value={editingVtuber.avatar} onChange={e=>setEditingVtuber({...editingVtuber, avatar: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" />
-                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X 首頁 &gt; 大頭貼 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
+                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X (Twitter) 首頁 &gt; 大頭貼 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
                     </div>
                     <div>
                       <label className="block text-xs text-gray-400 mb-1">橫幅背景網址</label>
                       <input type="url" value={editingVtuber.banner} onChange={e=>setEditingVtuber({...editingVtuber, banner: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" />
-                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X 首頁 &gt; 橫幅 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
+                      <p className="text-[10px] text-yellow-400/80 mt-1"><i className="fa-solid fa-circle-info mr-1"></i>小教學：您可以到您的 X (Twitter) 首頁 &gt; 橫幅 &gt; 滑鼠右鍵 &gt; 複製圖片連結，將圖片連結輸入至此即可。</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -802,14 +850,19 @@
       const [selectedTags, setSelectedTags] = useState([]);
       const [selectedAgency, setSelectedAgency] = useState('All');
       
+      // Modal States
       const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
+      const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+      const [confirmDislikeData, setConfirmDislikeData] = useState(null);
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       
       const [newBulletin, setNewBulletin] = useState({ content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '' });
       const [inviteMessage, setInviteMessage] = useState(''); 
       
       const [realCollabs, setRealCollabs] = useState([]);
+      // Firebase Settings States
       const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n近期有在關注您的頻道，非常喜歡您的 [對方特色/直播內容]！\n\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？\n\n◆ 預計時間：[日期區間] 的 [時段]\n◆ 企劃內容：[簡述約 1-2 句話]\n◆ 目前參與人數：[人數]\n\n如果有興趣的話，我們可以進一步討論細節！\n若您近期排程較滿或不方便也完全沒關係，非常感謝您抽空閱讀。祝 直播順利！");
+      const [realRules, setRealRules] = useState("我們都希望有好的聯動體驗，如果聯動完覺得V朋朋表現非常良好，記得給彼此一個讚（在名片上都可以按）。\n\n但是，就是這個但是！\n如果聯動的V朋朋有放鴿子、氣氛、騷擾或遲到等負面行為，也請在他的名片按倒讚。\n\n只要超過 <span class=\"text-red-400 font-bold text-lg mx-1\">十個倒讚</span> 即會自動下架他的名片，並加入黑單避雷區。\n\n所以良好的聯動環境請大家自行維護，負面行為本站絕不包庇。");
 
       const [toastMsg, setToastMsg] = useState('');
       const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
@@ -902,7 +955,13 @@
           }
         }, (err) => console.error(err));
 
-        return () => { unsubV(); unsubB(); unsubC(); unsubT(); };
+        const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => {
+          if (docSnap.exists() && docSnap.data().content) {
+            setRealRules(docSnap.data().content);
+          }
+        }, (err) => console.error(err));
+
+        return () => { unsubV(); unsubB(); unsubC(); unsubT(); unsubR(); };
       }, [user]);
 
       const handleLogin = async () => {
@@ -935,7 +994,8 @@
 
       const dynamicCollabTypes = useMemo(() => {
         const types = new Set();
-        const verifiedOrMine = displayVtubers.filter(v => v.isVerified || (user && v.id === user.uid) || v.id.startsWith('mock'));
+        // 排除黑名單與未審核，確保篩選器只抓到乾淨的資料
+        const verifiedOrMine = displayVtubers.filter(v => (!v.isBlacklisted && v.isVerified) || (user && v.id === user.uid) || v.id.startsWith('mock'));
         verifiedOrMine.forEach(v => {
           if (Array.isArray(v.collabTypes)) {
             v.collabTypes.forEach(t => {
@@ -967,7 +1027,8 @@
       }, [realCollabs, currentTime]);
 
       const filteredVTubers = useMemo(() => {
-        const verifiedOrMine = displayVtubers.filter(v => v.isVerified || (user && v.id === user.uid) || v.id.startsWith('mock'));
+        // 過濾掉未審核與黑名單 (本人除外)
+        const verifiedOrMine = displayVtubers.filter(v => (!v.isBlacklisted && v.isVerified) || (user && v.id === user.uid) || v.id.startsWith('mock'));
         
         let result = verifiedOrMine.filter(v => {
           const matchSearch = v.name?.toLowerCase().includes(searchQuery.toLowerCase()) || v.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1017,6 +1078,9 @@
             collabTypes: finalCollabs, 
             likes: profileForm.likes || 0, 
             likedBy: profileForm.likedBy || [], 
+            dislikes: profileForm.dislikes || 0,
+            dislikedBy: profileForm.dislikedBy || [],
+            isBlacklisted: profileForm.isBlacklisted || false,
             status: profileForm.status || '歡迎邀請', 
             isVerified: isVerified,
             updatedAt: Date.now() 
@@ -1087,10 +1151,71 @@
           }, { merge: true });
           
           showToast("✅ 已送出您的推薦！");
-          setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
+          if (selectedVTuber && selectedVTuber.id === targetVtuber.id) {
+             setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
+          }
         } catch (err) {
           console.error(err);
           showToast("推薦失敗，請稍後重試。");
+        }
+      };
+
+      // --- 倒讚 / 檢舉功能 ---
+      const handleInitiateDislike = (targetVtuber) => {
+        if (!user) return showToast("請先登入才能給予倒讚！");
+        
+        const myProfile = realVtubers.find(v => v.id === user.uid);
+        if (!myProfile || !myProfile.isVerified) {
+          return showToast("只有通過官方認證的 VTuber 才能給予倒讚喔！");
+        }
+        if (targetVtuber.id === user.uid) {
+          return showToast("不能給自己倒讚喔！");
+        }
+        if (targetVtuber.dislikedBy && targetVtuber.dislikedBy.includes(user.uid)) {
+          return showToast("您已經倒讚過這位創作者囉！不能重複倒讚。");
+        }
+        
+        setConfirmDislikeData(targetVtuber);
+      };
+
+      const handleConfirmDislike = async () => {
+        if (!confirmDislikeData || !user) return;
+        
+        const targetId = confirmDislikeData.id;
+        const currentDislikes = confirmDislikeData.dislikes || 0;
+        const newDislikes = currentDislikes + 1;
+        
+        const updates = {
+          dislikes: newDislikes,
+          dislikedBy: [...(confirmDislikeData.dislikedBy || []), user.uid]
+        };
+
+        // 十個倒讚即下架系統
+        if (newDislikes >= 10) {
+          updates.isVerified = false;
+          updates.isBlacklisted = true;
+        }
+
+        try {
+          await setDoc(doc(db, getPath('vtubers'), targetId), updates, { merge: true });
+          
+          setConfirmDislikeData(null);
+          showToast("✅ 已成功送出倒讚紀錄。");
+          
+          // 如果是被下架了，關閉名片畫面回首頁
+          if (updates.isBlacklisted) {
+             showToast("⚠️ 該創作者累積倒讚達 10 個，已自動從平台下架。");
+             if (selectedVTuber && selectedVTuber.id === targetId) {
+                 navigate('grid');
+             }
+          } else {
+             if (selectedVTuber && selectedVTuber.id === targetId) {
+                setSelectedVTuber(prev => ({ ...prev, dislikes: newDislikes, dislikedBy: updates.dislikedBy }));
+             }
+          }
+        } catch (err) {
+          console.error(err);
+          showToast("操作失敗，請稍後重試。");
         }
       };
 
@@ -1119,7 +1244,7 @@
       const handleVerifyVtuber = async (id) => {
         if (!isAdmin) return;
         try { 
-          await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true }, { merge: true }); 
+          await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false }, { merge: true }); 
           showToast("已通過審核！此名片現在已公開。"); 
         } catch (err) { showToast("審核失敗"); }
       };
@@ -1183,9 +1308,14 @@
         if (!confirm("確定要刪除這個連動行程嗎？")) return;
         try { await deleteDoc(doc(db, getPath('collabs'), id)); showToast("已刪除連動行程"); } catch (err) { showToast("刪除失敗"); }
       };
-      const handleSaveTips = async (content) => {
+      
+      const handleSaveSettings = async (tipsContent, rulesContent) => {
         if (!isAdmin) return;
-        try { await setDoc(doc(db, getPath('settings'), 'tips'), { content }, { merge: true }); showToast("已更新邀約小技巧範本"); } catch (err) { showToast("更新失敗"); }
+        try { 
+          if(tipsContent !== undefined) await setDoc(doc(db, getPath('settings'), 'tips'), { content: tipsContent }, { merge: true }); 
+          if(rulesContent !== undefined) await setDoc(doc(db, getPath('settings'), 'rules'), { content: rulesContent }, { merge: true });
+          showToast("已更新系統設定與規範內容！"); 
+        } catch (err) { showToast("更新失敗"); }
       };
 
       const handleCopyTemplate = (textToCopy) => {
@@ -1264,6 +1394,7 @@
                 <button onClick={() => navigate('bulletin')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定連動</button>
                 <button onClick={() => navigate('tips')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'tips' ? 'text-yellow-400 border-b-2 border-yellow-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button>
+                <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
               </div>
 
             </div>
@@ -1277,6 +1408,7 @@
                 <button onClick={() => navigate('bulletin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定連動</button>
                 <button onClick={() => navigate('tips')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'tips' ? 'bg-yellow-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-lightbulb w-5"></i> 邀約小技巧</button>
+                <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400 border border-red-500/50' : 'text-red-400/70 hover:bg-red-900/30 hover:text-red-400'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
                 {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'admin' ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</button>}
                 {user && <button onClick={handleLogout} className="text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 text-red-400 hover:bg-red-500/10"><i className="fa-solid fa-right-from-bracket w-5"></i> 登出帳號</button>}
               </div>
@@ -1285,7 +1417,7 @@
 
           {/* 主要內容區 */}
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} />}
 
             {currentView === 'dashboard' && (
               <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
@@ -1434,7 +1566,11 @@
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                       尋找 VTuber 夥伴 
-                      {user && realVtubers.find(v => v.id === user.uid && !v.isVerified) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30 ml-2"><i className="fa-solid fa-eye-slash mr-1"></i>您的名片審核中，目前僅自己可見</span>}
+                      {user && realVtubers.find(v => v.id === user.uid && (!v.isVerified || v.isBlacklisted)) && (
+                        <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30 ml-2">
+                          <i className="fa-solid fa-eye-slash mr-1"></i>您的名片狀態異常或審核中，目前僅自己可見
+                        </span>
+                      )}
                     </h2>
                     
                     {/* 排序下拉選單 */}
@@ -1450,7 +1586,7 @@
                     /* 骨架屏讀取動畫 Skeleton Loader */
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-2xl overflow-hidden flex flex-col h-[260px] animate-pulse">
+                        <div key={i} className="bg-gray-800/40 border border-gray-700/50 rounded-2xl overflow-hidden flex flex-col h-[260px] animate-pulse">
                           <div className="h-24 bg-gray-700/50 w-full flex-shrink-0"></div>
                           <div className="p-4 relative flex-1 flex flex-col">
                             <div className="absolute -top-8 w-16 h-16 rounded-xl bg-gray-600/50 border-2 border-gray-800"></div>
@@ -1476,7 +1612,7 @@
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {filteredVTubers.map(v => (
                         <div key={v.id} onClick={() => { setSelectedVTuber(v); navigate('profile'); }} className={`group bg-gray-800/40 border ${!v.isVerified ? 'border-yellow-500/50' : 'border-gray-700/50'} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}>
-                          {!v.isVerified && <div className="absolute top-2 left-2 z-10 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>}
+                          {!v.isVerified && <div className="absolute top-2 left-2 z-10 bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">狀態異常/待審核</div>}
                           <div className="h-24 relative overflow-hidden flex-shrink-0">
                             <img src={v.banner} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform" />
                             <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{v.agency}</span>
@@ -1494,27 +1630,35 @@
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
-                            <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center gap-1.5">
-                              <i className="fa-solid fa-clock text-purple-400"></i> <span className="truncate">{formatSchedule(v)}</span>
+                            <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
+                                <i className="fa-solid fa-clock text-purple-400"></i> <span className="truncate">{formatSchedule(v)}</span>
+                              </div>
+                              {/* 檢舉/倒讚按鈕 (在列表右上角) */}
+                              {user && realVtubers.find(rv => rv.id === user.uid)?.isVerified && v.id !== user.uid && (
+                                <button onClick={(e) => { e.stopPropagation(); handleInitiateDislike(v); }} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="檢舉負面行為">
+                                  <i className="fa-solid fa-thumbs-down text-[10px]"></i>
+                                </button>
+                              )}
                             </div>
                             <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
                               {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && (
-                                <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="YouTube">
+                                <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0 text-[10px] font-bold" title="YouTube">
                                   <i className="fa-brands fa-youtube"></i>
                                 </a>
                               )}
                               {v.twitchUrl && v.twitchUrl !== '#' && (
-                                <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="Twitch">
+                                <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0 text-[10px] font-bold" title="Twitch">
                                   <i className="fa-brands fa-twitch"></i>
                                 </a>
                               )}
                               {v.xUrl && v.xUrl !== '#' && (
-                                <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="X (Twitter)">
+                                <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0 text-[10px] font-bold" title="X (Twitter)">
                                   <i className="fa-brands fa-x-twitter"></i>
                                 </a>
                               )}
                               {v.igUrl && v.igUrl !== '#' && (
-                                <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="Instagram">
+                                <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0 text-[10px] font-bold" title="Instagram">
                                   <i className="fa-brands fa-instagram"></i>
                                 </a>
                               )}
@@ -1554,7 +1698,7 @@
                               
                               {/* 推薦按鈕，僅限已認證且非本人的使用者點擊 */}
                               {user && realVtubers.find(v => v.id === user.uid)?.isVerified && selectedVTuber.id !== user.uid ? (
-                                <button onClick={() => handleRecommend(selectedVTuber)} className="bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer group">
+                                <button onClick={() => handleRecommend(selectedVTuber)} className="bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer group" title="給予好評推薦">
                                   <i className="fa-solid fa-thumbs-up group-hover:-translate-y-0.5 transition-transform"></i> {selectedVTuber.likes || 0} 推薦
                                 </button>
                               ) : (
@@ -1562,29 +1706,36 @@
                                   <i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦
                                 </span>
                               )}
+
+                              {/* 倒讚檢舉按鈕，僅限已認證且非本人的使用者點擊 */}
+                              {user && realVtubers.find(v => v.id === user.uid)?.isVerified && selectedVTuber.id !== user.uid && (
+                                <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer group" title="檢舉負面行為">
+                                  <i className="fa-solid fa-thumbs-down group-hover:-translate-y-0.5 transition-transform"></i> {selectedVTuber.dislikes || 0}
+                                </button>
+                              )}
                               
                               {(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) && (selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) !== '#' && (
-                                <a href={selectedVTuber.youtubeUrl || selectedVTuber.channelUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                <a href={selectedVTuber.youtubeUrl || selectedVTuber.channelUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5 font-bold">
                                   <i className="fa-brands fa-youtube"></i> YouTube
                                 </a>
                               )}
                               {selectedVTuber.twitchUrl && selectedVTuber.twitchUrl !== '#' && (
-                                <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5 font-bold">
                                   <i className="fa-brands fa-twitch"></i> Twitch
                                 </a>
                               )}
                               {selectedVTuber.xUrl && selectedVTuber.xUrl !== '#' && (
-                                <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5 font-bold">
                                   <i className="fa-brands fa-x-twitter"></i> X
                                 </a>
                               )}
                               {selectedVTuber.igUrl && selectedVTuber.igUrl !== '#' && (
-                                <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 border border-pink-500/30 text-pink-400 hover:bg-pink-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 border border-pink-500/30 text-pink-400 hover:bg-pink-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5 font-bold">
                                   <i className="fa-brands fa-instagram"></i> IG
                                 </a>
                               )}
                               {selectedVTuber.contactEmail && (
-                                <a href={`mailto:${selectedVTuber.contactEmail}`} onClick={(e) => e.stopPropagation()} className="bg-gray-700/50 border border-gray-600 text-gray-300 hover:bg-gray-600 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                <a href={`mailto:${selectedVTuber.contactEmail}`} onClick={(e) => e.stopPropagation()} className="bg-gray-700/50 border border-gray-600 text-gray-300 hover:bg-gray-600 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5 font-bold">
                                   <i className="fa-solid fa-envelope"></i> Email 聯絡
                                 </a>
                               )}
@@ -1692,6 +1843,7 @@
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-purple-400 font-bold text-[10px] bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">發起人</span>
+                                  {/* 發起人名字變成直接的超連結，帶有底線效果 */}
                                   <a href={b.vtuber.youtubeUrl || b.vtuber.channelUrl || b.vtuber.twitchUrl || '#'} target="_blank" rel="noopener noreferrer" className={`font-extrabold text-white text-lg hover:text-purple-400 transition-colors ${(b.vtuber.youtubeUrl || b.vtuber.channelUrl || b.vtuber.twitchUrl) ? 'underline decoration-purple-500/50 underline-offset-4' : ''}`}>
                                     {b.vtuber.name}
                                   </a>
@@ -1748,21 +1900,70 @@
               <MatchPage vtubers={realVtubers} navigate={navigate} showToast={showToast} setSelectedVTuber={setSelectedVTuber} />
             )}
 
+            {/* 新增：公開的黑單避雷區分頁 */}
+            {currentView === 'blacklist' && (
+              <div className="max-w-7xl mx-auto px-4 py-12 animate-fade-in-up">
+                <div className="text-center mb-12">
+                  <h2 className="text-3xl md:text-4xl font-extrabold text-red-500 mb-4 flex justify-center items-center gap-3">
+                    <i className="fa-solid fa-skull-crossbones"></i> 黑單避雷區
+                  </h2>
+                  <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed">
+                    本平台致力於打造友善的連動環境。累積達 <span className="text-red-400 font-bold mx-1">10 個倒讚/檢舉</span> 或經官方判定有嚴重負面行為的創作者名片，將會被自動下架並列入此區，請大家尋找夥伴時務必注意。
+                  </p>
+                </div>
+
+                {isLoading ? (
+                  <div className="text-center text-gray-500 py-20"><i className="fa-solid fa-spinner fa-spin text-2xl mb-4"></i><p>讀取中...</p></div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {displayVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10).length === 0 ? (
+                      <div className="col-span-full py-20 bg-gray-800/30 rounded-3xl border border-gray-700/50 text-center">
+                        <i className="fa-regular fa-face-smile-beam text-5xl text-green-500/50 mb-4"></i>
+                        <p className="text-gray-400 font-bold">目前社群風氣良好，沒有任何黑單紀錄！</p>
+                      </div>
+                    ) : (
+                      displayVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10).map(v => (
+                        <div key={v.id} className="bg-red-950/20 border border-red-900/50 rounded-2xl overflow-hidden flex flex-col relative opacity-80 grayscale hover:grayscale-0 transition-all">
+                          <div className="absolute inset-0 bg-red-900/10 pointer-events-none z-10"></div>
+                          <div className="absolute top-0 left-0 w-full bg-red-600/80 text-white text-center py-1 text-[10px] font-bold tracking-widest z-20">
+                            已下架 / 拒絕往來
+                          </div>
+                          <div className="h-20 relative overflow-hidden flex-shrink-0 mt-6">
+                            <img src={v.banner} className="w-full h-full object-cover opacity-40" />
+                          </div>
+                          <div className="p-4 flex flex-col items-center -mt-10 relative z-20">
+                            <img src={v.avatar} className="w-16 h-16 rounded-full border-4 border-gray-900 bg-gray-900 object-cover mb-2" />
+                            <h3 className="font-bold text-gray-300 text-center line-through decoration-red-500 decoration-2">{v.name}</h3>
+                            <span className="text-[10px] text-gray-500 mt-1">{v.agency}</span>
+                            
+                            <div className="mt-4 bg-black/50 border border-red-500/30 w-full rounded-lg p-3 text-center">
+                              <p className="text-[10px] text-red-400/80 mb-1">社群檢舉 / 倒讚數</p>
+                              <p className="text-xl font-black text-red-500">{v.dislikes || 10}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {currentView === 'collabs' && <CollabsPage collabs={displayCollabs} isLoading={isLoading} user={user} isVerified={user && realVtubers.find(v => v.id === user.uid)?.isVerified} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} isAdmin={isAdmin} showToast={showToast} currentTime={currentTime} />}
             {currentView === 'tips' && <TipsPage handleCopyTemplate={handleCopyTemplate} copiedTemplate={copiedTemplate} customTips={realTips} />}
             
-            {/* AdminPage 放最外面避免彈出視窗被 transform 影響 */}
+            {/* AdminPage 移至獨立容器避免彈窗被 transform 影響 */}
             {currentView === 'admin' && isAdmin && (
               <AdminPage 
-                vtubers={displayVtubers} bulletins={displayBulletins} collabs={displayCollabs} tips={realTips}
+                vtubers={displayVtubers} bulletins={displayBulletins} collabs={displayCollabs} rules={realRules} tips={realTips}
                 onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin}
-                onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveTips={handleSaveTips} showToast={showToast}
+                onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveSettings={handleSaveSettings} showToast={showToast}
                 onResetAllCollabTypes={handleAdminResetAllCollabTypes}
               />
             )}
           </main>
 
-          {/* Modal */}
+          {/* --- 邀請表單 Modal --- */}
           {isCollabModalOpen && selectedVTuber && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in-up">
@@ -1802,6 +2003,66 @@
               </div>
             </div>
           )}
+
+          {/* --- 聯動規範 Modal --- */}
+          {isRulesModalOpen && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in-up">
+                <div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center bg-gray-800/30">
+                  <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                    <i className="fa-solid fa-triangle-exclamation text-red-500"></i> V-NEXUS 聯動規範
+                  </h3>
+                  <button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                    <i className="fa-solid fa-xmark text-xl"></i>
+                  </button>
+                </div>
+                <div className="p-6">
+                  {/* 將 \n 轉換為 <br/> 並且安全渲染 HTML */}
+                  <div className="text-sm text-gray-300 leading-relaxed space-y-4" dangerouslySetInnerHTML={{ __html: realRules.replace(/\n/g, '<br/>') }} />
+                  <div className="mt-8 flex justify-center">
+                    <button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto">
+                      我了解了
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- 倒讚確認 Modal --- */}
+          {confirmDislikeData && (
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-red-500/50 rounded-2xl w-full max-w-sm overflow-hidden shadow-[0_0_30px_rgba(220,38,38,0.3)] animate-fade-in-up">
+                <div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center bg-red-950/30">
+                  <h3 className="font-bold text-red-400 text-lg flex items-center gap-2">
+                    <i className="fa-solid fa-triangle-exclamation"></i> 嚴重警告：確認檢舉
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <p className="text-gray-200 text-base leading-relaxed mb-6">
+                    您確定要對 <span className="font-bold text-white bg-gray-800 px-2 py-0.5 rounded mx-1">{confirmDislikeData.name}</span> 送出倒讚/檢舉嗎？
+                  </p>
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6">
+                    <p className="text-xs text-red-300 leading-relaxed">
+                      👉 請注意：倒讚僅適用於「放鴿子、惡意氣氛、嚴重騷擾或遲到」等破壞社群之負面行為。<br/><br/>
+                      👉 每個認證帳號僅能檢舉一次。<br/><br/>
+                      👉 若該名片累積達 <span className="font-bold text-red-400 underline decoration-red-500 underline-offset-2 mx-1">10個倒讚</span>，系統將自動下架其名片並列入黑名單，絕不寬貸。
+                    </p>
+                  </div>
+                  <p className="text-center font-bold text-white text-lg mb-6">你確定要檢舉？沒有按錯？</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setConfirmDislikeData(null)} className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-xl font-bold transition-colors">
+                      按錯
+                    </button>
+                    <button onClick={handleConfirmDislike} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-red-500/20 transition-transform hover:scale-105">
+                      對
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       );
     }
