@@ -107,33 +107,6 @@
       return null;
     };
 
-    // 自動擷取 YouTube 標題的工具函數
-    const fetchYouTubeData = async (url) => {
-      try {
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        if (match && match[2].length === 11) {
-          const targetUrl = `https://www.youtube.com/watch?v=${match[2]}`;
-          let title = '';
-
-          try {
-            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
-            const oembedRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(oembedUrl)}`);
-            if (oembedRes.ok) {
-              const oembedData = await oembedRes.json();
-              const ytJson = JSON.parse(oembedData.contents);
-              title = ytJson.title || '';
-            }
-          } catch (e) { console.error("oEmbed fetch failed", e); }
-
-          return { title };
-        }
-      } catch (err) {
-        console.error("無法抓取 YT 資訊:", err);
-      }
-      return null;
-    };
-
     // 解析訂閱數轉換為真實數字供排序使用
     const parseSubscribers = (v) => {
       const parseStr = (str) => {
@@ -287,24 +260,6 @@
 
     const CollabsPage = ({ collabs, isLoading, user, isVerified, onAddCollab, onDeleteCollab, isAdmin, showToast, currentTime }) => {
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
-      const [isFetchingYT, setIsFetchingYT] = useState(false);
-
-      const handleStreamUrlChange = async (e) => {
-        const url = e.target.value;
-        setNewCollab(prev => ({ ...prev, streamUrl: url }));
-        
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          setIsFetchingYT(true);
-          const ytData = await fetchYouTubeData(url);
-          if (ytData) {
-            setNewCollab(prev => ({
-              ...prev,
-              title: prev.title || ytData.title
-            }));
-          }
-          setIsFetchingYT(false);
-        }
-      };
 
       const handlePublish = () => {
         if (!newCollab.dateTime) return showToast("請選擇聯動日期與時間！");
@@ -335,9 +290,8 @@
                 <div className="relative">
                   <label className="text-xs text-gray-400 mb-1 block flex items-center justify-between">
                     <span>直播連結 (YT待機室/Twitch) <span className="text-red-400">*</span></span>
-                    {isFetchingYT && <span className="text-red-400 font-bold animate-pulse"><i className="fa-solid fa-spinner fa-spin mr-1"></i>抓取標題中...</span>}
                   </label>
-                  <input type="url" placeholder="https://... (貼上 YT 連結自動抓取標題)" value={newCollab.streamUrl} onChange={handleStreamUrlChange} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" />
+                  <input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10">
@@ -542,7 +496,7 @@
 
                 <div className="flex gap-3 w-full">
                   <button onClick={() => {setMatchedVtuber(null); setDesiredType(''); setAvailableTime('');}} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3.5 rounded-xl text-sm font-bold transition-colors">再抽一次</button>
-                  <button onClick={() => { setSelectedVTuber(matchedVtuber); navigate('profile'); window.scrollTo(0,0); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
+                  <button onClick={() => { setSelectedVTuber(matchedVtuber); window.location.hash = 'grid'; setTimeout(() => { window.dispatchEvent(new HashChangeEvent('hashchange')); navigate('profile'); window.scrollTo(0,0); }, 50); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
                 </div>
               </div>
             )}
@@ -556,7 +510,6 @@
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
       const [editTips, setEditTips] = useState(tips);
-      const [isFetchingYT, setIsFetchingYT] = useState(false);
       
       const [editingVtuber, setEditingVtuber] = useState(null);
 
@@ -591,23 +544,6 @@
       const handleSaveEdit = () => {
         onUpdateVtuber(editingVtuber.id, editingVtuber);
         setEditingVtuber(null);
-      };
-
-      const handleAdminStreamUrlChange = async (e) => {
-        const url = e.target.value;
-        setNewCollab(prev => ({ ...prev, streamUrl: url }));
-        
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          setIsFetchingYT(true);
-          const ytData = await fetchYouTubeData(url);
-          if (ytData) {
-            setNewCollab(prev => ({
-              ...prev,
-              title: prev.title || ytData.title
-            }));
-          }
-          setIsFetchingYT(false);
-        }
       };
 
       const handleAdminPublish = () => {
@@ -739,9 +675,8 @@
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" /></div>
                     <div className="relative">
-                      <label className="text-xs text-gray-400 mb-1 block">直播連結 (貼上 YT 連結可自動抓標題) <span className="text-red-400">*</span></label>
-                      <input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={handleAdminStreamUrlChange} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none pr-24" />
-                      {isFetchingYT && <span className="absolute right-3 top-9 text-[10px] text-red-400 font-bold animate-pulse"><i className="fa-solid fa-spinner fa-spin"></i> 抓取中...</span>}
+                      <label className="text-xs text-gray-400 mb-1 block">直播連結 (YT待機室/Twitch) <span className="text-red-400">*</span></label>
+                      <input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none pr-3" />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1567,22 +1502,22 @@
                             <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
                               {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && (
                                 <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
-                                  <i className="fa-brands fa-youtube"></i>
+                                  <i className="fa-brands fa-youtube"></i> YouTube
                                 </a>
                               )}
                               {v.twitchUrl && v.twitchUrl !== '#' && (
                                 <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
-                                  <i className="fa-brands fa-twitch"></i>
+                                  <i className="fa-brands fa-twitch"></i> Twitch
                                 </a>
                               )}
                               {v.xUrl && v.xUrl !== '#' && (
                                 <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
-                                  <i className="fa-brands fa-x-twitter"></i>
+                                  <i className="fa-brands fa-x-twitter"></i> X
                                 </a>
                               )}
                               {v.igUrl && v.igUrl !== '#' && (
                                 <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
-                                  <i className="fa-brands fa-instagram"></i>
+                                  <i className="fa-brands fa-instagram"></i> IG
                                 </a>
                               )}
                             </div>
@@ -1695,7 +1630,7 @@
                 </div>
                 
                 <div className="bg-gray-800/60 border border-purple-500/30 rounded-3xl p-6 mb-10 shadow-lg">
-                  <h3 className="font-bold text-white mb-4"><i className="fa-solid fa-wand-magic-sparkles text-purple-400 mr-2"></i>發布招募需求</h3>
+                  <h3 className="font-bold text-white mb-4"><i className="fa-solid fa-wand-magic-sparkles text-purple-400 mr-2"></i>發布招募需求 <span className="text-red-400">*</span></h3>
                   <textarea value={newBulletin.content} onChange={e=>setNewBulletin({...newBulletin, content: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-white mb-4 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none" rows="3" placeholder="想找人一起玩什麼遊戲或做什麼企劃呢？簡單說明一下吧！ (必填)" />
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
