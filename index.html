@@ -80,9 +80,13 @@
           讓是I人的你 <br className="my-2" />
           也可以找到<span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-red-400">最佳聯動夥伴</span>
         </h1>
+        <p className="text-gray-400 mb-10 max-w-2xl mx-auto text-lg leading-relaxed">
+          大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？<br className="hidden md:block" />
+          註冊你的名片，找尋你的夥伴吧！
+        </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button onClick={() => navigate('grid')} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105">
-            <i className="fa-solid fa-magnifying-glass mr-2"></i>開始探索
+            <i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴
           </button>
           <button onClick={() => navigate('dashboard')} className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">
             <i className="fa-solid fa-pen-to-square mr-2"></i>註冊創作者名片
@@ -162,6 +166,9 @@
           twitchFollowers: v.twitchFollowers || '',
           youtubeUrl: v.youtubeUrl || v.channelUrl || '',
           twitchUrl: v.twitchUrl || '',
+          xUrl: v.xUrl || '',
+          igUrl: v.igUrl || '',
+          contactEmail: v.contactEmail || '',
           streamingStyle: v.streamingStyle || '一般型態'
         });
       };
@@ -333,6 +340,13 @@
                     <div><label className="block text-xs text-gray-400 mb-1">YouTube 連結</label><input type="url" value={editingVtuber.youtubeUrl} onChange={e=>setEditingVtuber({...editingVtuber, youtubeUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                     <div><label className="block text-xs text-gray-400 mb-1">Twitch 連結</label><input type="url" value={editingVtuber.twitchUrl} onChange={e=>setEditingVtuber({...editingVtuber, twitchUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">X (Twitter) 連結</label><input type="url" value={editingVtuber.xUrl} onChange={e=>setEditingVtuber({...editingVtuber, xUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">IG 連結</label><input type="url" value={editingVtuber.igUrl} onChange={e=>setEditingVtuber({...editingVtuber, igUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-xs text-gray-400 mb-1">聯絡 Email</label><input type="email" value={editingVtuber.contactEmail} onChange={e=>setEditingVtuber({...editingVtuber, contactEmail: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                  </div>
                   <div className="pt-4 border-t border-gray-800 flex justify-end gap-3">
                     <button onClick={() => setEditingVtuber(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors">取消</button>
                     <button onClick={handleSaveEdit} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-colors">強制儲存更新</button>
@@ -371,6 +385,7 @@
       const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       const [newBulletin, setNewBulletin] = useState({ content: '', tags: '' });
+      const [inviteMessage, setInviteMessage] = useState(''); // 新增：用來存放彈窗內輸入的邀請信內容
       
       const [realCollabs, setRealCollabs] = useState([]);
       const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n近期有在關注您的頻道，非常喜歡您的 [對方特色/直播內容]！\n\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？\n\n◆ 預計時間：[日期區間] 的 [時段]\n◆ 企劃內容：[簡述約 1-2 句話]\n◆ 目前參與人數：[人數]\n\n如果有興趣的話，我們可以進一步討論細節！\n若您近期排程較滿或不方便也完全沒關係，非常感謝您抽空閱讀。祝 直播順利！");
@@ -385,7 +400,8 @@
         banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
         schedule: '', collabTypes: '', 
         streamingStyle: '一般型態',
-        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: ''
+        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '',
+        xUrl: '', igUrl: '', contactEmail: ''
       });
 
       // 檢查是否為管理員
@@ -432,7 +448,10 @@
                 youtubeSubscribers: myProfile.youtubeSubscribers || myProfile.subscribers || '',
                 twitchFollowers: myProfile.twitchFollowers || '',
                 youtubeUrl: myProfile.youtubeUrl || myProfile.channelUrl || '',
-                twitchUrl: myProfile.twitchUrl || ''
+                twitchUrl: myProfile.twitchUrl || '',
+                xUrl: myProfile.xUrl || '',
+                igUrl: myProfile.igUrl || '',
+                contactEmail: myProfile.contactEmail || ''
               });
             }
           }
@@ -651,8 +670,8 @@
               {/* 電腦版選單 */}
               <div className="hidden lg:flex items-center gap-2 xl:gap-6 text-sm font-medium">
                 <button onClick={() => navigate('home')} className={`transition-colors px-2 py-1 ${currentView === 'home' ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>首頁介紹</button>
-                <button onClick={() => navigate('grid')} className={`transition-colors px-2 py-1 ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>探索 VTuber</button>
-                <button onClick={() => navigate('bulletin')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${currentView === 'bulletin' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn"></i> 我想連動</button>
+                <button onClick={() => navigate('grid')} className={`transition-colors px-2 py-1 ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400' : 'text-gray-300 hover:text-white'}`}>尋找 VTuber 夥伴</button>
+                <button onClick={() => navigate('bulletin')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${currentView === 'bulletin' ? 'bg-purple-500/20 text-purple-400' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn"></i> 我想發起聯動</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${currentView === 'collabs' ? 'bg-red-500/20 text-red-400' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定連動</button>
                 <button onClick={() => navigate('tips')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${currentView === 'tips' ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-300 hover:text-white hover:bg-gray-800'}`}><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button>
                 
@@ -700,8 +719,8 @@
             {isMobileMenuOpen && (
               <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0f111a]/95 backdrop-blur-md border-b border-gray-800 shadow-xl flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
                 <button onClick={() => navigate('home')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'home' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>首頁介紹</button>
-                <button onClick={() => navigate('grid')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'grid' || currentView === 'profile' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>探索 VTuber</button>
-                <button onClick={() => navigate('bulletin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 我想連動</button>
+                <button onClick={() => navigate('grid')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'grid' || currentView === 'profile' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>尋找 VTuber 夥伴</button>
+                <button onClick={() => navigate('bulletin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 我想發起聯動</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定連動</button>
                 <button onClick={() => navigate('tips')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'tips' ? 'bg-yellow-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-lightbulb w-5"></i> 邀約小技巧</button>
                 {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'admin' ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</button>}
@@ -762,6 +781,15 @@
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 連結 (自行輸入)</label><input type="url" value={profileForm.twitchUrl} onChange={e=>setProfileForm({...profileForm, twitchUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://twitch.tv/..." /></div>
                   </div>
 
+                  {/* 新增 X, IG, Email 連結 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">X 連結 (自行手動填寫)</label><input type="url" value={profileForm.xUrl} onChange={e=>setProfileForm({...profileForm, xUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://x.com/..." /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">IG 連結 (自行輸入)</label><input type="url" value={profileForm.igUrl} onChange={e=>setProfileForm({...profileForm, igUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://instagram.com/..." /></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">聯絡 Email (探索名片不顯示)</label><input type="email" value={profileForm.contactEmail} onChange={e=>setProfileForm({...profileForm, contactEmail: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="example@gmail.com" /></div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址 (請貼上圖片連結)</label>
@@ -806,7 +834,7 @@
 
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-2">
-                    探索 VTubers 
+                    尋找 VTuber 夥伴 
                     {user && realVtubers.find(v => v.id === user.uid && !v.isVerified) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/30 ml-2"><i className="fa-solid fa-eye-slash mr-1"></i>您的名片審核中，目前僅自己可見</span>}
                   </h2>
                   
@@ -871,6 +899,16 @@
                                     <i className="fa-brands fa-twitch"></i>
                                   </a>
                                 )}
+                                {v.xUrl && v.xUrl !== '#' && (
+                                  <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
+                                    <i className="fa-brands fa-x-twitter"></i>
+                                  </a>
+                                )}
+                                {v.igUrl && v.igUrl !== '#' && (
+                                  <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
+                                    <i className="fa-brands fa-instagram"></i>
+                                  </a>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -915,6 +953,21 @@
                               {selectedVTuber.twitchUrl && selectedVTuber.twitchUrl !== '#' && (
                                 <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
                                   <i className="fa-brands fa-twitch"></i> Twitch
+                                </a>
+                              )}
+                              {selectedVTuber.xUrl && selectedVTuber.xUrl !== '#' && (
+                                <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-brands fa-x-twitter"></i> X
+                                </a>
+                              )}
+                              {selectedVTuber.igUrl && selectedVTuber.igUrl !== '#' && (
+                                <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 border border-pink-500/30 text-pink-400 hover:bg-pink-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-brands fa-instagram"></i> IG
+                                </a>
+                              )}
+                              {selectedVTuber.contactEmail && (
+                                <a href={`mailto:${selectedVTuber.contactEmail}`} onClick={(e) => e.stopPropagation()} className="bg-gray-700/50 border border-gray-600 text-gray-300 hover:bg-gray-600 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-solid fa-envelope"></i> Email 聯絡
                                 </a>
                               )}
                             </div>
@@ -1016,15 +1069,43 @@
 
           {/* Modal */}
           {isCollabModalOpen && selectedVTuber && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden animate-fade-in-up shadow-2xl">
                 <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center">
-                  <h3 className="font-bold text-white"><i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>發送邀請</h3>
+                  <h3 className="font-bold text-white"><i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>發送邀請給 {selectedVTuber.name}</h3>
                   <button onClick={() => setIsCollabModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
                 </div>
                 <div className="p-5 space-y-4">
-                  <textarea rows="4" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm text-white focus:ring-purple-500 outline-none resize-none" placeholder="寫下您的邀請內容..."></textarea>
-                  <button onClick={() => { showToast("信件已模擬寄出！"); setIsCollabModalOpen(false); }} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl font-bold">送出</button>
+                  {!selectedVTuber.contactEmail ? (
+                    <p className="text-red-400 text-sm font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/30">
+                      <i className="fa-solid fa-circle-exclamation mr-2"></i>這位創作者尚未公開聯絡 Email，請嘗試透過名片上的其他社群平台與他聯絡。
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-400">* 送出後將自動開啟您的 Email 軟體，並帶入以下內容。</p>
+                      <textarea 
+                        rows="6" 
+                        value={inviteMessage}
+                        onChange={(e) => setInviteMessage(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none resize-none" 
+                        placeholder="寫下您的邀請內容..."></textarea>
+                      <button 
+                        onClick={() => { 
+                          if(!inviteMessage.trim()) return showToast("請輸入邀請內容！");
+                          // 將信件標題與內容進行編碼，確保能正確帶入信箱軟體
+                          const subject = encodeURIComponent(`[V-Nexus 連動邀約] 來自 ${profileForm.name || user?.displayName || '創作者'} 的邀請`);
+                          const body = encodeURIComponent(inviteMessage);
+                          // 觸發 mailto 開啟信箱
+                          window.location.href = `mailto:${selectedVTuber.contactEmail}?subject=${subject}&body=${body}`;
+                          
+                          setIsCollabModalOpen(false);
+                          setInviteMessage(''); // 清空剛剛輸入的內容
+                        }} 
+                        className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
+                        <i className="fa-solid fa-envelope"></i> 開啟信箱寄出
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
