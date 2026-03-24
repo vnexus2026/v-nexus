@@ -80,6 +80,30 @@
       return null;
     };
 
+    // 自動擷取 YouTube 標題與說明的工具函數 (透過跨域代理 API)
+    const fetchYouTubeData = async (url) => {
+      try {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        if (match && match[2].length === 11) {
+          const targetUrl = `https://www.youtube.com/watch?v=${match[2]}`;
+          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+          const response = await fetch(proxyUrl);
+          if (response.ok) {
+            const data = await response.json();
+            const html = data.contents;
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title')?.innerText?.replace(' - YouTube', '') || '';
+            const description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+            return { title, description };
+          }
+        }
+      } catch (err) {
+        console.error("無法抓取 YT 資訊:", err);
+      }
+      return null;
+    };
+
     const TagBadge = ({ text, onClick, selected }) => (
       <span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>
     );
@@ -118,6 +142,26 @@
 
     const CollabsPage = ({ collabs, isLoading, user, isVerified, onAddCollab, onDeleteCollab, isAdmin }) => {
       const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '', streamUrl: '', coverUrl: '' });
+      const [isFetchingYT, setIsFetchingYT] = useState(false);
+
+      const handleStreamUrlChange = async (e) => {
+        const url = e.target.value;
+        setNewCollab(prev => ({ ...prev, streamUrl: url }));
+        
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          setIsFetchingYT(true);
+          const ytData = await fetchYouTubeData(url);
+          if (ytData) {
+            setNewCollab(prev => ({
+              ...prev,
+              // 如果使用者還沒填寫標題或簡述，才自動帶入
+              title: prev.title || ytData.title,
+              description: prev.description || ytData.description
+            }));
+          }
+          setIsFetchingYT(false);
+        }
+      };
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-8 text-center">
@@ -132,7 +176,13 @@
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4 relative z-10">
                 <div><label className="text-xs text-gray-400 mb-1 block">日期</label><input type="text" placeholder="例: 12/01 (五)" value={newCollab.date} onChange={e=>setNewCollab({...newCollab, date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
                 <div><label className="text-xs text-gray-400 mb-1 block">時間</label><input type="text" placeholder="例: 20:00" value={newCollab.time} onChange={e=>setNewCollab({...newCollab, time: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
-                <div className="md:col-span-2"><label className="text-xs text-gray-400 mb-1 block">直播連結 (YT待機室/Twitch)</label><input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
+                <div className="md:col-span-2 relative">
+                  <label className="text-xs text-gray-400 mb-1 block flex items-center justify-between">
+                    <span>直播連結 (YT待機室/Twitch)</span>
+                    {isFetchingYT && <span className="text-red-400 font-bold animate-pulse"><i className="fa-solid fa-spinner fa-spin mr-1"></i>抓取標題中...</span>}
+                  </label>
+                  <input type="url" placeholder="https://... (貼上 YT 連結自動抓取標題與說明)" value={newCollab.streamUrl} onChange={handleStreamUrlChange} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" />
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 relative z-10">
                 <div><label className="text-xs text-gray-400 mb-1 block">連動標題 (參與人員) <span className="text-red-400">*</span></label><input type="text" placeholder="例：APEX 頂獵挑戰！ ft. 某某某" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
@@ -141,7 +191,7 @@
                   <input type="url" placeholder="貼上 YouTube 連結會自動抓縮圖！亦可在此自訂" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" />
                 </div>
               </div>
-              <div className="mb-6 relative z-10"><label className="text-xs text-gray-400 mb-1 block">連動簡述</label><textarea placeholder="企劃內容簡述..." value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none resize-none text-sm" rows="2" /></div>
+              <div className="mb-6 relative z-10"><label className="text-xs text-gray-400 mb-1 block">連動簡述</label><textarea placeholder="企劃內容簡述..." value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none resize-none text-sm" rows="3" /></div>
               <div className="flex justify-end relative z-10">
                 <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:'', streamUrl:'', coverUrl:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-transform hover:scale-105"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button>
               </div>
@@ -203,7 +253,7 @@
                     {/* 卡片下半部：標題與資訊 */}
                     <div className="p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
                       <h3 className="text-xl font-extrabold text-white mb-3 line-clamp-2 leading-tight group-hover:text-red-400 transition-colors">{c.title}</h3>
-                      <p className="text-sm text-gray-400 mb-6 line-clamp-3 flex-1 leading-relaxed">{c.description}</p>
+                      <p className="text-sm text-gray-400 mb-6 line-clamp-3 flex-1 leading-relaxed whitespace-pre-wrap">{c.description}</p>
                       
                       {/* 前往觀看按鈕 */}
                       {c.streamUrl ? (
@@ -246,6 +296,7 @@
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '', streamUrl: '', coverUrl: '' });
       const [editTips, setEditTips] = useState(tips);
+      const [isFetchingYT, setIsFetchingYT] = useState(false);
       
       // 用來存放「目前正在編輯的名片資料」
       const [editingVtuber, setEditingVtuber] = useState(null);
@@ -274,6 +325,24 @@
       const handleSaveEdit = () => {
         onUpdateVtuber(editingVtuber.id, editingVtuber);
         setEditingVtuber(null);
+      };
+
+      const handleAdminStreamUrlChange = async (e) => {
+        const url = e.target.value;
+        setNewCollab(prev => ({ ...prev, streamUrl: url }));
+        
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          setIsFetchingYT(true);
+          const ytData = await fetchYouTubeData(url);
+          if (ytData) {
+            setNewCollab(prev => ({
+              ...prev,
+              title: prev.title || ytData.title,
+              description: prev.description || ytData.description
+            }));
+          }
+          setIsFetchingYT(false);
+        }
       };
 
       return (
@@ -382,13 +451,16 @@
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div><input type="text" placeholder="日期 (例: 12/01 (五))" value={newCollab.date} onChange={e=>setNewCollab({...newCollab, date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" /></div>
                     <div><input type="text" placeholder="時間 (例: 20:00)" value={newCollab.time} onChange={e=>setNewCollab({...newCollab, time: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" /></div>
-                    <div className="md:col-span-2"><input type="url" placeholder="直播連結 (YT待機室/Twitch)" value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" /></div>
+                    <div className="md:col-span-2 relative">
+                      <input type="url" placeholder="直播連結 (貼上 YT 連結可自動抓標題)" value={newCollab.streamUrl} onChange={handleAdminStreamUrlChange} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none pr-24" />
+                      {isFetchingYT && <span className="absolute right-3 top-3 text-[10px] text-red-400 font-bold animate-pulse"><i className="fa-solid fa-spinner fa-spin"></i> 抓取中...</span>}
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <input type="text" placeholder="連動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
                     <input type="url" placeholder="自訂封面圖網址 (選填，不填則自動抓YT)" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
                   </div>
-                  <textarea placeholder="連動簡述" value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none mb-4" rows="2" />
+                  <textarea placeholder="連動簡述" value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none mb-4" rows="3" />
                   <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:'', streamUrl:'', coverUrl:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg">發布</button>
                 </div>
                 <div className="border-t border-gray-700 pt-6 space-y-4">
