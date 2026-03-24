@@ -218,6 +218,11 @@
                               {v.name} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
                             </p>
                             <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
+                            {v.verificationNote && (
+                              <p className="text-xs text-yellow-400 mt-1 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20">
+                                <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
+                              </p>
+                            )}
                             <div className="flex gap-2 mt-1">
                               {(v.youtubeUrl || v.channelUrl) && <a href={v.youtubeUrl || v.channelUrl} target="_blank" className="text-xs text-red-400 hover:underline inline-block"><i className="fa-brands fa-youtube"></i> 檢查</a>}
                               {v.twitchUrl && <a href={v.twitchUrl} target="_blank" className="text-xs text-purple-400 hover:underline inline-block"><i className="fa-brands fa-twitch"></i> 檢查</a>}
@@ -401,7 +406,7 @@
         schedule: '', collabTypes: '', 
         streamingStyle: '一般型態',
         youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '',
-        xUrl: '', igUrl: '', contactEmail: ''
+        xUrl: '', igUrl: '', contactEmail: '', verificationNote: ''
       });
 
       // 檢查是否為管理員
@@ -451,7 +456,8 @@
                 twitchUrl: myProfile.twitchUrl || '',
                 xUrl: myProfile.xUrl || '',
                 igUrl: myProfile.igUrl || '',
-                contactEmail: myProfile.contactEmail || ''
+                contactEmail: myProfile.contactEmail || '',
+                verificationNote: myProfile.verificationNote || ''
               });
             }
           }
@@ -790,7 +796,19 @@
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">聯絡 Email (探索名片不顯示)</label><input type="email" value={profileForm.contactEmail} onChange={e=>setProfileForm({...profileForm, contactEmail: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="example@gmail.com" /></div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 新增：防冒用身分驗證區塊 */}
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
+                    <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
+                    <p className="text-xs text-gray-300 mb-4 leading-relaxed">
+                      為了保護創作者不被假冒，請協助我們確認您是頻道的真實擁有者。您可以使用以下任一方式：<br/>
+                      1. 在您的 X (Twitter) 或 YouTube 簡介中暫時加上 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span> 的字樣。<br/>
+                      2. 使用您的官方帳號私訊我們的 X 官方帳號 (@VNexus_Official)。
+                    </p>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">請在此告訴管理員您的驗證方式：</label>
+                    <input type="text" value={profileForm.verificationNote} onChange={e=>setProfileForm({...profileForm, verificationNote: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="例：我已經在 X 簡介加上字樣了！ / 我已經發送推特私訊！" />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                     <div>
                       <label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址 (請貼上圖片連結)</label>
                       <div className="flex items-center gap-3">
