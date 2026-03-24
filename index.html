@@ -129,9 +129,15 @@
       </div>
     );
 
+    // 從網址讀取初始頁面
+    const getInitialView = () => {
+      const hash = window.location.hash.replace('#', '');
+      return hash || 'home';
+    };
+
     // --- 主應用程式 ---
     function App() {
-      const [currentView, setCurrentView] = useState('home');
+      const [currentView, setCurrentView] = useState(getInitialView());
       const [selectedVTuber, setSelectedVTuber] = useState(null);
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
       
@@ -158,6 +164,22 @@
         schedule: '', collabTypes: '', mainPlatform: 'YouTube', channelUrl: ''
       });
 
+      // 監聽網址變化 (Hash Routing)
+      useEffect(() => {
+        const handleHashChange = () => {
+          const hash = window.location.hash.replace('#', '');
+          // 若是單獨跳轉到 profile 頁面卻沒有指定 VTuber，自動導回探索頁面
+          if (hash === 'profile' && !selectedVTuber) {
+            window.location.hash = 'grid';
+          } else {
+            setCurrentView(hash || 'home');
+          }
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+      }, [selectedVTuber]);
+
       // 1. 初始化 Google 登入狀態監聽
       useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (u) => setUser(u));
@@ -176,7 +198,7 @@
 
       const handleLogout = async () => {
         await signOut(auth);
-        setCurrentView('home');
+        navigate('home');
         showToast("已成功登出。");
       };
 
@@ -233,32 +255,6 @@
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
-      // 圖片上傳邏輯 (Firebase Storage)
-      const handleImageUpload = async (e, type) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (!user) return showToast("請先登入才能上傳圖片！");
-
-        setIsUploading(true);
-        showToast(`正在上傳${type === 'avatar' ? '頭像' : '橫幅'}...`);
-
-        try {
-          // 設定儲存路徑
-          const fileRef = storageRef(storage, `artifacts/${APP_ID}/public/images/${user.uid}_${type}_${Date.now()}`);
-          await uploadBytes(fileRef, file);
-          const url = await getDownloadURL(fileRef);
-
-          // 更新表單網址
-          setProfileForm(prev => ({ ...prev, [type]: url }));
-          showToast("✅ 圖片上傳成功！");
-        } catch (err) {
-          console.error("上傳失敗", err);
-          showToast("圖片上傳失敗，請確認已在 Firebase 開通 Storage 測試模式。");
-        } finally {
-          setIsUploading(false);
-        }
-      };
-
       // 5. 資料庫寫入
       const handleSaveProfile = async (e) => {
         e.preventDefault();
@@ -269,8 +265,7 @@
           const collabArray = profileForm.collabTypes.split(',').map(t => t.trim()).filter(t => t);
           await setDoc(ref, { ...profileForm, tags: tagsArray, collabTypes: collabArray, likes: profileForm.likes || 0, status: profileForm.status || '歡迎邀請', updatedAt: Date.now() }, { merge: true });
           showToast("🎉 您的專屬名片已成功儲存至雲端！");
-          setCurrentView('grid');
-          window.scrollTo(0,0);
+          navigate('grid');
         } catch (err) { console.error(err); showToast("儲存失敗，請檢查網路狀態。"); }
       };
 
@@ -280,7 +275,7 @@
         const hasProfile = realVtubers.find(v => v.id === user.uid);
         if (!hasProfile) {
           showToast("請先建立您的名片，才能發布招募文！");
-          return setCurrentView('dashboard');
+          return navigate('dashboard');
         }
 
         try {
@@ -299,12 +294,13 @@
         showToast("已複製到剪貼簿！");
       };
 
+      // 負責修改網址並觸發換頁
       const navigate = (view) => {
-        if(view === 'dashboard' && !user) {
+        if (view === 'dashboard' && !user) {
           handleLogin();
           return;
         }
-        setCurrentView(view);
+        window.location.hash = view; // 這行會觸發 URL 變更，進而觸發 handleHashChange
         setIsMobileMenuOpen(false);
         window.scrollTo(0,0);
       };
@@ -556,7 +552,7 @@
                       </div>
                       <p className="text-gray-300 text-sm mb-4 flex-1 bg-gray-900/50 p-4 rounded-xl border border-gray-800">{b.content}</p>
                       <div className="flex gap-2 mb-4">{(b.tags||[]).map(t=><span key={t} className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">#{t}</span>)}</div>
-                      <button onClick={()=>{setSelectedVTuber(b.vtuber); setIsCollabModalOpen(true);}} className="w-full bg-gray-700 hover:bg-purple-600 text-white py-2.5 rounded-xl text-sm font-bold transition-colors"><i className="fa-solid fa-hand-holding-heart mr-2"></i>應徵報名</button>
+                      <button onClick={()=>{setSelectedVTuber(b.vtuber); navigate('profile');}} className="w-full bg-gray-700 hover:bg-purple-600 text-white py-2.5 rounded-xl text-sm font-bold transition-colors"><i className="fa-solid fa-hand-holding-heart mr-2"></i>前往名片查看</button>
                     </div>
                   ))}
                 </div>
