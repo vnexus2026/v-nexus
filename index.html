@@ -101,7 +101,7 @@
     );
 
     const CollabsPage = ({ collabs, isLoading, user, isVerified, onAddCollab, onDeleteCollab, isAdmin }) => {
-      const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '' });
+      const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '', streamUrl: '' });
 
       return (
         <div className="max-w-4xl mx-auto px-4 py-8 text-center">
@@ -111,14 +111,15 @@
           {isVerified && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-6 mb-10 text-left shadow-lg animate-fade-in-up">
               <h3 className="font-bold text-white mb-4"><i className="fa-solid fa-plus text-red-400 mr-2"></i>發布新的連動行程</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div><label className="text-xs text-gray-400 mb-1 block">日期</label><input type="text" placeholder="例: 12/01 (五)" value={newCollab.date} onChange={e=>setNewCollab({...newCollab, date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
                 <div><label className="text-xs text-gray-400 mb-1 block">時間</label><input type="text" placeholder="例: 20:00" value={newCollab.time} onChange={e=>setNewCollab({...newCollab, time: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
+                <div><label className="text-xs text-gray-400 mb-1 block">直播連結 (YT待機室/Twitch)</label><input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
               </div>
-              <div className="mb-4"><label className="text-xs text-gray-400 mb-1 block">連動標題</label><input type="text" placeholder="輸入連動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
-              <div className="mb-4"><label className="text-xs text-gray-400 mb-1 block">連動簡述</label><textarea placeholder="參與人員、連動簡述..." value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none resize-none text-sm" rows="2" /></div>
+              <div className="mb-4"><label className="text-xs text-gray-400 mb-1 block">連動標題 (參與人員)</label><input type="text" placeholder="例：APEX 頂獵挑戰！ ft. 某某某" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none text-sm" /></div>
+              <div className="mb-4"><label className="text-xs text-gray-400 mb-1 block">連動簡述</label><textarea placeholder="企劃內容簡述..." value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-red-500 outline-none resize-none text-sm" rows="2" /></div>
               <div className="flex justify-end">
-                <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:-translate-y-1"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button>
+                <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:'', streamUrl:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:-translate-y-1"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button>
               </div>
             </div>
           )}
@@ -143,13 +144,18 @@
                 {(isAdmin || (user && c.userId === user.uid)) && (
                   <button onClick={() => onDeleteCollab(c.id)} className="absolute top-3 right-3 text-gray-500 hover:text-red-400 p-1 transition-colors" title="刪除此行程"><i className="fa-solid fa-trash"></i></button>
                 )}
-                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-center sm:w-24 flex-shrink-0">
+                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-center sm:w-24 flex-shrink-0 flex flex-col justify-center">
                   <div className="text-[10px] text-purple-400">{c.date}</div>
                   <div className="font-bold text-white">{c.time}</div>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col justify-center">
                   <h3 className="font-bold text-white mb-1 pr-6">{c.title}</h3>
-                  <p className="text-xs text-gray-400">{c.description}</p>
+                  <p className="text-xs text-gray-400 mb-2">{c.description}</p>
+                  {c.streamUrl && (
+                    <a href={c.streamUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 hover:text-red-300 px-3 py-1.5 rounded-lg transition-colors w-fit font-bold">
+                      <i className="fa-solid fa-play"></i> 前往待機室 / 頻道
+                    </a>
+                  )}
                 </div>
               </div>
             ))
@@ -176,7 +182,7 @@
     // --- 系統管理員後台元件 ---
     const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
-      const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '' });
+      const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '', streamUrl: '' });
       const [editTips, setEditTips] = useState(tips);
       
       // 用來存放「目前正在編輯的名片資料」
@@ -310,13 +316,14 @@
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4">新增連動時間 (管理員代發)</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                     <input type="text" placeholder="日期 (例: 12/01 (五))" value={newCollab.date} onChange={e=>setNewCollab({...newCollab, date: e.target.value})} className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
                     <input type="text" placeholder="時間 (例: 20:00)" value={newCollab.time} onChange={e=>setNewCollab({...newCollab, time: e.target.value})} className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
+                    <input type="url" placeholder="直播連結 (YT待機室/Twitch)" value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
                   </div>
                   <input type="text" placeholder="連動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none mb-4" />
                   <textarea placeholder="連動簡述" value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none mb-4" rows="2" />
-                  <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg">發布</button>
+                  <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:'', streamUrl:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg">發布</button>
                 </div>
                 <div className="border-t border-gray-700 pt-6 space-y-4">
                   <h3 className="text-lg font-bold text-white mb-4">現有連動表</h3>
@@ -1135,11 +1142,22 @@
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {displayBulletins.length === 0 ? <p className="col-span-1 md:col-span-2 text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => (
                       <div key={b.id} className="bg-gray-800/40 border border-gray-700 rounded-2xl p-6 flex flex-col hover:border-purple-500/50 transition-colors">
-                        <div className="flex items-center gap-4 mb-4">
-                          <img src={b.vtuber.avatar} className="w-12 h-12 rounded-full border border-gray-600 object-cover" />
+                        <div className="flex items-start gap-4 mb-4">
+                          <img src={b.vtuber.avatar} className="w-12 h-12 rounded-full border border-gray-600 object-cover mt-1" />
                           <div className="flex-1">
-                            <div className="flex justify-between"><h4 className="font-bold text-white">{b.vtuber.name}</h4><span className="text-xs text-gray-500">{b.postedAt} 發布</span></div>
-                            <span className="text-xs text-purple-400 bg-purple-500/10 px-2 rounded">{b.vtuber.agency}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-white text-sm">發起人：{b.vtuber.name}</h4>
+                                {/* 發起人快速連結 */}
+                                <div className="flex gap-1.5">
+                                  {(b.vtuber.youtubeUrl || b.vtuber.channelUrl) && <a href={b.vtuber.youtubeUrl || b.vtuber.channelUrl} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 transition-colors" title="YouTube頻道"><i className="fa-brands fa-youtube"></i></a>}
+                                  {b.vtuber.twitchUrl && <a href={b.vtuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 transition-colors" title="Twitch頻道"><i className="fa-brands fa-twitch"></i></a>}
+                                  {b.vtuber.xUrl && <a href={b.vtuber.xUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors" title="X (Twitter)"><i className="fa-brands fa-x-twitter"></i></a>}
+                                </div>
+                              </div>
+                              <span className="text-[10px] text-gray-500">{b.postedAt} 發布</span>
+                            </div>
+                            <span className="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded mt-1 inline-block">{b.vtuber.agency}</span>
                           </div>
                         </div>
                         
