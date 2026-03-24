@@ -31,7 +31,7 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo } = React;
 
@@ -56,7 +56,7 @@
     // --- 模擬資料 (Mock Data) ---
     const MOCK_VTUBERS = [
       { id: 'mock-1', name: "星詠 みお", agency: "個人勢", subscribers: "12.5K", tags: ["歌回", "雜談", "Minecraft", "清楚"], description: "來自星海的精靈，喜歡唱歌和跟觀眾聊天！每週三、六固定歌回，目標是舉辦 3D 演唱會！", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mio&backgroundColor=b6e3f4", banner: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000", status: "可連動", schedule: "每週三五六 20:00", collabTypes: ["歌回接力", "Minecraft"], likes: 1240 },
-      { id: 'mock-2', name: "赤狐 焱 (Yan)", agency: "V-Agency", subscribers: "85K", tags: ["APEX", "FPS", "恐怖遊戲", "暴走"], description: "歡迎各路高手找我雙排或三排！", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Yan&backgroundColor=ffdfbf", banner: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1000", status: "歡迎邀請", schedule: "平日晚上 21:00", collabTypes: ["FPS 雙排", "派對遊戲"], likes: 856 }
+      { id: 'mock-2', name: "赤狐 焱 (Yan)", agency: "V-Agency", subscribers: "85K", tags: ["APEX", "FPS", "恐怖遊戲", "暴走"], description: "歡迎各路高手找我雙排或三排！", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Yan&backgroundColor=ffdfbf", banner: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1000", status: "歡迎邀請", schedule: "平日晚上 21:00", collabTypes: ["FPS 雙排", "派堆遊戲"], likes: 856 }
     ];
     const MOCK_COLLABS = [{ id: 1, title: "週末星空歌回接力 🎤✨", date: "11/25 (六)", time: "20:00", platform: "YouTube", type: "歌回", participants: [MOCK_VTUBERS[0]], description: "週末的晚上一起來聽唱歌吧！", status: "即將到來" }];
     const MOCK_BULLETINS = [{ id: 'b-mock-1', userId: 'mock-2', content: "這週末有人想一起打 APEX 嗎？目前缺一人，歡樂向不氣氛！", tags: ["APEX", "週末"], createdAt: Date.now() - 7200000 }];
@@ -76,15 +76,13 @@
     const HomePage = ({ navigate }) => (
       <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-6">
-          <i className="fa-solid fa-rocket"></i> <span>專為 VTuber 與觀眾打造的聯絡網</span>
+          <i className="fa-solid fa-rocket"></i> <span>專為 VTuber 打造的聯動平台</span>
         </div>
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight">
-          打破藩籬，尋找你的 <br className="hidden md:block mt-2" />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-red-400">最佳連動夥伴</span>
+        <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-12 leading-tight">
+          V-NEXUS <br /><br />
+          讓是I人的你 <br className="my-2" />
+          也可以找到<span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-red-400">最佳聯動夥伴</span>
         </h1>
-        <p className="text-gray-400 mb-8 max-w-xl mx-auto text-lg">
-          V-Nexus 已經正式連線至雲端！建立名片、發布招募文，資料將即時同步給所有人。
-        </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button onClick={() => navigate('grid')} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105">
             <i className="fa-solid fa-magnifying-glass mr-2"></i>開始探索
@@ -114,20 +112,110 @@
       </div>
     );
 
-    const TipsPage = ({ handleCopyTemplate, copiedTemplate }) => (
+    const TipsPage = ({ handleCopyTemplate, copiedTemplate, customTips }) => (
       <div className="max-w-3xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold text-yellow-400 mb-6 text-center"><i className="fa-solid fa-lightbulb mr-3"></i>邀約小技巧與範本</h2>
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 shadow-xl">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-white">標準邀請信範本</h3>
-            <button onClick={handleCopyTemplate} className={`text-white px-3 py-1.5 rounded text-sm transition-colors ${copiedTemplate ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}>
+            <button onClick={() => handleCopyTemplate(customTips)} className={`text-white px-3 py-1.5 rounded text-sm transition-colors ${copiedTemplate ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}>
               {copiedTemplate ? <><i className="fa-solid fa-check mr-1"></i>已複製</> : <><i className="fa-solid fa-copy mr-1"></i>一鍵複製</>}
             </button>
           </div>
-          <pre className="text-sm text-gray-300 bg-gray-900 p-4 rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-gray-800">您好，我是 [您的名字/頻道名]。&#10;近期有在關注您的頻道，非常喜歡您的 [對方特色/直播內容]！&#10;&#10;想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？&#10;&#10;◆ 預計時間：[日期區間] 的 [時段]&#10;◆ 企劃內容：[簡述約 1-2 句話]&#10;◆ 目前參與人數：[人數]&#10;&#10;如果有興趣的話，我們可以進一步討論細節！&#10;若您近期排程較滿或不方便也完全沒關係，非常感謝您抽空閱讀。祝 直播順利！</pre>
+          <pre className="text-sm text-gray-300 bg-gray-900 p-4 rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-gray-800">{customTips}</pre>
         </div>
       </div>
     );
+
+    // --- 系統管理員後台元件 ---
+    const AdminPage = ({ vtubers, bulletins, collabs, tips, onDeleteVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onSaveTips }) => {
+      const [activeTab, setActiveTab] = useState('vtubers');
+      const [newCollab, setNewCollab] = useState({ date: '', time: '', title: '', description: '' });
+      const [editTips, setEditTips] = useState(tips);
+
+      return (
+        <div className="max-w-5xl mx-auto px-4 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2>
+            <p className="text-sm text-gray-400">目前身分認證：apex.dasa@gmail.com</p>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
+            {[
+              { id: 'vtubers', icon: 'fa-address-card', label: '名片管理' },
+              { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' },
+              { id: 'collabs', icon: 'fa-broadcast-tower', label: '連動時間表' },
+              { id: 'tips', icon: 'fa-lightbulb', label: '小技巧範本' }
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'bg-red-600 text-white shadow-lg shadow-red-500/20' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                <i className={`fa-solid ${tab.icon}`}></i> {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
+            {activeTab === 'vtubers' && (
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-white mb-4">名片管理 (共 {vtubers.length} 筆)</h3>
+                {vtubers.map(v => (
+                  <div key={v.id} className="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-700">
+                    <div className="flex items-center gap-4">
+                      <img src={v.avatar} className="w-10 h-10 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
+                      <div><p className="font-bold text-white text-sm">{v.name}</p><p className="text-xs text-gray-500">{v.agency} | {v.id.startsWith('mock') ? '系統範例' : '真實資料'}</p></div>
+                    </div>
+                    {!v.id.startsWith('mock') && <button onClick={() => onDeleteVtuber(v.id)} className="text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">刪除</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'bulletins' && (
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-white mb-4">招募文管理 (共 {bulletins.length} 筆)</h3>
+                {bulletins.map(b => (
+                  <div key={b.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4">
+                    <div className="flex-1"><p className="text-sm text-gray-300 mb-1">{b.content}</p><p className="text-xs text-gray-500">發布者: {b.vtuber?.name} | {b.postedAt}</p></div>
+                    {!b.id.startsWith('b-mock') && <button onClick={() => onDeleteBulletin(b.id)} className="text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">刪除</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'collabs' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-4">新增連動時間</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <input type="text" placeholder="日期 (例: 12/01 (五))" value={newCollab.date} onChange={e=>setNewCollab({...newCollab, date: e.target.value})} className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
+                    <input type="text" placeholder="時間 (例: 20:00)" value={newCollab.time} onChange={e=>setNewCollab({...newCollab, time: e.target.value})} className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" />
+                  </div>
+                  <input type="text" placeholder="連動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none mb-4" />
+                  <textarea placeholder="連動簡述" value={newCollab.description} onChange={e=>setNewCollab({...newCollab, description: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none mb-4" rows="2" />
+                  <button onClick={() => { onAddCollab(newCollab); setNewCollab({date:'', time:'', title:'', description:''}); }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg">新增至時間表</button>
+                </div>
+                <div className="border-t border-gray-700 pt-6 space-y-4">
+                  <h3 className="text-lg font-bold text-white mb-4">現有連動表</h3>
+                  {collabs.map(c => (
+                    <div key={c.id} className="flex items-center justify-between bg-gray-900 p-4 rounded-xl border border-gray-700">
+                      <div><p className="font-bold text-white text-sm">[{c.date} {c.time}] {c.title}</p><p className="text-xs text-gray-400">{c.description}</p></div>
+                      {c.createdAt && <button onClick={() => onDeleteCollab(c.id)} className="text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">刪除</button>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'tips' && (
+              <div className="space-y-4">
+                <h3 className="text-xl font-bold text-white mb-4">編輯邀約小技巧範本</h3>
+                <textarea value={editTips} onChange={e=>setEditTips(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none resize-none" rows="10" />
+                <button onClick={() => onSaveTips(editTips)} className="bg-red-600 hover:bg-red-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2"><i className="fa-solid fa-floppy-disk"></i> 儲存並發布更新</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
 
     // 從網址讀取初始頁面
     const getInitialView = () => {
@@ -153,6 +241,9 @@
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       const [newBulletin, setNewBulletin] = useState({ content: '', tags: '' });
       
+      const [realCollabs, setRealCollabs] = useState([]);
+      const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n近期有在關注您的頻道，非常喜歡您的 [對方特色/直播內容]！\n\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？\n\n◆ 預計時間：[日期區間] 的 [時段]\n◆ 企劃內容：[簡述約 1-2 句話]\n◆ 目前參與人數：[人數]\n\n如果有興趣的話，我們可以進一步討論細節！\n若您近期排程較滿或不方便也完全沒關係，非常感謝您抽空閱讀。祝 直播順利！");
+
       // 自訂提示訊息 (Toast)
       const [toastMsg, setToastMsg] = useState('');
       const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
@@ -164,11 +255,13 @@
         schedule: '', collabTypes: '', mainPlatform: 'YouTube', channelUrl: ''
       });
 
+      // 檢查是否為管理員
+      const isAdmin = user && user.email === 'apex.dasa@gmail.com';
+
       // 監聽網址變化 (Hash Routing)
       useEffect(() => {
         const handleHashChange = () => {
           const hash = window.location.hash.replace('#', '');
-          // 若是單獨跳轉到 profile 頁面卻沒有指定 VTuber，自動導回探索頁面
           if (hash === 'profile' && !selectedVTuber) {
             window.location.hash = 'grid';
           } else {
@@ -202,7 +295,7 @@
         showToast("已成功登出。");
       };
 
-      // 2. 監聽資料庫 (只有登入後才去抓取更新，節省流量)
+      // 2. 監聽資料庫
       useEffect(() => {
         const unsubV = onSnapshot(collection(db, getPath('vtubers')), (snap) => {
           const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -225,7 +318,18 @@
           setRealBulletins(data);
         }, (err) => console.error(err));
 
-        return () => { unsubV(); unsubB(); };
+        const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => {
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setRealCollabs(data);
+        }, (err) => console.error(err));
+
+        const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => {
+          if (docSnap.exists() && docSnap.data().content) {
+            setRealTips(docSnap.data().content);
+          }
+        }, (err) => console.error(err));
+
+        return () => { unsubV(); unsubB(); unsubC(); unsubT(); };
       }, [user]);
 
       // 3. 整合真假資料
@@ -242,6 +346,11 @@
         });
         return list.sort((a, b) => b.createdAt - a.createdAt);
       }, [realBulletins, displayVtubers]);
+
+      const displayCollabs = useMemo(() => {
+        const list = [...realCollabs, ...MOCK_COLLABS];
+        return list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      }, [realCollabs]);
 
       // 4. 搜尋篩選
       const filteredVTubers = useMemo(() => {
@@ -286,8 +395,34 @@
         } catch (err) { console.error(err); showToast("發布失敗，請稍後重試。"); }
       };
 
-      const handleCopyTemplate = () => {
-        const text = `您好，我是 [您的名字/頻道名]。\n近期有在關注您的頻道，非常喜歡您的 [對方特色/直播內容]！\n\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？\n\n◆ 預計時間：[日期區間] 的 [時段]\n◆ 企劃內容：[簡述約 1-2 句話]\n◆ 目前參與人數：[人數]\n\n如果有興趣的話，我們可以進一步討論細節！\n若您近期排程較滿或不方便也完全沒關係，非常感謝您抽空閱讀。\n\n祝 直播順利！`;
+      // --- Admin 管理功能 ---
+      const handleDeleteVtuber = async (id) => {
+        if (!isAdmin) return;
+        if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return;
+        try { await deleteDoc(doc(db, getPath('vtubers'), id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); }
+      };
+      const handleDeleteBulletin = async (id) => {
+        if (!isAdmin) return;
+        if (!confirm("確定要刪除這則招募文嗎？")) return;
+        try { await deleteDoc(doc(db, getPath('bulletins'), id)); showToast("已刪除招募文"); } catch (err) { showToast("刪除失敗"); }
+      };
+      const handleAddCollab = async (collabData) => {
+        if (!isAdmin) return;
+        if (!collabData.title) return showToast("請至少填寫連動標題！");
+        try { await addDoc(collection(db, getPath('collabs')), { ...collabData, createdAt: Date.now() }); showToast("已新增連動時間"); } catch (err) { showToast("新增失敗"); }
+      };
+      const handleDeleteCollab = async (id) => {
+        if (!isAdmin) return;
+        if (!confirm("確定要刪除這個連動行程嗎？")) return;
+        try { await deleteDoc(doc(db, getPath('collabs'), id)); showToast("已刪除連動行程"); } catch (err) { showToast("刪除失敗"); }
+      };
+      const handleSaveTips = async (content) => {
+        if (!isAdmin) return;
+        try { await setDoc(doc(db, getPath('settings'), 'tips'), { content }, { merge: true }); showToast("已更新邀約小技巧範本"); } catch (err) { showToast("更新失敗"); }
+      };
+
+      const handleCopyTemplate = (textToCopy) => {
+        const text = textToCopy || realTips;
         const textArea = document.createElement("textarea");
         textArea.value = text; document.body.appendChild(textArea); textArea.select(); document.execCommand("copy"); document.body.removeChild(textArea);
         setCopiedTemplate(true); setTimeout(() => setCopiedTemplate(false), 2000);
@@ -347,6 +482,11 @@
                       <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 text-xs font-bold transition-colors" title="登出"><i className="fa-solid fa-right-from-bracket"></i></button>
                     </div>
                   )}
+                  {isAdmin && (
+                    <button onClick={() => navigate('admin')} className="ml-2 flex items-center gap-1.5 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 px-3 py-1.5 rounded-full transition-colors text-xs font-bold">
+                      <i className="fa-solid fa-shield-halved"></i> 管理員
+                    </button>
+                  )}
                 </div>
               </div>
               
@@ -371,6 +511,7 @@
                 <button onClick={() => navigate('bulletin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 我想連動</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定連動</button>
                 <button onClick={() => navigate('tips')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'tips' ? 'bg-yellow-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-lightbulb w-5"></i> 邀約小技巧</button>
+                {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'admin' ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</button>}
                 {user && <button onClick={handleLogout} className="text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 text-red-400 hover:bg-red-500/10"><i className="fa-solid fa-right-from-bracket w-5"></i> 登出帳號</button>}
               </div>
             )}
@@ -559,8 +700,15 @@
               </div>
             )}
 
-            {currentView === 'collabs' && <CollabsPage collabs={MOCK_COLLABS} />}
-            {currentView === 'tips' && <TipsPage handleCopyTemplate={handleCopyTemplate} copiedTemplate={copiedTemplate} />}
+            {currentView === 'collabs' && <CollabsPage collabs={displayCollabs} />}
+            {currentView === 'tips' && <TipsPage handleCopyTemplate={handleCopyTemplate} copiedTemplate={copiedTemplate} customTips={realTips} />}
+            {currentView === 'admin' && isAdmin && (
+              <AdminPage 
+                vtubers={displayVtubers} bulletins={displayBulletins} collabs={displayCollabs} tips={realTips}
+                onDeleteVtuber={handleDeleteVtuber} onDeleteBulletin={handleDeleteBulletin}
+                onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveTips={handleSaveTips}
+              />
+            )}
           </main>
 
           {/* Modal */}
