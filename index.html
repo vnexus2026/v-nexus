@@ -146,9 +146,10 @@
           ...v,
           tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '',
           collabTypes: Array.isArray(v.collabTypes) ? v.collabTypes.join(', ') : v.collabTypes || '',
-          subscribers: v.subscribers || '',
-          channelUrl: v.channelUrl || '',
-          mainPlatform: v.mainPlatform || 'YouTube',
+          youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
+          twitchFollowers: v.twitchFollowers || '',
+          youtubeUrl: v.youtubeUrl || v.channelUrl || '',
+          twitchUrl: v.twitchUrl || '',
           streamingStyle: v.streamingStyle || '一般型態'
         });
       };
@@ -198,7 +199,10 @@
                               {v.name} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
                             </p>
                             <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
-                            {v.channelUrl && <a href={v.channelUrl} target="_blank" className="text-xs text-blue-400 hover:underline mt-1 inline-block"><i className="fa-solid fa-link"></i> 檢查頻道</a>}
+                            <div className="flex gap-2 mt-1">
+                              {(v.youtubeUrl || v.channelUrl) && <a href={v.youtubeUrl || v.channelUrl} target="_blank" className="text-xs text-red-400 hover:underline inline-block"><i className="fa-brands fa-youtube"></i> 檢查</a>}
+                              {v.twitchUrl && <a href={v.twitchUrl} target="_blank" className="text-xs text-purple-400 hover:underline inline-block"><i className="fa-brands fa-twitch"></i> 檢查</a>}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
@@ -304,17 +308,18 @@
                     <div><label className="block text-xs text-gray-400 mb-1">內容標籤 (逗號分隔)</label><input type="text" value={editingVtuber.tags} onChange={e=>setEditingVtuber({...editingVtuber, tags: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                     <div><label className="block text-xs text-gray-400 mb-1">願意連動類型 (逗號分隔)</label><input type="text" value={editingVtuber.collabTypes} onChange={e=>setEditingVtuber({...editingVtuber, collabTypes: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   </div>
+                  <div><label className="block text-xs text-gray-400 mb-1">可連動時段</label><input type="text" value={editingVtuber.schedule} onChange={e=>setEditingVtuber({...editingVtuber, schedule: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="block text-xs text-gray-400 mb-1">可連動時段</label><input type="text" value={editingVtuber.schedule} onChange={e=>setEditingVtuber({...editingVtuber, schedule: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
-                    <div><label className="block text-xs text-gray-400 mb-1">訂閱人數</label><input type="text" value={editingVtuber.subscribers} onChange={e=>setEditingVtuber({...editingVtuber, subscribers: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">YouTube 訂閱數</label><input type="text" value={editingVtuber.youtubeSubscribers} onChange={e=>setEditingVtuber({...editingVtuber, youtubeSubscribers: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">Twitch 追隨數</label><input type="text" value={editingVtuber.twitchFollowers} onChange={e=>setEditingVtuber({...editingVtuber, twitchFollowers: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-xs text-gray-400 mb-1">頭像圖片網址</label><input type="url" value={editingVtuber.avatar} onChange={e=>setEditingVtuber({...editingVtuber, avatar: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                     <div><label className="block text-xs text-gray-400 mb-1">橫幅背景網址</label><input type="url" value={editingVtuber.banner} onChange={e=>setEditingVtuber({...editingVtuber, banner: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="block text-xs text-gray-400 mb-1">主打平台</label><select value={editingVtuber.mainPlatform} onChange={e=>setEditingVtuber({...editingVtuber, mainPlatform: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500"><option>YouTube</option><option>Twitch</option><option>其他</option></select></div>
-                    <div><label className="block text-xs text-gray-400 mb-1">頻道首頁連結</label><input type="url" value={editingVtuber.channelUrl} onChange={e=>setEditingVtuber({...editingVtuber, channelUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">YouTube 連結</label><input type="url" value={editingVtuber.youtubeUrl} onChange={e=>setEditingVtuber({...editingVtuber, youtubeUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
+                    <div><label className="block text-xs text-gray-400 mb-1">Twitch 連結</label><input type="url" value={editingVtuber.twitchUrl} onChange={e=>setEditingVtuber({...editingVtuber, twitchUrl: e.target.value})} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-blue-500" /></div>
                   </div>
                   <div className="pt-4 border-t border-gray-800 flex justify-end gap-3">
                     <button onClick={() => setEditingVtuber(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition-colors">取消</button>
@@ -360,11 +365,12 @@
       const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
       const [profileForm, setProfileForm] = useState({
-        name: '', agency: '個人勢', subscribers: '', tags: '', description: '',
+        name: '', agency: '個人勢', tags: '', description: '',
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}&backgroundColor=b6e3f4`,
         banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
-        schedule: '', collabTypes: '', mainPlatform: 'YouTube', channelUrl: '',
-        streamingStyle: '一般型態' // 新增演出型態
+        schedule: '', collabTypes: '', 
+        streamingStyle: '一般型態',
+        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: ''
       });
 
       // 檢查是否為管理員
@@ -421,7 +427,10 @@
                 tags: Array.isArray(myProfile.tags) ? myProfile.tags.join(', ') : myProfile.tags || '',
                 collabTypes: Array.isArray(myProfile.collabTypes) ? myProfile.collabTypes.join(', ') : myProfile.collabTypes || '',
                 streamingStyle: myProfile.streamingStyle || '一般型態',
-                subscribers: myProfile.subscribers || ''
+                youtubeSubscribers: myProfile.youtubeSubscribers || myProfile.subscribers || '',
+                twitchFollowers: myProfile.twitchFollowers || '',
+                youtubeUrl: myProfile.youtubeUrl || myProfile.channelUrl || '',
+                twitchUrl: myProfile.twitchUrl || ''
               });
             }
           }
@@ -711,7 +720,7 @@
                         <select value={profileForm.agency} onChange={e=>setProfileForm({...profileForm, agency: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"><option>個人勢</option><option>企業勢</option><option>社團勢</option><option>準備中</option></select>
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-gray-300 mb-2">演出型態(防雷)</label>
+                        <label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label>
                         <select value={profileForm.streamingStyle} onChange={e=>setProfileForm({...profileForm, streamingStyle: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-sm"><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select>
                       </div>
                     </div>
@@ -721,10 +730,20 @@
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={profileForm.tags} onChange={e=>setProfileForm({...profileForm, tags: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 歌回, APEX" /></div>
                     <div><label className="block text-sm font-bold text-gray-300 mb-2">願意連動類型 (逗號分隔)</label><input type="text" value={profileForm.collabTypes} onChange={e=>setProfileForm({...profileForm, collabTypes: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: FPS雙排, 歌回接力" /></div>
                   </div>
+                  <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段</label><input type="text" value={profileForm.schedule} onChange={e=>setProfileForm({...profileForm, schedule: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 每週三五六晚上 20:00 後" /></div>
+                  
+                  {/* 新增 YouTube 訂閱與 Twitch 追隨 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段</label><input type="text" value={profileForm.schedule} onChange={e=>setProfileForm({...profileForm, schedule: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 每週三五六晚上 20:00 後" /></div>
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">目前訂閱 / 追隨人數 (可填大概數字)</label><input type="text" value={profileForm.subscribers} onChange={e=>setProfileForm({...profileForm, subscribers: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 1.5K, 500, 未公開" /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 (手動填寫)</label><input type="text" value={profileForm.youtubeSubscribers} onChange={e=>setProfileForm({...profileForm, youtubeSubscribers: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 1.5K, 未公開" /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 (手動填寫)</label><input type="text" value={profileForm.twitchFollowers} onChange={e=>setProfileForm({...profileForm, twitchFollowers: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 500, 無" /></div>
                   </div>
+
+                  {/* 新增 YouTube 與 Twitch 連結 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 連結 (自行輸入)</label><input type="url" value={profileForm.youtubeUrl} onChange={e=>setProfileForm({...profileForm, youtubeUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://youtube.com/..." /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 連結 (自行輸入)</label><input type="url" value={profileForm.twitchUrl} onChange={e=>setProfileForm({...profileForm, twitchUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://twitch.tv/..." /></div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址 (請貼上圖片連結)</label>
@@ -741,10 +760,7 @@
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">主打平台</label><select value={profileForm.mainPlatform} onChange={e=>setProfileForm({...profileForm, mainPlatform: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"><option>YouTube</option><option>Twitch</option><option>其他</option></select></div>
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">頻道首頁連結</label><input type="url" value={profileForm.channelUrl} onChange={e=>setProfileForm({...profileForm, channelUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://youtube.com/..." /></div>
-                  </div>
+
                   <div className="pt-6 border-t border-gray-700 flex justify-end">
                     <button type="submit" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1"><i className="fa-solid fa-floppy-disk mr-2"></i>儲存名片</button>
                   </div>
@@ -790,19 +806,27 @@
                               <h3 className="font-bold text-white truncate flex items-center gap-1">
                                 {v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}
                               </h3>
-                              <div className="flex gap-2 text-xs mt-1 text-gray-400">
-                                <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {v.subscribers || '未公開'}</span>
+                              <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
+                                {(v.youtubeSubscribers || v.subscribers || v.youtubeUrl || v.channelUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {v.youtubeSubscribers || v.subscribers || '未公開'}</span>}
+                                {(v.twitchFollowers || v.twitchUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-twitch text-purple-400"></i> {v.twitchFollowers || '未公開'}</span>}
                                 <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
                             <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
                               <span className="truncate"><i className="fa-solid fa-clock text-purple-400 mr-1"></i> {v.schedule || '未提供時段'}</span>
-                              {v.channelUrl && v.channelUrl !== '#' && (
-                                <a href={v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
-                                  <i className="fa-solid fa-play"></i> 頻道
-                                </a>
-                              )}
+                              <div className="flex gap-2">
+                                {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && (
+                                  <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
+                                    <i className="fa-brands fa-youtube"></i>
+                                  </a>
+                                )}
+                                {v.twitchUrl && v.twitchUrl !== '#' && (
+                                  <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
+                                    <i className="fa-brands fa-twitch"></i>
+                                  </a>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -830,11 +854,22 @@
                               <span className="px-3 py-1 bg-gray-800 text-sm font-medium rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span>
                             </h1>
                             <div className="flex flex-wrap gap-3 mt-3 text-sm">
-                              <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-youtube text-red-400"></i> {selectedVTuber.subscribers || 0}</span>
+                              {(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers || selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) && (
+                                <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-youtube text-red-400"></i> {selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers || '未公開'}</span>
+                              )}
+                              {(selectedVTuber.twitchFollowers || selectedVTuber.twitchUrl) && (
+                                <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-twitch text-purple-400"></i> {selectedVTuber.twitchFollowers || '未公開'}</span>
+                              )}
                               <span className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</span>
-                              {selectedVTuber.channelUrl && selectedVTuber.channelUrl !== '#' && (
-                                <a href={selectedVTuber.channelUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
-                                  <i className="fa-solid fa-play"></i> 前往頻道
+                              
+                              {(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) && (selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) !== '#' && (
+                                <a href={selectedVTuber.youtubeUrl || selectedVTuber.channelUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-brands fa-youtube"></i> YouTube
+                                </a>
+                              )}
+                              {selectedVTuber.twitchUrl && selectedVTuber.twitchUrl !== '#' && (
+                                <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-brands fa-twitch"></i> Twitch
                                 </a>
                               )}
                             </div>
