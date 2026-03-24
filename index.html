@@ -233,6 +233,32 @@
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
+      // 圖片上傳邏輯 (Firebase Storage)
+      const handleImageUpload = async (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!user) return showToast("請先登入才能上傳圖片！");
+
+        setIsUploading(true);
+        showToast(`正在上傳${type === 'avatar' ? '頭像' : '橫幅'}...`);
+
+        try {
+          // 設定儲存路徑
+          const fileRef = storageRef(storage, `artifacts/${APP_ID}/public/images/${user.uid}_${type}_${Date.now()}`);
+          await uploadBytes(fileRef, file);
+          const url = await getDownloadURL(fileRef);
+
+          // 更新表單網址
+          setProfileForm(prev => ({ ...prev, [type]: url }));
+          showToast("✅ 圖片上傳成功！");
+        } catch (err) {
+          console.error("上傳失敗", err);
+          showToast("圖片上傳失敗，請確認已在 Firebase 開通 Storage 測試模式。");
+        } finally {
+          setIsUploading(false);
+        }
+      };
+
       // 5. 資料庫寫入
       const handleSaveProfile = async (e) => {
         e.preventDefault();
@@ -376,8 +402,24 @@
                   </div>
                   <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段</label><input type="text" value={profileForm.schedule} onChange={e=>setProfileForm({...profileForm, schedule: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="例: 每週三五六晚上 20:00 後" /></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址</label><input type="url" value={profileForm.avatar} onChange={e=>setProfileForm({...profileForm, avatar: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none" /></div>
-                    <div><label className="block text-sm font-bold text-gray-300 mb-2">橫幅背景網址</label><input type="url" value={profileForm.banner} onChange={e=>setProfileForm({...profileForm, banner: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none" /></div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">頭像圖片網址 (請貼上圖片連結)</label>
+                      <div className="flex items-center gap-3">
+                        <img src={profileForm.avatar} className="w-12 h-12 rounded-xl object-cover border border-gray-700 bg-gray-800 flex-shrink-0" />
+                        <input type="url" value={profileForm.avatar} onChange={e=>setProfileForm({...profileForm, avatar: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://..." />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">橫幅背景網址 (請貼上圖片連結)</label>
+                      <div className="flex items-center gap-3">
+                        <img src={profileForm.banner} className="w-20 h-12 rounded-xl object-cover border border-gray-700 bg-gray-800 flex-shrink-0" />
+                        <input type="url" value={profileForm.banner} onChange={e=>setProfileForm({...profileForm, banner: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://..." />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">主打平台</label><select value={profileForm.mainPlatform} onChange={e=>setProfileForm({...profileForm, mainPlatform: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none"><option>YouTube</option><option>Twitch</option><option>其他</option></select></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">頻道首頁連結</label><input type="url" value={profileForm.channelUrl} onChange={e=>setProfileForm({...profileForm, channelUrl: e.target.value})} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://youtube.com/..." /></div>
                   </div>
                   <div className="pt-6 border-t border-gray-700 flex justify-end">
                     <button type="submit" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1"><i className="fa-solid fa-floppy-disk mr-2"></i>儲存並發布名片</button>
@@ -424,8 +466,13 @@
                               </div>
                             </div>
                             <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
-                            <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-400 truncate">
-                              <i className="fa-solid fa-clock text-purple-400 mr-1"></i> {v.schedule || '未提供時段'}
+                            <div className="mt-3 pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
+                              <span className="truncate"><i className="fa-solid fa-clock text-purple-400 mr-1"></i> {v.schedule || '未提供時段'}</span>
+                              {v.channelUrl && v.channelUrl !== '#' && (
+                                <a href={v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0">
+                                  <i className="fa-solid fa-play"></i> 頻道
+                                </a>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -443,24 +490,29 @@
                   <div className="h-48 sm:h-64 relative"><img src={selectedVTuber.banner} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div></div>
                   <div className="px-6 sm:px-10 pb-10 relative">
                     <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end -mt-16 sm:-mt-20 mb-8 z-10 relative">
-                      <img src={selectedVTuber.avatar} className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-gray-900 bg-gray-800 object-cover" />
+                      <img src={selectedVTuber.avatar} className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-gray-900 bg-gray-800 object-cover flex-shrink-0" />
                       <div className="flex-1 w-full">
                         <div className="flex flex-wrap items-center justify-between gap-4">
                           <div>
                             <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">{selectedVTuber.name} <span className="px-3 py-1 bg-gray-800 text-sm font-medium rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span></h1>
-                            <div className="flex gap-3 mt-3 text-sm">
-                              <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg"><i className="fa-brands fa-youtube text-red-400 mr-1"></i> {selectedVTuber.subscribers || 0}</span>
-                              <span className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1 rounded-lg"><i className="fa-solid fa-thumbs-up mr-1"></i> {selectedVTuber.likes || 0} 推薦</span>
+                            <div className="flex flex-wrap gap-3 mt-3 text-sm">
+                              <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-youtube text-red-400"></i> {selectedVTuber.subscribers || 0}</span>
+                              <span className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</span>
+                              {selectedVTuber.channelUrl && selectedVTuber.channelUrl !== '#' && (
+                                <a href={selectedVTuber.channelUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors px-3 py-1 rounded-lg flex items-center gap-1.5">
+                                  <i className="fa-solid fa-play"></i> 前往頻道
+                                </a>
+                              )}
                             </div>
                           </div>
-                          <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg w-full sm:w-auto"><i className="fa-solid fa-paper-plane mr-2"></i>提出邀請</button>
+                          <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg w-full sm:w-auto flex-shrink-0"><i className="fa-solid fa-paper-plane mr-2"></i>提出邀請</button>
                         </div>
                       </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="md:col-span-2 space-y-8">
-                        <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-purple-400"><i className="fa-solid fa-microphone mr-2"></i>關於我</h3><p className="text-gray-300 leading-relaxed">{selectedVTuber.description}</p></section>
+                        <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-purple-400"><i className="fa-solid fa-microphone mr-2"></i>關於我</h3><p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{selectedVTuber.description}</p></section>
                         <section>
                           <h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-pink-400"><i className="fa-solid fa-gamepad mr-2"></i>內容標籤</h3>
                           <div className="flex flex-wrap gap-2">{(selectedVTuber.tags || []).map(t=><span key={t} className="px-3 py-1 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-300">#{t}</span>)}</div>
