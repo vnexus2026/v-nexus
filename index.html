@@ -42,7 +42,8 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    // 修正：載入 query 與 where，才能符合 Firebase 的安全讀取規則
+    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
 
@@ -887,9 +888,17 @@
 
         const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
         const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unsubN = onSnapshot(collection(db, getPath('notifications')), (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
         const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); });
         const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); });
+
+        // 修正：因為設定了安全規則，必須只獲取「屬於自己的通知」，否則會被 Firebase 直接阻擋
+        let unsubN = () => {};
+        if (user && user.uid) {
+           const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
+           unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error(err));
+        } else {
+           setRealNotifications([]);
+        }
 
         return () => { unsubV(); unsubB(); unsubC(); unsubN(); unsubT(); unsubR(); };
       }, [user]);
