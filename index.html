@@ -497,7 +497,7 @@
                     <img src={matchedVtuber.avatar} className="absolute -top-10 w-20 h-20 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" />
                     <div className="ml-24 mb-3">
                       <h3 className="font-bold text-white truncate text-lg flex items-center gap-1">
-                        {matchedVtuber.name} <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>
+                        {matchedVtuber.name} {matchedVtuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>}
                       </h3>
                       <div className="flex gap-2 text-xs mt-1 text-gray-400">
                         {(matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers}</span>}
@@ -609,20 +609,20 @@
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
                   {/* 待審核區塊 */}
-              <div>
-                <h3 className="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2"><i className="fa-solid fa-user-clock mr-2"></i>待審核名單 ({pendingVtubers.length})</h3>
-                {pendingVtubers.length === 0 && <p className="text-gray-500 text-sm">目前沒有待審核的名片</p>}
-                <div className="space-y-3">
-                  {pendingVtubers.map(v => (
-                    <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-900 p-4 rounded-xl border border-yellow-500/30 gap-4">
-                      <div className="flex items-center gap-4">
-                        <img src={v.avatar} className="w-12 h-12 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
-                        <div>
-                          <p className="font-bold text-white text-sm flex items-center gap-2">
-                            {v.name || '（未填寫名稱的空白名片）'} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
-                          {v.verificationNote && (
+                  <div>
+                    <h3 className="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2"><i className="fa-solid fa-user-clock mr-2"></i>待審核名單 ({pendingVtubers.length})</h3>
+                    {pendingVtubers.length === 0 && <p className="text-gray-500 text-sm">目前沒有待審核的名片</p>}
+                    <div className="space-y-3">
+                      {pendingVtubers.map(v => (
+                        <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-900 p-4 rounded-xl border border-yellow-500/30 gap-4">
+                          <div className="flex items-center gap-4">
+                            <img src={v.avatar} className="w-12 h-12 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
+                            <div>
+                              <p className="font-bold text-white text-sm flex items-center gap-2">
+                                {v.name || '（未填寫名稱的空白名片）'} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
+                              {v.verificationNote && (
                                 <p className="text-xs text-yellow-400 mt-1 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20">
                                   <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
                                 </p>
@@ -886,9 +886,9 @@
       const [toastMsg, setToastMsg] = useState('');
       const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
-      const [profileForm, setProfileForm] = useState({
+      const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '',
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}&backgroundColor=b6e3f4`,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`,
         banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
         isScheduleAnytime: false, isScheduleExcept: false, scheduleSlots: [], 
         collabTypes: [], isOtherCollab: false, otherCollabText: '', 
@@ -897,6 +897,8 @@
         youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '',
         xUrl: '', igUrl: '', contactEmail: '', verificationNote: ''
       });
+
+      const [profileForm, setProfileForm] = useState(getEmptyProfile());
 
       const isAdmin = user && user.email === 'apex.dasa@gmail.com';
       // 判斷是否為已認證的 VTuber (用於解鎖隱藏功能)
@@ -918,7 +920,10 @@
       }, [selectedVTuber]);
 
       useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, (u) => setUser(u));
+        const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          setProfileForm(getEmptyProfile(u?.uid)); // 每次切換帳號或登出時，徹底重置表單
+        });
         const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
         return () => {
           unsubscribeAuth();
