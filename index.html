@@ -378,7 +378,7 @@
         {!isAdmin && (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
             <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
-            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護創作者，請在 X 或 YouTube 簡介暫放 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>，或私訊管理員。</p>
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在 X 或 YouTube 簡介暫放 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>，管理員會親自審核，請直接輸入暫放平台。</p>
             <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式..." />
           </div>
         )}
@@ -448,7 +448,7 @@
                   {!isBlacklist && <p className="text-xs text-gray-400 mt-1">{v.agency} | {v.activityStatus==='sleep'?'休眠':v.activityStatus==='graduated'?'畢業':'活躍'} | 倒讚: <span className="text-red-400">{v.dislikes||0}</span></p>}
                   {isBlacklist && <p className="text-xs text-red-400 font-bold">倒讚數: {v.dislikes || 0}</p>}
                   
-                  {/* --- 補回：防冒用驗證備註與檢查連結 --- */}
+                  {/* 防冒用驗證備註與檢查連結 */}
                   {v.verificationNote && (
                     <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block">
                       <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
@@ -459,8 +459,6 @@
                     {v.twitchUrl && <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 transition-colors"><i className="fa-brands fa-twitch"></i> 檢查</a>}
                     {v.xUrl && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors"><i className="fa-brands fa-x-twitter"></i> 檢查</a>}
                   </div>
-                  {/* -------------------------------------- */}
-                  
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">
@@ -473,6 +471,101 @@
         </div>
       </div>
     );
+
+    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
+      const [activeTab, setActiveTab] = useState('vtubers');
+      const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
+      const [editRules, setEditRules] = useState(rules);
+      const [editTips, setEditTips] = useState(tips);
+      const [editingVtuber, setEditingVtuber] = useState(null);
+
+      const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
+      const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted);
+      const verifiedVtubers = safeVtubers.filter(v => v.isVerified && !v.isBlacklisted);
+      const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
+
+      const handleEditClick = (v) => {
+        const standard = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => PREDEFINED_COLLABS.includes(t)) : [];
+        const other = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '' : '';
+        setEditingVtuber({
+          ...v, tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '', collabTypes: standard, isOtherCollab: !!other, otherCollabText: other,
+          isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false,
+          customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
+          twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
+          youtubeUrl: v.youtubeUrl || v.channelUrl || '', twitchUrl: v.twitchUrl || '', xUrl: v.xUrl || '', igUrl: v.igUrl || '',
+          contactEmail: v.contactEmail || '', streamingStyle: v.streamingStyle || '一般型態', activityStatus: v.activityStatus || 'active',
+          likes: v.likes || 0, dislikes: v.dislikes || 0
+        });
+      };
+
+      const handleAdminPublish = () => {
+        if (!newCollab.dateTime || !newCollab.streamUrl || !newCollab.title) return showToast("請完整填寫！");
+        const dt = new Date(newCollab.dateTime);
+        onAddCollab({ ...newCollab, date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, startTimestamp: dt.getTime() });
+        setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
+      };
+
+      return (
+        <>
+          <div className="max-w-5xl mx-auto px-4 py-8 relative animate-fade-in-up">
+            <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2></div>
+            <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
+              {[{ id: 'vtubers', icon: 'fa-address-card', label: '名片與審核' }, { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' },
+                { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? 'bg-red-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                  <i className={`fa-solid ${t.icon}`}></i> {t.label}
+                  {t.id === 'vtubers' && pendingVtubers.length > 0 && <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs ml-1">{pendingVtubers.length}</span>}
+                </button>
+              ))}
+            </div>
+            <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
+              {activeTab === 'vtubers' && (
+                <div className="space-y-8">
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
+                  <div className="mt-12 pt-6 border-t border-red-500/50"><button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button></div>
+                </div>
+              )}
+              {activeTab === 'bulletins' && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold text-white mb-4">招募文管理</h3>
+                  {(bulletins || []).map(b => <div key={b.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"><div className="flex-1"><p className="text-sm text-gray-300 mb-1">{b.content}</p><p className="text-xs text-gray-500">{b.vtuber?.name} | {b.postedAt}</p></div><button onClick={() => onDeleteBulletin(b.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg font-bold">刪除</button></div>)}
+                </div>
+              )}
+              {activeTab === 'collabs' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-4">新增聯動時間</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} /><input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} /></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="text" placeholder="聯動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className={inputCls} /><input type="url" placeholder="自訂封面圖" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className={inputCls} /></div>
+                    <button onClick={handleAdminPublish} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold">發布</button>
+                  </div>
+                  <div className="border-t border-gray-700 pt-6 space-y-4">
+                    <h3 className="text-lg font-bold text-white mb-4">現有清單</h3>
+                    {(collabs||[]).map(c => <div key={c.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700"><div><p className="font-bold text-white text-sm">[{c.date} {c.time}] {c.title}</p></div><button onClick={() => onDeleteCollab(c.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg">刪除</button></div>)}
+                  </div>
+                </div>
+              )}
+              {activeTab === 'settings' && (
+                <div className="space-y-8">
+                  <div><h3 className="text-xl font-bold text-white mb-2">編輯規範</h3><textarea value={editRules} onChange={e=>setEditRules(e.target.value)} className={inputCls+" resize-none"} rows="8" /></div><div className="flex justify-end"><button onClick={() => onSaveSettings(undefined, editRules)} className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold">儲存規範</button></div>
+                  <div><h3 className="text-xl font-bold text-white mb-2">編輯小技巧</h3><textarea value={editTips} onChange={e=>setEditTips(e.target.value)} className={inputCls+" resize-none"} rows="8" /></div><div className="flex justify-end"><button onClick={() => onSaveSettings(editTips, undefined)} className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold">儲存小技巧</button></div>
+                </div>
+              )}
+            </div>
+          </div>
+          {editingVtuber && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl animate-fade-in-up">
+                <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10"><h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3><button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
+                <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({...prev, ...updates}))} onSubmit={(e)=>{ e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} /></div>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    };
 
     // --- 主應用程式 ---
     function App() {
@@ -722,106 +815,6 @@
           for (const v of realVtubers) { if (!v.id.startsWith('mock')) await setDoc(doc(db, getPath('vtubers'), v.id), { collabTypes: [] }, { merge: true }); }
           showToast("✅ 已清除所有人聯動類型！");
         } catch (err) { showToast("清除失敗"); }
-      };
-
-      const CollabsPageSection = () => {
-        const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
-        const handlePublish = () => {
-          if (!newCollab.dateTime) return showToast("請選擇聯動日期與時間！"); if (!newCollab.streamUrl) return showToast("請填寫直播連結！"); if (!newCollab.title) return showToast("請填寫聯動標題！");
-          const dt = new Date(newCollab.dateTime); const startTimestamp = dt.getTime();
-          const dateStr = `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`; const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-          handleAddCollab({ ...newCollab, date: dateStr, time: timeStr, startTimestamp });
-          setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
-        };
-        return (
-          <div className="max-w-5xl mx-auto px-4 py-8 text-center animate-fade-in-up">
-            <h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-broadcast-tower mr-3"></i>確定聯動時間表</h2>
-            <p className="text-gray-400 mb-8">準備好零食與飲料，準時前往待機室支持喜歡的 VTuber 吧！</p>
-            {isVerifiedUser && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-6 sm:p-8 mb-12 text-left shadow-lg relative overflow-hidden">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500/10 rounded-full blur-3xl"></div>
-                <h3 className="font-bold text-white mb-6 text-xl flex items-center"><i className="fa-solid fa-calendar-plus text-red-400 mr-3"></i>發布新的聯動行程</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 relative z-10"><div className="w-full min-w-0"><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} /></div><div className="w-full min-w-0 relative"><label className="text-xs text-gray-400 mb-1 block flex items-center justify-between"><span>直播連結 (YT待機室/Twitch) <span className="text-red-400">*</span></span></label><input type="url" placeholder="https://..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} /></div></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10"><div><label className="text-xs text-gray-400 mb-1 block">聯動標題 (參與人員) <span className="text-red-400">*</span></label><input type="text" placeholder="例：APEX 頂獵挑戰！ ft. 某某某" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className={inputCls} /></div><div><label className="text-xs text-gray-400 mb-1 block">自訂封面圖網址 (選填)</label><input type="url" placeholder="貼上 YouTube 連結會自動抓縮圖！亦可在此自訂" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className={inputCls} /></div></div>
-                <div className="flex justify-end relative z-10"><button onClick={handlePublish} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-transform hover:scale-105"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button></div>
-              </div>
-            )}
-            {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : Array.isArray(displayCollabs) && displayCollabs.length === 0 ? (
-              <div className="py-20 bg-gray-800/30 rounded-3xl border border-gray-700/50"><i className="fa-solid fa-calendar-xmark text-4xl text-gray-600 mb-4"></i><p className="text-gray-500">目前尚未有即將到來的聯動行程</p></div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                {(displayCollabs || []).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} />)}
-              </div>
-            )}
-          </div>
-        );
-      };
-
-      const AdminPageSection = () => {
-        const [activeTab, setActiveTab] = useState('vtubers'); const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
-        const [editRules, setEditRules] = useState(realRules); const [editTips, setEditTips] = useState(realTips); const [editingVtuber, setEditingVtuber] = useState(null);
-        const pend = realVtubers.filter(v => !v.isVerified && !v.isBlacklisted); const ver = realVtubers.filter(v => v.isVerified && !v.isBlacklisted); const blk = realVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
-
-        const handleAdminPublish = () => {
-          if (!newCollab.dateTime || !newCollab.streamUrl || !newCollab.title) return showToast("請完整填寫！");
-          const dt = new Date(newCollab.dateTime);
-          handleAddCollab({ ...newCollab, date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, startTimestamp: dt.getTime() });
-          setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
-        };
-
-        return (
-          <>
-            <div className="max-w-5xl mx-auto px-4 py-8 relative animate-fade-in-up">
-              <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2></div>
-              <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
-                {[{ id: 'vtubers', icon: 'fa-address-card', label: '名片與審核' }, { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' }, { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
-                  <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? 'bg-red-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><i className={`fa-solid ${t.icon}`}></i> {t.label} {t.id === 'vtubers' && pend.length > 0 && <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs ml-1">{pend.length}</span>}</button>
-                ))}
-              </div>
-              <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
-                {activeTab === 'vtubers' && (
-                  <div className="space-y-8">
-                    <AdminVtuberList title="待審核名單" list={pend} onVerify={handleVerifyVtuber} onEdit={(v)=>setEditingVtuber({...v, collabTypes: v.collabTypes||[]})} onDelete={handleDeleteVtuber} />
-                    <AdminVtuberList title="已上架名片" list={ver} onEdit={(v)=>setEditingVtuber({...v, collabTypes: v.collabTypes||[]})} onDelete={handleDeleteVtuber} />
-                    <AdminVtuberList title="黑單避雷區" list={blk} onEdit={(v)=>setEditingVtuber({...v, collabTypes: v.collabTypes||[]})} onDelete={handleDeleteVtuber} isBlacklist />
-                    <div className="mt-12 pt-6 border-t border-red-500/50"><button onClick={handleAdminResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button></div>
-                  </div>
-                )}
-                {activeTab === 'bulletins' && (
-                  <div className="space-y-4"><h3 className="text-xl font-bold text-white mb-4">招募文管理</h3>{(displayBulletins || []).map(b => <div key={b.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"><div className="flex-1"><p className="text-sm text-gray-300 mb-1">{b.content}</p><p className="text-xs text-gray-500">{b.vtuber?.name} | {b.postedAt}</p></div><button onClick={() => handleDeleteBulletin(b.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg font-bold">刪除</button></div>)}</div>
-                )}
-                {activeTab === 'collabs' && (
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-4">新增聯動時間</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} /><input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} /></div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="text" placeholder="聯動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className={inputCls} /><input type="url" placeholder="自訂封面圖" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className={inputCls} /></div>
-                      <button onClick={handleAdminPublish} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold">發布</button>
-                    </div>
-                    <div className="border-t border-gray-700 pt-6 space-y-4">
-                      <h3 className="text-lg font-bold text-white mb-4">現有清單</h3>
-                      {(displayCollabs||[]).map(c => <div key={c.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700"><div><p className="font-bold text-white text-sm">[{c.date} {c.time}] {c.title}</p></div><button onClick={() => handleDeleteCollab(c.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg">刪除</button></div>)}
-                    </div>
-                  </div>
-                )}
-                {activeTab === 'settings' && (
-                  <div className="space-y-8">
-                    <div><h3 className="text-xl font-bold text-white mb-2">編輯規範</h3><textarea value={editRules} onChange={e=>setEditRules(e.target.value)} className={inputCls+" resize-none"} rows="8" /></div><div className="flex justify-end"><button onClick={() => handleSaveSettings(undefined, editRules)} className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold">儲存規範</button></div>
-                    <div><h3 className="text-xl font-bold text-white mb-2">編輯小技巧</h3><textarea value={editTips} onChange={e=>setEditTips(e.target.value)} className={inputCls+" resize-none"} rows="8" /></div><div className="flex justify-end"><button onClick={() => handleSaveSettings(editTips, undefined)} className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold">儲存小技巧</button></div>
-                  </div>
-                )}
-              </div>
-            </div>
-            {editingVtuber && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl animate-fade-in-up">
-                  <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10"><h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3><button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-                  <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({...prev, ...updates}))} onSubmit={(e)=>{ e.preventDefault(); handleAdminUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} /></div>
-                </div>
-              </div>
-            )}
-          </>
-        );
       };
 
       return (
