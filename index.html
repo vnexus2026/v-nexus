@@ -34,7 +34,7 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
 
@@ -609,20 +609,20 @@
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
                   {/* 待審核區塊 */}
-                  <div>
-                    <h3 className="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2"><i className="fa-solid fa-user-clock mr-2"></i>待審核名單 ({pendingVtubers.length})</h3>
-                    {pendingVtubers.length === 0 && <p className="text-gray-500 text-sm">目前沒有待審核的名片</p>}
-                    <div className="space-y-3">
-                      {pendingVtubers.map(v => (
-                        <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-900 p-4 rounded-xl border border-yellow-500/30 gap-4">
-                          <div className="flex items-center gap-4">
-                            <img src={v.avatar} className="w-12 h-12 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
-                            <div>
-                              <p className="font-bold text-white text-sm flex items-center gap-2">
-                                {v.name} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
-                              </p>
-                              <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
-                              {v.verificationNote && (
+              <div>
+                <h3 className="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2"><i className="fa-solid fa-user-clock mr-2"></i>待審核名單 ({pendingVtubers.length})</h3>
+                {pendingVtubers.length === 0 && <p className="text-gray-500 text-sm">目前沒有待審核的名片</p>}
+                <div className="space-y-3">
+                  {pendingVtubers.map(v => (
+                    <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-900 p-4 rounded-xl border border-yellow-500/30 gap-4">
+                      <div className="flex items-center gap-4">
+                        <img src={v.avatar} className="w-12 h-12 rounded-lg bg-gray-800 object-cover flex-shrink-0" />
+                        <div>
+                          <p className="font-bold text-white text-sm flex items-center gap-2">
+                            {v.name || '（未填寫名稱的空白名片）'} <span className="bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px]">{v.streamingStyle || '一般型態'}</span>
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-1">{v.description}</p>
+                          {v.verificationNote && (
                                 <p className="text-xs text-yellow-400 mt-1 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20">
                                   <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
                                 </p>
@@ -931,7 +931,8 @@
         if (user && user.uid) {
           const updateActive = async () => {
             try {
-              await setDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }, { merge: true });
+              // 改用 updateDoc，避免新用戶登入時自動建立只有時間的「空白名片」
+              await updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() });
             } catch(e) {}
           };
           updateActive();
@@ -951,8 +952,14 @@
               const standardTypes = (currentProfile.collabTypes || []).filter(t => PREDEFINED_COLLABS.includes(t));
               const otherType = (currentProfile.collabTypes || []).filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '';
 
-              setProfileForm({
+              // 防呆機制：使用 prev 狀態確保即使抓到空白名片，也不會蓋掉大頭貼與預設值
+              setProfileForm(prev => ({
+                ...prev,
                 ...currentProfile,
+                name: currentProfile.name || prev.name,
+                description: currentProfile.description || prev.description,
+                avatar: currentProfile.avatar || prev.avatar,
+                banner: currentProfile.banner || prev.banner,
                 tags: Array.isArray(currentProfile.tags) ? currentProfile.tags.join(', ') : currentProfile.tags || '',
                 collabTypes: standardTypes,
                 isOtherCollab: !!otherType,
@@ -960,8 +967,8 @@
                 isScheduleAnytime: currentProfile.isScheduleAnytime || false,
                 isScheduleExcept: currentProfile.isScheduleExcept || false,
                 scheduleSlots: currentProfile.scheduleSlots || [],
-                streamingStyle: currentProfile.streamingStyle || '一般型態',
-                activityStatus: currentProfile.activityStatus || 'active', // 載入狀態
+                streamingStyle: currentProfile.streamingStyle || prev.streamingStyle,
+                activityStatus: currentProfile.activityStatus || prev.activityStatus,
                 youtubeSubscribers: currentProfile.youtubeSubscribers || currentProfile.subscribers || '',
                 twitchFollowers: currentProfile.twitchFollowers || '',
                 youtubeUrl: currentProfile.youtubeUrl || currentProfile.channelUrl || '',
@@ -970,7 +977,7 @@
                 igUrl: currentProfile.igUrl || '',
                 contactEmail: currentProfile.contactEmail || '',
                 verificationNote: currentProfile.verificationNote || ''
-              });
+              }));
             }
           }
         }, (err) => { console.error(err); setIsLoading(false); });
@@ -1103,10 +1110,12 @@
         if (!user) return showToast("請先登入才能儲存名片！");
         try {
           const ref = doc(db, getPath('vtubers'), user.uid);
-          const tagsArray = profileForm.tags.split(',').map(t => t.trim()).filter(t => t);
           
-          let finalCollabs = [...profileForm.collabTypes];
-          if (profileForm.isOtherCollab && profileForm.otherCollabText.trim()) {
+          // 安全解析標籤，避免 undefined 錯誤
+          const tagsArray = (profileForm.tags || '').split(',').map(t => t.trim()).filter(t => t);
+          
+          let finalCollabs = [...(profileForm.collabTypes || [])];
+          if (profileForm.isOtherCollab && profileForm.otherCollabText?.trim()) {
             finalCollabs.push(profileForm.otherCollabText.trim());
           }
           
