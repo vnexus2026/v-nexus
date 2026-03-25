@@ -489,7 +489,7 @@
     );
 
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs }) => {
+    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
       const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
@@ -517,8 +517,15 @@
           </div>
           {safeDisplayCollabs.length > 0 && (
             <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
-              <h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>最新聯動</h2>
-              <p className="text-gray-400 mb-10">快來看看有哪些 VTuber 即將展開精彩合作！</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+                <div className="text-left">
+                  <h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>最新聯動</h2>
+                  <p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p>
+                </div>
+                <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2">
+                  <i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
                 {safeDisplayCollabs.slice(0, 4).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} />)}
               </div>
@@ -714,6 +721,9 @@
       const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active');
 
       const navigate = (view) => { window.location.hash = view; setIsMobileMenuOpen(false); window.scrollTo(0,0); };
+      const goToBulletin = () => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); };
+
+      const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted).length, [realVtubers]);
 
       useEffect(() => {
         const handleHashChange = () => { const h = window.location.hash.replace('#', ''); setCurrentView((h==='profile'&&!selectedVTuber)?'grid':(h||'home')); };
@@ -852,12 +862,15 @@
         } catch (err) { showToast("發布失敗"); }
       };
 
-      const handleApplyBulletin = async (bulletinId, isApplying) => {
+      const handleApplyBulletin = async (bulletinId, isApplying, bulletinAuthorId) => {
         if (!user) return showToast("請先登入！");
         if (!isVerifiedUser) return showToast("需通過官方認證才能報名！");
         try {
           await updateDoc(doc(db, getPath('bulletins'), bulletinId), { applicants: isApplying ? arrayUnion(user.uid) : arrayRemove(user.uid) });
           showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
+          if (isApplying && bulletinAuthorId !== user.uid) {
+            addDoc(collection(db, getPath('notifications')), { userId: bulletinAuthorId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '有人有意願！快去招募佈告欄看看！', createdAt: Date.now(), read: false }).catch(()=>{});
+          }
         } catch (err) { showToast("操作失敗"); }
       };
 
@@ -941,7 +954,7 @@
                       <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 text-xs font-bold whitespace-nowrap" title="登出"><i className="fa-solid fa-right-from-bracket"></i></button>
                     </div>
                   )}
-                  {isAdmin && <button onClick={() => navigate('admin')} className="hidden sm:flex items-center gap-1.5 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap"><i className="fa-solid fa-shield-halved"></i> 管理員</button>}
+                  {isAdmin && <button onClick={() => navigate('admin')} className="hidden sm:flex items-center gap-1.5 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap relative"><i className="fa-solid fa-shield-halved"></i> 管理員{pendingVtubersCount > 0 && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white flex items-center justify-center"></span></span>}</button>}
                   <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden text-gray-300 p-2 text-2xl ml-1"><i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars'}`}></i></button>
                 </div>
               </div>
@@ -962,13 +975,13 @@
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('bulletin'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動</button>
                 <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
-                {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10`}><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</button>}
+                {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}><div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div> {pendingVtubersCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingVtubersCount}</span>}</button>}
               </div>
             )}
           </nav>
 
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} />}
 
             {currentView === 'dashboard' && (
               <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
@@ -1062,6 +1075,17 @@
                     </div>
                   </div>
                 </div>
+
+                {selectedVTuber.id === user?.uid && displayBulletins.filter(b => b.userId === selectedVTuber.id).length > 0 && (
+                  <div className="mt-12">
+                    <h3 className="text-2xl font-extrabold text-white mb-6 border-b border-gray-700 pb-3"><i className="fa-solid fa-bullhorn text-purple-400 mr-3"></i>我的招募佈告</h3>
+                    <div className="grid grid-cols-1 gap-6">
+                      {displayBulletins.filter(b => b.userId === selectedVTuber.id).map(b => (
+                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1083,7 +1107,7 @@
                 </div>
                 {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
+                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
                   </div>
                 )}
               </div>
