@@ -447,6 +447,20 @@
                   <p className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? 'text-gray-400 line-through' : 'text-white'}`}>{v.name || '（空白名片）'}</p>
                   {!isBlacklist && <p className="text-xs text-gray-400 mt-1">{v.agency} | {v.activityStatus==='sleep'?'休眠':v.activityStatus==='graduated'?'畢業':'活躍'} | 倒讚: <span className="text-red-400">{v.dislikes||0}</span></p>}
                   {isBlacklist && <p className="text-xs text-red-400 font-bold">倒讚數: {v.dislikes || 0}</p>}
+                  
+                  {/* --- 補回：防冒用驗證備註與檢查連結 --- */}
+                  {v.verificationNote && (
+                    <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block">
+                      <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
+                    </p>
+                  )}
+                  <div className="flex gap-3 mt-1.5">
+                    {(v.youtubeUrl || v.channelUrl) && <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 transition-colors"><i className="fa-brands fa-youtube"></i> 檢查</a>}
+                    {v.twitchUrl && <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 transition-colors"><i className="fa-brands fa-twitch"></i> 檢查</a>}
+                    {v.xUrl && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors"><i className="fa-brands fa-x-twitter"></i> 檢查</a>}
+                  </div>
+                  {/* -------------------------------------- */}
+                  
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">
