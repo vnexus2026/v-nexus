@@ -254,6 +254,101 @@
       );
     };
 
+    // --- 隨機配對完整版 (您要求加回來的核心功能) ---
+    const MatchPage = ({ vtubers, navigate, showToast, setSelectedVTuber, currentUser }) => {
+      const [desiredType, setDesiredType] = useState('');
+      const [matchedVtuber, setMatchedVtuber] = useState(null);
+      const [isMatching, setIsMatching] = useState(false);
+
+      const handleMatch = () => {
+        setIsMatching(true); setMatchedVtuber(null);
+        setTimeout(() => {
+          const candidates = (vtubers || []).filter(v => isVisible(v, currentUser) && v.id !== currentUser?.uid);
+          if (candidates.length === 0) { setIsMatching(false); return showToast("目前資料庫尚無可配對的已認證創作者！"); }
+          
+          let filtered = desiredType ? candidates.filter(v => Array.isArray(v.collabTypes) && v.collabTypes.includes(desiredType)) : candidates;
+          if (filtered.length === 0) { 
+            showToast("找不到完全符合類型的對象，為您隨機推薦一位命定夥伴！"); 
+            filtered = candidates; 
+          } else { 
+            showToast("🎉 配對成功！為您找到完美夥伴！"); 
+          }
+          
+          setMatchedVtuber(filtered[Math.floor(Math.random() * filtered.length)]);
+          setIsMatching(false);
+        }, 2000); 
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-12 text-center animate-fade-in-up">
+          <h2 className="text-3xl font-extrabold text-purple-400 mb-4 flex justify-center items-center gap-3"><i className="fa-solid fa-dice"></i> 聯動隨機配對</h2>
+          <p className="text-gray-400 mb-10">不知道該找誰玩嗎？讓 V-Nexus 幫您隨機抽籤配對，或許會遇到意想不到的好夥伴喔！</p>
+          
+          <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-8 shadow-2xl max-w-xl mx-auto relative overflow-hidden">
+            <div className="absolute -top-16 -left-16 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl"></div>
+            
+            {!isMatching && !matchedVtuber && (
+              <div className="space-y-6 relative z-10 animate-fade-in-up">
+                <div className="text-left">
+                  <label className="block text-sm font-bold text-gray-300 mb-2">想要聯動的類型 (選填)</label>
+                  <select value={desiredType} onChange={e=>setDesiredType(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-purple-500 outline-none text-base">
+                    <option value="">不限類型 (完全隨機)</option>
+                    {PREDEFINED_COLLABS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <button onClick={handleMatch} className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2">
+                  <i className="fa-solid fa-wand-magic-sparkles"></i> 開始尋找命定夥伴
+                </button>
+              </div>
+            )}
+
+            {isMatching && (
+              <div className="py-12 flex flex-col items-center justify-center animate-fade-in-up">
+                <div className="relative w-32 h-32 mb-6">
+                  <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-t-purple-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-radar"></div>
+                  <i className="fa-solid fa-satellite-dish text-4xl text-purple-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2 animate-pulse">雷達掃描中...</h3>
+                <p className="text-sm text-gray-400">正在廣袤的 V 圈星海中尋找符合您頻率的對象</p>
+              </div>
+            )}
+
+            {matchedVtuber && !isMatching && (
+              <div className="animate-fade-in-up relative z-10 flex flex-col items-center">
+                <h3 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-6">就是決定是你了！</h3>
+                <div className="w-full group bg-gray-900/80 border border-purple-500/50 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(168,85,247,0.2)] flex flex-col text-left mb-6">
+                  <div className="h-28 relative overflow-hidden flex-shrink-0">
+                    <img src={matchedVtuber.banner} className="w-full h-full object-cover opacity-60" />
+                    <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{matchedVtuber.agency}</span>
+                  </div>
+                  <div className="p-4 relative flex-1 flex flex-col">
+                    <img src={matchedVtuber.avatar} className="absolute -top-10 w-20 h-20 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" />
+                    <div className="ml-24 mb-3">
+                      <h3 className="font-bold text-white truncate text-lg flex items-center gap-1">
+                        {matchedVtuber.name} {matchedVtuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>}
+                      </h3>
+                      <div className="flex gap-2 text-xs mt-1 text-gray-400">
+                        {(matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers}</span>}
+                        <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {matchedVtuber.likes || 0}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(matchedVtuber.collabTypes || []).slice(0,3).map(t=><span key={t} className="text-[10px] text-gray-300 bg-gray-800 px-2 py-1 rounded-md border border-gray-700">{t}</span>)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 w-full">
+                  <button onClick={() => {setMatchedVtuber(null); setDesiredType('');}} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3.5 rounded-xl text-sm font-bold transition-colors">再抽一次</button>
+                  <button onClick={() => { setSelectedVTuber(matchedVtuber); window.location.hash = 'grid'; setTimeout(() => { window.dispatchEvent(new HashChangeEvent('hashchange')); navigate('profile'); window.scrollTo(0,0); }, 50); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
     const ScheduleEditor = ({ form, updateForm }) => {
       const mode = form.isScheduleAnytime ? 'anytime' : form.isScheduleExcept ? 'except' : form.isScheduleCustom ? 'custom' : 'specific';
       const handleModeChange = (e) => {
@@ -970,20 +1065,7 @@
               </div>
             )}
 
-            {currentView === 'match' && (
-              <div className="max-w-4xl mx-auto px-4 py-12 text-center animate-fade-in-up">
-                <h2 className="text-3xl font-extrabold text-purple-400 mb-4 flex justify-center items-center gap-3"><i className="fa-solid fa-dice"></i> 聯動隨機配對</h2>
-                <p className="text-gray-400 mb-10">不知道該找誰玩嗎？讓 V-Nexus 幫您隨機抽籤配對，或許會遇到意想不到的好夥伴喔！</p>
-                <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-8 shadow-2xl max-w-xl mx-auto relative overflow-hidden">
-                  <div className="absolute -top-16 -left-16 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl"></div>
-                  <button onClick={()=>{
-                    const cands = realVtubers.filter(v => isVisible(v, user) && v.id !== user?.uid);
-                    if(cands.length===0) return showToast("目前無可配對的對象！");
-                    setSelectedVTuber(cands[Math.floor(Math.random() * cands.length)]); navigate('profile');
-                  }} className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2"><i className="fa-solid fa-wand-magic-sparkles"></i> 開始尋找命定夥伴</button>
-                </div>
-              </div>
-            )}
+            {currentView === 'match' && <MatchPage vtubers={realVtubers} navigate={navigate} showToast={showToast} setSelectedVTuber={setSelectedVTuber} currentUser={user} />}
 
             {currentView === 'bulletin' && (
               <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
