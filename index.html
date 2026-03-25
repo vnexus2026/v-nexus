@@ -179,10 +179,10 @@
           )}
           <div className="mt-auto pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
             <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2"><i className="fa-solid fa-clock text-purple-400"></i> <span className="truncate">{formatSchedule(v)}</span></div>
-            {isVerifiedUser && v.id !== user?.uid && <button onClick={(e) => { e.stopPropagation(); onDislike(v); }} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="檢舉負面行為"><i className="fa-solid fa-thumbs-down text-[10px]"></i></button>}
+            {isVerifiedUser && v.id !== user?.uid && <button onClick={(e) => { e.stopPropagation(); onDislike(v); }} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-50 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="檢舉負面行為"><i className="fa-solid fa-thumbs-down text-[10px]"></i></button>}
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
-            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="YouTube"><i className="fa-brands fa-youtube text-sm"></i></a>}
+            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="YouTube"><i className="fa-brands fa-youtube text-sm"></i></a>}
             {v.twitchUrl && v.twitchUrl !== '#' && <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Twitch"><i className="fa-brands fa-twitch text-sm"></i></a>}
             {v.xUrl && v.xUrl !== '#' && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
             {v.igUrl && v.igUrl !== '#' && <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram"><i className="fa-brands fa-instagram text-sm"></i></a>}
@@ -495,6 +495,59 @@
         </div>
       </form>
     );
+
+    // --- 新增：專屬信箱分頁元件 ---
+    const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile }) => {
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-gray-700 pb-4 gap-4">
+            <div>
+              <h2 className="text-3xl font-extrabold text-white flex items-center gap-3"><i className="fa-solid fa-envelope-open-text text-purple-400"></i> 我的信箱</h2>
+              <p className="text-gray-400 mt-2 text-sm leading-relaxed">這裡是您的專屬通知中心，所有的聯動邀約與招募報名都會顯示在這裡喔！</p>
+            </div>
+            {notifications.some(n => !n.read) && (
+              <button onClick={markAllAsRead} className="text-sm font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex-shrink-0">
+                <i className="fa-solid fa-check-double mr-1"></i> 全部標示為已讀
+              </button>
+            )}
+          </div>
+          
+          {notifications.length === 0 ? (
+            <div className="text-center py-24 bg-gray-800/40 rounded-3xl border border-gray-700/50 shadow-xl">
+              <i className="fa-regular fa-envelope-open text-6xl text-gray-600 mb-6"></i>
+              <p className="text-gray-400 font-bold text-lg">信箱目前空空如也！</p>
+              <p className="text-gray-500 text-sm mt-2">當有人向您發出聯動邀請時，就會出現在這裡。</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {notifications.map(n => (
+                <div key={n.id} className={`p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-800 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]'}`}>
+                  <div className="flex items-start gap-4 sm:gap-5">
+                    <img src={n.fromUserAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon'} onClick={() => onNavigateProfile(n.fromUserId)} className="w-14 h-14 rounded-full border-2 border-gray-700 bg-gray-900 object-cover flex-shrink-0 cursor-pointer hover:border-purple-400 transition-colors" title="查看對方名片" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                        <h4 className="font-bold text-white text-lg flex flex-wrap items-center gap-2">
+                          <span onClick={() => onNavigateProfile(n.fromUserId)} className="cursor-pointer hover:text-purple-400 transition-colors">{n.fromUserName}</span>
+                          {!n.read && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-lg whitespace-nowrap">新通知</span>}
+                        </h4>
+                        <span className="text-xs text-gray-500 font-medium whitespace-nowrap"><i className="fa-regular fa-clock mr-1"></i>{formatTime(n.createdAt)}</span>
+                      </div>
+                      <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/80 p-4 rounded-xl border border-gray-700/50 mt-3 shadow-inner">{n.message}</p>
+                      
+                      <div className="flex flex-wrap justify-end gap-3 mt-5">
+                        <button onClick={() => onNavigateProfile(n.fromUserId)} className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-address-card mr-2"></i> 查看對方名片</button>
+                        {!n.read && <button onClick={() => onMarkRead(n.id)} className="text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-check mr-2"></i> 標為已讀</button>}
+                        <button onClick={() => onDelete(n.id)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-trash mr-2"></i> 刪除此信</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    };
 
     // --- 各大分頁模組 ---
     const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin }) => {
@@ -820,10 +873,26 @@
       const myNotifications = useMemo(() => user ? realNotifications.filter(n => n.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt) : [], [realNotifications, user]);
       const unreadCount = myNotifications.filter(n => !n.read).length;
       const markAllAsRead = () => myNotifications.forEach(n => { if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }); });
+      
       const handleNotifClick = (n) => {
         const sender = realVtubers.find(v => v.id === n.fromUserId);
         if (sender) { setSelectedVTuber(sender); window.location.hash = 'profile'; }
-        if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }); setIsNotifOpen(false);
+        if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(()=>{}); setIsNotifOpen(false);
+      };
+
+      const handleNotifProfileNav = (userId) => {
+        const vt = realVtubers.find(v => v.id === userId);
+        if (vt) { setSelectedVTuber(vt); navigate('profile'); } 
+        else { showToast("找不到該名片，可能已被刪除或隱藏"); }
+      };
+
+      const handleMarkNotifRead = async (id) => {
+        try { await updateDoc(doc(db, getPath('notifications'), id), { read: true }); } catch(err){}
+      };
+
+      const handleDeleteNotif = async (id) => {
+        if (!confirm("確定要刪除這則通知嗎？")) return;
+        try { await deleteDoc(doc(db, getPath('notifications'), id)); showToast("✅ 已刪除通知"); } catch (err) { showToast("刪除失敗"); }
       };
 
       const handleLogin = async () => { try { await signInWithPopup(auth, provider); showToast("🎉 登入成功！"); } catch (e) { showToast("登入失敗"); } };
@@ -1000,11 +1069,14 @@
                         <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-gray-300 hover:text-white p-2 text-xl relative transition-colors"><i className="fa-solid fa-bell"></i>{unreadCount > 0 && <span className="absolute top-1 right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white flex items-center justify-center">{unreadCount}</span></span>}</button>
                         {isNotifOpen && (
                           <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
-                            <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50"><span className="font-bold text-white text-sm">站內通知</span>{unreadCount > 0 && <button onClick={markAllAsRead} className="text-xs text-purple-400 hover:text-purple-300">全部已讀</button>}</div>
+                            <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50"><span className="font-bold text-white text-sm">站內小鈴鐺</span>{unreadCount > 0 && <button onClick={markAllAsRead} className="text-xs text-purple-400 hover:text-purple-300">全部已讀</button>}</div>
                             <div className="max-h-80 overflow-y-auto">
-                               {myNotifications.length === 0 ? <div className="p-6 text-center text-gray-500 text-sm">目前沒有任何通知</div> : myNotifications.map(n => (
+                               {myNotifications.length === 0 ? <div className="p-6 text-center text-gray-500 text-sm">目前沒有任何通知</div> : myNotifications.slice(0, 5).map(n => (
                                  <div key={n.id} onClick={() => handleNotifClick(n)} className={`p-3 border-b border-gray-800 flex gap-3 hover:bg-gray-800/50 cursor-pointer transition-colors ${!n.read ? 'bg-purple-900/10' : ''}`}><img src={n.fromUserAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon'} className="w-10 h-10 rounded-full bg-gray-800 object-cover flex-shrink-0" /><div className="flex-1 min-w-0"><p className="text-xs text-gray-300 leading-snug"><span className="font-bold text-white hover:text-purple-400 transition-colors">{n.fromUserName}</span> {n.message}</p><p className="text-[10px] text-gray-500 mt-1">{formatTime(n.createdAt)}</p></div>{!n.read && <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>}</div>
                                ))}
+                            </div>
+                            <div className="p-2 border-t border-gray-800 bg-gray-800/80 text-center">
+                               <button onClick={() => { setIsNotifOpen(false); navigate('inbox'); }} className="text-xs text-purple-400 font-bold hover:text-purple-300 w-full py-1">前往專屬信箱查看完整通知 <i className="fa-solid fa-arrow-right ml-1"></i></button>
                             </div>
                           </div>
                         )}
@@ -1024,6 +1096,12 @@
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); }} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定聯動</button>
                 <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
+                {user && (
+                  <button onClick={() => navigate('inbox')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'inbox' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}>
+                    <i className="fa-solid fa-envelope-open-text"></i> 我的信箱
+                    {unreadCount > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">{unreadCount}</span>}
+                  </button>
+                )}
               </div>
             </div>
             {isMobileMenuOpen && (
@@ -1034,6 +1112,12 @@
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('bulletin'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動</button>
                 <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
+                {user && (
+                  <button onClick={() => navigate('inbox')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === 'inbox' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
+                    <div className="flex items-center gap-3"><i className="fa-solid fa-envelope-open-text w-5"></i> 我的信箱</div>
+                    {unreadCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{unreadCount}</span>}
+                  </button>
+                )}
                 {isAdmin && <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}><div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div> {pendingVtubersCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{pendingVtubersCount}</span>}</button>}
               </div>
             )}
@@ -1041,6 +1125,10 @@
 
           <main className="flex-1 pb-10">
             {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} />}
+
+            {currentView === 'inbox' && user && (
+              <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />
+            )}
 
             {currentView === 'dashboard' && (
               <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
