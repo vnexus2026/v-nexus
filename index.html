@@ -234,7 +234,7 @@
                         <div key={a.id} className="flex items-center bg-gray-900 p-1.5 pr-2 rounded-lg border border-gray-700 hover:border-purple-500/50 transition-colors">
                           <img src={a.avatar} onClick={() => onNavigateProfile(a)} className="w-7 h-7 rounded-full cursor-pointer object-cover" title="查看名片" />
                           <span onClick={() => onNavigateProfile(a)} className="text-xs text-gray-300 ml-2 cursor-pointer hover:text-white font-bold max-w-[100px] truncate">{a.name}</span>
-                          <button onClick={() => onInvite(a)} className="ml-3 bg-purple-600 hover:bg-purple-500 text-[10px] text-white px-2.5 py-1.5 rounded shadow-lg transition-transform hover:scale-105">邀請</button>
+                          <button onClick={() => onInvite(a)} className="ml-3 bg-purple-600 hover:bg-purple-500 text-[10px] text-white px-2.5 py-1.5 rounded shadow-lg transition-transform hover:scale-105">邀請聯動</button>
                         </div>
                       ))}
                     </div>
@@ -262,7 +262,6 @@
       );
     };
 
-    // --- 隨機配對完整版 (您要求加回來的核心功能) ---
     const MatchPage = ({ vtubers, navigate, showToast, setSelectedVTuber, currentUser }) => {
       const [desiredType, setDesiredType] = useState('');
       const [matchedVtuber, setMatchedVtuber] = useState(null);
@@ -475,14 +474,15 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">你的Instagram</label><input type="url" value={form.igUrl} onChange={e=>updateForm({igUrl: e.target.value})} className={inputCls} /></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">聯絡 Email (名片不顯示) <span className="text-red-400">*</span></label><input required type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} /></div>
+          {/* Email 欄位已改寫：僅儲存於 vtubers_private，不公開展示 */}
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">聯絡 Email (保密不顯示) <span className="text-red-400">*</span></label><input required type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，不會公開" /></div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e=>updateForm({streamStyleUrl: e.target.value})} className={inputCls} placeholder="填入影片連結" /></div>
         </div>
         {!isAdmin && (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
             <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
             <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在 X 或 YouTube 簡介暫放 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>，管理員會親自審核，請直接輸入暫放平台。</p>
-            <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式..." />
+            <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -545,7 +545,7 @@
       );
     };
 
-    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, isBlacklist }) => (
+    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, isBlacklist, privateDocs }) => (
       <div className="mb-8">
         <h3 className={`text-xl font-bold mb-4 border-b border-gray-700 pb-2 ${isBlacklist ? 'text-red-500' : title.includes('待') ? 'text-yellow-400' : 'text-white'}`}>{title} ({list.length})</h3>
         {list.length === 0 && <p className="text-gray-500 text-sm">目前無資料</p>}
@@ -559,12 +559,16 @@
                   {!isBlacklist && <p className="text-xs text-gray-400 mt-1">{v.agency} | {v.activityStatus==='sleep'?'休眠':v.activityStatus==='graduated'?'畢業':'活躍'} | 倒讚: <span className="text-red-400">{v.dislikes||0}</span></p>}
                   {isBlacklist && <p className="text-xs text-red-400 font-bold">倒讚數: {v.dislikes || 0}</p>}
                   
-                  {/* 防冒用驗證備註與檢查連結 */}
-                  {v.verificationNote && (
+                  {/* 從 privateDocs 中安全抓取驗證備註 */}
+                  {privateDocs[v.id]?.verificationNote && (
                     <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block">
-                      <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.verificationNote}
+                      <i className="fa-solid fa-key mr-1"></i> 驗證備註: {privateDocs[v.id].verificationNote}
                     </p>
                   )}
+                  {privateDocs[v.id]?.contactEmail && (
+                    <p className="text-xs text-gray-400 mt-1"><i className="fa-solid fa-envelope mr-1"></i> {privateDocs[v.id].contactEmail}</p>
+                  )}
+
                   <div className="flex gap-3 mt-1.5">
                     {(v.youtubeUrl || v.channelUrl) && <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 transition-colors"><i className="fa-brands fa-youtube"></i> 檢查</a>}
                     {v.twitchUrl && <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 transition-colors"><i className="fa-brands fa-twitch"></i> 檢查</a>}
@@ -583,7 +587,7 @@
       </div>
     );
 
-    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
       const [editRules, setEditRules] = useState(rules);
@@ -604,7 +608,7 @@
           customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
           twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
           youtubeUrl: v.youtubeUrl || v.channelUrl || '', twitchUrl: v.twitchUrl || '', xUrl: v.xUrl || '', igUrl: v.igUrl || '',
-          contactEmail: v.contactEmail || '', streamingStyle: v.streamingStyle || '一般型態', activityStatus: v.activityStatus || 'active',
+          contactEmail: privateDocs[v.id]?.contactEmail || '', verificationNote: privateDocs[v.id]?.verificationNote || '', streamingStyle: v.streamingStyle || '一般型態', activityStatus: v.activityStatus || 'active',
           likes: v.likes || 0, dislikes: v.dislikes || 0
         });
       };
@@ -632,9 +636,9 @@
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
-                  <AdminVtuberList title="待審核名單" list={pendingVtubers} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
                   <div className="mt-12 pt-6 border-t border-red-500/50"><button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button></div>
                 </div>
               )}
@@ -693,6 +697,7 @@
       
       const [user, setUser] = useState(null);
       const [realVtubers, setRealVtubers] = useState([]);
+      const [privateDocs, setPrivateDocs] = useState({}); // 儲存私密資料 (管理員用)
       const [realBulletins, setRealBulletins] = useState([]);
       const [realCollabs, setRealCollabs] = useState([]);
 
@@ -750,9 +755,29 @@
         return () => { unsubscribeAuth(); clearInterval(timer); };
       }, []);
 
+      // 監聽自己的私密資料 (供編輯名片時載入)
       useEffect(() => {
-        if (user && user.uid) updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(()=>{});
+        if (user && user.uid) {
+           const unsubPrivate = onSnapshot(doc(db, getPath('vtubers_private'), user.uid), (docSnap) => {
+              if (docSnap.exists()) {
+                 const data = docSnap.data();
+                 setProfileForm(prev => ({...prev, contactEmail: data.contactEmail || '', verificationNote: data.verificationNote || ''}));
+              }
+           });
+           updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(()=>{});
+           return () => unsubPrivate();
+        }
       }, [user?.uid]);
+
+      // 管理員監聽所有私密資料 (為了審核時看到備註)
+      useEffect(() => {
+        if (isAdmin) {
+          const unsub = onSnapshot(collection(db, getPath('vtubers_private')), (snap) => {
+            const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs);
+          });
+          return () => unsub();
+        }
+      }, [isAdmin]);
 
       useEffect(() => {
         const statsRef = doc(db, getPath('settings'), 'stats');
@@ -773,7 +798,8 @@
                 ...prev, ...cp, name: cp.name || prev.name, description: cp.description || prev.description, tags: Array.isArray(cp.tags) ? cp.tags.join(', ') : cp.tags || '',
                 collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                 scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
-                youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', contactEmail: cp.contactEmail || '', verificationNote: cp.verificationNote || ''
+                youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || ''
+                // contactEmail 和 verificationNote 從私密資料表更新，上面已經處理了
               }));
             }
           }
@@ -838,6 +864,7 @@
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
+      // --- 大腦函數：名片儲存邏輯分離 ---
       const handleSaveProfile = async (e, customForm = profileForm) => {
         if(e) e.preventDefault(); if (!user) return showToast("請先登入！");
         let finalCollabs = [...(customForm.collabTypes || [])];
@@ -851,9 +878,23 @@
           const tagsArray = (customForm.tags || '').split(',').map(t => t.trim()).filter(t => t);
           const existingProfile = realVtubers.find(v => v.id === (customForm.id||user.uid));
           const isVerified = existingProfile ? existingProfile.isVerified : false;
-          await setDoc(doc(db, getPath('vtubers'), customForm.id||user.uid), { 
-            ...customForm, tags: tagsArray, collabTypes: finalCollabs, likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], isBlacklisted: customForm.isBlacklisted || false, status: customForm.status || '歡迎邀請', isVerified: isVerified, lastActiveAt: Date.now(), updatedAt: Date.now() 
-          }, { merge: true });
+
+          // 1. 公開資料庫 (不包含 Email)
+          const publicData = {
+            name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs,
+            isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
+            scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers,
+            youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
+            likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], isBlacklisted: customForm.isBlacklisted || false, status: customForm.status || '歡迎邀請',
+            isVerified: isVerified, lastActiveAt: Date.now(), updatedAt: Date.now()
+          };
+
+          // 2. 私密資料庫 (保護隱私)
+          const privateData = { contactEmail: customForm.contactEmail, verificationNote: customForm.verificationNote, updatedAt: Date.now() };
+
+          await setDoc(doc(db, getPath('vtubers'), customForm.id||user.uid), publicData, { merge: true });
+          await setDoc(doc(db, getPath('vtubers_private'), customForm.id||user.uid), privateData, { merge: true });
+
           showToast(isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
           if(!customForm.id) navigate('grid');
         } catch (err) { showToast("儲存失敗"); }
@@ -917,10 +958,16 @@
         try {
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
           let finalCollabs = [...(updatedData.collabTypes || [])]; if (updatedData.isOtherCollab && updatedData.otherCollabText?.trim()) finalCollabs.push(updatedData.otherCollabText.trim());
-          await setDoc(doc(db, getPath('vtubers'), id), { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, updatedAt: Date.now() }, { merge: true }); showToast("強制更新成功！");
+          
+          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, updatedAt: Date.now() };
+          delete publicData.contactEmail; delete publicData.verificationNote; // 確保強制更新時不覆蓋到公開區
+
+          await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); 
+          await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true }); 
+          showToast("強制更新成功！");
         } catch (err) { showToast("更新失敗"); }
       };
-      const handleDeleteVtuber = async (id) => { if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return; try { await deleteDoc(doc(db, getPath('vtubers'), id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); } };
+      const handleDeleteVtuber = async (id) => { if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return; try { await deleteDoc(doc(db, getPath('vtubers'), id)); await deleteDoc(doc(db, getPath('vtubers_private'), id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); } };
       const handleDeleteBulletin = async (id) => { if (!confirm("確定要刪除這則招募文嗎？")) return; try { await deleteDoc(doc(db, getPath('bulletins'), id)); showToast("已刪除招募文"); } catch (err) { showToast("刪除失敗"); } };
       const handleAddCollab = async (collabData) => { try { await addDoc(collection(db, getPath('collabs')), { ...collabData, userId: user?.uid || 'admin', createdAt: Date.now() }); showToast("已發布聯動行程"); } catch (err) { showToast("新增失敗"); } };
       const handleDeleteCollab = async (id) => { if (!confirm("確定要刪除這個聯動行程嗎？")) return; try { await deleteDoc(doc(db, getPath('collabs'), id)); showToast("已刪除聯動行程"); } catch (err) { showToast("刪除失敗"); } };
@@ -1080,12 +1127,12 @@
                               {selectedVTuber.twitchUrl && <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-twitch"></i> Twitch</a>}
                               {selectedVTuber.xUrl && <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
                               {selectedVTuber.igUrl && <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 text-pink-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-instagram"></i> IG</a>}
-                              {isVerifiedUser && selectedVTuber.contactEmail && <a href={`mailto:${selectedVTuber.contactEmail}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-lg font-bold"><i className="fa-solid fa-envelope"></i> Email</a>}
                             </div>
                           </div>
                           <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                             {selectedVTuber.streamStyleUrl && <a href={selectedVTuber.streamStyleUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看代表作</a>}
-                            {isVerifiedUser && <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0"><i className="fa-solid fa-paper-plane mr-2"></i>提出邀請</button>}
+                            {/* 寄信按鈕已改為發送站內邀約 */}
+                            {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0"><i className="fa-solid fa-paper-plane mr-2"></i>發送站內邀約</button>}
                           </div>
                         </div>
                       </div>
@@ -1188,29 +1235,26 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} rules={realRules} tips={realTips} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} />}
+            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} />}
           </main>
 
-          {/* --- 邀請表單 Modal --- */}
+          {/* --- 邀請表單 Modal (已修改為純站內信模式) --- */}
           {isCollabModalOpen && selectedVTuber && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in-up">
-                <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>發送邀請給 {selectedVTuber.name}</h3><button onClick={() => setIsCollabModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button></div>
+                <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>發送聯動邀約給 {selectedVTuber.name}</h3><button onClick={() => setIsCollabModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button></div>
                 <div className="p-5 space-y-4">
-                  {!selectedVTuber.contactEmail ? <p className="text-red-400 text-sm font-bold bg-red-500/10 p-3 rounded-lg"><i className="fa-solid fa-circle-exclamation mr-2"></i>這位創作者尚未公開聯絡 Email，請嘗試透過名片上的其他社群平台與他聯絡。</p> : (
-                    <>
-                      <p className="text-xs text-gray-400">* 將開啟 Email 軟體並帶入內容。</p>
-                      <textarea rows="6" value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className={inputCls + " resize-none"} placeholder="寫下您的邀請內容..."></textarea>
-                      <button onClick={async () => { 
-                          if(!inviteMessage.trim()) return showToast("請輸入內容！");
-                          if (user && selectedVTuber.id) {
-                             try { await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '對您提出了聯動邀約！趕快去檢查信箱吧！', createdAt: Date.now(), read: false }); } catch(e) {}
-                          }
-                          window.location.href = `mailto:${selectedVTuber.contactEmail}?subject=${encodeURIComponent(`[V-Nexus 聯動邀約] 來自 ${myProfile?.name || '創作者'} 的邀請`)}&body=${encodeURIComponent(inviteMessage)}`;
-                          setIsCollabModalOpen(false); setInviteMessage(''); showToast("✅ 邀約已寄出並發送站內通知！");
-                        }} className={btnCls + " w-full"}><i className="fa-solid fa-envelope"></i> 開啟信箱寄出</button>
-                    </>
-                  )}
+                  <p className="text-xs text-gray-400">* 為了保護雙方隱私，我們採用站內信系統，對方登入時將會收到您的通知。</p>
+                  <textarea rows="6" value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className={inputCls + " resize-none"} placeholder="寫下您的邀請內容..."></textarea>
+                  <button onClick={async () => { 
+                      if(!inviteMessage.trim()) return showToast("請輸入內容！");
+                      if (user && selectedVTuber.id) {
+                         try { 
+                            await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: `寄來了一封聯動邀約：\n「${inviteMessage}」`, createdAt: Date.now(), read: false }); 
+                            setIsCollabModalOpen(false); setInviteMessage(''); showToast("✅ 邀約已成功送出！");
+                         } catch(e) { showToast("發送失敗，請稍後再試。"); }
+                      }
+                    }} className={btnCls + " w-full"}><i className="fa-solid fa-paper-plane"></i> 傳送站內邀約</button>
                 </div>
               </div>
             </div>
