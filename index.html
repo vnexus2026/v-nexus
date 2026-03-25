@@ -26,6 +26,14 @@
 
     @keyframes radarSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .animate-radar { animation: radarSpin 2s linear infinite; }
+
+    /* 針對深色主題將原生日曆與時間 icon 反轉為白色 */
+    input[type="time"]::-webkit-calendar-picker-indicator,
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+    }
   </style>
 </head>
 <body class="selection:bg-purple-500 selection:text-white m-0 p-0 overflow-x-hidden">
