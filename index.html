@@ -496,61 +496,8 @@
       </form>
     );
 
-    // --- 新增：專屬信箱分頁元件 ---
-    const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile }) => {
-      return (
-        <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-gray-700 pb-4 gap-4">
-            <div>
-              <h2 className="text-3xl font-extrabold text-white flex items-center gap-3"><i className="fa-solid fa-envelope-open-text text-purple-400"></i> 我的信箱</h2>
-              <p className="text-gray-400 mt-2 text-sm leading-relaxed">這裡是您的專屬通知中心，所有的聯動邀約與招募報名都會顯示在這裡喔！</p>
-            </div>
-            {notifications.some(n => !n.read) && (
-              <button onClick={markAllAsRead} className="text-sm font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-4 py-2 rounded-xl transition-colors whitespace-nowrap flex-shrink-0">
-                <i className="fa-solid fa-check-double mr-1"></i> 全部標示為已讀
-              </button>
-            )}
-          </div>
-          
-          {notifications.length === 0 ? (
-            <div className="text-center py-24 bg-gray-800/40 rounded-3xl border border-gray-700/50 shadow-xl">
-              <i className="fa-regular fa-envelope-open text-6xl text-gray-600 mb-6"></i>
-              <p className="text-gray-400 font-bold text-lg">信箱目前空空如也！</p>
-              <p className="text-gray-500 text-sm mt-2">當有人向您發出聯動邀請時，就會出現在這裡。</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {notifications.map(n => (
-                <div key={n.id} className={`p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-800 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]'}`}>
-                  <div className="flex items-start gap-4 sm:gap-5">
-                    <img src={n.fromUserAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon'} onClick={() => onNavigateProfile(n.fromUserId)} className="w-14 h-14 rounded-full border-2 border-gray-700 bg-gray-900 object-cover flex-shrink-0 cursor-pointer hover:border-purple-400 transition-colors" title="查看對方名片" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                        <h4 className="font-bold text-white text-lg flex flex-wrap items-center gap-2">
-                          <span onClick={() => onNavigateProfile(n.fromUserId)} className="cursor-pointer hover:text-purple-400 transition-colors">{n.fromUserName}</span>
-                          {!n.read && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-lg whitespace-nowrap">新通知</span>}
-                        </h4>
-                        <span className="text-xs text-gray-500 font-medium whitespace-nowrap"><i className="fa-regular fa-clock mr-1"></i>{formatTime(n.createdAt)}</span>
-                      </div>
-                      <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/80 p-4 rounded-xl border border-gray-700/50 mt-3 shadow-inner">{n.message}</p>
-                      
-                      <div className="flex flex-wrap justify-end gap-3 mt-5">
-                        <button onClick={() => onNavigateProfile(n.fromUserId)} className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-address-card mr-2"></i> 查看對方名片</button>
-                        {!n.read && <button onClick={() => onMarkRead(n.id)} className="text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-check mr-2"></i> 標為已讀</button>}
-                        <button onClick={() => onDelete(n.id)} className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-4 py-2 rounded-lg transition-colors flex items-center shadow-md"><i className="fa-solid fa-trash mr-2"></i> 刪除此信</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    };
-
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin }) => {
+    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
       const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
@@ -568,13 +515,17 @@
             <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-            <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl">
+            <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
               <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">網站總瀏覽人次</p>
               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{siteStats?.pageViews !== null ? siteStats.pageViews : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}</p>
             </div>
-            <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl">
-              <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">本網站已成功讓Vtuber們聯動</p>
+            <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+              <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">V-NEXUS已成功讓VTUBER聯動</p>
               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">{!isLoadingCollabs ? completedCollabsCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">次</span></p>
+            </div>
+            <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+              <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前已有VTUBER註冊</p>
+              <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">{registeredCount !== null && registeredCount !== undefined ? registeredCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">位</span></p>
             </div>
           </div>
           
@@ -1124,7 +1075,7 @@
           </nav>
 
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
 
             {currentView === 'inbox' && user && (
               <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />
