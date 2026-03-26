@@ -34,6 +34,11 @@
       filter: invert(1);
       cursor: pointer;
     }
+
+    /* 強制隱藏時間選擇器中的 AM/PM (上午/下午) 區塊，以實現純 24 小時制 */
+    ::-webkit-datetime-edit-ampm-field {
+      display: none;
+    }
   </style>
 </head>
 <body class="selection:bg-purple-500 selection:text-white m-0 p-0 overflow-x-hidden">
@@ -43,7 +48,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-    import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
 
@@ -60,24 +64,13 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
-    // --- 🛡️ Firebase App Check 終極防護設定 ---
-    // 請將下方的 '6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M' 替換為實際的 Site Key
-    try {
-      initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider('6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M'),
-        isTokenAutoRefreshEnabled: true
-      });
-    } catch (error) {
-      console.warn("App Check 初始化提醒:", error);
-    }
-
     const provider = new GoogleAuthProvider();
     const APP_ID = 'v-nexus-official';
     const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
     // --- 全域常數與工具函數 ---
     const PREDEFINED_COLLABS = ['APEX', '瓦羅蘭', 'LOL', 'FPS', 'Minecraft', '合作遊戲', '企劃', '歌回', '雜談'];
+    const COLLAB_CATEGORIES = ['遊戲', '雜談歌回', '特別企劃'];
     const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-sm";
     const btnCls = "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
 
@@ -107,6 +100,26 @@
       const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
       return (match && match[2].length === 11) ? `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg` : null;
     };
+    
+    // 自動從 YouTube 網址抓取縮圖與標題
+    const autoFetchYouTubeInfo = async (url, setTitle, setCoverUrl, showToast) => {
+      if (!url) return showToast("請先輸入 YouTube 連結");
+      const ytMatch = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
+      if (ytMatch && ytMatch[2].length === 11) {
+        const vid = ytMatch[2];
+        setCoverUrl(`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`);
+        try {
+          const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`);
+          const data = await res.json();
+          if (data.title) setTitle(data.title);
+          showToast("✅ 已自動抓取標題與封面圖！(時間請手動設定)");
+        } catch(e) {
+          showToast("✅ 已自動填入封面圖！(標題需手動輸入)");
+        }
+      } else {
+        showToast("這似乎不是有效的 YouTube 連結");
+      }
+    };
 
     const parseSubscribers = (v) => {
       const parseStr = (str) => {
@@ -127,7 +140,6 @@
       if (String(v.id || '').startsWith('mock')) return true;
       if (!v.isVerified || v.isBlacklisted) return false;
       if (v.activityStatus === 'sleep' || v.activityStatus === 'graduated') return false;
-      if (Date.now() - (v.lastActiveAt || v.updatedAt || v.createdAt || Date.now()) > 30 * 24 * 60 * 60 * 1000) return false; 
       return true;
     };
 
@@ -136,7 +148,7 @@
       <span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>
     );
 
-    const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab }) => {
+    const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNavigateProfile }) => {
       if (!c) return null;
       const displayImg = c.coverUrl || getYouTubeThumbnail(c.streamUrl) || 'https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&q=80&w=800';
       return (
@@ -152,9 +164,26 @@
             {c.streamUrl && <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none"><div className={`w-16 h-16 ${isLive ? 'bg-red-500' : 'bg-red-600/90'} text-white rounded-full flex items-center justify-center pl-1 shadow-[0_0_30px_rgba(220,38,38,0.8)] backdrop-blur-sm`}><i className="fa-solid fa-play text-2xl"></i></div></div>}
           </div>
           <div className="p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
+            <div className="mb-2">
+              <span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-1 rounded-lg border border-purple-500/30 font-bold">{c.category || '遊戲'}</span>
+            </div>
             <h3 className={`text-xl font-extrabold text-white mb-6 line-clamp-2 leading-tight transition-colors ${isLive ? 'text-red-400' : 'group-hover:text-red-400'}`}>{c.title}</h3>
             <div className="mt-auto">
               {c.streamUrl ? <a href={c.streamUrl} target="_blank" rel="noopener noreferrer" className={`w-full ${isLive ? 'bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.6)] animate-pulse' : 'bg-red-600 hover:bg-red-500 group-hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]'} text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2`}><i className="fa-solid fa-play-circle text-lg"></i> 前往待機室 / 觀看直播</a> : <div className="w-full bg-gray-800 text-gray-500 py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 border border-gray-700"><i className="fa-solid fa-clock"></i> 直播連結尚未提供</div>}
+              
+              {/* 發起人名片按鈕 */}
+              {vtuber && vtuber.id !== 'admin' && onNavigateProfile && (
+                <div onClick={(e) => { e.stopPropagation(); onNavigateProfile(vtuber); }} className="mt-4 pt-4 border-t border-gray-700/50 flex items-center justify-between cursor-pointer group/author hover:bg-gray-800/80 p-2 -mx-2 rounded-xl transition-colors">
+                  <div className="flex items-center gap-3">
+                    <img src={vtuber.avatar} className="w-8 h-8 rounded-full border border-gray-600 object-cover" />
+                    <div className="text-left">
+                      <p className="text-[10px] text-gray-400 mb-0.5">發起人</p>
+                      <p className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors truncate max-w-[150px]">{vtuber.name}</p>
+                    </div>
+                  </div>
+                  <button className="text-xs bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg group-hover/author:bg-purple-600 group-hover/author:text-white transition-colors font-bold"><i className="fa-solid fa-id-card mr-1.5"></i>查看名片</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -179,15 +208,15 @@
           <div className="ml-20 mb-3">
             <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
             <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
-              {(v.youtubeSubscribers || v.subscribers || v.youtubeUrl || v.channelUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {v.youtubeSubscribers || v.subscribers || '未公開'}</span>}
-              {(v.twitchFollowers || v.twitchUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-twitch text-purple-400"></i> {v.twitchFollowers || '未公開'}</span>}
               <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
+              {v.nationality && <span className="flex items-center gap-1 text-blue-300"><i className="fa-solid fa-earth-asia"></i> {v.nationality}</span>}
+              {v.language && <span className="flex items-center gap-1 text-yellow-300"><i className="fa-solid fa-language"></i> {v.language}</span>}
             </div>
           </div>
           <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
           {v.streamStyleUrl && (
             <div className="mt-1 mb-1">
-              <a href={v.streamStyleUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"><i className="fa-solid fa-video"></i> 我的直播風格代表作</a>
+              <a href={v.streamStyleUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"><i className="fa-solid fa-video"></i> 觀看我的直播風格</a>
             </div>
           )}
           <div className="mt-auto pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
@@ -195,10 +224,30 @@
             {isVerifiedUser && v.id !== user?.uid && <button onClick={(e) => { e.stopPropagation(); onDislike(v); }} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-50 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="檢舉負面行為"><i className="fa-solid fa-thumbs-down text-[10px]"></i></button>}
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
-            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' && <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="YouTube"><i className="fa-brands fa-youtube text-sm"></i></a>}
-            {v.twitchUrl && v.twitchUrl !== '#' && <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Twitch"><i className="fa-brands fa-twitch text-sm"></i></a>}
-            {v.xUrl && v.xUrl !== '#' && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
-            {v.igUrl && v.igUrl !== '#' && <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram"><i className="fa-brands fa-instagram text-sm"></i></a>}
+            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' ? (
+              <a href={v.youtubeUrl || v.channelUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="YouTube">
+                <i className="fa-brands fa-youtube text-sm"></i>
+                {(v.youtubeSubscribers || v.subscribers) && <span className="text-[10px] font-bold">{v.youtubeSubscribers || v.subscribers}</span>}
+              </a>
+            ) : (v.youtubeSubscribers || v.subscribers) ? (
+              <div className="bg-red-500/10 text-red-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1" title="YouTube 訂閱數">
+                <i className="fa-brands fa-youtube text-sm"></i>
+                <span className="text-[10px] font-bold">{v.youtubeSubscribers || v.subscribers}</span>
+              </div>
+            ) : null}
+            {v.twitchUrl && v.twitchUrl !== '#' ? (
+              <a href={v.twitchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="Twitch">
+                <i className="fa-brands fa-twitch text-sm"></i>
+                {v.twitchFollowers && <span className="text-[10px] font-bold">{v.twitchFollowers}</span>}
+              </a>
+            ) : v.twitchFollowers ? (
+              <div className="bg-purple-500/10 text-purple-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1" title="Twitch 追隨數">
+                <i className="fa-brands fa-twitch text-sm"></i>
+                <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
+              </div>
+            ) : null}
+            {v.xUrl && v.xUrl !== '#' && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
+            {v.igUrl && v.igUrl !== '#' && <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram"><i className="fa-brands fa-instagram text-sm"></i></a>}
           </div>
         </div>
       </div>
@@ -275,7 +324,7 @@
       );
     };
 
-    const MatchPage = ({ vtubers, navigate, showToast, setSelectedVTuber, currentUser }) => {
+    const MatchPage = ({ vtubers, navigate, showToast, currentUser }) => {
       const [desiredType, setDesiredType] = useState('');
       const [matchedVtuber, setMatchedVtuber] = useState(null);
       const [isMatching, setIsMatching] = useState(false);
@@ -360,7 +409,7 @@
                 </div>
                 <div className="flex gap-3 w-full">
                   <button onClick={() => {setMatchedVtuber(null); setDesiredType('');}} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3.5 rounded-xl text-sm font-bold transition-colors">再抽一次</button>
-                  <button onClick={() => { setSelectedVTuber(matchedVtuber); window.location.hash = 'grid'; setTimeout(() => { window.dispatchEvent(new HashChangeEvent('hashchange')); navigate('profile'); window.scrollTo(0,0); }, 50); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
+                  <button onClick={() => { navigate(`profile/${matchedVtuber.id}`); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
                 </div>
               </div>
             )}
@@ -392,9 +441,9 @@
                   <select value={slot.day} onChange={e => updateSlot(index, 'day', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500">
                     {['星期一','星期二','星期三','星期四','星期五','星期六','星期日','平日','週末','每日'].map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
-                  <input type="time" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <span className="text-gray-400 text-xs">至</span>
-                  <input type="time" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <button type="button" onClick={() => updateForm({scheduleSlots: form.scheduleSlots.filter((_, i) => i !== index)})} className="text-red-400 hover:text-red-300 ml-auto px-2 transition-colors"><i className="fa-solid fa-trash"></i></button>
                 </div>
               ))}
@@ -456,6 +505,32 @@
             <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
+            <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="台灣">台灣</option>
+              <option value="香港">香港</option>
+              <option value="馬來西亞">馬來西亞</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
+            <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="國">國</option>
+              <option value="台">台</option>
+              <option value="日">日</option>
+              <option value="英">英</option>
+              <option value="粵">粵</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
           <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
@@ -464,7 +539,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
         </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
         {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
@@ -495,8 +570,8 @@
           <h3 className="text-white font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-envelopes-bulk text-purple-400"></i> 聯絡信箱設定</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email <span className="text-red-400">*</span></label>
-              <input required type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，絕對不會公開" />
+              <label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email (選填)</label>
+              <input type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，絕對不會公開" />
               <p className="text-[10px] text-gray-500 mt-1">此信箱存於獨立的私密防護庫，不會出現在名片上。</p>
             </div>
             <div>
@@ -513,14 +588,22 @@
 
         {!isAdmin && (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-            <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
-            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在 X 或 YouTube 簡介暫放 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>，管理員會親自審核，請直接輸入暫放平台。</p>
+            <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-gray-400 text-sm font-normal">(選填)</span></h3>
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，管理員會親自審核，此欄位請輸入你放在X還是Youtube。</p>
             <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
           </div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label><div className="flex gap-3"><img src={form.avatar} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div></div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label><div className="flex gap-3"><img src={form.banner} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div></div>
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label>
+            <div className="flex gap-3"><img src={form.avatar} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div>
+            <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label>
+            <div className="flex gap-3"><img src={form.banner} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div>
+            <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
+          </div>
         </div>
         <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
           {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
@@ -583,10 +666,15 @@
     };
 
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
+    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
-      const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
+      const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (2 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
+
+      // 新增：隨機挑選 4 個未過期的聯動 (使用 useMemo 確保重新整理時才會重新打亂，避免畫面閃爍)
+      const randomCollabs = useMemo(() => {
+        return [...safeDisplayCollabs].sort(() => 0.5 - Math.random()).slice(0, 4);
+      }, [safeDisplayCollabs.map(c => c.id).join(',')]); 
 
       return (
         <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
@@ -597,7 +685,17 @@
           <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
             <button onClick={() => navigate('grid')} className="h-14 bg-purple-600 hover:bg-purple-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴</button>
             <button onClick={() => navigate('dashboard')} className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片</button>
-            <div className="flex flex-col items-center w-full sm:w-auto"><a href="https://t.co/pSbScwAIqh" target="_blank" rel="noopener noreferrer" className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-clipboard-list mr-2"></i>初期意見調查</a><span className="text-gray-500 text-[10px] mt-2 font-bold">(歡迎不吝提供建議)</span></div>
+            <div className="flex flex-col items-center w-full sm:w-auto">
+              <button onClick={onOpenUpdates} className="relative h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
+                <i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布
+                {hasUnreadUpdates && (
+                  <span className="absolute -top-2 -right-2 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#0f111a]"></span>
+                  </span>
+                )}
+              </button>
+            </div>
             <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
@@ -610,18 +708,18 @@
               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">{!isLoadingCollabs ? completedCollabsCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">次</span></p>
             </div>
             <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-              <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前已有VTUBER註冊</p>
+              <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前VTUBER註冊人數</p>
               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">{registeredCount !== null && registeredCount !== undefined ? registeredCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">位</span></p>
             </div>
           </div>
           
           <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
 
-          {safeDisplayCollabs.length > 0 && (
+          {randomCollabs.length > 0 && (
             <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
                 <div className="text-left">
-                  <h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>最新聯動</h2>
+                  <h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2>
                   <p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p>
                 </div>
                 <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2">
@@ -629,7 +727,7 @@
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
-                {safeDisplayCollabs.slice(0, 4).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} />)}
+                {randomCollabs.map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => navigate(`profile/${vt.id}`) } />)}
               </div>
               <button onClick={() => navigate('collabs')} className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
             </div>
@@ -638,7 +736,7 @@
       );
     };
 
-    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, isBlacklist, privateDocs }) => (
+    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs }) => (
       <div className="mb-8">
         <h3 className={`text-xl font-bold mb-4 border-b border-gray-700 pb-2 ${isBlacklist ? 'text-red-500' : title.includes('待') ? 'text-yellow-400' : 'text-white'}`}>{title} ({list.length})</h3>
         {list.length === 0 && <p className="text-gray-500 text-sm">目前無資料</p>}
@@ -671,6 +769,7 @@
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 {onVerify && <button onClick={()=>onVerify(v.id)} className="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg text-sm font-bold">審核</button>}
+                {onReject && <button onClick={()=>onReject(v.id)} className="text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg text-sm font-bold">拒絕</button>}
                 <button onClick={()=>onEdit(v)} className="text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg text-sm font-bold">編輯</button>
                 <button onClick={()=>onDelete(v.id)} className={`text-red-400 px-3 py-2 rounded-lg text-sm font-bold ${isBlacklist ? 'bg-red-900/50 hover:bg-red-600 hover:text-white' : 'bg-red-500/10'}`}>刪除</button>
               </div>
@@ -680,23 +779,34 @@
       </div>
     );
 
-    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, autoFetchYouTubeInfo }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
-      const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
+      const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
       const [editTips, setEditTips] = useState(tips);
       const [editingVtuber, setEditingVtuber] = useState(null);
 
       const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
-      const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted);
+      const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
+      const rejectedVtubers = safeVtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected' && !v.isBlacklisted);
       const verifiedVtubers = safeVtubers.filter(v => v.isVerified && !v.isBlacklisted);
       const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
 
       const handleEditClick = (v) => {
         const standard = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => PREDEFINED_COLLABS.includes(t)) : [];
         const other = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '' : '';
+        
+        const PREDEFINED_NATIONALITIES = ['台灣', '香港', '馬來西亞'];
+        const PREDEFINED_LANGUAGES = ['國', '台', '日', '英', '粵'];
+        const n = v.nationality || '';
+        const isOtherN = n && !PREDEFINED_NATIONALITIES.includes(n);
+        const l = v.language || '';
+        const isOtherL = l && !PREDEFINED_LANGUAGES.includes(l);
+
         setEditingVtuber({
           ...v, tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '', collabTypes: standard, isOtherCollab: !!other, otherCollabText: other,
+          nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '',
+          language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
           isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false,
           customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
           twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
@@ -710,7 +820,7 @@
         if (!newCollab.dateTime || !newCollab.streamUrl || !newCollab.title) return showToast("請完整填寫！");
         const dt = new Date(newCollab.dateTime);
         onAddCollab({ ...newCollab, date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, startTimestamp: dt.getTime() });
-        setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
+        setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       };
 
       return (
@@ -719,7 +829,7 @@
             <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2></div>
             <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
               {[{ id: 'vtubers', icon: 'fa-address-card', label: '名片與審核' }, { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' },
-                { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
+                { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'updates', icon: 'fa-newspaper', label: '發布消息' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? 'bg-red-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   <i className={`fa-solid ${t.icon}`}></i> {t.label}
                   {t.id === 'vtubers' && pendingVtubers.length > 0 && <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs ml-1">{pendingVtubers.length}</span>}
@@ -729,7 +839,8 @@
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
-                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />}
                   <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
                   <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
                   <div className="mt-12 pt-6 border-t border-red-500/50"><button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button></div>
@@ -745,13 +856,72 @@
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-bold text-white mb-4">新增聯動時間</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} /><input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} /></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">聯動類別 <span className="text-red-400">*</span></label>
+                        <select required value={newCollab.category} onChange={e=>setNewCollab({...newCollab, category: e.target.value})} className={inputCls}>
+                          {COLLAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label>
+                        <input type="datetime-local" lang="en-GB" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} />
+                      </div>
+                      <div className="relative">
+                        <label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label>
+                        <div className="flex gap-2">
+                          <input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} />
+                          <button type="button" onClick={() => autoFetchYouTubeInfo(newCollab.streamUrl, (t) => setNewCollab(p => ({...p, title: t})), (c) => setNewCollab(p => ({...p, coverUrl: c})), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-colors"><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>抓取</button>
+                        </div>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="text" placeholder="聯動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className={inputCls} /><input type="url" placeholder="自訂封面圖" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className={inputCls} /></div>
                     <button onClick={handleAdminPublish} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold">發布</button>
                   </div>
                   <div className="border-t border-gray-700 pt-6 space-y-4">
                     <h3 className="text-lg font-bold text-white mb-4">現有清單</h3>
                     {(collabs||[]).map(c => <div key={c.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700"><div><p className="font-bold text-white text-sm">[{c.date} {c.time}] {c.title}</p></div><button onClick={() => onDeleteCollab(c.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg">刪除</button></div>)}
+                  </div>
+                </div>
+              )}
+              {activeTab === 'updates' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-4">發布最新消息 / 功能更新</h3>
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      onAddUpdate({
+                        title: e.target.updateTitle.value,
+                        content: e.target.updateContent.value,
+                        date: new Date().toLocaleDateString('zh-TW')
+                      });
+                      e.target.reset();
+                    }}>
+                      <div className="mb-4">
+                        <label className="text-xs text-gray-400 mb-1 block">標題 <span className="text-red-400">*</span></label>
+                        <input required type="text" name="updateTitle" className={inputCls} placeholder="例如：新增站內信功能！" />
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-xs text-gray-400 mb-1 block">內容 <span className="text-red-400">*</span></label>
+                        <textarea required name="updateContent" className={inputCls + " resize-none"} rows="4" placeholder="請輸入詳細內容..."></textarea>
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg">發布公告</button>
+                      </div>
+                    </form>
+                  </div>
+                  <div className="border-t border-gray-700 pt-6 space-y-4">
+                    <h3 className="text-lg font-bold text-white mb-4">歷史公告</h3>
+                    {(updates || []).map(u => (
+                      <div key={u.id} className="flex flex-col sm:flex-row sm:justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-white text-sm truncate">{u.title} <span className="text-xs text-gray-500 font-normal ml-2">{u.date}</span></p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{u.content}</p>
+                        </div>
+                        <button onClick={() => onDeleteUpdate(u.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg flex-shrink-0 h-fit font-bold self-start">刪除</button>
+                      </div>
+                    ))}
+                    {(updates || []).length === 0 && <p className="text-gray-500 text-sm">目前沒有任何公告</p>}
                   </div>
                 </div>
               )}
@@ -777,10 +947,20 @@
 
     // --- 主應用程式 ---
     function App() {
-      const getInitialView = () => { const hash = window.location.hash.replace('#', ''); return hash || 'home'; };
+      // 改進：分析 URL hash 支援專屬網址
+      const getInitialView = () => { 
+        const hash = window.location.hash.replace('#', ''); 
+        if (hash.startsWith('profile/')) return 'profile';
+        return hash === 'profile' ? 'grid' : (hash || 'home'); 
+      };
       
       const [currentView, setCurrentView] = useState(getInitialView());
       const [selectedVTuber, setSelectedVTuber] = useState(null);
+      const [profileIdFromHash, setProfileIdFromHash] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return hash.startsWith('profile/') ? hash.split('/')[1] : null;
+      });
+
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
       const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
       const [sortOrder, setSortOrder] = useState('random'); 
@@ -793,15 +973,21 @@
       const [privateDocs, setPrivateDocs] = useState({}); // 儲存私密資料 (管理員用)
       const [realBulletins, setRealBulletins] = useState([]);
       const [realCollabs, setRealCollabs] = useState([]);
+      const [realUpdates, setRealUpdates] = useState([]); // 最新消息
 
       const [searchQuery, setSearchQuery] = useState('');
       const [selectedTags, setSelectedTags] = useState([]);
       const [selectedAgency, setSelectedAgency] = useState('All');
       const [selectedPlatform, setSelectedPlatform] = useState('All');
+      const [selectedNationality, setSelectedNationality] = useState('All');
+      const [selectedLanguage, setSelectedLanguage] = useState('All');
+      const [selectedSchedule, setSelectedSchedule] = useState('All'); // 新增可連動時段篩選
+      const [collabCategoryTab, setCollabCategoryTab] = useState('All'); // 確定聯動時間表分類
       
       const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
       const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
       const [isTipsModalOpen, setIsTipsModalOpen] = useState(false);
+      const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
       const [confirmDislikeData, setConfirmDislikeData] = useState(null);
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       
@@ -810,6 +996,24 @@
       const [realNotifications, setRealNotifications] = useState([]);
       const [isNotifOpen, setIsNotifOpen] = useState(false);
       const notifRef = useRef(null);
+      const gridScrollY = useRef(0);
+      const [currentPage, setCurrentPage] = useState(1);
+
+      // 新增：前端建立聯動時間表的獨立表單狀態
+      const [publicCollabForm, setPublicCollabForm] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
+
+      // --- 新增：最新消息已讀狀態追蹤 ---
+      const [readUpdateIds, setReadUpdateIds] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('readUpdates') || '[]'); } catch { return []; }
+      });
+      const hasUnreadUpdates = realUpdates.some(u => !readUpdateIds.includes(u.id));
+
+      const handleMarkAllUpdatesRead = () => {
+        const allIds = realUpdates.map(u => u.id);
+        setReadUpdateIds(allIds);
+        localStorage.setItem('readUpdates', JSON.stringify(allIds));
+        showToast("✅ 已全部標示為已讀");
+      };
 
       const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？");
       const [realRules, setRealRules] = useState("如果聯動的V朋朋有負面行為，請在他的名片按倒讚。只要超過 10 個倒讚即會自動下架。");
@@ -818,6 +1022,7 @@
 
       const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
+        nationality: '', nationalityOther: '', language: '', languageOther: '',
         isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
         youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', contactEmail: '', verificationNote: ''
       });
@@ -827,15 +1032,44 @@
       const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
       const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active');
 
-      const navigate = (view) => { window.location.hash = view; setIsMobileMenuOpen(false); window.scrollTo(0,0); };
+      const navigate = (view, preserveScroll = false) => { 
+        window.location.hash = view; 
+        setIsMobileMenuOpen(false); 
+        if (!preserveScroll) window.scrollTo(0,0); 
+      };
       const goToBulletin = () => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); };
 
-      const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted).length, [realVtubers]);
+      const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected').length, [realVtubers]);
 
+      // 監聽網址 Hash 變化，處理專屬名片跳轉
       useEffect(() => {
-        const handleHashChange = () => { const h = window.location.hash.replace('#', ''); setCurrentView((h==='profile'&&!selectedVTuber)?'grid':(h||'home')); };
-        window.addEventListener('hashchange', handleHashChange); return () => window.removeEventListener('hashchange', handleHashChange);
-      }, [selectedVTuber]);
+        const handleHashChange = () => { 
+          const hash = window.location.hash.replace('#', ''); 
+          if (hash.startsWith('profile/')) {
+            setProfileIdFromHash(hash.split('/')[1]);
+            setCurrentView('profile');
+          } else {
+            setProfileIdFromHash(null);
+            setCurrentView(hash === 'profile' ? 'grid' : (hash || 'home'));
+          }
+        };
+        handleHashChange(); // 首次載入時解析一次
+        window.addEventListener('hashchange', handleHashChange); 
+        return () => window.removeEventListener('hashchange', handleHashChange);
+      }, []);
+
+      // 根據專屬 ID 解析並設定對應的 VTuber 名片
+      useEffect(() => {
+        if (currentView === 'profile' && profileIdFromHash && !isLoading) {
+          const vt = realVtubers.find(v => v.id === profileIdFromHash);
+          if (vt) {
+            setSelectedVTuber(vt);
+          } else {
+            showToast("找不到該名片，可能已被隱藏或刪除");
+            navigate('grid');
+          }
+        }
+      }, [currentView, profileIdFromHash, realVtubers, isLoading]);
 
       useEffect(() => {
         const handleClickOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false); };
@@ -856,7 +1090,7 @@
                  const data = docSnap.data();
                  setProfileForm(prev => ({...prev, contactEmail: data.contactEmail || '', verificationNote: data.verificationNote || ''}));
               }
-           });
+           }, (err) => console.error("讀取個人私密資料失敗:", err));
            updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(()=>{});
            return () => unsubPrivate();
         }
@@ -867,7 +1101,7 @@
         if (isAdmin) {
           const unsub = onSnapshot(collection(db, getPath('vtubers_private')), (snap) => {
             const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs);
-          });
+          }, (err) => console.error("讀取 vtubers_private 失敗:", err));
           return () => unsub();
         }
       }, [isAdmin]);
@@ -875,7 +1109,7 @@
       useEffect(() => {
         const statsRef = doc(db, getPath('settings'), 'stats');
         updateDoc(statsRef, { pageViews: increment(1) }).catch(() => setDoc(statsRef, { pageViews: 1 }, { merge: true }));
-        return onSnapshot(statsRef, (docSnap) => { if (docSnap.exists()) setSiteStats(docSnap.data()); });
+        return onSnapshot(statsRef, (docSnap) => { if (docSnap.exists()) setSiteStats(docSnap.data()); }, (err) => console.error("讀取 stats 失敗:", err));
       }, []);
 
       useEffect(() => {
@@ -885,49 +1119,61 @@
           if(user) {
             const cp = data.find(v => v.id === user.uid);
             if (cp) {
+              const PREDEFINED_NATIONALITIES = ['台灣', '香港', '馬來西亞'];
+              const PREDEFINED_LANGUAGES = ['國', '台', '日', '英', '粵'];
+              const n = cp.nationality || '';
+              const isOtherN = n && !PREDEFINED_NATIONALITIES.includes(n);
+              const l = cp.language || '';
+              const isOtherL = l && !PREDEFINED_LANGUAGES.includes(l);
+
               const stdTypes = (cp.collabTypes||[]).filter(t => PREDEFINED_COLLABS.includes(t));
               const othType = (cp.collabTypes||[]).filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '';
+              
               setProfileForm(prev => ({
                 ...prev, ...cp, name: cp.name || prev.name, description: cp.description || prev.description, tags: Array.isArray(cp.tags) ? cp.tags.join(', ') : cp.tags || '',
+                nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '',
+                language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
                 collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                 scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
                 youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || ''
-                // contactEmail 和 verificationNote 從私密資料表更新，上面已經處理了
               }));
             }
           }
-        }, () => setIsLoading(false));
+        }, (err) => { 
+            console.error("讀取 vtubers 失敗 (可能是 Firebase Rules 權限設定問題):", err); 
+            setIsLoading(false); 
+        });
 
-        const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); });
-        const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); });
+        const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 bulletins 失敗:", err));
+        const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 collabs 失敗:", err));
+        const unsubU = onSnapshot(collection(db, getPath('updates')), (snap) => setRealUpdates(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.createdAt - a.createdAt)), (err) => console.error("讀取 updates 失敗:", err));
+        const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); }, (err) => console.error("讀取 tips 失敗:", err));
+        const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); }, (err) => console.error("讀取 rules 失敗:", err));
 
-        // 修正：因為設定了安全規則，必須只獲取「屬於自己的通知」，否則會被 Firebase 直接阻擋
         let unsubN = () => {};
         if (user && user.uid) {
            const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
-           unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("通知抓取錯誤:", err));
+           unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 notifications 失敗:", err));
         } else {
            setRealNotifications([]);
         }
 
-        return () => { unsubV(); unsubB(); unsubC(); unsubN(); unsubT(); unsubR(); };
+        return () => { unsubV(); unsubB(); unsubC(); unsubU(); unsubN(); unsubT(); unsubR(); };
       }, [user]);
 
       const myNotifications = useMemo(() => user ? realNotifications.filter(n => n.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt) : [], [realNotifications, user]);
       const unreadCount = myNotifications.filter(n => !n.read).length;
-      const markAllAsRead = () => myNotifications.forEach(n => { if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(()=>{}); });
+      const markAllAsRead = () => myNotifications.forEach(n => { if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }); });
       
       const handleNotifClick = (n) => {
         const sender = realVtubers.find(v => v.id === n.fromUserId);
-        if (sender) { setSelectedVTuber(sender); window.location.hash = 'profile'; }
+        if (sender) { navigate(`profile/${sender.id}`); }
         if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(()=>{}); setIsNotifOpen(false);
       };
 
       const handleNotifProfileNav = (userId) => {
         const vt = realVtubers.find(v => v.id === userId);
-        if (vt) { setSelectedVTuber(vt); navigate('profile'); } 
+        if (vt) { navigate(`profile/${vt.id}`); } 
         else { showToast("找不到該名片，可能已被刪除或隱藏"); }
       };
 
@@ -952,6 +1198,30 @@
         return Array.from(types).sort();
       }, [displayVtubers, user]);
 
+      const dynamicNationalities = useMemo(() => {
+        const nats = new Set(); displayVtubers.filter(v => isVisible(v, user)).forEach(v => { if (v.nationality) nats.add(v.nationality); });
+        return ['All', ...Array.from(nats).sort()];
+      }, [displayVtubers, user]);
+
+      const dynamicLanguages = useMemo(() => {
+        const langs = new Set(); displayVtubers.filter(v => isVisible(v, user)).forEach(v => { if (v.language) langs.add(v.language); });
+        return ['All', ...Array.from(langs).sort()];
+      }, [displayVtubers, user]);
+
+      // 動態抓取所有可連動時段以供篩選
+      const dynamicSchedules = useMemo(() => {
+        const days = new Set();
+        displayVtubers.filter(v => isVisible(v, user)).forEach(v => {
+          if (v.isScheduleAnytime) days.add('隨時可約');
+          if (Array.isArray(v.scheduleSlots)) {
+            v.scheduleSlots.forEach(s => {
+              if (s.day) days.add(s.day);
+            });
+          }
+        });
+        return ['All', ...Array.from(days).sort()];
+      }, [displayVtubers, user]);
+
       const displayBulletins = useMemo(() => {
         return [...realBulletins].filter(b => !b.recruitEndTime || b.recruitEndTime > Date.now())
           .filter(b => { const vt = displayVtubers.find(v => v.id === b.userId); return vt ? isVisible(vt, user) : true; })
@@ -962,7 +1232,18 @@
           }).sort((a, b) => b.createdAt - a.createdAt);
       }, [realBulletins, displayVtubers, user]);
 
-      const displayCollabs = useMemo(() => [...realCollabs].filter(c => !c.startTimestamp || currentTime <= c.startTimestamp + (3*3600*1000)).sort((a, b) => (a.startTimestamp || a.createdAt || 0) - (b.startTimestamp || b.createdAt || 0)), [realCollabs, currentTime]);
+      // 修改：只抓取未來，以及過去 2 小時內的聯動 (超過 2 小時則完全隱藏)
+      const displayCollabs = useMemo(() => {
+        return [...realCollabs]
+          .filter(c => !c.startTimestamp || currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000))
+          .sort((a, b) => (a.startTimestamp || a.createdAt || 0) - (b.startTimestamp || b.createdAt || 0));
+      }, [realCollabs, currentTime]);
+
+      // 依類別過濾聯動
+      const filteredDisplayCollabs = useMemo(() => {
+        if (collabCategoryTab === 'All') return displayCollabs;
+        return displayCollabs.filter(c => (c.category || '遊戲') === collabCategoryTab);
+      }, [displayCollabs, collabCategoryTab]);
 
       const filteredVTubers = useMemo(() => {
         let result = displayVtubers.filter(v => isVisible(v, user)).filter(v => {
@@ -970,16 +1251,38 @@
           const mTags = selectedTags.length === 0 || selectedTags.every(t => v.collabTypes?.includes(t));
           const mAgency = selectedAgency === 'All' || v.agency?.includes(selectedAgency);
           const mPlat = selectedPlatform === 'All' || (v.mainPlatform || 'YouTube') === selectedPlatform;
-          return mSearch && mTags && mAgency && mPlat;
+          const mNat = selectedNationality === 'All' || v.nationality === selectedNationality;
+          const mLang = selectedLanguage === 'All' || v.language === selectedLanguage;
+          
+          const mSchedule = selectedSchedule === 'All' || 
+            (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || 
+            (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
+
+          return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule;
         });
         if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a));
         else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         else { let s = [...result]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } result = s; }
         return result;
-      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, user, sortOrder]); 
+      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, user, sortOrder]); 
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+
+      useEffect(() => {
+        setCurrentPage(1);
+      }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, sortOrder]);
+
+      const ITEMS_PER_PAGE = 18;
+      const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE));
+      const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+      const handlePageChange = (newPage) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+          setCurrentPage(newPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      };
 
       // --- 大腦函數：名片儲存邏輯分離 ---
       const handleSaveProfile = async (e, customForm = profileForm) => {
@@ -994,18 +1297,29 @@
         try {
           const tagsArray = (customForm.tags || '').split(',').map(t => t.trim()).filter(t => t);
           const existingProfile = realVtubers.find(v => v.id === (customForm.id||user.uid));
-          const isVerified = existingProfile ? existingProfile.isVerified : false;
+
+          const finalNationality = customForm.nationality === '其他' ? customForm.nationalityOther : customForm.nationality;
+          const finalLanguage = customForm.language === '其他' ? customForm.languageOther : customForm.language;
 
           // 1. 公開資料庫 (不包含 系統註冊 Email)
           const publicData = {
             name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs,
+            nationality: finalNationality || '', language: finalLanguage || '',
             isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
             scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers,
             youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
             publicEmail: customForm.publicEmail || '', // 加入自願公開的工商信箱
-            likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], isBlacklisted: customForm.isBlacklisted || false, status: customForm.status || '歡迎邀請',
-            isVerified: isVerified, lastActiveAt: Date.now(), updatedAt: Date.now()
+            likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請',
+            lastActiveAt: Date.now(), updatedAt: Date.now()
           };
+
+          // 修正 BUG：如果是新建立的名片，或已被拒絕且重新送審，重置審核狀態為 pending
+          if (!existingProfile || existingProfile.verificationStatus === 'rejected') {
+            publicData.isVerified = false;
+            publicData.isBlacklisted = false;
+            publicData.verificationStatus = 'pending';
+            publicData.showVerificationModal = null;
+          }
 
           // 2. 私密資料庫 (保護隱私)
           const privateData = { contactEmail: customForm.contactEmail, verificationNote: customForm.verificationNote, updatedAt: Date.now() };
@@ -1013,7 +1327,7 @@
           await setDoc(doc(db, getPath('vtubers'), customForm.id||user.uid), publicData, { merge: true });
           await setDoc(doc(db, getPath('vtubers_private'), customForm.id||user.uid), privateData, { merge: true });
 
-          showToast(isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
+          showToast(existingProfile && existingProfile.isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
           if(!customForm.id) navigate('grid');
         } catch (err) { showToast("儲存失敗"); }
       };
@@ -1043,42 +1357,117 @@
       };
 
       const handleRecommend = async (target) => {
-        if (!isVerifiedUser) return showToast("需通過認證才能推薦！"); if (target.id === user.uid) return showToast("不能推薦自己！");
-        if (target.likedBy?.includes(user.uid)) return showToast("已經推薦過囉！");
+        if (!isVerifiedUser) return showToast("需通過認證才能推薦！"); 
+        if (target.id === user.uid) return showToast("不能推薦自己！");
+        
+        // 防呆：確保每人只能推薦一次
+        if (target.likedBy && target.likedBy.includes(user.uid)) return showToast("已經推薦過囉！每人限推薦一次。");
+        
         try {
-          await setDoc(doc(db, getPath('vtubers'), target.id), { likes: (target.likes || 0) + 1, likedBy: [...(target.likedBy || []), user.uid] }, { merge: true });
-          showToast("✅ 已送出推薦！"); if (selectedVTuber?.id === target.id) setSelectedVTuber(prev => ({ ...prev, likes: prev.likes + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
-        } catch (err) { showToast("推薦失敗"); }
+          // 使用 Firebase 原生的 arrayUnion 與 increment 確保資料正確性，並避免同時按讚被覆蓋
+          await updateDoc(doc(db, getPath('vtubers'), target.id), { 
+            likes: increment(1), 
+            likedBy: arrayUnion(user.uid) 
+          });
+          
+          showToast("✅ 已送出推薦！"); 
+          if (selectedVTuber?.id === target.id) {
+            setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
+          }
+        } catch (err) { 
+          console.error("推薦失敗:", err);
+          showToast("推薦失敗 (請確認資料庫規則更新)"); 
+        }
       };
 
       const handleInitiateDislike = (target) => {
         if (!isVerifiedUser) return showToast("需通過認證才能檢舉！"); if (target.id === user.uid) return showToast("不能檢舉自己！");
-        if (target.dislikedBy?.includes(user.uid)) return showToast("已經倒讚過囉！");
+        if (target.dislikedBy && target.dislikedBy.includes(user.uid)) return showToast("已經倒讚過囉！每人限倒讚一次。");
         setConfirmDislikeData(target);
       };
 
       const handleConfirmDislike = async () => {
         if (!confirmDislikeData || !user) return;
-        const tId = confirmDislikeData.id; const newD = (confirmDislikeData.dislikes || 0) + 1;
-        const updates = { dislikes: newD, dislikedBy: [...(confirmDislikeData.dislikedBy || []), user.uid] };
-        if (newD >= 10) { updates.isVerified = false; updates.isBlacklisted = true; }
+        const tId = confirmDislikeData.id; 
+        
+        // 二次防護，確保沒有重複倒讚
+        if (confirmDislikeData.dislikedBy && confirmDislikeData.dislikedBy.includes(user.uid)) {
+          setConfirmDislikeData(null);
+          return showToast("已經倒讚過囉！每人限倒讚一次。");
+        }
+
+        const newD = (confirmDislikeData.dislikes || 0) + 1;
+        const updates = { 
+          dislikes: increment(1), 
+          dislikedBy: arrayUnion(user.uid) 
+        };
+        
+        if (newD >= 10) { 
+          updates.isVerified = false; 
+          updates.isBlacklisted = true; 
+        }
+        
         try {
-          await setDoc(doc(db, getPath('vtubers'), tId), updates, { merge: true });
-          setConfirmDislikeData(null); showToast("✅ 已送出倒讚。");
-          if (updates.isBlacklisted) { showToast("⚠️ 已自動下架。"); if (selectedVTuber?.id === tId) navigate('grid'); }
-          else if (selectedVTuber?.id === tId) setSelectedVTuber(prev => ({ ...prev, dislikes: newD, dislikedBy: updates.dislikedBy }));
-        } catch (err) { showToast("操作失敗"); }
+          await updateDoc(doc(db, getPath('vtubers'), tId), updates);
+          setConfirmDislikeData(null); 
+          showToast("✅ 已送出倒讚。");
+          if (updates.isBlacklisted) { 
+            showToast("⚠️ 該名片已自動下架。"); 
+            if (selectedVTuber?.id === tId) navigate('grid'); 
+          }
+          else if (selectedVTuber?.id === tId) {
+            setSelectedVTuber(prev => ({ ...prev, dislikes: newD, dislikedBy: [...(prev.dislikedBy || []), user.uid] }));
+          }
+        } catch (err) { 
+          console.error("倒讚失敗:", err);
+          showToast("操作失敗 (請確認資料庫規則更新)"); 
+        }
       };
 
       // --- 大腦函數 (Admin 功能) ---
-      const handleVerifyVtuber = async (id) => { try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false }, { merge: true }); showToast("已通過審核！"); } catch (err) { showToast("審核失敗"); } };
+      const handleVerifyVtuber = async (id) => { 
+        try { 
+          await setDoc(doc(db, getPath('vtubers'), id), { 
+            isVerified: true, 
+            isBlacklisted: false, 
+            verificationStatus: 'approved', 
+            showVerificationModal: 'approved' 
+          }, { merge: true }); 
+          showToast("已通過審核！"); 
+        } catch (err) { showToast("審核失敗"); } 
+      };
+
+      const handleRejectVtuber = async (id) => {
+        if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
+        try {
+          await setDoc(doc(db, getPath('vtubers'), id), { 
+            isVerified: false, 
+            verificationStatus: 'rejected', 
+            showVerificationModal: 'rejected' 
+          }, { merge: true });
+          showToast("已退回該名片！");
+        } catch (err) { showToast("操作失敗"); }
+      };
+
       const handleAdminUpdateVtuber = async (id, updatedData) => {
         try {
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
           let finalCollabs = [...(updatedData.collabTypes || [])]; if (updatedData.isOtherCollab && updatedData.otherCollabText?.trim()) finalCollabs.push(updatedData.otherCollabText.trim());
           
-          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, updatedAt: Date.now() };
-          delete publicData.contactEmail; delete publicData.verificationNote; // 確保強制更新時不覆蓋到公開區
+          const finalNationality = updatedData.nationality === '其他' ? updatedData.nationalityOther : updatedData.nationality;
+          const finalLanguage = updatedData.language === '其他' ? updatedData.languageOther : updatedData.language;
+
+          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, nationality: finalNationality || '', language: finalLanguage || '', updatedAt: Date.now() };
+          
+          // 修正 BUG：絕對不要在「編輯名片」時覆蓋這些核心權限與狀態欄位，以防舊狀態意外蓋牌
+          delete publicData.isVerified;
+          delete publicData.isBlacklisted;
+          delete publicData.verificationStatus;
+          delete publicData.showVerificationModal;
+          delete publicData.contactEmail; 
+          delete publicData.verificationNote; 
+          delete publicData.nationalityOther; 
+          delete publicData.languageOther;
 
           await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); 
           await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true }); 
@@ -1098,6 +1487,9 @@
           showToast("✅ 已清除所有人聯動類型！");
         } catch (err) { showToast("清除失敗"); }
       };
+      
+      const handleAddUpdate = async (updateData) => { try { await addDoc(collection(db, getPath('updates')), { ...updateData, createdAt: Date.now() }); showToast("✅ 已發佈最新消息"); } catch(err) { showToast("發佈失敗"); } };
+      const handleDeleteUpdate = async (id) => { if(!confirm("確定要刪除這則公告嗎？")) return; try { await deleteDoc(doc(db, getPath('updates'), id)); showToast("✅ 已刪除公告"); } catch(err) { showToast("刪除失敗"); } };
 
       return (
         <div className="flex flex-col min-h-screen relative">
@@ -1138,9 +1530,9 @@
               <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <button onClick={() => navigate('home')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'home' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>尋找 VTuber 夥伴</button>
-                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); }} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定聯動</button>
+                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'inbox' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}>
@@ -1154,9 +1546,9 @@
               <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0f111a]/95 backdrop-blur-md border-b border-gray-800 shadow-xl flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
                 <button onClick={() => navigate('home')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'home' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'grid' || currentView === 'profile' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>尋找 VTuber 夥伴</button>
-                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('match'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'match' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-dice w-5"></i> 聯動隨機配對</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('bulletin'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動</button>
+                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('match'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'match' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-dice w-5"></i> 聯動隨機配對</button>
                 <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === 'inbox' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
@@ -1170,7 +1562,7 @@
           </nav>
 
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} />}
 
             {currentView === 'inbox' && user && (
               <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />
@@ -1182,7 +1574,7 @@
                   <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-3"><i className="fa-solid fa-user-circle text-purple-400"></i> 創作者中心：編輯名片</h2>
                   {myProfile && (
                     <div className="mt-4 mb-2">
-                      <button onClick={() => { setSelectedVTuber(myProfile); navigate('profile'); }} className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
+                      <button onClick={() => navigate(`profile/${myProfile.id}`) } className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
                         <i className="fa-solid fa-eye"></i> 預覽我的公開名片
                       </button>
                     </div>
@@ -1203,7 +1595,7 @@
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
                       {displayBulletins.filter(b => b.userId === user.uid).map(b => (
-                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
+                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
                       ))}
                     </div>
                   </div>
@@ -1220,6 +1612,29 @@
                     <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
                     <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
                     <div><p className="text-xs text-gray-500 mb-2">主要平台</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', 'YouTube', 'Twitch'].map(p => <button key={p} onClick={() => setSelectedPlatform(p)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{p === 'All' ? '全部' : p}</button>)}</div></div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">國籍</p>
+                        <select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none focus:border-purple-500">
+                          {dynamicNationalities.map(n => <option key={n} value={n}>{n === 'All' ? '全部' : n}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">主要語言</p>
+                        <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none focus:border-purple-500">
+                          {dynamicLanguages.map(l => <option key={l} value={l}>{l === 'All' ? '全部' : l}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">可連動時段</p>
+                      <select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none focus:border-purple-500">
+                        {dynamicSchedules.map(d => <option key={d} value={d}>{d === 'All' ? '全部' : d}</option>)}
+                      </select>
+                    </div>
+
                     <div className="flex flex-wrap gap-2 mt-2"><p className="w-full text-xs text-gray-500 mb-1">想找什麼聯動？</p>{dynamicCollabTypes.map(tag => <TagBadge key={tag} text={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />)}</div>
                   </div>
                 </aside>
@@ -1236,15 +1651,39 @@
                     </select>
                   </div>
                   {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : filteredVTubers.length === 0 ? <p className="text-center text-gray-500 mt-20">目前無公開名片</p> : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">{filteredVTubers.map(v => <VTuberCard key={v.id} v={v} user={user} isVerifiedUser={isVerifiedUser} onSelect={() => { setSelectedVTuber(v); navigate('profile'); }} onDislike={() => handleInitiateDislike(v)} />)}</div>
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {paginatedVTubers.map(v => <VTuberCard key={v.id} v={v} user={user} isVerifiedUser={isVerifiedUser} onSelect={() => { gridScrollY.current = window.scrollY; navigate(`profile/${v.id}`); }} onDislike={() => handleInitiateDislike(v)} />)}
+                      </div>
+                      {totalPages > 1 && (
+                        <div className="flex flex-wrap justify-center items-center gap-4 mt-12 animate-fade-in-up">
+                          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center ${currentPage === 1 ? 'bg-gray-800/50 text-gray-600 cursor-not-allowed border border-gray-800' : 'bg-gray-800 hover:bg-purple-600 text-white border border-gray-700 hover:border-purple-500'}`}><i className="fa-solid fa-chevron-left mr-2"></i> 上一頁</button>
+                          <div className="flex items-center gap-2 text-gray-300 font-bold bg-gray-900/50 px-4 py-2.5 rounded-xl border border-gray-700">
+                            <span>第</span>
+                            <select value={currentPage} onChange={(e) => handlePageChange(Number(e.target.value))} className="bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-white outline-none focus:border-purple-500 cursor-pointer">
+                              {[...Array(totalPages).keys()].map(n => <option key={n + 1} value={n + 1}>{n + 1}</option>)}
+                            </select>
+                            <span>/ {totalPages} 頁</span>
+                          </div>
+                          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center ${currentPage === totalPages ? 'bg-gray-800/50 text-gray-600 cursor-not-allowed border border-gray-800' : 'bg-gray-800 hover:bg-purple-600 text-white border border-gray-700 hover:border-purple-500'}`}>下一頁 <i className="fa-solid fa-chevron-right ml-2"></i></button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             )}
 
+            {currentView === 'profile' && !selectedVTuber && isLoading && (
+              <div className="max-w-4xl mx-auto px-4 py-20 text-center animate-fade-in-up">
+                <i className="fa-solid fa-spinner fa-spin text-4xl text-purple-500 mb-4"></i>
+                <p className="text-gray-400 font-bold text-lg">載入專屬名片中...</p>
+              </div>
+            )}
+
             {currentView === 'profile' && selectedVTuber && (
               <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
-                <button onClick={() => navigate('grid')} className="text-gray-400 hover:text-white mb-6 flex items-center text-sm"><i className="fa-solid fa-chevron-left mr-2"></i>返回探索</button>
+                <button onClick={() => { navigate('grid', true); setTimeout(() => window.scrollTo(0, gridScrollY.current), 50); }} className="text-gray-400 hover:text-white mb-6 flex items-center text-sm"><i className="fa-solid fa-chevron-left mr-2"></i>返回探索</button>
                 <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl">
                   <div className="h-48 sm:h-64 relative"><img src={selectedVTuber.banner} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div></div>
                   <div className="px-6 sm:px-10 pb-10 relative">
@@ -1254,39 +1693,75 @@
                         <div className="flex flex-wrap items-center justify-between gap-4">
                           <div>
                             <div className="flex items-center gap-2 mb-2"><h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">{selectedVTuber.name} {selectedVTuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>}</h1></div>
-                            <div className="flex flex-wrap gap-2 mt-2 items-center"><span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span><span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span></div>
+                            <div className="flex flex-wrap gap-2 mt-2 items-center">
+                                <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span>
+                                {selectedVTuber.nationality && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>{selectedVTuber.nationality}</span>}
+                                {selectedVTuber.language && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-language mr-1 text-yellow-300"></i>{selectedVTuber.language}</span>}
+                                <span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span>
+                            </div>
                             <div className="flex flex-wrap gap-3 mt-4 text-sm">
-                              {(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-youtube text-red-400"></i> {selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}
-                              {selectedVTuber.twitchFollowers && <span className="bg-gray-800 border border-gray-700 text-gray-300 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-brands fa-twitch text-purple-400"></i> {selectedVTuber.twitchFollowers}</span>}
-                              <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
-                              {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1 rounded-lg flex items-center gap-1.5"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
+                              <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
+                              {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
                               
                               {/* 在名片上方小標籤區顯示工商信箱 (僅認證者可見) */}
-                              {isVerifiedUser && selectedVTuber.publicEmail && <a href={`mailto:${selectedVTuber.publicEmail}`} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1 rounded-lg font-bold transition-colors"><i className="fa-solid fa-envelope text-yellow-400"></i> 工商信箱</a>}
+                              {isVerifiedUser && selectedVTuber.publicEmail && <a href={`mailto:${selectedVTuber.publicEmail}`} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-solid fa-envelope text-yellow-400"></i> 工商信箱</a>}
 
-                              {selectedVTuber.youtubeUrl && <a href={selectedVTuber.youtubeUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-youtube"></i> YouTube</a>}
-                              {selectedVTuber.twitchUrl && <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-twitch"></i> Twitch</a>}
-                              {selectedVTuber.xUrl && <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
-                              {selectedVTuber.igUrl && <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 text-pink-400 px-3 py-1 rounded-lg font-bold"><i className="fa-brands fa-instagram"></i> IG</a>}
+                              {/* YouTube 按鈕與人數整合 */}
+                              {selectedVTuber.youtubeUrl ? (
+                                <a href={selectedVTuber.youtubeUrl} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5">
+                                  <i className="fa-brands fa-youtube"></i> YouTube
+                                  {(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}
+                                </a>
+                              ) : (selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) ? (
+                                <span className="bg-red-500/5 text-red-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+                                  <i className="fa-brands fa-youtube"></i> YouTube
+                                  <span className="ml-1 px-2 py-0.5 bg-red-500/10 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>
+                                </span>
+                              ) : null}
+
+                              {/* Twitch 按鈕與人數整合 */}
+                              {selectedVTuber.twitchUrl ? (
+                                <a href={selectedVTuber.twitchUrl} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5">
+                                  <i className="fa-brands fa-twitch"></i> Twitch
+                                  {selectedVTuber.twitchFollowers && <span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.twitchFollowers}</span>}
+                                </a>
+                              ) : selectedVTuber.twitchFollowers ? (
+                                <span className="bg-purple-500/5 text-purple-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+                                  <i className="fa-brands fa-twitch"></i> Twitch
+                                  <span className="ml-1 px-2 py-0.5 bg-purple-500/10 rounded text-xs">{selectedVTuber.twitchFollowers}</span>
+                                </span>
+                              ) : null}
+
+                              {selectedVTuber.xUrl && <a href={selectedVTuber.xUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-brands fa-x-twitter"></i> X</a>}
+                              {selectedVTuber.igUrl && <a href={selectedVTuber.igUrl} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 text-pink-400 hover:bg-pink-500/20 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-brands fa-instagram"></i> IG</a>}
                             </div>
                           </div>
                           <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                            {selectedVTuber.streamStyleUrl && <a href={selectedVTuber.streamStyleUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看代表作</a>}
+                            {selectedVTuber.streamStyleUrl && <a href={selectedVTuber.streamStyleUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看我的直播風格</a>}
                             
                             {/* 發送站內邀約按鈕 */}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-paper-plane mr-2"></i>發送站內邀約</button>}
 
-                            {/* 直接寄信按鈕 (僅當對方有填寫公開信箱，且我方已認證時才會顯示) */}
+                            {/* 直接寄信按鈕 */}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && selectedVTuber.publicEmail && (
                               <a href={`mailto:${selectedVTuber.publicEmail}`} className="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2">
                                 <i className="fa-solid fa-envelope text-yellow-400"></i> 直接寄信
                               </a>
                             )}
+                            
+                            {/* 複製專屬連結按鈕 */}
+                            <button onClick={() => {
+                              const url = window.location.origin + window.location.pathname + '#profile/' + selectedVTuber.id;
+                              navigator.clipboard.writeText(url);
+                              showToast("✅ 已複製專屬名片連結！");
+                            }} className="bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-colors border border-gray-600 flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-link"></i> 複製連結
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-6">
                       <div className="md:col-span-2 space-y-8">
                         <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-purple-400"><i className="fa-solid fa-microphone mr-2"></i>關於我</h3><p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{selectedVTuber.description}</p></section>
                         <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-pink-400"><i className="fa-solid fa-gamepad mr-2"></i>內容標籤</h3><div className="flex flex-wrap gap-2">{(selectedVTuber.tags || []).map(t=><span key={t} className="px-3 py-1 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-300">#{t}</span>)}</div></section>
@@ -1310,7 +1785,7 @@
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
                       {displayBulletins.filter(b => b.userId === selectedVTuber.id).map(b => (
-                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
+                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
                       ))}
                     </div>
                   </div>
@@ -1329,14 +1804,14 @@
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div><label className="text-xs text-gray-400 mb-1 block">聯動性質 <span className="text-red-400">*</span></label><select value={newBulletin.collabType} onChange={e=>setNewBulletin({...newBulletin, collabType: e.target.value})} className={inputCls}><option value="">請選擇...</option>{PREDEFINED_COLLABS.map(t => <option key={t} value={t}>{t}</option>)}<option value="其他">其他 (自行輸入)</option></select>{newBulletin.collabType === '其他' && <input type="text" value={newBulletin.collabTypeOther} onChange={e=>setNewBulletin({...newBulletin, collabTypeOther: e.target.value})} placeholder="請輸入聯動性質" className={inputCls + " mt-2"} />}</div>
                     <div><label className="text-xs text-gray-400 mb-1 block">預估人數 <span className="text-red-400">*</span></label><select value={newBulletin.collabSize} onChange={e=>setNewBulletin({...newBulletin, collabSize: e.target.value})} className={inputCls}><option value="">請選擇...</option>{[...Array(21).keys()].map(n => <option key={n} value={`${n}人`}>{n} 人</option>)}</select></div>
-                    <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
-                    <div><label className="text-xs text-gray-400 mb-1 block">招募截止 <span className="text-red-400">*</span></label><input type="datetime-local" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
+                    <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
+                    <div><label className="text-xs text-gray-400 mb-1 block">招募截止 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
                   </div>
                   <div className="flex justify-end"><button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold"><i className="fa-solid fa-paper-plane mr-2"></i>送出發布</button></div>
                 </div>
                 {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
+                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
                   </div>
                 )}
               </div>
@@ -1369,25 +1844,81 @@
                    <div className="bg-red-500/10 border border-red-500/30 rounded-3xl p-6 sm:p-8 mb-12 text-left shadow-lg relative overflow-hidden">
                      <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500/10 rounded-full blur-3xl"></div>
                      <h3 className="font-bold text-white mb-6 text-xl flex items-center"><i className="fa-solid fa-calendar-plus text-red-400 mr-3"></i>發布新的聯動行程</h3>
-                     <form onSubmit={(e) => { e.preventDefault(); handleAddCollab({ dateTime: e.target.dateTime.value, title: e.target.title.value, streamUrl: e.target.streamUrl.value, coverUrl: e.target.coverUrl.value, date: `${new Date(e.target.dateTime.value).getMonth()+1}/${new Date(e.target.dateTime.value).getDate()} (${['日','一','二','三','四','五','六'][new Date(e.target.dateTime.value).getDay()]})`, time: `${String(new Date(e.target.dateTime.value).getHours()).padStart(2,'0')}:${String(new Date(e.target.dateTime.value).getMinutes()).padStart(2,'0')}`, startTimestamp: new Date(e.target.dateTime.value).getTime() }); e.target.reset(); }}>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 relative z-10"><div className="w-full min-w-0"><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input required type="datetime-local" name="dateTime" className={inputCls} /></div><div className="w-full min-w-0 relative"><label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label><input required type="url" name="streamUrl" className={inputCls} /></div></div>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10"><div><label className="text-xs text-gray-400 mb-1 block">聯動標題 <span className="text-red-400">*</span></label><input required type="text" name="title" className={inputCls} /></div><div><label className="text-xs text-gray-400 mb-1 block">自訂封面圖網址 (選填)</label><input type="url" name="coverUrl" className={inputCls} /></div></div>
+                     <form onSubmit={(e) => { 
+                       e.preventDefault(); 
+                       const dt = new Date(publicCollabForm.dateTime);
+                       handleAddCollab({ 
+                         dateTime: publicCollabForm.dateTime, 
+                         title: publicCollabForm.title, 
+                         streamUrl: publicCollabForm.streamUrl, 
+                         coverUrl: publicCollabForm.coverUrl, 
+                         category: publicCollabForm.category, // 新增：送出時夾帶類別
+                         date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, 
+                         time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, 
+                         startTimestamp: dt.getTime() 
+                       }); 
+                       setPublicCollabForm({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' }); 
+                     }}>
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4 relative z-10">
+                         <div>
+                           <label className="text-xs text-gray-400 mb-1 block">聯動類別 <span className="text-red-400">*</span></label>
+                           <select required value={publicCollabForm.category} onChange={e => setPublicCollabForm({...publicCollabForm, category: e.target.value})} className={inputCls}>
+                             {COLLAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                           </select>
+                         </div>
+                         <div className="w-full min-w-0">
+                           <label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label>
+                           <input required type="datetime-local" lang="en-GB" value={publicCollabForm.dateTime} onChange={e => setPublicCollabForm({...publicCollabForm, dateTime: e.target.value})} className={inputCls} />
+                         </div>
+                         <div className="w-full min-w-0 relative">
+                           <label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label>
+                           <div className="flex gap-2">
+                             <input required type="url" value={publicCollabForm.streamUrl} onChange={e => setPublicCollabForm({...publicCollabForm, streamUrl: e.target.value})} className={inputCls} />
+                             <button type="button" onClick={() => autoFetchYouTubeInfo(publicCollabForm.streamUrl, (t) => setPublicCollabForm(p => ({...p, title: t})), (c) => setPublicCollabForm(p => ({...p, coverUrl: c})), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold whitespace-nowrap transition-colors shadow-lg"><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>抓取</button>
+                           </div>
+                         </div>
+                       </div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10">
+                         <div>
+                           <label className="text-xs text-gray-400 mb-1 block">聯動標題 <span className="text-red-400">*</span></label>
+                           <input required type="text" value={publicCollabForm.title} onChange={e => setPublicCollabForm({...publicCollabForm, title: e.target.value})} className={inputCls} />
+                         </div>
+                         <div>
+                           <label className="text-xs text-gray-400 mb-1 block">自訂封面圖網址 (選填)</label>
+                           <input type="url" value={publicCollabForm.coverUrl} onChange={e => setPublicCollabForm({...publicCollabForm, coverUrl: e.target.value})} className={inputCls} />
+                         </div>
+                       </div>
                        <div className="flex justify-end relative z-10"><button type="submit" className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button></div>
                      </form>
                    </div>
                  )}
                  {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                     {(displayCollabs || []).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} />)}
-                   </div>
+                   <>
+                     {/* 新增：聯動時間表分類標籤 */}
+                     <div className="flex flex-wrap justify-center gap-3 mb-10">
+                       {['All', ...COLLAB_CATEGORIES].map(cat => (
+                         <button key={cat} onClick={() => setCollabCategoryTab(cat)} className={`px-6 py-2 rounded-full font-bold transition-all text-sm ${collabCategoryTab === cat ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 scale-105' : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700'}`}>
+                           {cat === 'All' ? '全部行程' : cat}
+                         </button>
+                       ))}
+                     </div>
+                     
+                     {filteredDisplayCollabs.length === 0 ? (
+                        <p className="text-gray-500 text-center py-10">這個類別目前還沒有確定聯動喔！</p>
+                     ) : (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                         {filteredDisplayCollabs.map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => { gridScrollY.current = window.scrollY; navigate(`profile/${vt.id}`); }} />)}
+                       </div>
+                     )}
+                   </>
                  )}
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} />}
+            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
           </main>
 
-          {/* --- 邀請表單 Modal (站內信模式) --- */}
+          {/* --- 邀請表單 Modal (已修改為純站內信模式) --- */}
           {isCollabModalOpen && selectedVTuber && (
             <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in-up">
@@ -1423,9 +1954,82 @@
             </div>
           )}
 
+          {/* 最新消息 Modal */}
+          {isUpdatesModalOpen && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up flex flex-col max-h-[80vh]">
+                <div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <h3 className="font-bold text-blue-400"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息與功能發布</h3>
+                    {hasUnreadUpdates && (
+                      <button onClick={handleMarkAllUpdatesRead} className="text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-colors border border-blue-500/20">
+                        <i className="fa-solid fa-check-double mr-1"></i> 一鍵已讀
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => setIsUpdatesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                  {realUpdates.length === 0 ? <p className="text-gray-500 text-center py-10">目前沒有新消息</p> : realUpdates.map(u => {
+                    const isUnread = !readUpdateIds.includes(u.id);
+                    return (
+                      <div key={u.id} className={`bg-gray-800/50 p-5 rounded-xl border transition-colors ${isUnread ? 'border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.15)]' : 'border-gray-700'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="font-bold text-white text-lg flex items-center gap-2">
+                            {u.title}
+                            {isUnread && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-lg whitespace-nowrap">新消息</span>}
+                          </h4>
+                          <span className="text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">{u.date}</span>
+                        </div>
+                        <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{u.content}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="px-6 py-4 border-t border-gray-800 flex justify-end">
+                  <button onClick={() => setIsUpdatesModalOpen(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2.5 rounded-xl font-bold transition-colors">關閉</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 其他 Modal (提示與規範) */}
           {isTipsModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-yellow-400"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</h3><button onClick={() => setIsTipsModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">標準邀請信範本</h4><button onClick={() => {navigator.clipboard.writeText(realTips).catch(()=>{}); setCopiedTemplate(true); setTimeout(()=>setCopiedTemplate(false), 2000); showToast("已複製");}} className={`text-white px-3 py-1.5 rounded text-sm ${copiedTemplate ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}>{copiedTemplate ? '已複製' : '一鍵複製'}</button></div><pre className="text-sm text-gray-300 bg-gray-900 p-4 rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-gray-800 max-h-64 overflow-y-auto">{realTips}</pre><div className="mt-6 flex justify-end"><button onClick={() => setIsTipsModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">關閉</button></div></div></div></div>}
-          {isRulesModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-triangle-exclamation text-red-500"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="text-sm text-gray-300 leading-relaxed space-y-4" dangerouslySetInnerHTML={{ __html: (realRules || '').replace(/\n/g, '<br/>') }} /><div className="mt-8 flex justify-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">我了解了</button></div></div></div></div>}
+          {isRulesModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-triangle-exclamation text-red-500"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="text-sm text-gray-300 leading-relaxed space-y-4 whitespace-pre-wrap">{realRules}</div><div className="mt-8 flex justify-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">我了解了</button></div></div></div></div>}
+          
+          {/* 審核結果通知 Modal */}
+          {myProfile && myProfile.showVerificationModal && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-fade-in-up flex flex-col overflow-hidden">
+                <div className={`px-6 py-5 border-b border-gray-800 flex items-center gap-3 ${myProfile.showVerificationModal === 'approved' ? 'bg-green-900/30' : 'bg-red-900/30'}`}>
+                  {myProfile.showVerificationModal === 'approved' ? (
+                    <><i className="fa-solid fa-circle-check text-green-400 text-2xl"></i><h3 className="font-bold text-green-400 text-lg">審核通過</h3></>
+                  ) : (
+                    <><i className="fa-solid fa-circle-xmark text-red-400 text-2xl"></i><h3 className="font-bold text-red-400 text-lg">審核未通過</h3></>
+                  )}
+                </div>
+                <div className="p-6 text-center">
+                  {myProfile.showVerificationModal === 'approved' ? (
+                    <p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">恭喜你審核通過！<br/>開始尋找聯動夥伴吧！</p>
+                  ) : (
+                    <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上你都有達到，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！<br/><br/>請繼續加油！</p>
+                  )}
+                  <div className="flex justify-center">
+                    {myProfile.showVerificationModal === 'approved' ? (
+                      <button onClick={async () => {
+                        await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null });
+                        navigate('grid');
+                      }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full">開始找夥伴</button>
+                    ) : (
+                      <button onClick={async () => {
+                        await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null });
+                      }} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-colors w-full">好的我知道了</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
