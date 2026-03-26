@@ -242,7 +242,7 @@
                 <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
               </div>
             ) : null}
-            {v.xUrl && v.xUrl !== '#' && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
+            {v.xUrl && v.xUrl !== '#' && <a href={v.xUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
             {v.igUrl && v.igUrl !== '#' && <a href={v.igUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram"><i className="fa-brands fa-instagram text-sm"></i></a>}
           </div>
         </div>
@@ -320,7 +320,7 @@
       );
     };
 
-    const MatchPage = ({ vtubers, navigate, showToast, setSelectedVTuber, currentUser }) => {
+    const MatchPage = ({ vtubers, navigate, showToast, currentUser }) => {
       const [desiredType, setDesiredType] = useState('');
       const [matchedVtuber, setMatchedVtuber] = useState(null);
       const [isMatching, setIsMatching] = useState(false);
@@ -405,7 +405,7 @@
                 </div>
                 <div className="flex gap-3 w-full">
                   <button onClick={() => {setMatchedVtuber(null); setDesiredType('');}} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3.5 rounded-xl text-sm font-bold transition-colors">再抽一次</button>
-                  <button onClick={() => { setSelectedVTuber(matchedVtuber); window.location.hash = 'grid'; setTimeout(() => { window.dispatchEvent(new HashChangeEvent('hashchange')); navigate('profile'); window.scrollTo(0,0); }, 50); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
+                  <button onClick={() => { navigate(`profile/${matchedVtuber.id}`); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-500/25 flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button>
                 </div>
               </div>
             )}
@@ -662,7 +662,7 @@
     };
 
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber }) => {
+    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [] }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
       const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
@@ -718,7 +718,7 @@
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
-                {safeDisplayCollabs.slice(0, 4).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate('profile'); }} />)}
+                {safeDisplayCollabs.slice(0, 4).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => navigate(`profile/${vt.id}`) } />)}
               </div>
               <button onClick={() => navigate('collabs')} className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
             </div>
@@ -928,10 +928,20 @@
 
     // --- 主應用程式 ---
     function App() {
-      const getInitialView = () => { const hash = window.location.hash.replace('#', ''); return hash || 'home'; };
+      // 改進：分析 URL hash 支援專屬網址
+      const getInitialView = () => { 
+        const hash = window.location.hash.replace('#', ''); 
+        if (hash.startsWith('profile/')) return 'profile';
+        return hash === 'profile' ? 'grid' : (hash || 'home'); 
+      };
       
       const [currentView, setCurrentView] = useState(getInitialView());
       const [selectedVTuber, setSelectedVTuber] = useState(null);
+      const [profileIdFromHash, setProfileIdFromHash] = useState(() => {
+        const hash = window.location.hash.replace('#', '');
+        return hash.startsWith('profile/') ? hash.split('/')[1] : null;
+      });
+
       const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
       const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
       const [sortOrder, setSortOrder] = useState('random'); 
@@ -1001,15 +1011,44 @@
       const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
       const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active');
 
-      const navigate = (view, preserveScroll = false) => { window.location.hash = view; setIsMobileMenuOpen(false); if (!preserveScroll) window.scrollTo(0,0); };
+      const navigate = (view, preserveScroll = false) => { 
+        window.location.hash = view; 
+        setIsMobileMenuOpen(false); 
+        if (!preserveScroll) window.scrollTo(0,0); 
+      };
       const goToBulletin = () => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); };
 
       const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected').length, [realVtubers]);
 
+      // 監聽網址 Hash 變化，處理專屬名片跳轉
       useEffect(() => {
-        const handleHashChange = () => { const h = window.location.hash.replace('#', ''); setCurrentView((h==='profile'&&!selectedVTuber)?'grid':(h||'home')); };
-        window.addEventListener('hashchange', handleHashChange); return () => window.removeEventListener('hashchange', handleHashChange);
-      }, [selectedVTuber]);
+        const handleHashChange = () => { 
+          const hash = window.location.hash.replace('#', ''); 
+          if (hash.startsWith('profile/')) {
+            setProfileIdFromHash(hash.split('/')[1]);
+            setCurrentView('profile');
+          } else {
+            setProfileIdFromHash(null);
+            setCurrentView(hash === 'profile' ? 'grid' : (hash || 'home'));
+          }
+        };
+        handleHashChange(); // 首次載入時解析一次
+        window.addEventListener('hashchange', handleHashChange); 
+        return () => window.removeEventListener('hashchange', handleHashChange);
+      }, []);
+
+      // 根據專屬 ID 解析並設定對應的 VTuber 名片
+      useEffect(() => {
+        if (currentView === 'profile' && profileIdFromHash && !isLoading) {
+          const vt = realVtubers.find(v => v.id === profileIdFromHash);
+          if (vt) {
+            setSelectedVTuber(vt);
+          } else {
+            showToast("找不到該名片，可能已被隱藏或刪除");
+            navigate('grid');
+          }
+        }
+      }, [currentView, profileIdFromHash, realVtubers, isLoading]);
 
       useEffect(() => {
         const handleClickOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false); };
@@ -1107,13 +1146,13 @@
       
       const handleNotifClick = (n) => {
         const sender = realVtubers.find(v => v.id === n.fromUserId);
-        if (sender) { setSelectedVTuber(sender); window.location.hash = 'profile'; }
+        if (sender) { navigate(`profile/${sender.id}`); }
         if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(()=>{}); setIsNotifOpen(false);
       };
 
       const handleNotifProfileNav = (userId) => {
         const vt = realVtubers.find(v => v.id === userId);
-        if (vt) { setSelectedVTuber(vt); navigate('profile'); } 
+        if (vt) { navigate(`profile/${vt.id}`); } 
         else { showToast("找不到該名片，可能已被刪除或隱藏"); }
       };
 
@@ -1484,7 +1523,7 @@
                   <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-3"><i className="fa-solid fa-user-circle text-purple-400"></i> 創作者中心：編輯名片</h2>
                   {myProfile && (
                     <div className="mt-4 mb-2">
-                      <button onClick={() => { setSelectedVTuber(myProfile); navigate('profile'); }} className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
+                      <button onClick={() => navigate(`profile/${myProfile.id}`) } className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
                         <i className="fa-solid fa-eye"></i> 預覽我的公開名片
                       </button>
                     </div>
@@ -1505,7 +1544,7 @@
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
                       {displayBulletins.filter(b => b.userId === user.uid).map(b => (
-                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
+                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
                       ))}
                     </div>
                   </div>
@@ -1556,7 +1595,7 @@
                   {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : filteredVTubers.length === 0 ? <p className="text-center text-gray-500 mt-20">目前無公開名片</p> : (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {paginatedVTubers.map(v => <VTuberCard key={v.id} v={v} user={user} isVerifiedUser={isVerifiedUser} onSelect={() => { gridScrollY.current = window.scrollY; setSelectedVTuber(v); navigate('profile'); }} onDislike={() => handleInitiateDislike(v)} />)}
+                        {paginatedVTubers.map(v => <VTuberCard key={v.id} v={v} user={user} isVerifiedUser={isVerifiedUser} onSelect={() => { gridScrollY.current = window.scrollY; navigate(`profile/${v.id}`); }} onDislike={() => handleInitiateDislike(v)} />)}
                       </div>
                       {totalPages > 1 && (
                         <div className="flex flex-wrap justify-center items-center gap-4 mt-12 animate-fade-in-up">
@@ -1574,6 +1613,13 @@
                     </>
                   )}
                 </div>
+              </div>
+            )}
+
+            {currentView === 'profile' && !selectedVTuber && isLoading && (
+              <div className="max-w-4xl mx-auto px-4 py-20 text-center animate-fade-in-up">
+                <i className="fa-solid fa-spinner fa-spin text-4xl text-purple-500 mb-4"></i>
+                <p className="text-gray-400 font-bold text-lg">載入專屬名片中...</p>
               </div>
             )}
 
@@ -1638,17 +1684,26 @@
                             {/* 發送站內邀約按鈕 */}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-paper-plane mr-2"></i>發送站內邀約</button>}
 
-                            {/* 直接寄信按鈕 (僅當對方有填寫公開信箱，且我方已認證時才會顯示) */}
+                            {/* 直接寄信按鈕 */}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && selectedVTuber.publicEmail && (
                               <a href={`mailto:${selectedVTuber.publicEmail}`} className="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2">
                                 <i className="fa-solid fa-envelope text-yellow-400"></i> 直接寄信
                               </a>
                             )}
+                            
+                            {/* 複製專屬連結按鈕 */}
+                            <button onClick={() => {
+                              const url = window.location.origin + window.location.pathname + '#profile/' + selectedVTuber.id;
+                              navigator.clipboard.writeText(url);
+                              showToast("✅ 已複製專屬名片連結！");
+                            }} className="bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-colors border border-gray-600 flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-link"></i> 複製連結
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-6">
                       <div className="md:col-span-2 space-y-8">
                         <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-purple-400"><i className="fa-solid fa-microphone mr-2"></i>關於我</h3><p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{selectedVTuber.description}</p></section>
                         <section><h3 className="text-xl font-bold border-b border-gray-700 pb-2 mb-4 text-pink-400"><i className="fa-solid fa-gamepad mr-2"></i>內容標籤</h3><div className="flex flex-wrap gap-2">{(selectedVTuber.tags || []).map(t=><span key={t} className="px-3 py-1 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-300">#{t}</span>)}</div></section>
@@ -1672,7 +1727,7 @@
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
                       {displayBulletins.filter(b => b.userId === selectedVTuber.id).map(b => (
-                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
+                        <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />
                       ))}
                     </div>
                   </div>
@@ -1698,7 +1753,7 @@
                 </div>
                 {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => { setSelectedVTuber(vtuber); navigate('profile'); }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
+                    {displayBulletins.length === 0 ? <p className="col-span-full text-center text-gray-500 mt-10">目前尚無進行中的招募</p> : displayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber) => navigate(`profile/${vtuber.id}`)} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={(target) => { setSelectedVTuber(target); setIsCollabModalOpen(true); }} />)}
                   </div>
                 )}
               </div>
@@ -1774,7 +1829,7 @@
                  )}
                  {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                     {(displayCollabs || []).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => { gridScrollY.current = window.scrollY; setSelectedVTuber(vt); navigate('profile'); }} />)}
+                     {(displayCollabs || []).map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (3 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} vtuber={realVtubers.find(v => v.id === c.userId)} onNavigateProfile={(vt) => { gridScrollY.current = window.scrollY; navigate(`profile/${vt.id}`); }} />)}
                    </div>
                  )}
                </div>
