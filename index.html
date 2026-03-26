@@ -101,6 +101,7 @@
       return (match && match[2].length === 11) ? `https://img.youtube.com/vi/${match[2]}/maxresdefault.jpg` : null;
     };
     
+    // 自動從 YouTube 網址抓取縮圖與標題
     const autoFetchYouTubeInfo = async (url, setTitle, setCoverUrl, showToast) => {
       if (!url) return showToast("請先輸入 YouTube 連結");
       const ytMatch = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
@@ -143,46 +144,6 @@
     };
 
     // --- 共用 UI 元件 ---
-    
-    // 新增：前端防機器人算術驗證元件
-    const MathCaptcha = ({ onVerify }) => {
-      const [num1, setNum1] = useState(0);
-      const [num2, setNum2] = useState(0);
-      const [input, setInput] = useState('');
-
-      const generateMath = () => {
-        setNum1(Math.floor(Math.random() * 10) + 1);
-        setNum2(Math.floor(Math.random() * 10) + 1);
-        setInput('');
-        onVerify(false);
-      };
-
-      useEffect(() => { generateMath(); }, []);
-
-      const handleChange = (e) => {
-        const val = e.target.value;
-        setInput(val);
-        if (parseInt(val) === num1 + num2) {
-          onVerify(true);
-        } else {
-          onVerify(false);
-        }
-      };
-
-      return (
-        <div className="flex flex-wrap items-center gap-3 bg-gray-800/80 p-3 rounded-xl border border-gray-700 w-full sm:w-auto">
-          <span className="text-gray-300 font-bold text-sm flex items-center gap-2">
-            <i className="fa-solid fa-robot text-purple-400"></i> 防機器人驗證
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-white font-bold tracking-widest bg-gray-900 px-3 py-1 rounded-lg border border-gray-600">{num1} + {num2} = ?</span>
-            <input type="number" placeholder="答案" value={input} onChange={handleChange} className="w-16 bg-gray-900 border border-gray-600 rounded-lg px-2 py-1.5 text-white text-center outline-none focus:border-purple-500 font-bold" />
-            <button type="button" onClick={generateMath} className="text-gray-400 hover:text-white transition-colors ml-1 p-1 bg-gray-700 rounded-md" title="重新產生題目"><i className="fa-solid fa-rotate-right"></i></button>
-          </div>
-        </div>
-      );
-    };
-
     const TagBadge = ({ text, onClick, selected }) => (
       <span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>
     );
@@ -210,6 +171,7 @@
             <div className="mt-auto">
               {c.streamUrl ? <a href={c.streamUrl} target="_blank" rel="noopener noreferrer" className={`w-full ${isLive ? 'bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.6)] animate-pulse' : 'bg-red-600 hover:bg-red-500 group-hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]'} text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2`}><i className="fa-solid fa-play-circle text-lg"></i> 前往待機室 / 觀看直播</a> : <div className="w-full bg-gray-800 text-gray-500 py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 border border-gray-700"><i className="fa-solid fa-clock"></i> 直播連結尚未提供</div>}
               
+              {/* 發起人名片按鈕 */}
               {vtuber && vtuber.id !== 'admin' && onNavigateProfile && (
                 <div onClick={(e) => { e.stopPropagation(); onNavigateProfile(vtuber); }} className="mt-4 pt-4 border-t border-gray-700/50 flex items-center justify-between cursor-pointer group/author hover:bg-gray-800/80 p-2 -mx-2 rounded-xl transition-colors">
                   <div className="flex items-center gap-3">
@@ -527,147 +489,128 @@
       );
     };
 
-    const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast }) => {
-      const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
-      
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!isAdmin && !isCaptchaVerified) {
-          return showToast("請先完成防機器人驗證！");
-        }
-        onSubmit(e);
-      };
-
-      return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5">
-            <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-power-off"></i> 名片顯示狀態</h3>
-            <select value={form.activityStatus} onChange={e=>updateForm({activityStatus: e.target.value})} className={inputCls + " font-bold"}>
-              <option value="active">🟢 活躍連動中 (正常公開顯示)</option><option value="sleep">🟡 暫休眠 / 準備期 (隱藏名片)</option><option value="graduated">⚫ 已畢業 / 停止活動 (隱藏名片)</option>
+    const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast }) => (
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5">
+          <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-power-off"></i> 名片顯示狀態</h3>
+          <select value={form.activityStatus} onChange={e=>updateForm({activityStatus: e.target.value})} className={inputCls + " font-bold"}>
+            <option value="active">🟢 活躍連動中 (正常公開顯示)</option><option value="sleep">🟡 暫休眠 / 準備期 (隱藏名片)</option><option value="graduated">⚫ 已畢業 / 停止活動 (隱藏名片)</option>
+          </select>
+          {!isAdmin && <p className="text-xs text-gray-400 mt-3 leading-relaxed">💡 <b>自動隱藏機制</b>：若超過 <b>30天</b> 未登入，系統會自動隱藏名片，再次登入即可恢復！</p>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">VTuber 名稱 <span className="text-red-400">*</span></label><input required type="text" value={form.name} onChange={e=>updateForm({name: e.target.value})} className={inputCls} /></div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label><select value={form.agency} onChange={e=>updateForm({agency: e.target.value})} className={inputCls}><option>個人勢</option><option>企業勢</option><option>社團勢</option></select></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
+            <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="台灣">台灣</option>
+              <option value="香港">香港</option>
+              <option value="馬來西亞">馬來西亞</option>
+              <option value="其他">其他（可以自填）</option>
             </select>
-            {!isAdmin && <p className="text-xs text-gray-400 mt-3 leading-relaxed">💡 <b>自動隱藏機制</b>：若超過 <b>30天</b> 未登入，系統會自動隱藏名片，再次登入即可恢復！</p>}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">VTuber 名稱 <span className="text-red-400">*</span></label><input required type="text" value={form.name} onChange={e=>updateForm({name: e.target.value})} className={inputCls} /></div>
-            <div className="grid grid-cols-2 gap-2">
-              <div><label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label><select value={form.agency} onChange={e=>updateForm({agency: e.target.value})} className={inputCls}><option>個人勢</option><option>企業勢</option><option>社團勢</option></select></div>
-              <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
-              <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
-                <option value="">未指定</option>
-                <option value="台灣">台灣</option>
-                <option value="香港">香港</option>
-                <option value="馬來西亞">馬來西亞</option>
-                <option value="其他">其他（可以自填）</option>
-              </select>
-              {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
-              <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
-                <option value="">未指定</option>
-                <option value="國">國</option>
-                <option value="台">台</option>
-                <option value="日">日</option>
-                <option value="英">英</option>
-                <option value="粵">粵</option>
-                <option value="其他">其他（可以自填）</option>
-              </select>
-              {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
-            </div>
+            {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
-            <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
+            <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
+            <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="國">國</option>
+              <option value="台">台</option>
+              <option value="日">日</option>
+              <option value="英">英</option>
+              <option value="粵">粵</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
+          <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
+        </div>
+        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+        {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數/檢舉數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className="w-full bg-red-900/50 border border-red-700 rounded-xl p-3 text-white outline-none text-sm box-border" /></div>
           </div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
-          {isAdmin && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
-              <div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數/檢舉數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className="w-full bg-red-900/50 border border-red-700 rounded-xl p-3 text-white outline-none text-sm box-border" /></div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-red-400">*</span></label><input required type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} className={inputCls} /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 <span className="text-red-400">*</span></label><input required type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} className={inputCls} /></div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-red-400">*</span></label><input required type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} className={inputCls} /></div>
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 <span className="text-red-400">*</span></label><input required type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} className={inputCls} /></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主要直播平台</label></label>
+            <input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} />
           </div>
+          <div>
+            <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>Twitch 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="Twitch" checked={form.mainPlatform === 'Twitch'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主要直播平台</label></label>
+            <input type="url" value={form.twitchUrl} onChange={e=>updateForm({twitchUrl: e.target.value})} className={inputCls} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">X連結</label><input type="url" value={form.xUrl} onChange={e=>updateForm({xUrl: e.target.value})} className={inputCls} /></div>
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">你的Instagram</label><input type="url" value={form.igUrl} onChange={e=>updateForm({igUrl: e.target.value})} className={inputCls} /></div>
+        </div>
+        
+        {/* 信箱設定區塊 */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 mt-2">
+          <h3 className="text-white font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-envelopes-bulk text-purple-400"></i> 聯絡信箱設定</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主要直播平台</label></label>
-              <input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} />
+              <label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email (選填)</label>
+              <input type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，絕對不會公開" />
+              <p className="text-[10px] text-gray-500 mt-1">此信箱存於獨立的私密防護庫，不會出現在名片上。</p>
             </div>
             <div>
-              <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>Twitch 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="Twitch" checked={form.mainPlatform === 'Twitch'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主要直播平台</label></label>
-              <input type="url" value={form.twitchUrl} onChange={e=>updateForm({twitchUrl: e.target.value})} className={inputCls} />
+              <label className="block text-sm font-bold text-gray-300 mb-2">公開工商信箱 (選填)</label>
+              <input type="email" value={form.publicEmail || ''} onChange={e=>updateForm({publicEmail: e.target.value})} className={inputCls} placeholder="例如：business@example.com" />
+              <p className="text-[10px] text-purple-400/80 mt-1">若您本來就有公開信箱，可填寫於此。填寫後，在您的名片上「僅對已認證創作者」顯示直接寄信按鈕。</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">X連結</label><input type="url" value={form.xUrl} onChange={e=>updateForm({xUrl: e.target.value})} className={inputCls} /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">你的Instagram</label><input type="url" value={form.igUrl} onChange={e=>updateForm({igUrl: e.target.value})} className={inputCls} /></div>
-          </div>
-          
-          {/* 信箱設定區塊 */}
-          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 mt-2">
-            <h3 className="text-white font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-envelopes-bulk text-purple-400"></i> 聯絡信箱設定</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email (選填)</label>
-                <input type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，絕對不會公開" />
-                <p className="text-[10px] text-gray-500 mt-1">此信箱存於獨立的私密防護庫，不會出現在名片上。</p>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-2">公開工商信箱 (選填)</label>
-                <input type="email" value={form.publicEmail || ''} onChange={e=>updateForm({publicEmail: e.target.value})} className={inputCls} placeholder="例如：business@example.com" />
-                <p className="text-[10px] text-purple-400/80 mt-1">若您本來就有公開信箱，可填寫於此。填寫後，在您的名片上「僅對已認證創作者」顯示直接寄信按鈕。</p>
-              </div>
-            </div>
-          </div>
+        </div>
 
-          <div className="grid grid-cols-1 gap-6 pt-2">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e=>updateForm({streamStyleUrl: e.target.value})} className={inputCls} placeholder="填入影片連結" /></div>
-          </div>
+        <div className="grid grid-cols-1 gap-6 pt-2">
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e=>updateForm({streamStyleUrl: e.target.value})} className={inputCls} placeholder="填入影片連結" /></div>
+        </div>
 
-          {!isAdmin && (
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-              <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-gray-400 text-sm font-normal">(選填)</span></h3>
-              <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，管理員會親自審核，此欄位請輸入你放在X還是Youtube。</p>
-              <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label>
-              <div className="flex gap-3"><img src={form.avatar} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div>
-              <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label>
-              <div className="flex gap-3"><img src={form.banner} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div>
-              <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
-            </div>
+        {!isAdmin && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
+            <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-gray-400 text-sm font-normal">(選填)</span></h3>
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，管理員會親自審核，此欄位請輸入你放在X還是Youtube。</p>
+            <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
           </div>
-          
-          {/* 修改：防機器人驗證與按鈕整合 */}
-          <div className="pt-6 border-t border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
-            {!isAdmin ? <MathCaptcha onVerify={setIsCaptchaVerified} /> : <div></div>}
-            <div className="flex gap-3 w-full sm:w-auto">
-              {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors w-full sm:w-auto">取消</button>}
-              <button type="submit" disabled={!isAdmin && !isCaptchaVerified} className={btnCls + (!isAdmin && !isCaptchaVerified ? ' opacity-50 cursor-not-allowed hover:scale-100' : ' w-full sm:w-auto')}>
-                <i className="fa-solid fa-floppy-disk mr-2"></i>{isAdmin ? '強制儲存更新' : '儲存名片'}
-              </button>
-            </div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label>
+            <div className="flex gap-3"><img src={form.avatar} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div>
+            <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
           </div>
-        </form>
-      );
-    };
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label>
+            <div className="flex gap-3"><img src={form.banner} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div>
+            <p className="text-[10px] text-gray-500 mt-1">請至X你的主頁&gt;頭像/橫幅&gt;滑鼠右鍵&gt;複製圖片連結，或者您可以找免費圖床取得圖片連結。</p>
+          </div>
+        </div>
+        <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
+          {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
+          <button type="submit" className={btnCls}><i className="fa-solid fa-floppy-disk mr-2"></i>{isAdmin ? '強制儲存更新' : '儲存名片'}</button>
+        </div>
+      </form>
+    );
 
     // --- 新增：專屬信箱分頁元件 ---
     const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile }) => {
@@ -1550,7 +1493,7 @@
 
       return (
         <div className="flex flex-col min-h-screen relative">
-          {toastMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-slide-down flex items-center gap-3 font-bold text-sm z-[200]"><i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}</div>}
+          {toastMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-slide-down flex items-center gap-3 font-bold text-sm"><i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}</div>}
 
           {/* 導覽列 */}
           <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0f111a]/95 border-b border-gray-800 shadow-xl">
@@ -1589,8 +1532,8 @@
                 <button onClick={() => navigate('grid')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>尋找 VTuber 夥伴</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); }} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定聯動</button>
-                <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
+                <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'inbox' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}>
                     <i className="fa-solid fa-envelope-open-text"></i> 我的信箱
@@ -1605,8 +1548,8 @@
                 <button onClick={() => navigate('grid')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'grid' || currentView === 'profile' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>尋找 VTuber 夥伴</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('bulletin'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動</button>
-                <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('match'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'match' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-dice w-5"></i> 聯動隨機配對</button>
+                <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === 'inbox' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
                     <div className="flex items-center gap-3"><i className="fa-solid fa-envelope-open-text w-5"></i> 我的信箱</div>
@@ -1864,10 +1807,7 @@
                     <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
                     <div><label className="text-xs text-gray-400 mb-1 block">招募截止 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
                   </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <MathCaptcha onVerify={setBulletinCaptchaVerified} />
-                    <button onClick={() => { if(bulletinCaptchaVerified) handlePostBulletin(); else showToast("請先完成防機器人驗證！"); }} disabled={!bulletinCaptchaVerified} className={btnCls + (!bulletinCaptchaVerified ? ' opacity-50 cursor-not-allowed hover:scale-100 w-full sm:w-auto' : ' w-full sm:w-auto')}><i className="fa-solid fa-paper-plane mr-2"></i>送出發布</button>
-                  </div>
+                  <div className="flex justify-end"><button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold"><i className="fa-solid fa-paper-plane mr-2"></i>送出發布</button></div>
                 </div>
                 {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1986,22 +1926,15 @@
                 <div className="p-5 space-y-4">
                   <p className="text-xs text-gray-400">* 為了保護雙方隱私，我們採用站內信系統，對方登入時將會收到您的通知。</p>
                   <textarea rows="6" value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className={inputCls + " resize-none"} placeholder="寫下您的邀請內容..."></textarea>
-                  
-                  <div className="mt-4 flex flex-col gap-4">
-                    <MathCaptcha onVerify={setInviteCaptchaVerified} />
-                    <button onClick={async () => { 
-                        if (!inviteCaptchaVerified) return showToast("請先完成防機器人驗證！");
-                        if (!inviteMessage.trim()) return showToast("請輸入內容！");
-                        if (user && selectedVTuber.id) {
-                           try { 
-                              await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: `寄來了一封聯動邀約：\n「${inviteMessage}」`, createdAt: Date.now(), read: false }); 
-                              setIsCollabModalOpen(false); setInviteMessage(''); showToast("✅ 邀約已成功送出！");
-                           } catch(e) { showToast("發送失敗，請稍後再試。"); }
-                        }
-                      }} disabled={!inviteCaptchaVerified} className={btnCls + (!inviteCaptchaVerified ? ' opacity-50 cursor-not-allowed hover:scale-100' : '')}>
-                      <i className="fa-solid fa-paper-plane mr-2"></i>傳送站內邀約
-                    </button>
-                  </div>
+                  <button onClick={async () => { 
+                      if(!inviteMessage.trim()) return showToast("請輸入內容！");
+                      if (user && selectedVTuber.id) {
+                         try { 
+                            await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: `寄來了一封聯動邀約：\n「${inviteMessage}」`, createdAt: Date.now(), read: false }); 
+                            setIsCollabModalOpen(false); setInviteMessage(''); showToast("✅ 邀約已成功送出！");
+                         } catch(e) { showToast("發送失敗，請稍後再試。"); }
+                      }
+                    }} className={btnCls + " w-full"}><i className="fa-solid fa-paper-plane"></i> 傳送站內邀約</button>
                 </div>
               </div>
             </div>
@@ -2079,7 +2012,7 @@
                   {myProfile.showVerificationModal === 'approved' ? (
                     <p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">恭喜你審核通過！<br/>開始尋找聯動夥伴吧！</p>
                   ) : (
-                    <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上條件你沒有在上面，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！<br/><br/>請繼續加油！</p>
+                    <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上條件你都沒有，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！<br/><br/>請繼續加油！</p>
                   )}
                   <div className="flex justify-center">
                     {myProfile.showVerificationModal === 'approved' ? (
