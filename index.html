@@ -727,7 +727,7 @@
       );
     };
 
-    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, isBlacklist, privateDocs }) => (
+    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs }) => (
       <div className="mb-8">
         <h3 className={`text-xl font-bold mb-4 border-b border-gray-700 pb-2 ${isBlacklist ? 'text-red-500' : title.includes('待') ? 'text-yellow-400' : 'text-white'}`}>{title} ({list.length})</h3>
         {list.length === 0 && <p className="text-gray-500 text-sm">目前無資料</p>}
@@ -760,6 +760,7 @@
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 {onVerify && <button onClick={()=>onVerify(v.id)} className="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg text-sm font-bold">審核</button>}
+                {onReject && <button onClick={()=>onReject(v.id)} className="text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg text-sm font-bold">拒絕</button>}
                 <button onClick={()=>onEdit(v)} className="text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg text-sm font-bold">編輯</button>
                 <button onClick={()=>onDelete(v.id)} className={`text-red-400 px-3 py-2 rounded-lg text-sm font-bold ${isBlacklist ? 'bg-red-900/50 hover:bg-red-600 hover:text-white' : 'bg-red-500/10'}`}>刪除</button>
               </div>
@@ -769,7 +770,7 @@
       </div>
     );
 
-    const AdminPage = ({ vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, autoFetchYouTubeInfo }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
       const [editRules, setEditRules] = useState(rules);
@@ -777,7 +778,8 @@
       const [editingVtuber, setEditingVtuber] = useState(null);
 
       const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
-      const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted);
+      const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
+      const rejectedVtubers = safeVtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected' && !v.isBlacklisted);
       const verifiedVtubers = safeVtubers.filter(v => v.isVerified && !v.isBlacklisted);
       const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
 
@@ -828,7 +830,8 @@
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
-                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
+                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />}
                   <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
                   <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
                   <div className="mt-12 pt-6 border-t border-red-500/50"><button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button></div>
@@ -1001,7 +1004,7 @@
       const navigate = (view, preserveScroll = false) => { window.location.hash = view; setIsMobileMenuOpen(false); if (!preserveScroll) window.scrollTo(0,0); };
       const goToBulletin = () => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); };
 
-      const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted).length, [realVtubers]);
+      const pendingVtubersCount = useMemo(() => realVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected').length, [realVtubers]);
 
       useEffect(() => {
         const handleHashChange = () => { const h = window.location.hash.replace('#', ''); setCurrentView((h==='profile'&&!selectedVTuber)?'grid':(h||'home')); };
@@ -1220,10 +1223,12 @@
             lastActiveAt: Date.now(), updatedAt: Date.now()
           };
 
-          // 修正 BUG：如果是新建立的名片，才加上 isVerified: false，否則絕對不要寫入此欄位，交給 merge: true 保留資料庫原有的審核狀態
-          if (!existingProfile) {
+          // 修正 BUG：如果是新建立的名片，或已被拒絕且重新送審，重置審核狀態為 pending
+          if (!existingProfile || existingProfile.verificationStatus === 'rejected') {
             publicData.isVerified = false;
             publicData.isBlacklisted = false;
+            publicData.verificationStatus = 'pending';
+            publicData.showVerificationModal = null;
           }
 
           // 2. 私密資料庫 (保護隱私)
@@ -1330,7 +1335,30 @@
       };
 
       // --- 大腦函數 (Admin 功能) ---
-      const handleVerifyVtuber = async (id) => { try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false }, { merge: true }); showToast("已通過審核！"); } catch (err) { showToast("審核失敗"); } };
+      const handleVerifyVtuber = async (id) => { 
+        try { 
+          await setDoc(doc(db, getPath('vtubers'), id), { 
+            isVerified: true, 
+            isBlacklisted: false, 
+            verificationStatus: 'approved', 
+            showVerificationModal: 'approved' 
+          }, { merge: true }); 
+          showToast("已通過審核！"); 
+        } catch (err) { showToast("審核失敗"); } 
+      };
+
+      const handleRejectVtuber = async (id) => {
+        if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
+        try {
+          await setDoc(doc(db, getPath('vtubers'), id), { 
+            isVerified: false, 
+            verificationStatus: 'rejected', 
+            showVerificationModal: 'rejected' 
+          }, { merge: true });
+          showToast("已退回該名片！");
+        } catch (err) { showToast("操作失敗"); }
+      };
+
       const handleAdminUpdateVtuber = async (id, updatedData) => {
         try {
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
@@ -1344,6 +1372,8 @@
           // 修正 BUG：絕對不要在「編輯名片」時覆蓋這些核心權限與狀態欄位，以防舊狀態意外蓋牌
           delete publicData.isVerified;
           delete publicData.isBlacklisted;
+          delete publicData.verificationStatus;
+          delete publicData.showVerificationModal;
           delete publicData.contactEmail; 
           delete publicData.verificationNote; 
           delete publicData.nationalityOther; 
@@ -1410,9 +1440,9 @@
               <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <button onClick={() => navigate('home')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'home' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>尋找 VTuber 夥伴</button>
+                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); }} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定聯動</button>
-                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'inbox' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}>
@@ -1750,7 +1780,7 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
+            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
           </main>
 
           {/* --- 邀請表單 Modal (已修改為純站內信模式) --- */}
@@ -1831,6 +1861,40 @@
           {/* 其他 Modal (提示與規範) */}
           {isTipsModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-yellow-400"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</h3><button onClick={() => setIsTipsModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">標準邀請信範本</h4><button onClick={() => {navigator.clipboard.writeText(realTips).catch(()=>{}); setCopiedTemplate(true); setTimeout(()=>setCopiedTemplate(false), 2000); showToast("已複製");}} className={`text-white px-3 py-1.5 rounded text-sm ${copiedTemplate ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}>{copiedTemplate ? '已複製' : '一鍵複製'}</button></div><pre className="text-sm text-gray-300 bg-gray-900 p-4 rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-gray-800 max-h-64 overflow-y-auto">{realTips}</pre><div className="mt-6 flex justify-end"><button onClick={() => setIsTipsModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">關閉</button></div></div></div></div>}
           {isRulesModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-triangle-exclamation text-red-500"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="text-sm text-gray-300 leading-relaxed space-y-4 whitespace-pre-wrap">{realRules}</div><div className="mt-8 flex justify-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">我了解了</button></div></div></div></div>}
+          
+          {/* 審核結果通知 Modal */}
+          {myProfile && myProfile.showVerificationModal && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-fade-in-up flex flex-col overflow-hidden">
+                <div className={`px-6 py-5 border-b border-gray-800 flex items-center gap-3 ${myProfile.showVerificationModal === 'approved' ? 'bg-green-900/30' : 'bg-red-900/30'}`}>
+                  {myProfile.showVerificationModal === 'approved' ? (
+                    <><i className="fa-solid fa-circle-check text-green-400 text-2xl"></i><h3 className="font-bold text-green-400 text-lg">審核通過</h3></>
+                  ) : (
+                    <><i className="fa-solid fa-circle-xmark text-red-400 text-2xl"></i><h3 className="font-bold text-red-400 text-lg">審核未通過</h3></>
+                  )}
+                </div>
+                <div className="p-6 text-center">
+                  {myProfile.showVerificationModal === 'approved' ? (
+                    <p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">恭喜你審核通過！<br/>開始尋找聯動夥伴吧！</p>
+                  ) : (
+                    <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，如果以上你都有達到，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！，敬請見諒。<br/><br/>請繼續加油！</p>
+                  )}
+                  <div className="flex justify-center">
+                    {myProfile.showVerificationModal === 'approved' ? (
+                      <button onClick={async () => {
+                        await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null });
+                        navigate('grid');
+                      }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full">開始找夥伴</button>
+                    ) : (
+                      <button onClick={async () => {
+                        await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null });
+                      }} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-colors w-full">好的我知道了</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
