@@ -34,6 +34,11 @@
       filter: invert(1);
       cursor: pointer;
     }
+
+    /* 強制隱藏時間選擇器中的 AM/PM (上午/下午) 區塊，以實現純 24 小時制 */
+    ::-webkit-datetime-edit-ampm-field {
+      display: none;
+    }
   </style>
 </head>
 <body class="selection:bg-purple-500 selection:text-white m-0 p-0 overflow-x-hidden">
@@ -42,7 +47,6 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    // 修正：載入 query 與 where，才能符合 Firebase 的安全讀取規則
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
@@ -115,8 +119,6 @@
       if (String(v.id || '').startsWith('mock')) return true;
       if (!v.isVerified || v.isBlacklisted) return false;
       if (v.activityStatus === 'sleep' || v.activityStatus === 'graduated') return false;
-      // 解決名片消失問題：暫時註解掉「超過 30 天未登入自動隱藏」的機制，避免測試資料或舊資料被隱藏
-      // if (Date.now() - (v.lastActiveAt || v.updatedAt || v.createdAt || Date.now()) > 30 * 24 * 60 * 60 * 1000) return false; 
       return true;
     };
 
@@ -169,6 +171,8 @@
             <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
             <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
               <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
+              {v.nationality && <span className="flex items-center gap-1 text-blue-300"><i className="fa-solid fa-earth-asia"></i> {v.nationality}</span>}
+              {v.language && <span className="flex items-center gap-1 text-yellow-300"><i className="fa-solid fa-language"></i> {v.language}</span>}
             </div>
           </div>
           <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
@@ -399,9 +403,9 @@
                   <select value={slot.day} onChange={e => updateSlot(index, 'day', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500">
                     {['星期一','星期二','星期三','星期四','星期五','星期六','星期日','平日','週末','每日'].map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
-                  <input type="time" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <span className="text-gray-400 text-xs">至</span>
-                  <input type="time" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <button type="button" onClick={() => updateForm({scheduleSlots: form.scheduleSlots.filter((_, i) => i !== index)})} className="text-red-400 hover:text-red-300 ml-auto px-2 transition-colors"><i className="fa-solid fa-trash"></i></button>
                 </div>
               ))}
@@ -463,6 +467,32 @@
             <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
+            <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="台灣">台灣</option>
+              <option value="香港">香港</option>
+              <option value="馬來西亞">馬來西亞</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
+            <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="國">國</option>
+              <option value="台">台</option>
+              <option value="日">日</option>
+              <option value="英">英</option>
+              <option value="粵">粵</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
           <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
@@ -471,7 +501,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
         </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
         {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
@@ -929,7 +959,7 @@
                  const data = docSnap.data();
                  setProfileForm(prev => ({...prev, contactEmail: data.contactEmail || '', verificationNote: data.verificationNote || ''}));
               }
-           });
+           }, (err) => console.error("讀取個人私密資料失敗:", err));
            updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(()=>{});
            return () => unsubPrivate();
         }
@@ -940,7 +970,7 @@
         if (isAdmin) {
           const unsub = onSnapshot(collection(db, getPath('vtubers_private')), (snap) => {
             const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs);
-          });
+          }, (err) => console.error("讀取 vtubers_private 失敗:", err));
           return () => unsub();
         }
       }, [isAdmin]);
@@ -948,7 +978,7 @@
       useEffect(() => {
         const statsRef = doc(db, getPath('settings'), 'stats');
         updateDoc(statsRef, { pageViews: increment(1) }).catch(() => setDoc(statsRef, { pageViews: 1 }, { merge: true }));
-        return onSnapshot(statsRef, (docSnap) => { if (docSnap.exists()) setSiteStats(docSnap.data()); });
+        return onSnapshot(statsRef, (docSnap) => { if (docSnap.exists()) setSiteStats(docSnap.data()); }, (err) => console.error("讀取 stats 失敗:", err));
       }, []);
 
       useEffect(() => {
@@ -978,18 +1008,21 @@
               }));
             }
           }
-        }, () => setIsLoading(false));
+        }, (err) => { 
+            console.error("讀取 vtubers 失敗 (可能是 Firebase Rules 權限設定問題):", err); 
+            setIsLoading(false); 
+        });
 
-        const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
-        const unsubU = onSnapshot(collection(db, getPath('updates')), (snap) => setRealUpdates(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.createdAt - a.createdAt)));
-        const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); });
-        const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); });
+        const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 bulletins 失敗:", err));
+        const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 collabs 失敗:", err));
+        const unsubU = onSnapshot(collection(db, getPath('updates')), (snap) => setRealUpdates(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.createdAt - a.createdAt)), (err) => console.error("讀取 updates 失敗:", err));
+        const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); }, (err) => console.error("讀取 tips 失敗:", err));
+        const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); }, (err) => console.error("讀取 rules 失敗:", err));
 
         let unsubN = () => {};
         if (user && user.uid) {
            const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
-           unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error(err));
+           unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error("讀取 notifications 失敗:", err));
         } else {
            setRealNotifications([]);
         }
