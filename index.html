@@ -589,7 +589,7 @@
         {!isAdmin && (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
             <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span></h3>
-            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在 X 或 YouTube 簡介暫放 <span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>，管理員會親自審核，請直接輸入暫放平台。</p>
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">為保護Vtuber，請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，管理員會親自審核，此欄位請輸入你放在X還是Youtube。</p>
             <input required type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
           </div>
         )}
@@ -981,6 +981,7 @@
       const [selectedPlatform, setSelectedPlatform] = useState('All');
       const [selectedNationality, setSelectedNationality] = useState('All');
       const [selectedLanguage, setSelectedLanguage] = useState('All');
+      const [selectedSchedule, setSelectedSchedule] = useState('All'); // 新增可連動時段篩選
       const [collabCategoryTab, setCollabCategoryTab] = useState('All'); // 確定聯動時間表分類
       
       const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
@@ -1207,6 +1208,20 @@
         return ['All', ...Array.from(langs).sort()];
       }, [displayVtubers, user]);
 
+      // 動態抓取所有可連動時段以供篩選
+      const dynamicSchedules = useMemo(() => {
+        const days = new Set();
+        displayVtubers.filter(v => isVisible(v, user)).forEach(v => {
+          if (v.isScheduleAnytime) days.add('隨時可約');
+          if (Array.isArray(v.scheduleSlots)) {
+            v.scheduleSlots.forEach(s => {
+              if (s.day) days.add(s.day);
+            });
+          }
+        });
+        return ['All', ...Array.from(days).sort()];
+      }, [displayVtubers, user]);
+
       const displayBulletins = useMemo(() => {
         return [...realBulletins].filter(b => !b.recruitEndTime || b.recruitEndTime > Date.now())
           .filter(b => { const vt = displayVtubers.find(v => v.id === b.userId); return vt ? isVisible(vt, user) : true; })
@@ -1238,20 +1253,25 @@
           const mPlat = selectedPlatform === 'All' || (v.mainPlatform || 'YouTube') === selectedPlatform;
           const mNat = selectedNationality === 'All' || v.nationality === selectedNationality;
           const mLang = selectedLanguage === 'All' || v.language === selectedLanguage;
-          return mSearch && mTags && mAgency && mPlat && mNat && mLang;
+          
+          const mSchedule = selectedSchedule === 'All' || 
+            (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || 
+            (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
+
+          return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule;
         });
         if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a));
         else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
         else { let s = [...result]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } result = s; }
         return result;
-      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, user, sortOrder]); 
+      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, user, sortOrder]); 
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
       useEffect(() => {
         setCurrentPage(1);
-      }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, sortOrder]);
+      }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, sortOrder]);
 
       const ITEMS_PER_PAGE = 18;
       const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE));
@@ -1510,9 +1530,9 @@
               <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
                 <button onClick={() => navigate('home')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'home' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'grid' || currentView === 'profile' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}>尋找 VTuber 夥伴</button>
-                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); }} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'bulletin' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-bullhorn"></i> 招募佈告欄{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('collabs')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === 'collabs' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}><i className="fa-solid fa-broadcast-tower"></i> 確定聯動</button>
+                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('match'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'match' ? 'text-purple-400 border-b-2 border-purple-500' : 'text-gray-400 hover:text-white'}`}><i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對{!isVerifiedUser && ' 🔒'}</button>
                 <button onClick={() => navigate('blacklist')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'blacklist' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}><i className="fa-solid fa-ban mr-1"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === 'inbox' ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700'}`}>
@@ -1526,9 +1546,9 @@
               <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0f111a]/95 backdrop-blur-md border-b border-gray-800 shadow-xl flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
                 <button onClick={() => navigate('home')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'home' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>首頁介紹</button>
                 <button onClick={() => navigate('grid')} className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === 'grid' || currentView === 'profile' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>尋找 VTuber 夥伴</button>
-                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('match'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'match' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-dice w-5"></i> 聯動隨機配對</button>
                 <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('bulletin'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'bulletin' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄</button>
                 <button onClick={() => navigate('collabs')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'collabs' ? 'bg-red-500 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動</button>
+                <button onClick={() => { if(!isVerifiedUser) { showToast("請先認證名片解鎖"); navigate('dashboard'); } else navigate('match'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'match' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}><i className="fa-solid fa-dice w-5"></i> 聯動隨機配對</button>
                 <button onClick={() => navigate('blacklist')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'blacklist' ? 'bg-red-900/50 text-red-400' : 'text-red-400/70 hover:bg-red-900/30'}`}><i className="fa-solid fa-ban w-5"></i> 黑單避雷區</button>
                 {user && (
                   <button onClick={() => navigate('inbox')} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === 'inbox' ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-800'}`}>
@@ -1606,6 +1626,13 @@
                           {dynamicLanguages.map(l => <option key={l} value={l}>{l === 'All' ? '全部' : l}</option>)}
                         </select>
                       </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">可連動時段</p>
+                      <select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none focus:border-purple-500">
+                        {dynamicSchedules.map(d => <option key={d} value={d}>{d === 'All' ? '全部' : d}</option>)}
+                      </select>
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-2"><p className="w-full text-xs text-gray-500 mb-1">想找什麼聯動？</p>{dynamicCollabTypes.map(tag => <TagBadge key={tag} text={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />)}</div>
