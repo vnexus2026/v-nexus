@@ -1123,7 +1123,6 @@
         try {
           const tagsArray = (customForm.tags || '').split(',').map(t => t.trim()).filter(t => t);
           const existingProfile = realVtubers.find(v => v.id === (customForm.id||user.uid));
-          const isVerified = existingProfile ? existingProfile.isVerified : false;
 
           const finalNationality = customForm.nationality === '其他' ? customForm.nationalityOther : customForm.nationality;
           const finalLanguage = customForm.language === '其他' ? customForm.languageOther : customForm.language;
@@ -1136,9 +1135,15 @@
             scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers,
             youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
             publicEmail: customForm.publicEmail || '', // 加入自願公開的工商信箱
-            likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], isBlacklisted: customForm.isBlacklisted || false, status: customForm.status || '歡迎邀請',
-            isVerified: isVerified, lastActiveAt: Date.now(), updatedAt: Date.now()
+            likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請',
+            lastActiveAt: Date.now(), updatedAt: Date.now()
           };
+
+          // 修正 BUG：如果是新建立的名片，才加上 isVerified: false，否則絕對不要寫入此欄位，交給 merge: true 保留資料庫原有的審核狀態
+          if (!existingProfile) {
+            publicData.isVerified = false;
+            publicData.isBlacklisted = false;
+          }
 
           // 2. 私密資料庫 (保護隱私)
           const privateData = { contactEmail: customForm.contactEmail, verificationNote: customForm.verificationNote, updatedAt: Date.now() };
@@ -1146,7 +1151,7 @@
           await setDoc(doc(db, getPath('vtubers'), customForm.id||user.uid), publicData, { merge: true });
           await setDoc(doc(db, getPath('vtubers_private'), customForm.id||user.uid), privateData, { merge: true });
 
-          showToast(isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
+          showToast(existingProfile && existingProfile.isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
           if(!customForm.id) navigate('grid');
         } catch (err) { showToast("儲存失敗"); }
       };
@@ -1254,7 +1259,14 @@
           const finalLanguage = updatedData.language === '其他' ? updatedData.languageOther : updatedData.language;
 
           const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, nationality: finalNationality || '', language: finalLanguage || '', updatedAt: Date.now() };
-          delete publicData.contactEmail; delete publicData.verificationNote; delete publicData.nationalityOther; delete publicData.languageOther;
+          
+          // 修正 BUG：絕對不要在「編輯名片」時覆蓋這些核心權限與狀態欄位，以防舊狀態意外蓋牌
+          delete publicData.isVerified;
+          delete publicData.isBlacklisted;
+          delete publicData.contactEmail; 
+          delete publicData.verificationNote; 
+          delete publicData.nationalityOther; 
+          delete publicData.languageOther;
 
           await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); 
           await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true }); 
