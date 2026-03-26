@@ -1176,31 +1176,71 @@
       };
 
       const handleRecommend = async (target) => {
-        if (!isVerifiedUser) return showToast("需通過認證才能推薦！"); if (target.id === user.uid) return showToast("不能推薦自己！");
-        if (target.likedBy?.includes(user.uid)) return showToast("已經推薦過囉！");
+        if (!isVerifiedUser) return showToast("需通過認證才能推薦！"); 
+        if (target.id === user.uid) return showToast("不能推薦自己！");
+        
+        // 防呆：確保每人只能推薦一次
+        if (target.likedBy && target.likedBy.includes(user.uid)) return showToast("已經推薦過囉！每人限推薦一次。");
+        
         try {
-          await setDoc(doc(db, getPath('vtubers'), target.id), { likes: (target.likes || 0) + 1, likedBy: [...(target.likedBy || []), user.uid] }, { merge: true });
-          showToast("✅ 已送出推薦！"); if (selectedVTuber?.id === target.id) setSelectedVTuber(prev => ({ ...prev, likes: prev.likes + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
-        } catch (err) { showToast("推薦失敗"); }
+          // 使用 Firebase 原生的 arrayUnion 與 increment 確保資料正確性，並避免同時按讚被覆蓋
+          await updateDoc(doc(db, getPath('vtubers'), target.id), { 
+            likes: increment(1), 
+            likedBy: arrayUnion(user.uid) 
+          });
+          
+          showToast("✅ 已送出推薦！"); 
+          if (selectedVTuber?.id === target.id) {
+            setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
+          }
+        } catch (err) { 
+          console.error("推薦失敗:", err);
+          showToast("推薦失敗 (請確認資料庫規則更新)"); 
+        }
       };
 
       const handleInitiateDislike = (target) => {
         if (!isVerifiedUser) return showToast("需通過認證才能檢舉！"); if (target.id === user.uid) return showToast("不能檢舉自己！");
-        if (target.dislikedBy?.includes(user.uid)) return showToast("已經倒讚過囉！");
+        if (target.dislikedBy && target.dislikedBy.includes(user.uid)) return showToast("已經倒讚過囉！每人限倒讚一次。");
         setConfirmDislikeData(target);
       };
 
       const handleConfirmDislike = async () => {
         if (!confirmDislikeData || !user) return;
-        const tId = confirmDislikeData.id; const newD = (confirmDislikeData.dislikes || 0) + 1;
-        const updates = { dislikes: newD, dislikedBy: [...(confirmDislikeData.dislikedBy || []), user.uid] };
-        if (newD >= 10) { updates.isVerified = false; updates.isBlacklisted = true; }
+        const tId = confirmDislikeData.id; 
+        
+        // 二次防護，確保沒有重複倒讚
+        if (confirmDislikeData.dislikedBy && confirmDislikeData.dislikedBy.includes(user.uid)) {
+          setConfirmDislikeData(null);
+          return showToast("已經倒讚過囉！每人限倒讚一次。");
+        }
+
+        const newD = (confirmDislikeData.dislikes || 0) + 1;
+        const updates = { 
+          dislikes: increment(1), 
+          dislikedBy: arrayUnion(user.uid) 
+        };
+        
+        if (newD >= 10) { 
+          updates.isVerified = false; 
+          updates.isBlacklisted = true; 
+        }
+        
         try {
-          await setDoc(doc(db, getPath('vtubers'), tId), updates, { merge: true });
-          setConfirmDislikeData(null); showToast("✅ 已送出倒讚。");
-          if (updates.isBlacklisted) { showToast("⚠️ 已自動下架。"); if (selectedVTuber?.id === tId) navigate('grid'); }
-          else if (selectedVTuber?.id === tId) setSelectedVTuber(prev => ({ ...prev, dislikes: newD, dislikedBy: updates.dislikedBy }));
-        } catch (err) { showToast("操作失敗"); }
+          await updateDoc(doc(db, getPath('vtubers'), tId), updates);
+          setConfirmDislikeData(null); 
+          showToast("✅ 已送出倒讚。");
+          if (updates.isBlacklisted) { 
+            showToast("⚠️ 該名片已自動下架。"); 
+            if (selectedVTuber?.id === tId) navigate('grid'); 
+          }
+          else if (selectedVTuber?.id === tId) {
+            setSelectedVTuber(prev => ({ ...prev, dislikes: newD, dislikedBy: [...(prev.dislikedBy || []), user.uid] }));
+          }
+        } catch (err) { 
+          console.error("倒讚失敗:", err);
+          showToast("操作失敗 (請確認資料庫規則更新)"); 
+        }
       };
 
       // --- 大腦函數 (Admin 功能) ---
