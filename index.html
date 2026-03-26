@@ -628,7 +628,7 @@
     };
 
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
+    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
       const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
@@ -642,7 +642,17 @@
           <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
             <button onClick={() => navigate('grid')} className="h-14 bg-purple-600 hover:bg-purple-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴</button>
             <button onClick={() => navigate('dashboard')} className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片</button>
-            <div className="flex flex-col items-center w-full sm:w-auto"><button onClick={onOpenUpdates} className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布</button></div>
+            <div className="flex flex-col items-center w-full sm:w-auto">
+              <button onClick={onOpenUpdates} className="relative h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto">
+                <i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布
+                {hasUnreadUpdates && (
+                  <span className="absolute -top-2 -right-2 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#0f111a]"></span>
+                  </span>
+                )}
+              </button>
+            </div>
             <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
@@ -914,6 +924,19 @@
       const [isNotifOpen, setIsNotifOpen] = useState(false);
       const notifRef = useRef(null);
       const gridScrollY = useRef(0);
+
+      // --- 新增：最新消息已讀狀態追蹤 ---
+      const [readUpdateIds, setReadUpdateIds] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('readUpdates') || '[]'); } catch { return []; }
+      });
+      const hasUnreadUpdates = realUpdates.some(u => !readUpdateIds.includes(u.id));
+
+      const handleMarkAllUpdatesRead = () => {
+        const allIds = realUpdates.map(u => u.id);
+        setReadUpdateIds(allIds);
+        localStorage.setItem('readUpdates', JSON.stringify(allIds));
+        showToast("✅ 已全部標示為已讀");
+      };
 
       const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？");
       const [realRules, setRealRules] = useState("如果聯動的V朋朋有負面行為，請在他的名片按倒讚。只要超過 10 個倒讚即會自動下架。");
@@ -1361,7 +1384,7 @@
           </nav>
 
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
 
             {currentView === 'inbox' && user && (
               <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />
@@ -1662,19 +1685,32 @@
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up flex flex-col max-h-[80vh]">
                 <div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center">
-                  <h3 className="font-bold text-blue-400"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息與功能發布</h3>
+                  <div className="flex items-center gap-4">
+                    <h3 className="font-bold text-blue-400"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息與功能發布</h3>
+                    {hasUnreadUpdates && (
+                      <button onClick={handleMarkAllUpdatesRead} className="text-xs font-bold text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg transition-colors border border-blue-500/20">
+                        <i className="fa-solid fa-check-double mr-1"></i> 一鍵已讀
+                      </button>
+                    )}
+                  </div>
                   <button onClick={() => setIsUpdatesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
                 </div>
                 <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                  {realUpdates.length === 0 ? <p className="text-gray-500 text-center py-10">目前沒有新消息</p> : realUpdates.map(u => (
-                    <div key={u.id} className="bg-gray-800/50 p-5 rounded-xl border border-gray-700">
-                      <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-bold text-white text-lg">{u.title}</h4>
-                        <span className="text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">{u.date}</span>
+                  {realUpdates.length === 0 ? <p className="text-gray-500 text-center py-10">目前沒有新消息</p> : realUpdates.map(u => {
+                    const isUnread = !readUpdateIds.includes(u.id);
+                    return (
+                      <div key={u.id} className={`bg-gray-800/50 p-5 rounded-xl border transition-colors ${isUnread ? 'border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.15)]' : 'border-gray-700'}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="font-bold text-white text-lg flex items-center gap-2">
+                            {u.title}
+                            {isUnread && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-lg whitespace-nowrap">新消息</span>}
+                          </h4>
+                          <span className="text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">{u.date}</span>
+                        </div>
+                        <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{u.content}</p>
                       </div>
-                      <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{u.content}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="px-6 py-4 border-t border-gray-800 flex justify-end">
                   <button onClick={() => setIsUpdatesModalOpen(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2.5 rounded-xl font-bold transition-colors">關閉</button>
