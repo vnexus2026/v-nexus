@@ -42,7 +42,6 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    // 修正：載入 query 與 where，才能符合 Firebase 的安全讀取規則
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
@@ -168,6 +167,8 @@
             <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
             <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
               <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
+              {v.nationality && <span className="flex items-center gap-1 text-blue-300"><i className="fa-solid fa-earth-asia"></i> {v.nationality}</span>}
+              {v.language && <span className="flex items-center gap-1 text-yellow-300"><i className="fa-solid fa-language"></i> {v.language}</span>}
             </div>
           </div>
           <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
@@ -398,9 +399,9 @@
                   <select value={slot.day} onChange={e => updateSlot(index, 'day', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500">
                     {['星期一','星期二','星期三','星期四','星期五','星期六','星期日','平日','週末','每日'].map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
-                  <input type="time" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <span className="text-gray-400 text-xs">至</span>
-                  <input type="time" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" lang="en-GB" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <button type="button" onClick={() => updateForm({scheduleSlots: form.scheduleSlots.filter((_, i) => i !== index)})} className="text-red-400 hover:text-red-300 ml-auto px-2 transition-colors"><i className="fa-solid fa-trash"></i></button>
                 </div>
               ))}
@@ -462,6 +463,32 @@
             <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
           </div>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
+            <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="台灣">台灣</option>
+              <option value="香港">香港</option>
+              <option value="馬來西亞">馬來西亞</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
+            <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
+              <option value="">未指定</option>
+              <option value="國">國</option>
+              <option value="台">台</option>
+              <option value="日">日</option>
+              <option value="英">英</option>
+              <option value="粵">粵</option>
+              <option value="其他">其他（可以自填）</option>
+            </select>
+            {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
           <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
@@ -470,7 +497,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
         </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
         {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
@@ -709,8 +736,18 @@
       const handleEditClick = (v) => {
         const standard = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => PREDEFINED_COLLABS.includes(t)) : [];
         const other = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '' : '';
+        
+        const PREDEFINED_NATIONALITIES = ['台灣', '香港', '馬來西亞'];
+        const PREDEFINED_LANGUAGES = ['國', '台', '日', '英', '粵'];
+        const n = v.nationality || '';
+        const isOtherN = n && !PREDEFINED_NATIONALITIES.includes(n);
+        const l = v.language || '';
+        const isOtherL = l && !PREDEFINED_LANGUAGES.includes(l);
+
         setEditingVtuber({
           ...v, tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '', collabTypes: standard, isOtherCollab: !!other, otherCollabText: other,
+          nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '',
+          language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
           isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false,
           customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
           twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
@@ -759,7 +796,10 @@
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-xl font-bold text-white mb-4">新增聯動時間</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="datetime-local" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} /><input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} /></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      <input type="datetime-local" lang="en-GB" value={newCollab.dateTime} onChange={e=>setNewCollab({...newCollab, dateTime: e.target.value})} className={inputCls} />
+                      <input type="url" placeholder="直播連結..." value={newCollab.streamUrl} onChange={e=>setNewCollab({...newCollab, streamUrl: e.target.value})} className={inputCls} />
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"><input type="text" placeholder="聯動標題" value={newCollab.title} onChange={e=>setNewCollab({...newCollab, title: e.target.value})} className={inputCls} /><input type="url" placeholder="自訂封面圖" value={newCollab.coverUrl} onChange={e=>setNewCollab({...newCollab, coverUrl: e.target.value})} className={inputCls} /></div>
                     <button onClick={handleAdminPublish} className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold">發布</button>
                   </div>
@@ -833,6 +873,7 @@
 
       const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
+        nationality: '', nationalityOther: '', language: '', languageOther: '',
         isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
         youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', contactEmail: '', verificationNote: ''
       });
@@ -900,14 +941,23 @@
           if(user) {
             const cp = data.find(v => v.id === user.uid);
             if (cp) {
+              const PREDEFINED_NATIONALITIES = ['台灣', '香港', '馬來西亞'];
+              const PREDEFINED_LANGUAGES = ['國', '台', '日', '英', '粵'];
+              const n = cp.nationality || '';
+              const isOtherN = n && !PREDEFINED_NATIONALITIES.includes(n);
+              const l = cp.language || '';
+              const isOtherL = l && !PREDEFINED_LANGUAGES.includes(l);
+
               const stdTypes = (cp.collabTypes||[]).filter(t => PREDEFINED_COLLABS.includes(t));
               const othType = (cp.collabTypes||[]).filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '';
+              
               setProfileForm(prev => ({
                 ...prev, ...cp, name: cp.name || prev.name, description: cp.description || prev.description, tags: Array.isArray(cp.tags) ? cp.tags.join(', ') : cp.tags || '',
+                nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '',
+                language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
                 collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                 scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
                 youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || ''
-                // contactEmail 和 verificationNote 從私密資料表更新，上面已經處理了
               }));
             }
           }
@@ -918,7 +968,6 @@
         const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); });
         const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); });
 
-        // 修正：因為設定了安全規則，必須只獲取「屬於自己的通知」，否則會被 Firebase 直接阻擋
         let unsubN = () => {};
         if (user && user.uid) {
            const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
@@ -1011,9 +1060,13 @@
           const existingProfile = realVtubers.find(v => v.id === (customForm.id||user.uid));
           const isVerified = existingProfile ? existingProfile.isVerified : false;
 
+          const finalNationality = customForm.nationality === '其他' ? customForm.nationalityOther : customForm.nationality;
+          const finalLanguage = customForm.language === '其他' ? customForm.languageOther : customForm.language;
+
           // 1. 公開資料庫 (不包含 系統註冊 Email)
           const publicData = {
             name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs,
+            nationality: finalNationality || '', language: finalLanguage || '',
             isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
             scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers,
             youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
@@ -1092,8 +1145,11 @@
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
           let finalCollabs = [...(updatedData.collabTypes || [])]; if (updatedData.isOtherCollab && updatedData.otherCollabText?.trim()) finalCollabs.push(updatedData.otherCollabText.trim());
           
-          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, updatedAt: Date.now() };
-          delete publicData.contactEmail; delete publicData.verificationNote; // 確保強制更新時不覆蓋到公開區
+          const finalNationality = updatedData.nationality === '其他' ? updatedData.nationalityOther : updatedData.nationality;
+          const finalLanguage = updatedData.language === '其他' ? updatedData.languageOther : updatedData.language;
+
+          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, nationality: finalNationality || '', language: finalLanguage || '', updatedAt: Date.now() };
+          delete publicData.contactEmail; delete publicData.verificationNote; delete publicData.nationalityOther; delete publicData.languageOther;
 
           await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); 
           await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true }); 
@@ -1269,7 +1325,12 @@
                         <div className="flex flex-wrap items-center justify-between gap-4">
                           <div>
                             <div className="flex items-center gap-2 mb-2"><h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">{selectedVTuber.name} {selectedVTuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>}</h1></div>
-                            <div className="flex flex-wrap gap-2 mt-2 items-center"><span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span><span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span></div>
+                            <div className="flex flex-wrap gap-2 mt-2 items-center">
+                                <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span>
+                                {selectedVTuber.nationality && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>{selectedVTuber.nationality}</span>}
+                                {selectedVTuber.language && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-language mr-1 text-yellow-300"></i>{selectedVTuber.language}</span>}
+                                <span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span>
+                            </div>
                             <div className="flex flex-wrap gap-3 mt-4 text-sm">
                               <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                               {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
@@ -1366,8 +1427,8 @@
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div><label className="text-xs text-gray-400 mb-1 block">聯動性質 <span className="text-red-400">*</span></label><select value={newBulletin.collabType} onChange={e=>setNewBulletin({...newBulletin, collabType: e.target.value})} className={inputCls}><option value="">請選擇...</option>{PREDEFINED_COLLABS.map(t => <option key={t} value={t}>{t}</option>)}<option value="其他">其他 (自行輸入)</option></select>{newBulletin.collabType === '其他' && <input type="text" value={newBulletin.collabTypeOther} onChange={e=>setNewBulletin({...newBulletin, collabTypeOther: e.target.value})} placeholder="請輸入聯動性質" className={inputCls + " mt-2"} />}</div>
                     <div><label className="text-xs text-gray-400 mb-1 block">預估人數 <span className="text-red-400">*</span></label><select value={newBulletin.collabSize} onChange={e=>setNewBulletin({...newBulletin, collabSize: e.target.value})} className={inputCls}><option value="">請選擇...</option>{[...Array(21).keys()].map(n => <option key={n} value={`${n}人`}>{n} 人</option>)}</select></div>
-                    <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
-                    <div><label className="text-xs text-gray-400 mb-1 block">招募截止 <span className="text-red-400">*</span></label><input type="datetime-local" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
+                    <div><label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
+                    <div><label className="text-xs text-gray-400 mb-1 block">招募截止 (24小時制) <span className="text-red-400">*</span></label><input type="datetime-local" lang="en-GB" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
                   </div>
                   <div className="flex justify-end"><button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold"><i className="fa-solid fa-paper-plane mr-2"></i>送出發布</button></div>
                 </div>
@@ -1407,7 +1468,7 @@
                      <div className="absolute -top-10 -right-10 w-40 h-40 bg-red-500/10 rounded-full blur-3xl"></div>
                      <h3 className="font-bold text-white mb-6 text-xl flex items-center"><i className="fa-solid fa-calendar-plus text-red-400 mr-3"></i>發布新的聯動行程</h3>
                      <form onSubmit={(e) => { e.preventDefault(); handleAddCollab({ dateTime: e.target.dateTime.value, title: e.target.title.value, streamUrl: e.target.streamUrl.value, coverUrl: e.target.coverUrl.value, date: `${new Date(e.target.dateTime.value).getMonth()+1}/${new Date(e.target.dateTime.value).getDate()} (${['日','一','二','三','四','五','六'][new Date(e.target.dateTime.value).getDay()]})`, time: `${String(new Date(e.target.dateTime.value).getHours()).padStart(2,'0')}:${String(new Date(e.target.dateTime.value).getMinutes()).padStart(2,'0')}`, startTimestamp: new Date(e.target.dateTime.value).getTime() }); e.target.reset(); }}>
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 relative z-10"><div className="w-full min-w-0"><label className="text-xs text-gray-400 mb-1 block">聯動時間 <span className="text-red-400">*</span></label><input required type="datetime-local" name="dateTime" className={inputCls} /></div><div className="w-full min-w-0 relative"><label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label><input required type="url" name="streamUrl" className={inputCls} /></div></div>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4 relative z-10"><div className="w-full min-w-0"><label className="text-xs text-gray-400 mb-1 block">聯動時間 (24小時制) <span className="text-red-400">*</span></label><input required type="datetime-local" lang="en-GB" name="dateTime" className={inputCls} /></div><div className="w-full min-w-0 relative"><label className="text-xs text-gray-400 mb-1 block">直播連結 <span className="text-red-400">*</span></label><input required type="url" name="streamUrl" className={inputCls} /></div></div>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 relative z-10"><div><label className="text-xs text-gray-400 mb-1 block">聯動標題 <span className="text-red-400">*</span></label><input required type="text" name="title" className={inputCls} /></div><div><label className="text-xs text-gray-400 mb-1 block">自訂封面圖網址 (選填)</label><input type="url" name="coverUrl" className={inputCls} /></div></div>
                        <div className="flex justify-end relative z-10"><button type="submit" className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg"><i className="fa-solid fa-paper-plane mr-2"></i>發布至時間表</button></div>
                      </form>
