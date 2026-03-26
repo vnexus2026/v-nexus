@@ -42,6 +42,7 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    // 修正：載入 query 與 where，才能符合 Firebase 的安全讀取規則
     import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     const { useState, useEffect, useMemo, useRef } = React;
@@ -114,7 +115,8 @@
       if (String(v.id || '').startsWith('mock')) return true;
       if (!v.isVerified || v.isBlacklisted) return false;
       if (v.activityStatus === 'sleep' || v.activityStatus === 'graduated') return false;
-      if (Date.now() - (v.lastActiveAt || v.updatedAt || v.createdAt || Date.now()) > 30 * 24 * 60 * 60 * 1000) return false; 
+      // 解決名片消失問題：暫時註解掉「超過 30 天未登入自動隱藏」的機制，避免測試資料或舊資料被隱藏
+      // if (Date.now() - (v.lastActiveAt || v.updatedAt || v.createdAt || Date.now()) > 30 * 24 * 60 * 60 * 1000) return false; 
       return true;
     };
 
@@ -167,8 +169,6 @@
             <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
             <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
               <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
-              {v.nationality && <span className="flex items-center gap-1 text-blue-300"><i className="fa-solid fa-earth-asia"></i> {v.nationality}</span>}
-              {v.language && <span className="flex items-center gap-1 text-yellow-300"><i className="fa-solid fa-language"></i> {v.language}</span>}
             </div>
           </div>
           <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
@@ -399,9 +399,9 @@
                   <select value={slot.day} onChange={e => updateSlot(index, 'day', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500">
                     {['星期一','星期二','星期三','星期四','星期五','星期六','星期日','平日','週末','每日'].map(d=><option key={d} value={d}>{d}</option>)}
                   </select>
-                  <input type="time" lang="en-GB" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" value={slot.start} onChange={e => updateSlot(index, 'start', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <span className="text-gray-400 text-xs">至</span>
-                  <input type="time" lang="en-GB" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
+                  <input type="time" value={slot.end} onChange={e => updateSlot(index, 'end', e.target.value)} className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none focus:border-purple-500 box-border min-w-0" />
                   <button type="button" onClick={() => updateForm({scheduleSlots: form.scheduleSlots.filter((_, i) => i !== index)})} className="text-red-400 hover:text-red-300 ml-auto px-2 transition-colors"><i className="fa-solid fa-trash"></i></button>
                 </div>
               ))}
@@ -463,32 +463,6 @@
             <div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">國籍</label>
-            <select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}>
-              <option value="">未指定</option>
-              <option value="台灣">台灣</option>
-              <option value="香港">香港</option>
-              <option value="馬來西亞">馬來西亞</option>
-              <option value="其他">其他（可以自填）</option>
-            </select>
-            {form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label>
-            <select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}>
-              <option value="">未指定</option>
-              <option value="國">國</option>
-              <option value="台">台</option>
-              <option value="日">日</option>
-              <option value="英">英</option>
-              <option value="粵">粵</option>
-              <option value="其他">其他（可以自填）</option>
-            </select>
-            {form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言(如：日、英)" className={inputCls + " mt-2"} />}
-          </div>
-        </div>
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span> <span className="text-[10px] text-yellow-400 font-normal ml-1">(為保護您的資安，請勿在此欄位留下真實 Email，使用站內信聯絡最安全！)</span></label>
           <textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} />
@@ -497,7 +471,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 (至多選三項) <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
         </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 (24小時制) <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
         {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div>
@@ -624,7 +598,7 @@
     };
 
     // --- 各大分頁模組 ---
-    const HomePage = ({ navigate, onOpenRules, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
+    const HomePage = ({ navigate, onOpenRules, onOpenUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount }) => {
       const safeCollabs = Array.isArray(realCollabs) ? realCollabs : [];
       const completedCollabsCount = safeCollabs.filter(c => c.startTimestamp && currentTime > c.startTimestamp + (3 * 60 * 60 * 1000)).length;
       const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
@@ -638,7 +612,7 @@
           <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
             <button onClick={() => navigate('grid')} className="h-14 bg-purple-600 hover:bg-purple-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-purple-500/25 transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴</button>
             <button onClick={() => navigate('dashboard')} className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"><i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片</button>
-            <div className="flex flex-col items-center w-full sm:w-auto"><a href="https://t.co/pSbScwAIqh" target="_blank" rel="noopener noreferrer" className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-clipboard-list mr-2"></i>初期意見調查</a><span className="text-gray-500 text-[10px] mt-2 font-bold">(歡迎不吝提供建議)</span></div>
+            <div className="flex flex-col items-center w-full sm:w-auto"><button onClick={onOpenUpdates} className="h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布</button></div>
             <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
@@ -721,7 +695,7 @@
       </div>
     );
 
-    const AdminPage = ({ vtubers, bulletins, collabs, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, showToast, onResetAllCollabTypes }) => {
+    const AdminPage = ({ vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '' });
       const [editRules, setEditRules] = useState(rules);
@@ -770,7 +744,7 @@
             <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-red-400 mb-2"><i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心</h2></div>
             <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
               {[{ id: 'vtubers', icon: 'fa-address-card', label: '名片與審核' }, { id: 'bulletins', icon: 'fa-bullhorn', label: '招募管理' },
-                { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
+                { id: 'collabs', icon: 'fa-broadcast-tower', label: '時間表' }, { id: 'updates', icon: 'fa-newspaper', label: '發布消息' }, { id: 'settings', icon: 'fa-gear', label: '設定規範' }].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? 'bg-red-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                   <i className={`fa-solid ${t.icon}`}></i> {t.label}
                   {t.id === 'vtubers' && pendingVtubers.length > 0 && <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs ml-1">{pendingVtubers.length}</span>}
@@ -806,6 +780,47 @@
                   <div className="border-t border-gray-700 pt-6 space-y-4">
                     <h3 className="text-lg font-bold text-white mb-4">現有清單</h3>
                     {(collabs||[]).map(c => <div key={c.id} className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700"><div><p className="font-bold text-white text-sm">[{c.date} {c.time}] {c.title}</p></div><button onClick={() => onDeleteCollab(c.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg">刪除</button></div>)}
+                  </div>
+                </div>
+              )}
+              {activeTab === 'updates' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-4">發布最新消息 / 功能更新</h3>
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      onAddUpdate({
+                        title: e.target.updateTitle.value,
+                        content: e.target.updateContent.value,
+                        date: new Date().toLocaleDateString('zh-TW')
+                      });
+                      e.target.reset();
+                    }}>
+                      <div className="mb-4">
+                        <label className="text-xs text-gray-400 mb-1 block">標題 <span className="text-red-400">*</span></label>
+                        <input required type="text" name="updateTitle" className={inputCls} placeholder="例如：新增站內信功能！" />
+                      </div>
+                      <div className="mb-4">
+                        <label className="text-xs text-gray-400 mb-1 block">內容 <span className="text-red-400">*</span></label>
+                        <textarea required name="updateContent" className={inputCls + " resize-none"} rows="4" placeholder="請輸入詳細內容..."></textarea>
+                      </div>
+                      <div className="flex justify-end">
+                        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg">發布公告</button>
+                      </div>
+                    </form>
+                  </div>
+                  <div className="border-t border-gray-700 pt-6 space-y-4">
+                    <h3 className="text-lg font-bold text-white mb-4">歷史公告</h3>
+                    {(updates || []).map(u => (
+                      <div key={u.id} className="flex flex-col sm:flex-row sm:justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-white text-sm truncate">{u.title} <span className="text-xs text-gray-500 font-normal ml-2">{u.date}</span></p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{u.content}</p>
+                        </div>
+                        <button onClick={() => onDeleteUpdate(u.id)} className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg flex-shrink-0 h-fit font-bold self-start">刪除</button>
+                      </div>
+                    ))}
+                    {(updates || []).length === 0 && <p className="text-gray-500 text-sm">目前沒有任何公告</p>}
                   </div>
                 </div>
               )}
@@ -847,6 +862,7 @@
       const [privateDocs, setPrivateDocs] = useState({}); // 儲存私密資料 (管理員用)
       const [realBulletins, setRealBulletins] = useState([]);
       const [realCollabs, setRealCollabs] = useState([]);
+      const [realUpdates, setRealUpdates] = useState([]); // 最新消息
 
       const [searchQuery, setSearchQuery] = useState('');
       const [selectedTags, setSelectedTags] = useState([]);
@@ -856,6 +872,7 @@
       const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
       const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
       const [isTipsModalOpen, setIsTipsModalOpen] = useState(false);
+      const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
       const [confirmDislikeData, setConfirmDislikeData] = useState(null);
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       
@@ -965,6 +982,7 @@
 
         const unsubB = onSnapshot(collection(db, getPath('bulletins')), (snap) => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
         const unsubC = onSnapshot(collection(db, getPath('collabs')), (snap) => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+        const unsubU = onSnapshot(collection(db, getPath('updates')), (snap) => setRealUpdates(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.createdAt - a.createdAt)));
         const unsubT = onSnapshot(doc(db, getPath('settings'), 'tips'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealTips(docSnap.data().content); });
         const unsubR = onSnapshot(doc(db, getPath('settings'), 'rules'), (docSnap) => { if (docSnap.exists() && docSnap.data().content) setRealRules(docSnap.data().content); });
 
@@ -976,7 +994,7 @@
            setRealNotifications([]);
         }
 
-        return () => { unsubV(); unsubB(); unsubC(); unsubN(); unsubT(); unsubR(); };
+        return () => { unsubV(); unsubB(); unsubC(); unsubU(); unsubN(); unsubT(); unsubR(); };
       }, [user]);
 
       const myNotifications = useMemo(() => user ? realNotifications.filter(n => n.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt) : [], [realNotifications, user]);
@@ -1169,6 +1187,9 @@
           showToast("✅ 已清除所有人聯動類型！");
         } catch (err) { showToast("清除失敗"); }
       };
+      
+      const handleAddUpdate = async (updateData) => { try { await addDoc(collection(db, getPath('updates')), { ...updateData, createdAt: Date.now() }); showToast("✅ 已發佈最新消息"); } catch(err) { showToast("發佈失敗"); } };
+      const handleDeleteUpdate = async (id) => { if(!confirm("確定要刪除這則公告嗎？")) return; try { await deleteDoc(doc(db, getPath('updates'), id)); showToast("✅ 已刪除公告"); } catch(err) { showToast("刪除失敗"); } };
 
       return (
         <div className="flex flex-col min-h-screen relative">
@@ -1241,7 +1262,7 @@
           </nav>
 
           <main className="flex-1 pb-10">
-            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
+            {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} />}
 
             {currentView === 'inbox' && user && (
               <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />
@@ -1482,7 +1503,7 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} />}
+            {currentView === 'admin' && isAdmin && <AdminPage vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} />}
           </main>
 
           {/* --- 邀請表單 Modal (已修改為純站內信模式) --- */}
@@ -1521,9 +1542,35 @@
             </div>
           )}
 
+          {/* 最新消息 Modal */}
+          {isUpdatesModalOpen && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up flex flex-col max-h-[80vh]">
+                <div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center">
+                  <h3 className="font-bold text-blue-400"><i className="fa-solid fa-bullhorn mr-2"></i>最新消息與功能發布</h3>
+                  <button onClick={() => setIsUpdatesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                  {realUpdates.length === 0 ? <p className="text-gray-500 text-center py-10">目前沒有新消息</p> : realUpdates.map(u => (
+                    <div key={u.id} className="bg-gray-800/50 p-5 rounded-xl border border-gray-700">
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-bold text-white text-lg">{u.title}</h4>
+                        <span className="text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 rounded-full">{u.date}</span>
+                      </div>
+                      <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{u.content}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-6 py-4 border-t border-gray-800 flex justify-end">
+                  <button onClick={() => setIsUpdatesModalOpen(false)} className="bg-gray-700 hover:bg-gray-600 text-white px-8 py-2.5 rounded-xl font-bold transition-colors">關閉</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 其他 Modal (提示與規範) */}
           {isTipsModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-yellow-400"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</h3><button onClick={() => setIsTipsModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-white">標準邀請信範本</h4><button onClick={() => {navigator.clipboard.writeText(realTips).catch(()=>{}); setCopiedTemplate(true); setTimeout(()=>setCopiedTemplate(false), 2000); showToast("已複製");}} className={`text-white px-3 py-1.5 rounded text-sm ${copiedTemplate ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-500'}`}>{copiedTemplate ? '已複製' : '一鍵複製'}</button></div><pre className="text-sm text-gray-300 bg-gray-900 p-4 rounded-lg font-mono whitespace-pre-wrap leading-relaxed border border-gray-800 max-h-64 overflow-y-auto">{realTips}</pre><div className="mt-6 flex justify-end"><button onClick={() => setIsTipsModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">關閉</button></div></div></div></div>}
-          {isRulesModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-triangle-exclamation text-red-500"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="text-sm text-gray-300 leading-relaxed space-y-4" dangerouslySetInnerHTML={{ __html: (realRules || '').replace(/\n/g, '<br/>') }} /><div className="mt-8 flex justify-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">我了解了</button></div></div></div></div>}
+          {isRulesModalOpen && <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"><div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg shadow-2xl animate-fade-in-up"><div className="px-6 py-5 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-triangle-exclamation text-red-500"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div><div className="p-6"><div className="text-sm text-gray-300 leading-relaxed space-y-4 whitespace-pre-wrap">{realRules}</div><div className="mt-8 flex justify-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold">我了解了</button></div></div></div></div>}
         </div>
       );
     }
