@@ -934,7 +934,7 @@
                 to: authorProfile.publicEmail,
                 message: {
                   subject: `[V-Nexus] 您的招募有新的意願通知！`,
-                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                 }
               }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
             }
@@ -1081,9 +1081,10 @@
 
             {currentView === 'grid' && (
               <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
-                <div className="lg:hidden flex justify-end mb-[-16px]"><button onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)} className="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-2 rounded-xl text-sm font-bold"><i className="fa-solid fa-filter"></i> 篩選</button></div>
+                {/* 移除原本獨立上方的手機版篩選按鈕 */}
                 <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
-                  <div className="relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
+                  {/* 將進階篩選中的搜尋框設定為：手機版隱藏，電腦版顯示 */}
+                  <div className="hidden lg:block relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
                   <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
                     <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
                     <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
@@ -1097,12 +1098,18 @@
                   </div>
                 </aside>
                 <div className="flex-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-2xl font-bold text-white flex items-center gap-2">尋找 VTuber 夥伴 {user && realVtubers.find(v => v.id === user.uid && (!v.isVerified || v.isBlacklisted || v.activityStatus !== 'active')) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full"><i className="fa-solid fa-eye-slash mr-1"></i>隱藏中</span>}</h2>
                       <button onClick={() => setIsTipsModalOpen(true)} className="bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-bold"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button>
+                      {/* 手機版的篩選按鈕移到這裡，與小技巧同列並調整尺寸 */}
+                      <button onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)} className="lg:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"><i className="fa-solid fa-filter"></i> 篩選</button>
                     </div>
-                    <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"><option value="random">🔀 隨機排列</option><option value="likes">👍 最推薦</option><option value="subscribers">📺 最多訂閱</option><option value="newest">✨ 最新加入</option></select>
+                    <div className="flex flex-col gap-3 w-full sm:w-auto">
+                      {/* 手機版專屬搜尋框，固定在隨機排列下拉選單正上方 */}
+                      <div className="block lg:hidden relative w-full"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
+                      <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"><option value="random">🔀 隨機排列</option><option value="likes">👍 最推薦</option><option value="subscribers">📺 最多訂閱</option><option value="newest">✨ 最新加入</option></select>
+                    </div>
                   </div>
                   {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : filteredVTubers.length === 0 ? <p className="text-center text-gray-500 mt-20">目前無公開名片</p> : (
                     <>
@@ -1274,7 +1281,7 @@
                           to: selectedVTuber.publicEmail,
                           message: {
                             subject: `[V-Nexus] 您收到了一封新的聯動邀約！`,
-                            text: `您好，${selectedVTuber.name}！\n\n「${myProfile?.name || '某位創作者'}」在 V-Nexus 上寄了一封聯動邀約給您：\n\n「${inviteMessage}」\n\n請登入 V-Nexus https://www.vnexus2026.com/ 站內信箱查看對方的名片或回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                            text: `您好，${selectedVTuber.name}！\n\n「${myProfile?.name || '某位創作者'}」在 V-Nexus 上寄了一封聯動邀約給您：\n\n「${inviteMessage}」\n\n請登入 V-Nexus 站內信箱查看對方的名片或回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                           }
                         }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
                       }
