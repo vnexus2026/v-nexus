@@ -899,8 +899,16 @@
         if (!user) return showToast("請先登入！");
         if (!isVerifiedUser) return showToast("需通過認證才能發送邀請！");
         if (target.id === user.uid) return showToast("不能邀請自己！");
+        
+        const lastInviteKey = `invite_${user.uid}_${target.id}`;
+        const lastInvite = localStorage.getItem(lastInviteKey);
+        if (lastInvite && Date.now() - parseInt(lastInvite) < 24 * 60 * 60 * 1000) {
+          return showToast("一天只能邀約一次哦！");
+        }
+
         try {
           await addDoc(collection(db, getPath('notifications')), { userId: target.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '鼓起勇氣向您發送了「勇敢邀請」！請問您是否有意願聯動呢？', createdAt: Date.now(), read: false, type: 'brave_invite', handled: false });
+          localStorage.setItem(lastInviteKey, Date.now().toString());
           showToast("✅ 勇敢邀請已發送！靜待佳音");
         } catch (err) { showToast("發送失敗"); }
       };
@@ -1372,6 +1380,13 @@
                 <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center"><h3 className="font-bold text-white"><i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>發送聯動邀約給 {selectedVTuber.name}</h3><button onClick={() => setIsCollabModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button></div>
                 <div className="p-5 space-y-4"><p className="text-xs text-gray-400">* 為了保護隱私，我們採用站內信系統，對方登入時將會收到通知。</p><textarea rows="6" value={inviteMessage} onChange={(e) => setInviteMessage(e.target.value)} className={inputCls + " resize-none"} placeholder="寫下您的邀請內容..."></textarea><button onClick={async () => { 
                   if(!inviteMessage.trim()) return showToast("請輸入內容！"); 
+                  
+                  const lastInviteKey = `invite_${user?.uid}_${selectedVTuber.id}`;
+                  const lastInvite = localStorage.getItem(lastInviteKey);
+                  if (lastInvite && Date.now() - parseInt(lastInvite) < 24 * 60 * 60 * 1000) {
+                    return showToast("一天只能邀約一次哦！");
+                  }
+
                   if (user && selectedVTuber.id) { 
                     try { 
                       await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: `寄來了一封聯動邀約：\n「${inviteMessage}」`, createdAt: Date.now(), read: false }); 
@@ -1385,6 +1400,8 @@
                           }
                         }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
                       }
+                      
+                      localStorage.setItem(lastInviteKey, Date.now().toString());
                       setIsCollabModalOpen(false); 
                       setInviteMessage(''); 
                       showToast("✅ 邀約已成功送出！"); 
