@@ -45,8 +45,8 @@
 
     // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
     const YOUTUBE_API_KEY = "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s"; 
-    const TWITCH_CLIENT_ID = "p0omklg2k1gnrjnpl1rjby1ehq8kyg"; 
-    const TWITCH_CLIENT_SECRET = "54x4848lw1tpmwrgd9vzd8u50x4r0k"; 
+    const TWITCH_CLIENT_ID = "請填入您的Twitch_Client_ID"; 
+    const TWITCH_CLIENT_SECRET = "請填入您的Twitch_Client_Secret"; 
     // --------------------------------------------------
 
     const { useState, useEffect, useMemo, useRef } = React;
@@ -868,7 +868,7 @@
         let needsUpdate = false;
 
         // 檢查 YouTube
-        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "請填入您的YouTube_API_KEY" && vtuber.youtubeUrl) {
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s" && vtuber.youtubeUrl) {
           if (!vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY) {
             try {
               let apiUrl = '';
@@ -894,27 +894,22 @@
         }
 
         // 檢查 Twitch
-        if (TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET && TWITCH_CLIENT_ID !== "請填入您的Twitch_Client_ID" && vtuber.twitchUrl) {
+        if (vtuber.twitchUrl) {
           if (!vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY) {
             try {
-              const tokenRes = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`, { method: 'POST' });
-              const tokenData = await tokenRes.json();
-              const accessToken = tokenData.access_token;
+              let username = '';
+              try { username = vtuber.twitchUrl.split('twitch.tv/')[1].split('/')[0].split('?')[0].trim(); } catch(e){}
 
-              if (accessToken) {
-                const username = vtuber.twitchUrl.split('twitch.tv/')[1].split('/')[0].split('?')[0];
-                const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${username}`, {
-                  headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
-                });
-                const userData = await userRes.json();
-                if (userData.data && userData.data.length > 0) {
-                  const broadcasterId = userData.data[0].id;
-                  const followRes = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}`, {
-                    headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
-                  });
-                  const followData = await followRes.json();
-                  if (followData.total !== undefined) {
-                    updates.twitchFollowers = formatCountDisplay(followData.total);
+              if (username) {
+                // 因 Twitch 官方政策更新，不再允許未授權的 App 取得追隨數。
+                // 這裡改用知名的實況主工具 API (DecAPI) 來取得公開追隨數，不需再消耗您的 Twitch 金鑰。
+                const res = await fetch(`https://decapi.me/twitch/followcount/${username}`);
+                const textData = await res.text();
+                
+                if (!textData.toLowerCase().includes('user not found') && !textData.toLowerCase().includes('error')) {
+                  const followCount = parseInt(textData.replace(/[^0-9]/g, ''), 10);
+                  if (!isNaN(followCount)) {
+                    updates.twitchFollowers = formatCountDisplay(followCount);
                     updates.lastTwitchFetchTime = now;
                     needsUpdate = true;
                   }
