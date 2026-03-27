@@ -45,8 +45,8 @@
 
     // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
     const YOUTUBE_API_KEY = "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s"; 
-    const TWITCH_CLIENT_ID = "p0omklg2k1gnrjnpl1rjby1ehq8kyg"; 
-    const TWITCH_CLIENT_SECRET = "54x4848lw1tpmwrgd9vzd8u50x4r0k"; 
+    const TWITCH_CLIENT_ID = "請填入您的Twitch_Client_ID"; 
+    const TWITCH_CLIENT_SECRET = "請填入您的Twitch_Client_Secret"; 
     // --------------------------------------------------
 
     const { useState, useEffect, useMemo, useRef } = React;
@@ -893,19 +893,18 @@
           }
         }
 
-        // 檢查 Twitch
+        // 檢查 Twitch (改用第三方 API，因官方 API 目前已嚴格限制追隨數的存取權限)
         if (vtuber.twitchUrl) {
           if (!vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY) {
             try {
-              let username = '';
-              try { username = vtuber.twitchUrl.split('twitch.tv/')[1].split('/')[0].split('?')[0].trim(); } catch(e){}
-
-              if (username) {
-                // 因 Twitch 官方政策更新，不再允許未授權的 App 取得追隨數。
-                // 這裡改用知名的實況主工具 API (DecAPI) 來取得公開追隨數，不需再消耗您的 Twitch 金鑰。
+              // 使用 Regex 精準擷取 Twitch 帳號名稱，能完美過濾 m.twitch.tv 等網址格式
+              const match = vtuber.twitchUrl.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
+              if (match && match[1]) {
+                const username = match[1];
                 const res = await fetch(`https://decapi.me/twitch/followcount/${username}`);
                 const textData = await res.text();
                 
+                // 確保回傳的不是錯誤訊息
                 if (!textData.toLowerCase().includes('user not found') && !textData.toLowerCase().includes('error')) {
                   const followCount = parseInt(textData.replace(/[^0-9]/g, ''), 10);
                   if (!isNaN(followCount)) {
