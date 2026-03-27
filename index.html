@@ -934,6 +934,9 @@
       // 這保證了 0 延遲的畫面更新，同時不會破壞任何篩選、搜尋的功能！
       const handleSaveProfile = async (e, customForm = profileForm) => {
         if(e) e.preventDefault(); if (!user) return showToast("請先登入！");
+        
+        if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
+
         let finalCollabs = [...(customForm.collabTypes || [])]; if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) finalCollabs.push(customForm.otherCollabText.trim());
         if (finalCollabs.length === 0) return showToast("請至少選擇一項連動類型！");
         if (!customForm.isScheduleAnytime && !customForm.isScheduleExcept) { if (customForm.isScheduleCustom) { if (!customForm.customScheduleText?.trim()) return showToast("請填寫您的自訂時段！"); } else { if (!customForm.scheduleSlots?.length) return showToast("請新增時段！"); } }
@@ -995,7 +998,7 @@
                 to: authorProfile.publicEmail,
                 message: {
                   subject: `[V-Nexus] 您的招募有新的意願通知！`,
-                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus  V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                 }
               }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
             }
