@@ -432,7 +432,7 @@
       );
     };
 
-    const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile }) => (
+    const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile, onBraveResponse }) => (
       <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-gray-700 pb-4 gap-4">
           <div><h2 className="text-3xl font-extrabold text-white flex items-center gap-3"><i className="fa-solid fa-envelope-open-text text-purple-400"></i> 我的信箱</h2><p className="text-gray-400 mt-2 text-sm">您的專屬通知中心</p></div>
@@ -452,6 +452,12 @@
                       <span className="text-xs text-gray-500 font-medium whitespace-nowrap"><i className="fa-regular fa-clock mr-1"></i>{formatTime(n.createdAt)}</span>
                     </div>
                     <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/80 p-4 rounded-xl border border-gray-700/50 mt-3">{n.message}</p>
+                    {n.type === 'brave_invite' && !n.handled && (
+                      <div className="flex gap-3 mt-4 pt-4 border-t border-gray-700/50">
+                        <button onClick={() => onBraveResponse(n.id, n.fromUserId, true)} className="text-xs font-bold text-white bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg shadow-md transition-transform hover:scale-105"><i className="fa-solid fa-check mr-1"></i> 可以試試</button>
+                        <button onClick={() => onBraveResponse(n.id, n.fromUserId, false)} className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg shadow-md transition-transform hover:scale-105"><i className="fa-solid fa-xmark mr-1"></i> 委婉拒絕</button>
+                      </div>
+                    )}
                     <div className="flex flex-wrap justify-end gap-3 mt-5">
                       <button onClick={() => onNavigateProfile(n.fromUserId)} className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center shadow-md"><i className="fa-solid fa-address-card mr-2"></i> 查看名片</button>
                       {!n.read && <button onClick={() => onMarkRead(n.id)} className="text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 px-4 py-2 rounded-lg flex items-center shadow-md"><i className="fa-solid fa-check mr-2"></i> 標為已讀</button>}
@@ -889,6 +895,27 @@
       const handleMarkNotifRead = async (id) => { try { await updateDoc(doc(db, getPath('notifications'), id), { read: true }); } catch(err){} };
       const handleDeleteNotif = async (id) => { if (!confirm("確定要刪除這則通知嗎？")) return; try { await deleteDoc(doc(db, getPath('notifications'), id)); showToast("✅ 已刪除通知"); } catch (err) { showToast("刪除失敗"); } };
 
+      const handleBraveInvite = async (target) => {
+        if (!user) return showToast("請先登入！");
+        if (!isVerifiedUser) return showToast("需通過認證才能發送邀請！");
+        if (target.id === user.uid) return showToast("不能邀請自己！");
+        try {
+          await addDoc(collection(db, getPath('notifications')), { userId: target.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '鼓起勇氣向您發送了「勇敢邀請」！請問您是否有意願聯動呢？', createdAt: Date.now(), read: false, type: 'brave_invite', handled: false });
+          showToast("✅ 勇敢邀請已發送！靜待佳音");
+        } catch (err) { showToast("發送失敗"); }
+      };
+
+      const handleBraveInviteResponse = async (notifId, senderId, accept) => {
+        if (!user) return;
+        try {
+          await updateDoc(doc(db, getPath('notifications'), notifId), { handled: true });
+          const replyMsg = accept ? "可以試試看！我們站內信聯絡！" : "對不起，對方覺得暫時不適合聯動，謝謝你的邀約。";
+          await addDoc(collection(db, getPath('notifications')), { userId: senderId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: replyMsg, createdAt: Date.now(), read: false });
+          setRealNotifications(prev => prev.map(n => n.id === notifId ? { ...n, handled: true } : n));
+          showToast(accept ? "已回覆：可以試試" : "已回覆：委婉拒絕");
+        } catch (err) { showToast("回覆失敗"); }
+      };
+
       const handleLogin = async () => { try { await signInWithPopup(auth, provider); showToast("🎉 登入成功！"); } catch (e) { showToast("登入失敗"); } };
       const handleLogout = async () => { await signOut(auth); navigate('home'); showToast("已登出"); };
 
@@ -1081,7 +1108,14 @@
                             <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50"><span className="font-bold text-white text-sm">站內小鈴鐺</span>{unreadCount > 0 && <button onClick={markAllAsRead} className="text-xs text-purple-400 hover:text-purple-300">全部已讀</button>}</div>
                             <div className="max-h-80 overflow-y-auto">
                                {myNotifications.length === 0 ? <div className="p-6 text-center text-gray-500 text-sm">目前沒有任何通知</div> : myNotifications.slice(0, 5).map(n => (
-                                 <div key={n.id} onClick={() => handleNotifClick(n)} className={`p-3 border-b border-gray-800 flex gap-3 hover:bg-gray-800/50 cursor-pointer transition-colors ${!n.read ? 'bg-purple-900/10' : ''}`}><img src={sanitizeUrl(n.fromUserAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-10 h-10 rounded-full bg-gray-800 object-cover flex-shrink-0" /><div className="flex-1 min-w-0"><p className="text-xs text-gray-300 leading-snug"><span className="font-bold text-white hover:text-purple-400 transition-colors">{n.fromUserName}</span> {n.message}</p><p className="text-[10px] text-gray-500 mt-1">{formatTime(n.createdAt)}</p></div>{!n.read && <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>}</div>
+                                 <div key={n.id} onClick={() => handleNotifClick(n)} className={`p-3 border-b border-gray-800 flex gap-3 hover:bg-gray-800/50 cursor-pointer transition-colors ${!n.read ? 'bg-purple-900/10' : ''}`}><img src={sanitizeUrl(n.fromUserAvatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-10 h-10 rounded-full bg-gray-800 object-cover flex-shrink-0" /><div className="flex-1 min-w-0"><p className="text-xs text-gray-300 leading-snug"><span className="font-bold text-white hover:text-purple-400 transition-colors">{n.fromUserName}</span> {n.message}</p>
+                                 {n.type === 'brave_invite' && !n.handled && (
+                                   <div className="flex gap-2 mt-2">
+                                     <button onClick={(e) => { e.stopPropagation(); handleBraveInviteResponse(n.id, n.fromUserId, true); }} className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white text-[10px] font-bold py-1 rounded border border-green-600/30 transition-colors">可以試試</button>
+                                     <button onClick={(e) => { e.stopPropagation(); handleBraveInviteResponse(n.id, n.fromUserId, false); }} className="flex-1 bg-gray-700/50 text-gray-400 hover:bg-gray-600 hover:text-white text-[10px] font-bold py-1 rounded border border-gray-600/50 transition-colors">委婉拒絕</button>
+                                   </div>
+                                 )}
+                                 <p className="text-[10px] text-gray-500 mt-1">{formatTime(n.createdAt)}</p></div>{!n.read && <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>}</div>
                                ))}
                             </div>
                             <div className="p-2 border-t border-gray-800 bg-gray-800/80 text-center"><button onClick={() => { setIsNotifOpen(false); navigate('inbox'); }} className="text-xs text-purple-400 font-bold hover:text-purple-300 w-full py-1">前往專屬信箱查看完整通知 <i className="fa-solid fa-arrow-right ml-1"></i></button></div>
@@ -1123,7 +1157,7 @@
           <main className="flex-1 pb-10">
             {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} />}
 
-            {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} />}
+            {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
 
             {currentView === 'dashboard' && (
               <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
@@ -1225,6 +1259,7 @@
                           </div>
                           <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                             {selectedVTuber.streamStyleUrl && <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看直播風格</a>}
+                            {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleBraveInvite(selectedVTuber)} className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(244,63,94,0.4)] flex-shrink-0 flex items-center justify-center transition-transform hover:scale-105"><i className="fa-solid fa-heart mr-2"></i>勇敢邀請</button>}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => setIsCollabModalOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-paper-plane mr-2"></i>發送站內邀約</button>}
                             {isVerifiedUser && selectedVTuber.id !== user?.uid && selectedVTuber.publicEmail && <a href={sanitizeUrl(`mailto:${selectedVTuber.publicEmail}`)} className="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><i className="fa-solid fa-envelope text-yellow-400"></i> 直接寄信</a>}
                             <button onClick={() => { const url = window.location.origin + window.location.pathname + '#profile/' + selectedVTuber.id; navigator.clipboard.writeText(url); showToast("✅ 已複製專屬名片連結！"); }} className="bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-colors border border-gray-600 flex items-center justify-center gap-2"><i className="fa-solid fa-link"></i> 複製連結</button>
