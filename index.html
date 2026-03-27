@@ -934,7 +934,7 @@
                 to: authorProfile.publicEmail,
                 message: {
                   subject: `[V-Nexus] 您的招募有新的意願通知！`,
-                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus(https://www.vnexus2026.com/)招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                 }
               }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
             }
@@ -1274,7 +1274,7 @@
                           to: selectedVTuber.publicEmail,
                           message: {
                             subject: `[V-Nexus] 您收到了一封新的聯動邀約！`,
-                            text: `您好，${selectedVTuber.name}！\n\n「${myProfile?.name || '某位創作者'}」在 V-Nexus 上寄了一封聯動邀約給您：\n\n「${inviteMessage}」\n\n請登入 V-Nexus(https://www.vnexus2026.com/)站內信箱查看對方的名片或回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                            text: `您好，${selectedVTuber.name}！\n\n「${myProfile?.name || '某位創作者'}」在 V-Nexus 上寄了一封聯動邀約給您：\n\n「${inviteMessage}」\n\n請登入 V-Nexus https://www.vnexus2026.com/ 站內信箱查看對方的名片或回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                           }
                         }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
                       }
