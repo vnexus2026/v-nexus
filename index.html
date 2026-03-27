@@ -315,61 +315,122 @@
       );
     };
 
-    const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast }) => (
-      <form onSubmit={onSubmit} className="space-y-6">
-        <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5"><h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-power-off"></i> 名片顯示狀態</h3><select value={form.activityStatus} onChange={e=>updateForm({activityStatus: e.target.value})} className={inputCls + " font-bold"}><option value="active">🟢 活躍連動中</option><option value="sleep">🟡 暫休眠</option><option value="graduated">⚫ 已畢業</option></select></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">VTuber 名稱 <span className="text-red-400">*</span></label><input required type="text" value={form.name} onChange={e=>updateForm({name: e.target.value})} className={inputCls} /></div>
-          <div className="grid grid-cols-2 gap-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label><select value={form.agency} onChange={e=>updateForm({agency: e.target.value})} className={inputCls}><option>個人勢</option><option>企業勢</option><option>社團勢</option></select></div><div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">國籍</label><select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}><option value="">未指定</option><option value="台灣">台灣</option><option value="香港">香港</option><option value="馬來西亞">馬來西亞</option><option value="其他">其他</option></select>{form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}</div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label><select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}><option value="">未指定</option><option value="國">國</option><option value="台">台</option><option value="日">日</option><option value="英">英</option><option value="粵">粵</option><option value="其他">其他</option></select>{form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言" className={inputCls + " mt-2"} />}</div>
-        </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span></label><textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} /></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
-        </div>
-        <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
-        {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-red-400">*</span></label><input required type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} className={inputCls} /></div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 <span className="text-red-400">*</span></label><input required type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} className={inputCls} /></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} /></div>
-          <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>Twitch 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="Twitch" checked={form.mainPlatform === 'Twitch'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.twitchUrl} onChange={e=>updateForm({twitchUrl: e.target.value})} className={inputCls} /></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">X連結</label><input type="url" value={form.xUrl} onChange={e=>updateForm({xUrl: e.target.value})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">Instagram</label><input type="url" value={form.igUrl} onChange={e=>updateForm({igUrl: e.target.value})} className={inputCls} /></div></div>
-        
-        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 mt-2">
-          <h3 className="text-white font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-envelopes-bulk text-purple-400"></i> 聯絡信箱設定</h3>
+    const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast, user }) => {
+      const [otpStatus, setOtpStatus] = useState('idle');
+      const [otpInput, setOtpInput] = useState('');
+      const [generatedOtp, setGeneratedOtp] = useState(null);
+
+      const handleSendOtp = async () => {
+        const email = form.publicEmail;
+        if (!email || !email.includes('@')) return showToast("請輸入有效的信箱格式！");
+        setOtpStatus('sending');
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        try {
+          if (user && user.uid && !isAdmin) {
+             await setDoc(doc(db, getPath('vtubers_private'), user.uid), { emailOtp: otp }, { merge: true });
+          }
+          await addDoc(collection(db, getPath('mail')), {
+            to: email,
+            message: {
+              subject: "[V-Nexus] 公開工商信箱驗證碼",
+              text: `您的驗證碼為：${otp}\n\n請回到 V-Nexus 網站輸入此 6 位數驗證碼，以完成信箱綁定認證。\n(此驗證碼僅供本次驗證使用，請勿外流)`
+            }
+          });
+          setGeneratedOtp(otp);
+          setOtpStatus('sent');
+          showToast("✅ 驗證碼已寄出！請至信箱收取");
+        } catch (err) {
+          setOtpStatus('idle');
+          showToast("發送失敗，請稍後再試或檢查資料庫權限");
+        }
+      };
+
+      const handleVerifyOtp = () => {
+        if (otpInput === generatedOtp) {
+           updateForm({ publicEmailVerified: true });
+           setOtpStatus('verified');
+           setOtpInput('');
+           showToast("✅ 信箱驗證成功！(請記得點擊最下方儲存名片)");
+        } else {
+           showToast("❌ 驗證碼錯誤！");
+        }
+      };
+
+      return (
+        <form onSubmit={onSubmit} className="space-y-6">
+          <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5"><h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-power-off"></i> 名片顯示狀態</h3><select value={form.activityStatus} onChange={e=>updateForm({activityStatus: e.target.value})} className={inputCls + " font-bold"}><option value="active">🟢 活躍連動中</option><option value="sleep">🟡 暫休眠</option><option value="graduated">⚫ 已畢業</option></select></div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email (選填)</label><input type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，不公開" /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">公開工商信箱 (選填)</label><input type="email" value={form.publicEmail || ''} onChange={e=>updateForm({publicEmail: e.target.value})} className={inputCls} placeholder="例如：business@example.com" /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">VTuber 名稱 <span className="text-red-400">*</span></label><input required type="text" value={form.name} onChange={e=>updateForm({name: e.target.value})} className={inputCls} /></div>
+            <div className="grid grid-cols-2 gap-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label><select value={form.agency} onChange={e=>updateForm({agency: e.target.value})} className={inputCls}><option>個人勢</option><option>企業勢</option><option>社團勢</option></select></div><div><label className="block text-sm font-bold text-gray-300 mb-2">演出型態</label><select value={form.streamingStyle} onChange={e=>updateForm({streamingStyle: e.target.value})} className={inputCls}><option>一般型態</option><option>男聲女皮 (Babiniku)</option><option>女聲男皮</option><option>無性別/人外</option><option>其他</option></select></div></div>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 pt-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e=>updateForm({streamStyleUrl: e.target.value})} className={inputCls} placeholder="填入影片連結" /></div></div>
-
-        {!isAdmin && (
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-            <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
-            <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
-            <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">國籍</label><select value={form.nationality || ''} onChange={e=>updateForm({nationality: e.target.value})} className={inputCls}><option value="">未指定</option><option value="台灣">台灣</option><option value="香港">香港</option><option value="馬來西亞">馬來西亞</option><option value="其他">其他</option></select>{form.nationality === '其他' && <input type="text" value={form.nationalityOther || ''} onChange={e=>updateForm({nationalityOther: e.target.value})} placeholder="請填寫國籍" className={inputCls + " mt-2"} />}</div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">主要語言</label><select value={form.language || ''} onChange={e=>updateForm({language: e.target.value})} className={inputCls}><option value="">未指定</option><option value="國">國</option><option value="台">台</option><option value="日">日</option><option value="英">英</option><option value="粵">粵</option><option value="其他">其他</option></select>{form.language === '其他' && <input type="text" value={form.languageOther || ''} onChange={e=>updateForm({languageOther: e.target.value})} placeholder="請填寫語言" className={inputCls + " mt-2"} />}</div>
           </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.avatar)} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div></div>
-          <div><label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.banner)} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div></div>
-        </div>
-        <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
-          {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
-          <button type="submit" className={btnCls}><i className="fa-solid fa-floppy-disk mr-2"></i>{isAdmin ? '強制儲存更新' : '儲存名片'}</button>
-        </div>
-      </form>
-    );
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">介紹一下你自己吧！ <span className="text-red-400">*</span></label><textarea required rows="3" value={form.description} onChange={e=>updateForm({description: e.target.value})} className={inputCls + " resize-none"} /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label><input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">主要願意連動類型 <span className="text-red-400">*</span></label><CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} /></div>
+          </div>
+          <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
+          {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-red-400">*</span></label><input required type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 <span className="text-red-400">*</span></label><input required type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} className={inputCls} /></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} /></div>
+            <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>Twitch 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="Twitch" checked={form.mainPlatform === 'Twitch'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.twitchUrl} onChange={e=>updateForm({twitchUrl: e.target.value})} className={inputCls} /></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">X連結</label><input type="url" value={form.xUrl} onChange={e=>updateForm({xUrl: e.target.value})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">Instagram</label><input type="url" value={form.igUrl} onChange={e=>updateForm({igUrl: e.target.value})} className={inputCls} /></div></div>
+          
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 mt-2">
+            <h3 className="text-white font-bold mb-4 flex items-center gap-2"><i className="fa-solid fa-envelopes-bulk text-purple-400"></i> 聯絡信箱設定</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div><label className="block text-sm font-bold text-gray-300 mb-2">私人聯絡 Email (選填)</label><input type="email" value={form.contactEmail} onChange={e=>updateForm({contactEmail: e.target.value})} className={inputCls} placeholder="僅供系統驗證使用，不公開" /></div>
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-2">公開工商信箱 (選填)</label>
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <input type="email" value={form.publicEmail || ''} onChange={e=>{updateForm({publicEmail: e.target.value, publicEmailVerified: false}); setOtpStatus('idle');}} className={inputCls} placeholder="例如：business@example.com" />
+                    {form.publicEmailVerified && <p className="text-green-400 text-xs mt-1.5 font-bold"><i className="fa-solid fa-circle-check"></i> 信箱已驗證</p>}
+                  </div>
+                  {!form.publicEmailVerified && form.publicEmail && form.publicEmail.includes('@') && (
+                    <button type="button" onClick={handleSendOtp} disabled={otpStatus === 'sending'} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-colors border border-gray-600 flex-shrink-0">
+                      {otpStatus === 'sending' ? <i className="fa-solid fa-spinner fa-spin"></i> : '發送驗證信'}
+                    </button>
+                  )}
+                </div>
+                {otpStatus === 'sent' && !form.publicEmailVerified && (
+                  <div className="mt-2 flex gap-2 animate-fade-in-up">
+                    <input type="text" maxLength="6" value={otpInput} onChange={e=>setOtpInput(e.target.value)} placeholder="輸入6位數驗證碼" className={inputCls + " text-center tracking-widest font-bold py-2"} />
+                    <button type="button" onClick={handleVerifyOtp} className="bg-purple-600 hover:bg-purple-500 text-white px-5 rounded-xl text-sm font-bold whitespace-nowrap shadow-lg transition-transform hover:scale-105">確認</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 pt-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e=>updateForm({streamStyleUrl: e.target.value})} className={inputCls} placeholder="填入影片連結" /></div></div>
+
+          {!isAdmin && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
+              <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
+              <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
+              <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.avatar)} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.banner)} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div></div>
+          </div>
+          <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
+            {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
+            <button type="submit" className={btnCls}><i className="fa-solid fa-floppy-disk mr-2"></i>{isAdmin ? '強制儲存更新' : '儲存名片'}</button>
+          </div>
+        </form>
+      );
+    };
 
     const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile }) => (
       <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
@@ -624,7 +685,7 @@
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
               <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl animate-fade-in-up">
                 <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10"><h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3><button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-                <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({...prev, ...updates}))} onSubmit={(e)=>{ e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} /></div>
+                <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({...prev, ...updates}))} onSubmit={(e)=>{ e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} user={user} /></div>
               </div>
             </div>
           )}
@@ -692,7 +753,7 @@
       const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
         nationality: '', nationalityOther: '', language: '', languageOther: '', isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
-        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', contactEmail: '', verificationNote: ''
+        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: ''
       });
       const [profileForm, setProfileForm] = useState(getEmptyProfile());
 
@@ -783,7 +844,7 @@
                   nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '', language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
                   collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                   scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
-                  youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || ''
+                  youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || '', publicEmailVerified: cp.publicEmailVerified || false
                 }));
               }
             }
@@ -886,7 +947,7 @@
             name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs, nationality: finalNationality || '', language: finalLanguage || '',
             isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
             scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers, youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
-            publicEmail: customForm.publicEmail || '', likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
+            publicEmail: customForm.publicEmail || '', publicEmailVerified: customForm.publicEmailVerified || false, likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
           };
 
           if (!existingProfile || existingProfile.verificationStatus === 'rejected') { publicData.isVerified = false; publicData.isBlacklisted = false; publicData.verificationStatus = 'pending'; publicData.showVerificationModal = null; }
@@ -934,7 +995,7 @@
                 to: authorProfile.publicEmail,
                 message: {
                   subject: `[V-Nexus] 您的招募有新的意願通知！`,
-                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
+                  text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus  V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                 }
               }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
             }
@@ -1068,7 +1129,7 @@
                   {user && realVtubers.find(v => v.id === user.uid) ? ( realVtubers.find(v => v.id === user.uid).isVerified ? <p className="text-green-400 mt-3 text-sm font-bold bg-green-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-circle-check mr-1"></i> 名片已認證上線</p> : <p className="text-yellow-400 mt-3 text-sm font-bold bg-yellow-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-user-clock mr-1"></i> 名片審核中，通過後將自動公開</p> ) : <p className="text-gray-400 mt-2">填寫完成後請等待管理員審核，確保社群品質！</p>}
                 </div>
                 <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl">
-                   <ProfileEditorForm form={profileForm} updateForm={(updates) => setProfileForm(prev => ({...prev, ...updates}))} onSubmit={(e) => handleSaveProfile(e)} showToast={showToast} isAdmin={false} />
+                   <ProfileEditorForm form={profileForm} updateForm={(updates) => setProfileForm(prev => ({...prev, ...updates}))} onSubmit={(e) => handleSaveProfile(e)} showToast={showToast} isAdmin={false} user={user} />
                 </div>
                 {user && myProfile && displayBulletins.filter(b => b.userId === user.uid).length > 0 && (
                   <div className="mt-16 animate-fade-in-up">
@@ -1081,7 +1142,6 @@
 
             {currentView === 'grid' && (
               <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
-                {/* 移除原本獨立上方的手機版篩選按鈕 */}
                 <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
                   {/* 將進階篩選中的搜尋框設定為：手機版隱藏，電腦版顯示 */}
                   <div className="hidden lg:block relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
@@ -1152,7 +1212,7 @@
                             <div className="flex flex-wrap gap-3 mt-4 text-sm">
                               <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                               {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
-                              {isVerifiedUser && selectedVTuber.publicEmail && <a href={sanitizeUrl(`mailto:${selectedVTuber.publicEmail}`)} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-solid fa-envelope text-yellow-400"></i> 工商信箱</a>}
+                              {isVerifiedUser && selectedVTuber.publicEmail && <a href={sanitizeUrl(`mailto:${selectedVTuber.publicEmail}`)} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-solid fa-envelope text-yellow-400"></i> 工商信箱{selectedVTuber.publicEmailVerified && <i className="fa-solid fa-circle-check text-green-400 ml-0.5" title="信箱已認證"></i>}</a>}
                               {selectedVTuber.youtubeUrl ? <a href={sanitizeUrl(selectedVTuber.youtubeUrl)} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube{(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}</a> : (selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) ? <span className="bg-red-500/5 text-red-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube<span className="ml-1 px-2 py-0.5 bg-red-500/10 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span></span> : null}
                               {selectedVTuber.twitchUrl ? <a href={sanitizeUrl(selectedVTuber.twitchUrl)} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch{selectedVTuber.twitchFollowers && <span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.twitchFollowers}</span>}</a> : selectedVTuber.twitchFollowers ? <span className="bg-purple-500/5 text-purple-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch<span className="ml-1 px-2 py-0.5 bg-purple-500/10 rounded text-xs">{selectedVTuber.twitchFollowers}</span></span> : null}
                               {selectedVTuber.xUrl && <a href={sanitizeUrl(selectedVTuber.xUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
