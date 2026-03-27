@@ -394,7 +394,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
           {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數</label><input type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} placeholder="填入 YT 網址將自動抓取 (可留空)" className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-xs text-purple-400 font-normal ml-1">(系統自動抓取)</span></label><div className={inputCls + " bg-gray-800 text-gray-500 cursor-not-allowed select-none"}>{form.youtubeUrl ? (form.youtubeSubscribers || '自動抓取中...') : '請先填入下方 YouTube 連結'}</div></div>
             <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="填入 Twitch 網址將自動抓取 (可留空)" className={inputCls} /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
