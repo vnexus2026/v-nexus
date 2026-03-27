@@ -40,9 +40,14 @@
   <script type="text/babel" data-type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    // 🛡️ 效能優化核心：引入 initializeFirestore 與 persistentLocalCache 來啟用本地快取
     import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+
+    // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
+    const YOUTUBE_API_KEY = "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s"; 
+    const TWITCH_CLIENT_ID = "p0omklg2k1gnrjnpl1rjby1ehq8kyg"; 
+    const TWITCH_CLIENT_SECRET = "54x4848lw1tpmwrgd9vzd8u50x4r0k"; 
+    // --------------------------------------------------
 
     const { useState, useEffect, useMemo, useRef } = React;
 
@@ -58,8 +63,6 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     
-    // 🚀 關鍵優化 1：啟用 Persistent Local Cache (持久化本地快取)
-    // 這將使 Firebase 在重新整理時優先讀取本地資料，不再消耗大量雲端讀取次數。
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
     });
@@ -391,8 +394,8 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
           {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-red-400">*</span></label><input required type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} className={inputCls} /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數 <span className="text-red-400">*</span></label><input required type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數</label><input type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} placeholder="填入 YT 網址將自動抓取 (可留空)" className={inputCls} /></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="填入 Twitch 網址將自動抓取 (可留空)" className={inputCls} /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} /></div>
@@ -753,6 +756,12 @@
     function App() {
       const getInitialView = () => { const hash = window.location.hash.replace('#', ''); if (hash.startsWith('profile/')) return 'profile'; return hash === 'profile' ? 'grid' : (hash || 'home'); };
       
+      const formatCountDisplay = (num) => {
+        if (num == null) return '0';
+        if (num >= 10000) return (num / 10000).toFixed(1).replace(/\.0$/, '') + '萬';
+        return num.toString();
+      };
+      
       const [currentView, setCurrentView] = useState(getInitialView());
       const [previousView, setPreviousView] = useState('grid');
       const [selectedVTuber, setSelectedVTuber] = useState(null);
@@ -765,7 +774,6 @@
       const [siteStats, setSiteStats] = useState({ pageViews: null });
       
       const [user, setUser] = useState(null);
-      // 🔥 為了不改變功能（保留多標籤篩選、隨機排序），我們把所有的資料拉到前端 (Local State) 做過濾。
       const [realVtubers, setRealVtubers] = useState([]);
       const [privateDocs, setPrivateDocs] = useState({}); 
       const [realBulletins, setRealBulletins] = useState([]);
@@ -850,6 +858,87 @@
         }
       }, [currentView, profileIdFromHash, realVtubers, isLoading]);
 
+      // --- 自動抓取數據與 24 小時冷卻機制 ---
+      const checkAndUpdateStats = async (vtuber) => {
+        if (!vtuber || String(vtuber.id || '').startsWith('mock') || isAdmin) return;
+        
+        const now = Date.now();
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        let updates = {};
+        let needsUpdate = false;
+
+        // 檢查 YouTube
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "請填入您的YouTube_API_KEY" && vtuber.youtubeUrl) {
+          if (!vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY) {
+            try {
+              let apiUrl = '';
+              if (vtuber.youtubeUrl.includes('@')) {
+                const handle = vtuber.youtubeUrl.split('@')[1].split('/')[0].split('?')[0];
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${YOUTUBE_API_KEY}`;
+              } else if (vtuber.youtubeUrl.includes('/channel/')) {
+                const id = vtuber.youtubeUrl.split('/channel/')[1].split('/')[0].split('?')[0];
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${id}&key=${YOUTUBE_API_KEY}`;
+              }
+              if (apiUrl) {
+                const res = await fetch(apiUrl);
+                const data = await res.json();
+                if (data.items && data.items.length > 0) {
+                  const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
+                  updates.youtubeSubscribers = formatCountDisplay(subCount);
+                  updates.lastYoutubeFetchTime = now;
+                  needsUpdate = true;
+                }
+              }
+            } catch (e) { console.warn("YT Fetch Error", e); }
+          }
+        }
+
+        // 檢查 Twitch
+        if (TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET && TWITCH_CLIENT_ID !== "請填入您的Twitch_Client_ID" && vtuber.twitchUrl) {
+          if (!vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY) {
+            try {
+              const tokenRes = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`, { method: 'POST' });
+              const tokenData = await tokenRes.json();
+              const accessToken = tokenData.access_token;
+
+              if (accessToken) {
+                const username = vtuber.twitchUrl.split('twitch.tv/')[1].split('/')[0].split('?')[0];
+                const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${username}`, {
+                  headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
+                });
+                const userData = await userRes.json();
+                if (userData.data && userData.data.length > 0) {
+                  const broadcasterId = userData.data[0].id;
+                  const followRes = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}`, {
+                    headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
+                  });
+                  const followData = await followRes.json();
+                  if (followData.total !== undefined) {
+                    updates.twitchFollowers = formatCountDisplay(followData.total);
+                    updates.lastTwitchFetchTime = now;
+                    needsUpdate = true;
+                  }
+                }
+              }
+            } catch (e) { console.warn("Twitch Fetch Error", e); }
+          }
+        }
+
+        if (needsUpdate) {
+          try {
+            await updateDoc(doc(db, getPath('vtubers'), vtuber.id), updates);
+            setRealVtubers(prev => prev.map(v => v.id === vtuber.id ? { ...v, ...updates } : v));
+            setSelectedVTuber(prev => prev?.id === vtuber.id ? { ...prev, ...updates } : prev);
+          } catch(e) { console.warn("Update API Error", e); }
+        }
+      };
+
+      useEffect(() => {
+        if (currentView === 'profile' && selectedVTuber) {
+          checkAndUpdateStats(selectedVTuber);
+        }
+      }, [currentView, selectedVTuber?.id]);
+
       useEffect(() => {
         const handleClickOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false); };
         document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -861,20 +950,16 @@
         return () => { unsubscribeAuth(); clearInterval(timer); };
       }, []);
 
-      // 🚀 關鍵優化 2：將大部分的即時監聽 (onSnapshot) 改為「單次拉取 (getDocs)」配合快取，讀取次數降為原本的 1% 以下。
       useEffect(() => {
         setIsLoading(true); 
         const fetchAllData = async () => {
           try {
-            // 讀取靜態設定檔
             getDoc(doc(db, getPath('settings'), 'stats')).then(snap => { if (snap.exists()) setSiteStats(snap.data()); });
             getDoc(doc(db, getPath('settings'), 'tips')).then(snap => { if (snap.exists() && snap.data().content) setRealTips(snap.data().content); });
             getDoc(doc(db, getPath('settings'), 'rules')).then(snap => { if (snap.exists() && snap.data().content) setRealRules(snap.data().content); });
             
-            // 獨立更新瀏覽數 (此處不需重新拉取整個 stats 物件)
             updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
 
-            // ⚡ 平行拉取大量資料庫，由於已啟用持久化快取，只要快取沒過期且無更新，這幾乎不會消耗額外的計費讀取
             const [vSnap, bSnap, cSnap, uSnap] = await Promise.all([
               getDocs(collection(db, getPath('vtubers'))),
               getDocs(collection(db, getPath('bulletins'))),
@@ -914,7 +999,6 @@
 
         fetchAllData();
 
-        // 僅保留「個人通知」的即時監聽，確保不漏掉訊息
         let unsubN = () => {};
         if (user && user.uid) {
            const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
@@ -924,7 +1008,6 @@
         return () => { unsubN(); };
       }, [user]);
 
-      // 拉取私密資料 (單次)
       useEffect(() => {
         if (user && user.uid) {
            getDoc(doc(db, getPath('vtubers_private'), user.uid)).then(docSnap => {
@@ -934,7 +1017,6 @@
         }
       }, [user?.uid]);
 
-      // 管理員拉取私密資料庫 (單次)
       useEffect(() => {
         if (isAdmin) {
           getDocs(collection(db, getPath('vtubers_private'))).then(snap => { const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs); }).catch(err => console.error(err));
@@ -1041,9 +1123,6 @@
       const ITEMS_PER_PAGE = 18; const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE)); const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
       const handlePageChange = (newPage) => { if (newPage >= 1 && newPage <= totalPages) { setCurrentPage(newPage); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
 
-      // 🚀 關鍵優化 3：Optimistic UI (樂觀更新)
-      // 由於移除了 Firebase 的推播，這裡所有的寫入操作後，都會「手動更新 Frontend State」，
-      // 這保證了 0 延遲的畫面更新，同時不會破壞任何篩選、搜尋的功能！
       const handleSaveProfile = async (e, customForm = profileForm) => {
         if(e) e.preventDefault(); if (!user) return showToast("請先登入！");
         
@@ -1073,7 +1152,6 @@
           await setDoc(doc(db, getPath('vtubers'), customForm.id||user.uid), publicData, { merge: true });
           await setDoc(doc(db, getPath('vtubers_private'), customForm.id||user.uid), privateData, { merge: true });
 
-          // 手動更新前端狀態 (Optimistic Update)
           const updatedProfile = { id: customForm.id || user.uid, ...publicData };
           setRealVtubers(prev => { const exists = prev.find(v => v.id === updatedProfile.id); if (exists) return prev.map(v => v.id === updatedProfile.id ? { ...v, ...updatedProfile } : v); return [...prev, updatedProfile]; });
 
@@ -1091,7 +1169,7 @@
           const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
           const newDocData = { userId: user.uid, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, applicants: [], createdAt: Date.now() };
           const newDocRef = await addDoc(collection(db, getPath('bulletins')), newDocData);
-          setRealBulletins(prev => [{ id: newDocRef.id, ...newDocData }, ...prev]); // 手動更新前端狀態
+          setRealBulletins(prev => [{ id: newDocRef.id, ...newDocData }, ...prev]); 
           setNewBulletin({ content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '' }); showToast("🚀 發布成功！");
         } catch (err) { showToast("發布失敗"); }
       };
@@ -1100,12 +1178,10 @@
         if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過官方認證才能報名！");
         try {
           await updateDoc(doc(db, getPath('bulletins'), bulletinId), { applicants: isApplying ? arrayUnion(user.uid) : arrayRemove(user.uid) });
-          // 手動更新前端狀態
           setRealBulletins(prev => prev.map(b => b.id === bulletinId ? { ...b, applicants: isApplying ? [...(b.applicants||[]), user.uid] : (b.applicants||[]).filter(id => id !== user.uid) } : b));
           showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
           if (isApplying && bulletinAuthorId !== user.uid) {
             addDoc(collection(db, getPath('notifications')), { userId: bulletinAuthorId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '有人有意願！快去招募佈告欄看看！', createdAt: Date.now(), read: false }).catch(()=>{});
-            // --- 🚀 新增 Email 發送邏輯 ---
             const authorProfile = realVtubers.find(v => v.id === bulletinAuthorId);
             if (authorProfile && authorProfile.publicEmail) {
               addDoc(collection(db, getPath('mail')), {
@@ -1114,7 +1190,7 @@
                   subject: `[V-Nexus] 您的招募有新的意願通知！`,
                   text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
                 }
-              }).then(() => console.log("Email task added")).catch((err) => console.error("Mail Error:", err));
+              }).catch((err) => console.error("Mail Error:", err));
             }
           }
         } catch (err) { showToast("操作失敗"); }
@@ -1125,7 +1201,6 @@
         if (target.likedBy && target.likedBy.includes(user.uid)) return showToast("已經推薦過囉！每人限推薦一次。");
         try {
           await updateDoc(doc(db, getPath('vtubers'), target.id), { likes: increment(1), likedBy: arrayUnion(user.uid) });
-          // 手動更新前端狀態
           setRealVtubers(prev => prev.map(v => v.id === target.id ? { ...v, likes: (v.likes||0)+1, likedBy: [...(v.likedBy||[]), user.uid] } : v));
           if (selectedVTuber?.id === target.id) setSelectedVTuber(prev => ({ ...prev, likes: (prev.likes || 0) + 1, likedBy: [...(prev.likedBy || []), user.uid] }));
           showToast("✅ 已送出推薦！"); 
@@ -1144,7 +1219,6 @@
         if (newD >= 10) { updates.isVerified = false; updates.isBlacklisted = true; }
         try {
           await updateDoc(doc(db, getPath('vtubers'), tId), updates);
-          // 手動更新前端狀態
           setRealVtubers(prev => prev.map(v => v.id === tId ? { ...v, dislikes: newD, dislikedBy: [...(v.dislikedBy||[]), user.uid], isVerified: updates.isVerified ?? v.isVerified, isBlacklisted: updates.isBlacklisted ?? v.isBlacklisted } : v));
           setConfirmDislikeData(null); showToast("✅ 已送出倒讚。");
           if (updates.isBlacklisted) { showToast("⚠️ 該名片已自動下架。"); if (selectedVTuber?.id === tId) navigate('grid'); }
@@ -1152,7 +1226,6 @@
         } catch (err) { showToast("操作失敗"); }
       };
 
-      // --- Admin 管理狀態樂觀更新 ---
       const handleVerifyVtuber = async (id) => { try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false, verificationStatus: 'approved', showVerificationModal: 'approved' }, { merge: true }); setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: true, isBlacklisted: false, verificationStatus: 'approved' } : v)); showToast("已通過審核！"); } catch (err) { showToast("審核失敗"); } };
       const handleRejectVtuber = async (id) => { if (!confirm("確定要退回/拒絕這張名片嗎？")) return; try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: false, verificationStatus: 'rejected', showVerificationModal: 'rejected' }, { merge: true }); setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: false, verificationStatus: 'rejected' } : v)); showToast("已退回該名片！"); } catch (err) { showToast("操作失敗"); } };
       const handleAdminUpdateVtuber = async (id, updatedData) => {
@@ -1268,7 +1341,6 @@
             {currentView === 'grid' && (
               <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
                 <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
-                  {/* 將進階篩選中的搜尋框設定為：手機版隱藏，電腦版顯示 */}
                   <div className="hidden lg:block relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
                   <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
                     <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
@@ -1287,11 +1359,9 @@
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-2xl font-bold text-white flex items-center gap-2">尋找 VTuber 夥伴 {user && realVtubers.find(v => v.id === user.uid && (!v.isVerified || v.isBlacklisted || v.activityStatus !== 'active')) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full"><i className="fa-solid fa-eye-slash mr-1"></i>隱藏中</span>}</h2>
                       <button onClick={() => setIsTipsModalOpen(true)} className="bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-bold"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button>
-                      {/* 手機版的篩選按鈕移到這裡，與小技巧同列並調整尺寸 */}
                       <button onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)} className="lg:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"><i className="fa-solid fa-filter"></i> 篩選</button>
                     </div>
                     <div className="flex flex-col gap-3 w-full sm:w-auto">
-                      {/* 手機版專屬搜尋框，固定在隨機排列下拉選單正上方 */}
                       <div className="block lg:hidden relative w-full"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
                       <select value={sortOrder} onChange={e=>setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"><option value="random">🔀 隨機排列</option><option value="likes">👍 最推薦</option><option value="subscribers">📺 最多訂閱</option><option value="newest">✨ 最新加入</option></select>
                     </div>
