@@ -172,8 +172,8 @@
           <div className="ml-20 mb-3">
             <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
             <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
-              {(v.youtubeUrl || v.channelUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {v.lastYoutubeFetchTime ? (v.youtubeSubscribers || '0') : '自動抓取中...'}</span>}
-              {v.twitchUrl && <span className="flex items-center gap-1"><i className="fa-brands fa-twitch text-purple-400"></i> {v.lastTwitchFetchTime ? (v.twitchFollowers || '0') : '自動抓取中...'}</span>}
+              {(v.youtubeSubscribers || v.subscribers || v.youtubeUrl || v.channelUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {v.youtubeSubscribers || v.subscribers || '未公開'}</span>}
+              {(v.twitchFollowers || v.twitchUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-twitch text-purple-400"></i> {v.twitchFollowers || '未公開'}</span>}
               <span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}</span>
             </div>
           </div>
@@ -184,8 +184,8 @@
             {isVerifiedUser && v.id !== user?.uid && <button onClick={(e) => { e.stopPropagation(); onDislike(v); }} className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-50 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0" title="檢舉負面行為"><i className="fa-solid fa-thumbs-down text-[10px]"></i></button>}
           </div>
           <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
-            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' ? <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="YouTube"><i className="fa-brands fa-youtube text-sm"></i><span className="text-[10px] font-bold">{v.lastYoutubeFetchTime ? (v.youtubeSubscribers || '0') : '抓取中'}</span></a> : null}
-            {v.twitchUrl && v.twitchUrl !== '#' ? <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="Twitch"><i className="fa-brands fa-twitch text-sm"></i><span className="text-[10px] font-bold">{v.lastTwitchFetchTime ? (v.twitchFollowers || '0') : '抓取中'}</span></a> : null}
+            {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== '#' ? <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="YouTube"><i className="fa-brands fa-youtube text-sm"></i>{(v.youtubeSubscribers || v.subscribers) && <span className="text-[10px] font-bold">{v.youtubeSubscribers || v.subscribers}</span>}</a> : (v.youtubeSubscribers || v.subscribers) ? <div className="bg-red-500/10 text-red-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1" title="YouTube 訂閱數"><i className="fa-brands fa-youtube text-sm"></i><span className="text-[10px] font-bold">{v.youtubeSubscribers || v.subscribers}</span></div> : null}
+            {v.twitchUrl && v.twitchUrl !== '#' ? <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-purple-500/20 text-purple-400 hover:bg-purple-500 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1" title="Twitch"><i className="fa-brands fa-twitch text-sm"></i>{v.twitchFollowers && <span className="text-[10px] font-bold">{v.twitchFollowers}</span>}</a> : v.twitchFollowers ? <div className="bg-purple-500/10 text-purple-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1" title="Twitch 追隨數"><i className="fa-brands fa-twitch text-sm"></i><span className="text-[10px] font-bold">{v.twitchFollowers}</span></div> : null}
             {v.xUrl && v.xUrl !== '#' && <a href={sanitizeUrl(v.xUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-blue-500/20 text-blue-400 hover:bg-blue-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="X (Twitter)"><i className="fa-brands fa-x-twitter text-sm"></i></a>}
             {v.igUrl && v.igUrl !== '#' && <a href={sanitizeUrl(v.igUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram"><i className="fa-brands fa-instagram text-sm"></i></a>}
           </div>
@@ -277,7 +277,7 @@
                 <h3 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-6">就是決定是你了！</h3>
                 <div className="w-full group bg-gray-900/80 border border-purple-500/50 rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(168,85,247,0.2)] flex flex-col text-left mb-6">
                   <div className="h-28 relative overflow-hidden flex-shrink-0"><img src={sanitizeUrl(matchedVtuber.banner)} className="w-full h-full object-cover opacity-60" /><span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{matchedVtuber.agency}</span></div>
-                  <div className="p-4 relative flex-1 flex flex-col"><img src={sanitizeUrl(matchedVtuber.avatar)} className="absolute -top-10 w-20 h-20 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" /><div className="ml-24 mb-3"><h3 className="font-bold text-white truncate text-lg flex items-center gap-1">{matchedVtuber.name} {matchedVtuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>}</h3><div className="flex gap-2 text-xs mt-1 text-gray-400">{(matchedVtuber.youtubeUrl || matchedVtuber.channelUrl) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {matchedVtuber.lastYoutubeFetchTime ? (matchedVtuber.youtubeSubscribers || '0') : '抓取中...'}</span>}<span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {matchedVtuber.likes || 0}</span></div></div></div>
+                  <div className="p-4 relative flex-1 flex flex-col"><img src={sanitizeUrl(matchedVtuber.avatar)} className="absolute -top-10 w-20 h-20 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" /><div className="ml-24 mb-3"><h3 className="font-bold text-white truncate text-lg flex items-center gap-1">{matchedVtuber.name} {matchedVtuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>}</h3><div className="flex gap-2 text-xs mt-1 text-gray-400">{(matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers) && <span className="flex items-center gap-1"><i className="fa-brands fa-youtube text-red-400"></i> {matchedVtuber.youtubeSubscribers || matchedVtuber.subscribers}</span>}<span className="flex items-center gap-1 text-green-400"><i className="fa-solid fa-thumbs-up"></i> {matchedVtuber.likes || 0}</span></div></div></div>
                 </div>
                 <div className="flex gap-3 w-full"><button onClick={() => {setMatchedVtuber(null); setDesiredType('');}} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3.5 rounded-xl text-sm font-bold transition-colors">再抽一次</button><button onClick={() => { setSelectedVTuber(matchedVtuber); navigate(`profile/${matchedVtuber.id}`); }} className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-xl text-sm font-bold transition-all shadow-lg flex justify-center items-center gap-2"><i className="fa-solid fa-handshake"></i> 前往對方名片</button></div>
               </div>
@@ -394,7 +394,7 @@
           <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
           {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-xs text-purple-400 font-normal ml-1">(系統自動抓取)</span></label><div className={inputCls + " bg-gray-800 text-gray-500 cursor-not-allowed select-none"}>{form.youtubeUrl || form.channelUrl ? (form.lastYoutubeFetchTime ? form.youtubeSubscribers : '自動抓取中...') : '請先填入下方 YouTube 連結'}</div></div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數 <span className="text-xs text-purple-400 font-normal ml-1">(系統自動抓取)</span></label><div className={inputCls + " bg-gray-800 text-gray-500 cursor-not-allowed select-none"}>{form.youtubeUrl ? (form.youtubeSubscribers || '自動抓取中...') : '請先填入下方 YouTube 連結'}</div></div>
             <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="填入 Twitch 網址將自動抓取 (可留空)" className={inputCls} /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -863,23 +863,20 @@
         if (!vtuber || String(vtuber.id || '').startsWith('mock') || isAdmin) return;
         
         const now = Date.now();
-        const ONE_DAY = 0;
+        const ONE_DAY = 24 * 60 * 60 * 1000;
         let updates = {};
         let needsUpdate = false;
 
         // 檢查 YouTube
-        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s" && (vtuber.youtubeUrl || vtuber.channelUrl)) {
-          const urlToUse = vtuber.youtubeUrl || vtuber.channelUrl;
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s" && vtuber.youtubeUrl) {
           if (!vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY) {
-            updates.lastYoutubeFetchTime = now;
-            needsUpdate = true;
             try {
               let apiUrl = '';
-              if (urlToUse.includes('@')) {
-                const handle = urlToUse.split('@')[1].split('/')[0].split('?')[0];
+              if (vtuber.youtubeUrl.includes('@')) {
+                const handle = vtuber.youtubeUrl.split('@')[1].split('/')[0].split('?')[0];
                 apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${YOUTUBE_API_KEY}`;
-              } else if (urlToUse.includes('/channel/')) {
-                const id = urlToUse.split('/channel/')[1].split('/')[0].split('?')[0];
+              } else if (vtuber.youtubeUrl.includes('/channel/')) {
+                const id = vtuber.youtubeUrl.split('/channel/')[1].split('/')[0].split('?')[0];
                 apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${id}&key=${YOUTUBE_API_KEY}`;
               }
               if (apiUrl) {
@@ -888,21 +885,17 @@
                 if (data.items && data.items.length > 0) {
                   const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
                   updates.youtubeSubscribers = formatCountDisplay(subCount);
-                } else {
-                  updates.youtubeSubscribers = '查無頻道';
+                  updates.lastYoutubeFetchTime = now;
+                  needsUpdate = true;
                 }
-              } else {
-                updates.youtubeSubscribers = '無效網址';
               }
-            } catch (e) { console.warn("YT Fetch Error", e); updates.youtubeSubscribers = '無法讀取'; }
+            } catch (e) { console.warn("YT Fetch Error", e); }
           }
         }
 
         // 檢查 Twitch (改用第三方 API，因官方 API 目前已嚴格限制追隨數的存取權限)
         if (vtuber.twitchUrl) {
           if (!vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY) {
-            updates.lastTwitchFetchTime = now;
-            needsUpdate = true;
             try {
               // 使用 Regex 精準擷取 Twitch 帳號名稱，能完美過濾 m.twitch.tv 等網址格式
               const match = vtuber.twitchUrl.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
@@ -916,16 +909,12 @@
                   const followCount = parseInt(textData.replace(/[^0-9]/g, ''), 10);
                   if (!isNaN(followCount)) {
                     updates.twitchFollowers = formatCountDisplay(followCount);
-                  } else {
-                    updates.twitchFollowers = '查無帳號';
+                    updates.lastTwitchFetchTime = now;
+                    needsUpdate = true;
                   }
-                } else {
-                  updates.twitchFollowers = '查無帳號';
                 }
-              } else {
-                updates.twitchFollowers = '無效網址';
               }
-            } catch (e) { console.warn("Twitch Fetch Error", e); updates.twitchFollowers = '無法讀取'; }
+            } catch (e) { console.warn("Twitch Fetch Error", e); }
           }
         }
 
@@ -937,30 +926,6 @@
           } catch(e) { console.warn("Update API Error", e); }
         }
       };
-
-      useEffect(() => {
-        if (currentView === 'profile' && selectedVTuber) {
-          checkAndUpdateStats(selectedVTuber);
-        }
-      }, [currentView, selectedVTuber?.id]);
-
-      const attemptedFetches = useRef(new Set());
-      useEffect(() => {
-        if (currentView === 'grid' && paginatedVTubers && paginatedVTubers.length > 0) {
-          const now = Date.now();
-          const ONE_DAY = 24 * 60 * 60 * 1000;
-          paginatedVTubers.forEach(v => {
-            if (attemptedFetches.current.has(v.id)) return;
-            const urlToUse = v.youtubeUrl || v.channelUrl;
-            const needYt = urlToUse && (!v.lastYoutubeFetchTime || now - v.lastYoutubeFetchTime > ONE_DAY);
-            const needTwitch = v.twitchUrl && (!v.lastTwitchFetchTime || now - v.lastTwitchFetchTime > ONE_DAY);
-            if (needYt || needTwitch) {
-              attemptedFetches.current.add(v.id);
-              checkAndUpdateStats(v);
-            }
-          });
-        }
-      }, [currentView, paginatedVTubers]);
 
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
@@ -1440,8 +1405,8 @@
                               <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                               {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
                               {isVerifiedUser && selectedVTuber.publicEmail && <a href={sanitizeUrl(`mailto:${selectedVTuber.publicEmail}`)} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-solid fa-envelope text-yellow-400"></i> 直接寄信{selectedVTuber.publicEmailVerified && <i className="fa-solid fa-circle-check text-green-400 ml-0.5" title="信箱已認證"></i>}</a>}
-                              {(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) ? <a href={sanitizeUrl(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl)} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube<span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.lastYoutubeFetchTime ? (selectedVTuber.youtubeSubscribers || '0') : '抓取中...'}</span></a> : null}
-                              {selectedVTuber.twitchUrl ? <a href={sanitizeUrl(selectedVTuber.twitchUrl)} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch<span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.lastTwitchFetchTime ? (selectedVTuber.twitchFollowers || '0') : '抓取中...'}</span></a> : null}
+                              {selectedVTuber.youtubeUrl ? <a href={sanitizeUrl(selectedVTuber.youtubeUrl)} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube{(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}</a> : (selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) ? <span className="bg-red-500/5 text-red-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube<span className="ml-1 px-2 py-0.5 bg-red-500/10 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span></span> : null}
+                              {selectedVTuber.twitchUrl ? <a href={sanitizeUrl(selectedVTuber.twitchUrl)} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch{selectedVTuber.twitchFollowers && <span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.twitchFollowers}</span>}</a> : selectedVTuber.twitchFollowers ? <span className="bg-purple-500/5 text-purple-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch<span className="ml-1 px-2 py-0.5 bg-purple-500/10 rounded text-xs">{selectedVTuber.twitchFollowers}</span></span> : null}
                               {selectedVTuber.xUrl && <a href={sanitizeUrl(selectedVTuber.xUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
                               {selectedVTuber.igUrl && <a href={sanitizeUrl(selectedVTuber.igUrl)} target="_blank" rel="noopener noreferrer" className="bg-pink-500/10 text-pink-400 hover:bg-pink-500/20 px-3 py-1.5 rounded-lg font-bold"><i className="fa-brands fa-instagram"></i> IG</a>}
                             </div>
