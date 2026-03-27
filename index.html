@@ -470,6 +470,7 @@
                   <div className="flex gap-3 mt-1.5">
                     {(v.youtubeUrl || v.channelUrl) && <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 transition-colors"><i className="fa-brands fa-youtube"></i> 檢查</a>}
                     {v.twitchUrl && <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 transition-colors"><i className="fa-brands fa-twitch"></i> 檢查</a>}
+                    {v.xUrl && <a href={sanitizeUrl(v.xUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors"><i className="fa-brands fa-x-twitter"></i> 檢查</a>}
                   </div>
                 </div>
               </div>
