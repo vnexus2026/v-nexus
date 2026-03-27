@@ -415,9 +415,9 @@
 
           {!isAdmin && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-              <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)</h3>
+              <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span></h3>
               <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
-              <input type="text" value={form.verificationNote} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式... (此資料保密)" />
+              <input required type="text" value={form.verificationNote || ''} onChange={e=>updateForm({verificationNote: e.target.value})} className={inputCls} placeholder="您的驗證方式為...(請填入Youtube或X，此資料保密)" />
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -935,6 +935,7 @@
       const handleSaveProfile = async (e, customForm = profileForm) => {
         if(e) e.preventDefault(); if (!user) return showToast("請先登入！");
         
+        if (!isAdmin && (!customForm.verificationNote || !customForm.verificationNote.trim())) return showToast("請填寫真人身分驗證方式！");
         if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
 
         let finalCollabs = [...(customForm.collabTypes || [])]; if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) finalCollabs.push(customForm.otherCollabText.trim());
