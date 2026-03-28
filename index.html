@@ -995,17 +995,33 @@
         }
 
         if (needsUpdate) {
+          // 【修正核心】：先更新本地 React 狀態！
+          // 因為一般訪客沒有 Firebase 寫入權限，下方的 updateDoc 會報錯中斷。
+          // 必須將本地更新移到前面，訪客才不會卡在「自動抓取中」，也能避免重複消耗額度。
+          setRealVtubers(prev => prev.map(v => v.id === vtuber.id ? { ...v, ...updates } : v));
+          setSelectedVTuber(prev => prev?.id === vtuber.id ? { ...prev, ...updates } : prev);
+          
+          // 紀錄本機抓取時間，本機強制保護 API 額度 24 小時
+          localStorage.setItem(`local_fetch_${vtuber.id}`, now.toString());
+
           try {
             await updateDoc(doc(db, getPath('vtubers'), vtuber.id), updates);
-            setRealVtubers(prev => prev.map(v => v.id === vtuber.id ? { ...v, ...updates } : v));
-            setSelectedVTuber(prev => prev?.id === vtuber.id ? { ...prev, ...updates } : prev);
-          } catch(e) { console.warn("Update API Error", e); }
+          } catch(e) { 
+            // 靜默處理權限報錯（訪客無法寫入資料庫是正常的，畫面有更新且本機有鎖住就好）
+          }
+        } else {
+          // 如果沒有拿到數據，也要上鎖，防止錯誤網址導致無限重抓
+          localStorage.setItem(`local_fetch_${vtuber.id}`, now.toString());
         }
       };
 
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
-          checkAndUpdateStats(selectedVTuber);
+          // 單獨進入名片頁面時也加入本機 24 小時防護鎖
+          const localLastFetch = localStorage.getItem(`local_fetch_${selectedVTuber.id}`);
+          if (!localLastFetch || Date.now() - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000) {
+            checkAndUpdateStats(selectedVTuber);
+          }
         }
       }, [currentView, selectedVTuber?.id]);
 
@@ -1019,6 +1035,13 @@
           
           paginatedVTubers.forEach(v => {
             if (attemptedFetches.current.has(v.id)) return;
+            
+            // 雙重防護：如果這個瀏覽器 24 小時內已經抓過，直接跳過，不再消耗額度
+            const localLastFetch = localStorage.getItem(`local_fetch_${v.id}`);
+            if (localLastFetch && now - parseInt(localLastFetch) < ONE_DAY) {
+              return;
+            }
+
             const urlToUse = v.youtubeUrl || v.channelUrl;
             const needYt = urlToUse && (!v.lastYoutubeFetchTime || now - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers));
             const needTwitch = v.twitchUrl && (!v.lastTwitchFetchTime || now - v.lastTwitchFetchTime > ONE_DAY || twitchErrorStates.includes(v.twitchFollowers));
