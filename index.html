@@ -715,16 +715,18 @@
       const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
 
       const handleEditClick = (v) => {
-        const standard = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => PREDEFINED_COLLABS.includes(t)) : [];
-        const other = Array.isArray(v.collabTypes) ? v.collabTypes.filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '' : '';
+        const safeCollabTypes = Array.isArray(v.collabTypes) ? v.collabTypes : [];
+        const standard = safeCollabTypes.filter(t => PREDEFINED_COLLABS.includes(t));
+        const other = safeCollabTypes.find(t => !PREDEFINED_COLLABS.includes(t)) || '';
         const PREDEFINED_NATIONALITIES = ['台灣', '日本', '香港', '馬來西亞']; const PREDEFINED_LANGUAGES = ['國', '日', '英', '粵', '台語'];
         const PREDEFINED_PERSONALITIES = ['我是I人', '時I時E', '我大E人', '看心情'];
         
-        const nats = v.nationalities || (v.nationality ? [v.nationality] : []);
-        const langs = v.languages || (v.language ? [v.language] : []);
-        const isOtherN = nats.some(n => !PREDEFINED_NATIONALITIES.includes(n));
-        const otherNatText = isOtherN ? nats.find(n => !PREDEFINED_NATIONALITIES.includes(n)) : '';
-        const stdNats = nats.filter(n => PREDEFINED_NATIONALITIES.includes(n));
+        const safeNats = Array.isArray(v.nationalities) ? v.nationalities : (v.nationality ? [v.nationality] : []);
+        const safeLangs = Array.isArray(v.languages) ? v.languages : (v.language ? [v.language] : []);
+        
+        const isOtherN = safeNats.some(n => !PREDEFINED_NATIONALITIES.includes(n));
+        const otherNatText = isOtherN ? safeNats.find(n => !PREDEFINED_NATIONALITIES.includes(n)) : '';
+        const stdNats = safeNats.filter(n => PREDEFINED_NATIONALITIES.includes(n));
 
         const pType = v.personalityType || ''; const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
 
@@ -735,9 +737,9 @@
           tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '', 
           collabTypes: standard, isOtherCollab: !!other, otherCollabText: other,
           nationalities: stdNats, isOtherNationality: isOtherN, otherNationalityText: otherNatText || '', 
-          languages: langs,
+          languages: safeLangs,
           personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
-          isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], 
+          isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: Array.isArray(v.scheduleSlots) ? v.scheduleSlots : [], 
           youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '', lastYoutubeFetchTime: v.lastYoutubeFetchTime || 0,
           twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
           youtubeUrl: v.youtubeUrl || v.channelUrl || '', twitchUrl: v.twitchUrl || '', xUrl: v.xUrl || '', igUrl: v.igUrl || '',
@@ -857,8 +859,8 @@
             </div>
           </div>
           {editingVtuber && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl animate-fade-in-up">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl">
                 <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10"><h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3><button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
                 <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({...prev, ...updates}))} onSubmit={(e)=>{ e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} user={user} /></div>
               </div>
