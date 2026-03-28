@@ -899,74 +899,66 @@
               let apiUrl = '';
               const cleanApiKey = YOUTUBE_API_KEY.trim();
 
-              // 全面強化網址解析，並使用 youtube.googleapis.com 避開部分 AdBlocker 阻擋
-              if (urlToUse.includes('@')) {
-                const handle = urlToUse.split('@')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
-              } else if (urlToUse.includes('/channel/')) {
-                const id = urlToUse.split('/channel/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(id)}&key=${cleanApiKey}`;
-              } else if (urlToUse.includes('/user/')) {
-                const username = urlToUse.split('/user/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
-              } else if (urlToUse.includes('/c/')) {
-                const cname = urlToUse.split('/c/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
-              } else {
-                const parts = urlToUse.split('/').filter(Boolean);
-                const lastPart = parts[parts.length - 1].split(/[?#]/)[0].trim();
-                if (lastPart && !lastPart.includes('youtube.com')) {
-                    apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(lastPart)}&key=${cleanApiKey}`;
+              // 安全解析網址，避免「內部處理錯誤」
+              try {
+                if (urlToUse.includes('@')) {
+                  const handle = urlToUse.split('@')[1].split(/[/?#]/)[0].trim();
+                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
+                } else if (urlToUse.includes('/channel/')) {
+                  const id = urlToUse.split('/channel/')[1].split(/[/?#]/)[0].trim();
+                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(id)}&key=${cleanApiKey}`;
+                } else if (urlToUse.includes('/user/')) {
+                  const username = urlToUse.split('/user/')[1].split(/[/?#]/)[0].trim();
+                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
+                } else if (urlToUse.includes('/c/')) {
+                  const cname = urlToUse.split('/c/')[1].split(/[/?#]/)[0].trim();
+                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
+                } else {
+                  const parts = urlToUse.split('/').filter(Boolean);
+                  const lastPart = parts.length > 0 ? parts[parts.length - 1].split(/[?#]/)[0].trim() : '';
+                  if (lastPart && !lastPart.includes('youtube.com')) {
+                      apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(lastPart)}&key=${cleanApiKey}`;
+                  }
                 }
+              } catch (parseErr) {
+                console.warn("URL Parse Error:", parseErr);
+                updates.youtubeSubscribers = '網址解析失敗';
               }
               
               if (apiUrl) {
-                let fetchSuccess = false;
-                let status = 200;
-                let data = null;
-
                 try {
-                  // 1. 正常連線
                   const res = await fetch(apiUrl);
-                  status = res.status;
                   if (res.ok) {
-                    data = await res.json();
-                    fetchSuccess = true;
+                    const data = await res.json();
+                    if (data.items && data.items.length > 0) {
+                      const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
+                      updates.youtubeSubscribers = formatCountDisplay(subCount);
+                    } else {
+                      updates.youtubeSubscribers = '查無頻道(請確認網址)';
+                    }
+                  } else {
+                    const errText = await res.text();
+                    console.error("YT API Error:", res.status, errText);
+                    if (res.status === 403) {
+                      if (errText.includes('dailyLimitExceeded')) updates.youtubeSubscribers = 'API配額耗盡';
+                      else if (errText.includes('keyInvalid')) updates.youtubeSubscribers = 'API金鑰無效';
+                      else updates.youtubeSubscribers = 'API未啟用或受限';
+                    } else if (res.status === 400) {
+                      updates.youtubeSubscribers = '請求格式錯誤(400)';
+                    } else {
+                      updates.youtubeSubscribers = `API錯誤(${res.status})`;
+                    }
                   }
                 } catch (fetchErr) {
-                  // 2. 若被 CORS 阻擋，自動切換備用代理伺服器
-                  console.warn("Direct YT fetch blocked, using proxy...", fetchErr);
-                  try {
-                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
-                    const proxyRes = await fetch(proxyUrl);
-                    status = proxyRes.status;
-                    if (proxyRes.ok) {
-                      data = await proxyRes.json();
-                      fetchSuccess = true;
-                    }
-                  } catch (proxyErr) {
-                    console.error("Proxy also failed", proxyErr);
-                  }
+                  console.error("Fetch API throw error (likely CORS/Adblock):", fetchErr);
+                  updates.youtubeSubscribers = '連線失敗(請關擋廣告/檢查金鑰)';
                 }
-
-                if (fetchSuccess && data) {
-                  if (data.items && data.items.length > 0) {
-                    const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
-                    updates.youtubeSubscribers = formatCountDisplay(subCount);
-                  } else {
-                    updates.youtubeSubscribers = '查無頻道(請確認網址)';
-                  }
-                } else {
-                  if (status === 403) updates.youtubeSubscribers = 'API金鑰/配額錯誤';
-                  else if (status === 400) updates.youtubeSubscribers = '網址請求格式錯';
-                  else updates.youtubeSubscribers = '連線遭阻擋';
-                }
-              } else {
+              } else if (!updates.youtubeSubscribers) {
                 updates.youtubeSubscribers = '無法識別的網址';
               }
             } catch (e) { 
               console.warn("YT Logic Error", e); 
-              if (!updates.youtubeSubscribers) updates.youtubeSubscribers = '內部處理錯誤'; 
+              if (!updates.youtubeSubscribers) updates.youtubeSubscribers = '系統處理異常'; 
             }
           }
         }
