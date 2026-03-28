@@ -44,7 +44,7 @@
     import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 
     // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
-    const YOUTUBE_API_KEY = "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s"; 
+    const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY"; 
     const TWITCH_CLIENT_ID = "請填入您的Twitch_Client_ID"; 
     const TWITCH_CLIENT_SECRET = "請填入您的Twitch_Client_Secret"; 
     // --------------------------------------------------
@@ -882,25 +882,40 @@
         if (!vtuber || String(vtuber.id || '').startsWith('mock') || isAdmin) return;
         
         const now = Date.now();
-        const ONE_DAY = 0;
+        const ONE_DAY = 24 * 60 * 60 * 1000;
         let updates = {};
         let needsUpdate = false;
+
+        // 如果是這些錯誤字眼或預設值，強制略過冷卻時間立刻重新抓取
+        const ytErrorStates = ['自動抓取中...', '查無頻道', '無效網址', '無法讀取', '0', null, undefined, ''];
+        const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
+
+        const twitchErrorStates = ['自動抓取中...', '查無帳號', '無效網址', '無法讀取', '0', null, undefined, ''];
+        const shouldFetchTwitch = !vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY || twitchErrorStates.includes(vtuber.twitchFollowers);
 
         // 檢查 YouTube
         if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "請填入您的YouTube_API_KEY" && (vtuber.youtubeUrl || vtuber.channelUrl)) {
           const urlToUse = vtuber.youtubeUrl || vtuber.channelUrl;
-          if (!vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY) {
+          if (shouldFetchYt) {
             updates.lastYoutubeFetchTime = now;
             needsUpdate = true;
             try {
               let apiUrl = '';
               if (urlToUse.includes('@')) {
-                const handle = urlToUse.split('@')[1].split('/')[0].split('?')[0];
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${handle}&key=${YOUTUBE_API_KEY}`;
+                const handle = urlToUse.split('@')[1].split(/[/?]/)[0];
+                // YouTube API forHandle 需要編碼的 @
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${handle}&key=${YOUTUBE_API_KEY}`;
               } else if (urlToUse.includes('/channel/')) {
-                const id = urlToUse.split('/channel/')[1].split('/')[0].split('?')[0];
+                const id = urlToUse.split('/channel/')[1].split(/[/?]/)[0];
                 apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${id}&key=${YOUTUBE_API_KEY}`;
+              } else if (urlToUse.includes('/user/')) {
+                const username = urlToUse.split('/user/')[1].split(/[/?]/)[0];
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${username}&key=${YOUTUBE_API_KEY}`;
+              } else if (urlToUse.includes('/c/')) {
+                const cname = urlToUse.split('/c/')[1].split(/[/?]/)[0];
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${cname}&key=${YOUTUBE_API_KEY}`;
               }
+              
               if (apiUrl) {
                 const res = await fetch(apiUrl);
                 const data = await res.json();
@@ -919,7 +934,7 @@
 
         // 檢查 Twitch (改用第三方 API，因官方 API 目前已嚴格限制追隨數的存取權限)
         if (vtuber.twitchUrl) {
-          if (!vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY) {
+          if (shouldFetchTwitch) {
             updates.lastTwitchFetchTime = now;
             needsUpdate = true;
             try {
@@ -927,17 +942,48 @@
               const match = vtuber.twitchUrl.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
               if (match && match[1]) {
                 const username = match[1];
-                const res = await fetch(`https://decapi.me/twitch/followcount/${username}`);
-                const textData = await res.text();
-                
-                // 確保回傳的不是錯誤訊息
-                if (!textData.toLowerCase().includes('user not found') && !textData.toLowerCase().includes('error')) {
-                  const followCount = parseInt(textData.replace(/[^0-9]/g, ''), 10);
-                  if (!isNaN(followCount)) {
-                    updates.twitchFollowers = formatCountDisplay(followCount);
-                  } else {
-                    updates.twitchFollowers = '查無帳號';
+                let fetchedCount = null;
+
+                // 優先嘗試官方 API
+                if (TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET && TWITCH_CLIENT_ID !== "請填入您的Twitch_Client_ID") {
+                  try {
+                    const tokenRes = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`, { method: 'POST' });
+                    const tokenData = await tokenRes.json();
+                    const accessToken = tokenData.access_token;
+
+                    if (accessToken) {
+                      const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${username}`, {
+                        headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
+                      });
+                      const userData = await userRes.json();
+                      if (userData.data && userData.data.length > 0) {
+                        const broadcasterId = userData.data[0].id;
+                        const followRes = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${broadcasterId}`, {
+                          headers: { 'Client-Id': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${accessToken}` }
+                        });
+                        const followData = await followRes.json();
+                        if (followData.total !== undefined) {
+                          fetchedCount = followData.total;
+                        }
+                      }
+                    }
+                  } catch (err) { console.warn("Twitch Official API Error", err); }
+                }
+
+                // 若官方 API 失敗或無金鑰，切換至 DecAPI 備用方案
+                if (fetchedCount === null) {
+                  const res = await fetch(`https://decapi.me/twitch/followcount/${username}`);
+                  const textData = await res.text();
+                  if (!textData.toLowerCase().includes('user not found') && !textData.toLowerCase().includes('error')) {
+                    const followCount = parseInt(textData.replace(/[^0-9]/g, ''), 10);
+                    if (!isNaN(followCount)) {
+                      fetchedCount = followCount;
+                    }
                   }
+                }
+
+                if (fetchedCount !== null) {
+                  updates.twitchFollowers = formatCountDisplay(fetchedCount);
                 } else {
                   updates.twitchFollowers = '查無帳號';
                 }
@@ -968,11 +1014,14 @@
         if (currentView === 'grid' && paginatedVTubers && paginatedVTubers.length > 0) {
           const now = Date.now();
           const ONE_DAY = 24 * 60 * 60 * 1000;
+          const ytErrorStates = ['自動抓取中...', '查無頻道', '無效網址', '無法讀取', '0', null, undefined, ''];
+          const twitchErrorStates = ['自動抓取中...', '查無帳號', '無效網址', '無法讀取', '0', null, undefined, ''];
+          
           paginatedVTubers.forEach(v => {
             if (attemptedFetches.current.has(v.id)) return;
             const urlToUse = v.youtubeUrl || v.channelUrl;
-            const needYt = urlToUse && (!v.lastYoutubeFetchTime || now - v.lastYoutubeFetchTime > ONE_DAY);
-            const needTwitch = v.twitchUrl && (!v.lastTwitchFetchTime || now - v.lastTwitchFetchTime > ONE_DAY);
+            const needYt = urlToUse && (!v.lastYoutubeFetchTime || now - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers));
+            const needTwitch = v.twitchUrl && (!v.lastTwitchFetchTime || now - v.lastTwitchFetchTime > ONE_DAY || twitchErrorStates.includes(v.twitchFollowers));
             if (needYt || needTwitch) {
               attemptedFetches.current.add(v.id);
               checkAndUpdateStats(v);
@@ -980,12 +1029,6 @@
           });
         }
       }, [currentView, paginatedVTubers]);
-
-      useEffect(() => {
-        if (currentView === 'profile' && selectedVTuber) {
-          checkAndUpdateStats(selectedVTuber);
-        }
-      }, [currentView, selectedVTuber?.id]);
 
       useEffect(() => {
         const handleClickOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false); };
