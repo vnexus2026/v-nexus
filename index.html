@@ -42,6 +42,7 @@
     import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
     import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
     // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
     // 👇 請將引號內的文字替換成您的 YouTube API 金鑰
@@ -65,6 +66,8 @@
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
     });
+    
+    const functionsInstance = getFunctions(app);
 
     try {
       initializeAppCheck(app, { provider: new ReCaptchaV3Provider('6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M'), isTokenAutoRefreshEnabled: true });
@@ -347,6 +350,32 @@
       const [otpStatus, setOtpStatus] = useState('idle');
       const [otpInput, setOtpInput] = useState('');
       const [generatedOtp, setGeneratedOtp] = useState(null);
+      const [isFetchingSubscribers, setIsFetchingSubscribers] = useState(false);
+
+      const handleAutoFetchSubscribers = async () => {
+        const url = form.youtubeUrl || form.channelUrl;
+        if (!url) return showToast("請先在下方填妥 YouTube 連結！");
+        setIsFetchingSubscribers(true);
+        try {
+          const fetchYouTubeStats = httpsCallable(functionsInstance, 'fetchYouTubeStats');
+          const result = await fetchYouTubeStats({ url });
+          if (result.data && result.data.success) {
+            const count = result.data.subscriberCount;
+            let formattedCount = count.toString();
+            if (count >= 10000) formattedCount = (count / 10000).toFixed(1).replace('.0', '') + '萬';
+            else if (count >= 1000) formattedCount = (count / 1000).toFixed(1).replace('.0', '') + 'K';
+            updateForm({ youtubeSubscribers: formattedCount });
+            showToast("✅ 成功抓取 YouTube 訂閱數！");
+          } else {
+            showToast("❌ 抓取失敗: " + (result.data ? result.data.message : '未知錯誤'));
+          }
+        } catch (err) {
+          console.error("Fetch Stats Error:", err);
+          showToast("❌ 伺服器連線失敗，請檢查網址或稍後再試");
+        } finally {
+          setIsFetchingSubscribers(false);
+        }
+      };
 
       const handleSendOtp = async () => {
         const email = form.publicEmail;
@@ -433,10 +462,21 @@
           </div>
           <div><label className="block text-sm font-bold text-gray-300 mb-2">可連動時段 <span className="text-red-400">*</span></label><ScheduleEditor form={form} updateForm={updateForm} /></div>
           {isAdmin && <div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-bold text-gray-300 mb-2">推薦數</label><input type="number" value={form.likes} onChange={e=>updateForm({likes: Number(e.target.value)})} className={inputCls} /></div><div><label className="block text-sm font-bold text-gray-300 mb-2">倒讚數</label><input type="number" value={form.dislikes} onChange={e=>updateForm({dislikes: Number(e.target.value)})} className={inputCls} /></div></div>}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數</label><input type="text" value={form.youtubeSubscribers} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} /></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} /></div>
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數</label>
+              <div className="flex gap-2">
+                <input type="text" value={form.youtubeSubscribers || ''} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} />
+                <button type="button" onClick={handleAutoFetchSubscribers} disabled={isFetchingSubscribers} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center">
+                  {isFetchingSubscribers ? <i className="fa-solid fa-spinner fa-spin"></i> : <><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>自動抓取</>}
+                </button>
+              </div>
+              <p className="text-[10px] text-purple-400/80 mt-1">（請先填妥下方 YouTube 連結後點擊）</p>
+            </div>
+            <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers || ''} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} /></div>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>YouTube 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="YouTube" checked={form.mainPlatform === 'YouTube'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.youtubeUrl} onChange={e=>updateForm({youtubeUrl: e.target.value})} className={inputCls} /></div>
             <div><label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2"><span>Twitch 連結</span><label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal"><input type="radio" value="Twitch" checked={form.mainPlatform === 'Twitch'} onChange={e=>updateForm({mainPlatform: e.target.value})} className="accent-purple-500" />主平台</label></label><input type="url" value={form.twitchUrl} onChange={e=>updateForm({twitchUrl: e.target.value})} className={inputCls} /></div>
