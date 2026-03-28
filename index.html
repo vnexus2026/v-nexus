@@ -652,6 +652,11 @@
       const [editTips, setEditTips] = useState(tips);
       const [editingVtuber, setEditingVtuber] = useState(null);
 
+      // 💡 補回遺失的測試狀態變數
+      const [testYtUrl, setTestYtUrl] = useState('');
+      const [testYtResult, setTestYtResult] = useState('');
+      const [isTestingYt, setIsTestingYt] = useState(false);
+
       const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
       const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
       const rejectedVtubers = safeVtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected' && !v.isBlacklisted);
