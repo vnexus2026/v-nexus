@@ -351,10 +351,35 @@
       const [otpInput, setOtpInput] = useState('');
       const [generatedOtp, setGeneratedOtp] = useState(null);
       const [isFetchingSubscribers, setIsFetchingSubscribers] = useState(false);
+      const [lastFetchTime, setLastFetchTime] = useState(form.lastYoutubeFetchTime || 0);
 
-      const handleAutoFetchSubscribers = async () => {
+      useEffect(() => {
         const url = form.youtubeUrl || form.channelUrl;
+        if (!url || url.length < 15) return;
+
+        const timer = setTimeout(() => {
+          const now = Date.now();
+          const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+          if ((url.includes('youtube.com') || url.includes('youtu.be')) && (now - lastFetchTime > TWENTY_FOUR_HOURS || isAdmin)) {
+            handleAutoFetchSubscribers(url);
+          }
+        }, 1500);
+
+        return () => clearTimeout(timer);
+      }, [form.youtubeUrl, form.channelUrl, lastFetchTime, isAdmin]);
+
+      const handleAutoFetchSubscribers = async (autoUrl = null) => {
+        const url = typeof autoUrl === 'string' ? autoUrl : (form.youtubeUrl || form.channelUrl);
         if (!url) return showToast("請先在下方填妥 YouTube 連結！");
+        
+        const now = Date.now();
+        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+        if (now - lastFetchTime < TWENTY_FOUR_HOURS && !isAdmin) {
+           const remainHours = Math.ceil((TWENTY_FOUR_HOURS - (now - lastFetchTime)) / (60 * 60 * 1000));
+           if (typeof autoUrl !== 'string') showToast(`⏳ 為了保護額度，24小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
+           return;
+        }
+
         setIsFetchingSubscribers(true);
         try {
           const fetchYouTubeStats = httpsCallable(functionsInstance, 'fetchYouTubeStats');
@@ -364,52 +389,17 @@
             let formattedCount = count.toString();
             if (count >= 10000) formattedCount = (count / 10000).toFixed(1).replace('.0', '') + '萬';
             else if (count >= 1000) formattedCount = (count / 1000).toFixed(1).replace('.0', '') + 'K';
-            updateForm({ youtubeSubscribers: formattedCount });
-            showToast("✅ 成功抓取 YouTube 訂閱數！");
+            updateForm({ youtubeSubscribers: formattedCount, lastYoutubeFetchTime: now });
+            setLastFetchTime(now);
+            if (typeof autoUrl !== 'string') showToast("✅ 成功抓取 YouTube 訂閱數！");
           } else {
-            showToast("❌ 抓取失敗: " + (result.data ? result.data.message : '未知錯誤'));
+            if (typeof autoUrl !== 'string') showToast("❌ 抓取失敗: " + (result.data ? result.data.message : '未知錯誤'));
           }
         } catch (err) {
           console.error("Fetch Stats Error:", err);
-          showToast("❌ 伺服器連線失敗，請檢查網址或稍後再試");
+          if (typeof autoUrl !== 'string') showToast("❌ 伺服器連線失敗，請檢查網址或稍後再試");
         } finally {
           setIsFetchingSubscribers(false);
-        }
-      };
-
-      const handleSendOtp = async () => {
-        const email = form.publicEmail;
-        if (!email || !email.includes('@')) return showToast("請輸入有效的信箱格式！");
-        setOtpStatus('sending');
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        try {
-          if (user && user.uid && !isAdmin) {
-             await setDoc(doc(db, getPath('vtubers_private'), user.uid), { emailOtp: otp }, { merge: true });
-          }
-          await addDoc(collection(db, getPath('mail')), {
-            to: email,
-            message: {
-              subject: "[V-Nexus] 公開工商信箱驗證碼",
-              text: `您的驗證碼為：${otp}\n\n請回到 V-Nexus 網站輸入此 6 位數驗證碼，以完成信箱綁定認證。\n(此驗證碼僅供本次驗證使用，請勿外流)`
-            }
-          });
-          setGeneratedOtp(otp);
-          setOtpStatus('sent');
-          showToast("✅ 驗證碼已寄出！請至信箱收取");
-        } catch (err) {
-          setOtpStatus('idle');
-          showToast("發送失敗，請稍後再試或檢查資料庫權限");
-        }
-      };
-
-      const handleVerifyOtp = () => {
-        if (otpInput === generatedOtp) {
-           updateForm({ publicEmailVerified: true });
-           setOtpStatus('verified');
-           setOtpInput('');
-           showToast("✅ 信箱驗證成功！(請記得點擊最下方儲存名片)");
-        } else {
-           showToast("❌ 驗證碼錯誤！");
         }
       };
 
@@ -468,11 +458,11 @@
               <label className="block text-sm font-bold text-gray-300 mb-2">YouTube 訂閱數</label>
               <div className="flex gap-2">
                 <input type="text" value={form.youtubeSubscribers || ''} onChange={e=>updateForm({youtubeSubscribers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} />
-                <button type="button" onClick={handleAutoFetchSubscribers} disabled={isFetchingSubscribers} className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center">
-                  {isFetchingSubscribers ? <i className="fa-solid fa-spinner fa-spin"></i> : <><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>自動抓取</>}
+                <button type="button" onClick={handleAutoFetchSubscribers} disabled={isFetchingSubscribers || (Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)} className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
+                  {isFetchingSubscribers ? <i className="fa-solid fa-spinner fa-spin"></i> : (Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin) ? <><i className="fa-solid fa-clock mr-1"></i>冷卻中</> : <><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>手動抓取</>}
                 </button>
               </div>
-              <p className="text-[10px] text-purple-400/80 mt-1">（請先填妥下方 YouTube 連結後點擊）</p>
+              <p className="text-[10px] text-purple-400/80 mt-1">（填妥下方 YouTube 連結後會自動抓取，每24小時限抓一次）</p>
             </div>
             <div><label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label><input type="text" value={form.twitchFollowers || ''} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="例如：1.5萬 (選填)" className={inputCls} /></div>
           </div>
@@ -710,7 +700,7 @@
           ...v, tags: Array.isArray(v.tags) ? v.tags.join(', ') : v.tags || '', collabTypes: standard, isOtherCollab: !!other, otherCollabText: other,
           nationality: isOtherN ? '其他' : n, nationalityOther: isOtherN ? n : '', language: isOtherL ? '其他' : l, languageOther: isOtherL ? l : '',
           personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
-          isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '',
+          isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: v.scheduleSlots || [], youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '', lastYoutubeFetchTime: v.lastYoutubeFetchTime || 0,
           twitchFollowers: v.twitchFollowers || '', mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
           youtubeUrl: v.youtubeUrl || v.channelUrl || '', twitchUrl: v.twitchUrl || '', xUrl: v.xUrl || '', igUrl: v.igUrl || '',
           publicEmail: v.publicEmail || '', contactEmail: privateDocs[v.id]?.contactEmail || '', verificationNote: privateDocs[v.id]?.verificationNote || '', streamingStyle: v.streamingStyle || '一般型態', activityStatus: v.activityStatus || 'active', likes: v.likes || 0, dislikes: v.dislikes || 0
@@ -896,7 +886,7 @@
       const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
         nationalities: [], isOtherNationality: false, otherNationalityText: '', languages: [], personalityType: '', personalityTypeOther: '', isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
-        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: ''
+        youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: '', lastYoutubeFetchTime: 0
       });
       const [profileForm, setProfileForm] = useState(getEmptyProfile());
 
@@ -990,7 +980,7 @@
                   personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
                   collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                   scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
-                  youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || '', publicEmailVerified: cp.publicEmailVerified || false
+                  youtubeSubscribers: cp.youtubeSubscribers || cp.subscribers || '', lastYoutubeFetchTime: cp.lastYoutubeFetchTime || 0, twitchFollowers: cp.twitchFollowers || '', youtubeUrl: cp.youtubeUrl || cp.channelUrl || '', twitchUrl: cp.twitchUrl || '', mainPlatform: cp.mainPlatform || 'YouTube', streamStyleUrl: cp.streamStyleUrl || '', xUrl: cp.xUrl || '', igUrl: cp.igUrl || '', publicEmail: cp.publicEmail || '', publicEmailVerified: cp.publicEmailVerified || false
                 }));
               }
             }
@@ -1145,7 +1135,7 @@
             name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs, 
             nationalities: finalNats, languages: finalLangs, personalityType: finalPersonality || '',
             isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
-            scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, twitchFollowers: customForm.twitchFollowers, youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
+            scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, lastYoutubeFetchTime: customForm.lastYoutubeFetchTime || 0, twitchFollowers: customForm.twitchFollowers, youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
             publicEmail: customForm.publicEmail || '', publicEmailVerified: customForm.publicEmailVerified || false, likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
           };
 
