@@ -492,7 +492,7 @@
       );
     };
 
-    const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile, onBraveResponse }) => {
+    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = false, onForceRefetch }) => {
       const [page, setPage] = useState(1);
       const itemsPerPage = 10;
       const totalPages = Math.ceil(notifications.length / itemsPerPage);
@@ -628,6 +628,7 @@
                 <div className="flex gap-2 flex-shrink-0">
                   {onVerify && <button onClick={()=>onVerify(v.id)} className="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg text-sm font-bold">審核</button>}
                   {onReject && <button onClick={()=>onReject(v.id)} className="text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg text-sm font-bold">拒絕</button>}
+                  {onForceRefetch && (v.youtubeUrl || v.channelUrl) && <button onClick={()=>onForceRefetch(v.id)} className="text-pink-400 bg-pink-500/10 px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap">重抓YT</button>}
                   <button onClick={()=>onEdit(v)} className="text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg text-sm font-bold">編輯</button>
                   <button onClick={()=>onDelete(v.id)} className={`text-red-400 px-3 py-2 rounded-lg text-sm font-bold ${isBlacklist ? 'bg-red-900/50 hover:bg-red-600 hover:text-white' : 'bg-red-500/10'}`}>刪除</button>
                 </div>
@@ -645,7 +646,7 @@
       );
     };
 
-    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, onResetYoutubeSubs, autoFetchYouTubeInfo }) => {
+    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, onResetYoutubeSubs, onResetSingleYoutubeSubs, autoFetchYouTubeInfo }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
@@ -743,10 +744,10 @@
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
-                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} />}
-                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} />
-                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} onForceRefetch={onResetSingleYoutubeSubs} />
+                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} onForceRefetch={onResetSingleYoutubeSubs} />}
+                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} onForceRefetch={onResetSingleYoutubeSubs} />
+                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist onForceRefetch={onResetSingleYoutubeSubs} />
                   <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                     <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
                     <button onClick={onResetNatAndLang} className="bg-orange-900 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-eraser mr-2"></i>清除所有人國籍與語言</button>
@@ -1381,12 +1382,23 @@
           if (prompt("請輸入 'CONFIRM'") !== 'CONFIRM') return showToast("已取消操作。"); 
           for (const v of realVtubers) { 
             if (!v.id.startsWith('mock')) { 
-              await setDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: '', lastYoutubeFetchTime: null }, { merge: true }); 
+              await setDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null }, { merge: true }); 
               localStorage.removeItem(`v4_local_fetch_${v.id}`);
             } 
           } 
-          setRealVtubers(prev => prev.map(v => ({...v, youtubeSubscribers: '', lastYoutubeFetchTime: null}))); 
+          attemptedFetches.current.clear();
+          setRealVtubers(prev => prev.map(v => ({...v, youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null}))); 
           showToast("✅ 已清除所有人 YT 訂閱數，回到前台列表就會開始自動呼叫後端重抓！"); 
+        } catch (err) { showToast("清除失敗"); } 
+      };
+
+      const handleAdminResetSingleYoutubeSubs = async (id) => { 
+        try { 
+          await setDoc(doc(db, getPath('vtubers'), id), { youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null }, { merge: true }); 
+          localStorage.removeItem(`v4_local_fetch_${id}`);
+          attemptedFetches.current.delete(id);
+          setRealVtubers(prev => prev.map(v => v.id === id ? {...v, youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null} : v)); 
+          showToast("✅ 已清除該名片的 YT 訂閱數，回到前台列表就會自動重抓！"); 
         } catch (err) { showToast("清除失敗"); } 
       };
 
@@ -1677,7 +1689,7 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} onResetYoutubeSubs={handleAdminResetYoutubeSubs} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
+            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} onResetYoutubeSubs={handleAdminResetYoutubeSubs} onResetSingleYoutubeSubs={handleAdminResetSingleYoutubeSubs} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
           </main>
 
           {/* Modal 元件 */}
