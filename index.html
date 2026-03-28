@@ -74,11 +74,30 @@
     const APP_ID = 'v-nexus-official';
     const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
+    // --- XSS 防護強化：加強版 URL 過濾器 (防雙重編碼繞過) ---
     const sanitizeUrl = (url) => {
       if (typeof url !== 'string' || !url) return '';
       const u = url.trim();
-      const normalized = u.replace(/[\s\x00-\x1f\x7f-\x9f]/g, '').toLowerCase();
-      if (normalized.startsWith('javascript:') || normalized.startsWith('vbscript:')) return 'javascript:void(0);';
+      
+      // 深度解碼防止雙重編碼繞過 (Double URL Encoding Bypass)
+      let decoded = u;
+      try {
+        let prevDecoded;
+        do {
+          prevDecoded = decoded;
+          decoded = decodeURIComponent(decoded);
+        } while (prevDecoded !== decoded && decoded.length < 2000); // 加入長度限制防止惡意超長字串癱瘓瀏覽器
+      } catch(e) { /* 略過無法正常解碼的惡意字串 */ }
+
+      // 移除所有空白與控制字元，並轉小寫進行最高層級安全比對
+      const normalized = decoded.replace(/[\s\x00-\x1f\x7f-\x9f]/g, '').toLowerCase();
+      
+      // 嚴格阻擋可執行腳本的協定 (包含 javascript:, vbscript:, 以及帶有指令碼的 data:text/html)
+      if (normalized.startsWith('javascript:') || normalized.startsWith('vbscript:') || normalized.startsWith('data:text')) {
+        return 'about:blank'; // 強制替換為安全空白頁，徹底阻斷腳本執行
+      }
+      
+      // 驗證通過，回傳原始網址以確保 YouTube/Twitch 正當連結參數不被破壞
       return u;
     };
 
