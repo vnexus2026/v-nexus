@@ -894,7 +894,7 @@
         const shouldFetchTwitch = !vtuber.lastTwitchFetchTime || now - vtuber.lastTwitchFetchTime > ONE_DAY || twitchErrorStates.includes(vtuber.twitchFollowers);
 
         // 檢查 YouTube
-        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "請填入您的YouTube_API_KEY" && (vtuber.youtubeUrl || vtuber.channelUrl)) {
+        if (YOUTUBE_API_KEY && YOUTUBE_API_KEY !== "AIzaSyAyX-Pq_S35WfYVKDif8_GeoymSiDsMd_s" && (vtuber.youtubeUrl || vtuber.channelUrl)) {
           const urlToUse = vtuber.youtubeUrl || vtuber.channelUrl;
           if (shouldFetchYt) {
             updates.lastYoutubeFetchTime = now;
