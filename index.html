@@ -885,7 +885,8 @@
         let updates = {};
         let needsUpdate = false;
 
-        const ytErrorStates = ['自動抓取中...', '無法讀取', 'API錯誤', '連線阻擋(CORS)', '金鑰未授權(403)', '請求格式錯(400)', '0', null, undefined, ''];
+        // 移除具體錯誤訊息的自動重試，避免無意義的消耗額度（有問題必須手動按清除重抓）
+        const ytErrorStates = ['自動抓取中...', '0', null, undefined, ''];
         const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
 
         // 檢查 YouTube
@@ -898,35 +899,34 @@
               let apiUrl = '';
               const cleanApiKey = YOUTUBE_API_KEY.trim();
 
-              // 修正：加入 encodeURIComponent 防止中文/日文帳號或特殊符號導致 fetch 崩潰
+              // 全面強化網址解析，並使用 youtube.googleapis.com 避開部分 AdBlocker 阻擋
               if (urlToUse.includes('@')) {
                 const handle = urlToUse.split('@')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
+                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/channel/')) {
                 const id = urlToUse.split('/channel/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(id)}&key=${cleanApiKey}`;
+                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(id)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/user/')) {
                 const username = urlToUse.split('/user/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
+                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/c/')) {
                 const cname = urlToUse.split('/c/')[1].split(/[/?#]/)[0].trim();
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
+                apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
               } else {
-                // 萬用防呆：如果網址沒有特定格式，嘗試擷取最後一段作為 handle 搜尋
                 const parts = urlToUse.split('/').filter(Boolean);
-                const lastPart = parts[parts.length - 1].split('?')[0].trim();
-                if (lastPart && lastPart !== 'youtube.com' && lastPart !== 'www.youtube.com') {
-                    apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(lastPart)}&key=${cleanApiKey}`;
+                const lastPart = parts[parts.length - 1].split(/[?#]/)[0].trim();
+                if (lastPart && !lastPart.includes('youtube.com')) {
+                    apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(lastPart)}&key=${cleanApiKey}`;
                 }
               }
               
               if (apiUrl) {
-                let data = null;
-                let status = 200;
                 let fetchSuccess = false;
+                let status = 200;
+                let data = null;
 
                 try {
-                  // 1. 優先嘗試正常連線 (正式上線後會走這裡)
+                  // 1. 正常連線
                   const res = await fetch(apiUrl);
                   status = res.status;
                   if (res.ok) {
@@ -934,8 +934,8 @@
                     fetchSuccess = true;
                   }
                 } catch (fetchErr) {
-                  // 2. 若發生 CORS 阻擋 (測試環境)，瞬間切換使用代理伺服器繞過
-                  console.warn("Direct YT fetch blocked (likely CORS), switching to proxy...");
+                  // 2. 若被 CORS 阻擋，自動切換備用代理伺服器
+                  console.warn("Direct YT fetch blocked, using proxy...", fetchErr);
                   try {
                     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
                     const proxyRes = await fetch(proxyUrl);
@@ -945,7 +945,7 @@
                       fetchSuccess = true;
                     }
                   } catch (proxyErr) {
-                    console.error("Proxy fetch also failed", proxyErr);
+                    console.error("Proxy also failed", proxyErr);
                   }
                 }
 
@@ -954,19 +954,19 @@
                     const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
                     updates.youtubeSubscribers = formatCountDisplay(subCount);
                   } else {
-                    updates.youtubeSubscribers = '查無頻道';
+                    updates.youtubeSubscribers = '查無頻道(請確認網址)';
                   }
                 } else {
-                  if (status === 403) updates.youtubeSubscribers = '金鑰未授權(403)';
-                  else if (status === 400) updates.youtubeSubscribers = '請求格式錯(400)';
-                  else updates.youtubeSubscribers = '連線阻擋(CORS)';
+                  if (status === 403) updates.youtubeSubscribers = 'API金鑰/配額錯誤';
+                  else if (status === 400) updates.youtubeSubscribers = '網址請求格式錯';
+                  else updates.youtubeSubscribers = '連線遭阻擋';
                 }
               } else {
-                updates.youtubeSubscribers = '無效網址';
+                updates.youtubeSubscribers = '無法識別的網址';
               }
             } catch (e) { 
-              console.warn("YT Fetch Logic Error", e); 
-              if (!updates.youtubeSubscribers) updates.youtubeSubscribers = '無法讀取'; 
+              console.warn("YT Logic Error", e); 
+              if (!updates.youtubeSubscribers) updates.youtubeSubscribers = '內部處理錯誤'; 
             }
           }
         }
@@ -989,7 +989,7 @@
         if (currentView === 'grid' && paginatedVTubers && paginatedVTubers.length > 0) {
           const now = Date.now();
           const ONE_DAY = 24 * 60 * 60 * 1000;
-          const ytErrorStates = ['自動抓取中...', '無法讀取', 'API錯誤', '連線阻擋(CORS)', '金鑰未授權(403)', '請求格式錯(400)', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '0', null, undefined, ''];
           
           paginatedVTubers.forEach(v => {
             if (attemptedFetches.current.has(v.id)) return;
