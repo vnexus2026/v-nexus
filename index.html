@@ -912,13 +912,15 @@
         const ytErrorStates = ['自動抓取中...', '查無頻道(請確認網址)', '後端連線失敗', '後端處理異常', '0', null, undefined, ''];
         const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
 
-        if ((vtuber.youtubeUrl || vtuber.channelUrl) && shouldFetchYt) {
+        const targetUrl = vtuber.youtubeUrl || vtuber.channelUrl;
+
+        if (targetUrl && shouldFetchYt) {
             updates.lastYoutubeFetchTime = now;
             needsUpdate = true;
             try {
-                // 安全呼叫後端 Cloud Function
+                // 安全呼叫後端 Cloud Function (傳遞精確的 url 變數，完美對接後端 payload)
                 const fetchYT = httpsCallable(functions, 'fetchYouTubeStats');
-                const result = await fetchYT({ url: vtuber.youtubeUrl || vtuber.channelUrl });
+                const result = await fetchYT({ url: targetUrl });
                 
                 if (result.data && result.data.success) {
                     updates.youtubeSubscribers = formatCountDisplay(result.data.subscriberCount);
