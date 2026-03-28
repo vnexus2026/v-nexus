@@ -595,7 +595,7 @@
       );
     };
 
-    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = false }) => {
+    const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = false, onForceRefetch }) => {
       const [page, setPage] = useState(1);
       const itemsPerPage = 10;
       const totalPages = Math.ceil(list.length / itemsPerPage);
@@ -628,6 +628,7 @@
                 <div className="flex gap-2 flex-shrink-0">
                   {onVerify && <button onClick={()=>onVerify(v.id)} className="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg text-sm font-bold">審核</button>}
                   {onReject && <button onClick={()=>onReject(v.id)} className="text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg text-sm font-bold">拒絕</button>}
+                  {onForceRefetch && (v.youtubeUrl || v.channelUrl) && <button onClick={()=>onForceRefetch(v.id)} className="text-pink-400 bg-pink-500/10 px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap">重抓YT</button>}
                   <button onClick={()=>onEdit(v)} className="text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg text-sm font-bold">編輯</button>
                   <button onClick={()=>onDelete(v.id)} className={`text-red-400 px-3 py-2 rounded-lg text-sm font-bold ${isBlacklist ? 'bg-red-900/50 hover:bg-red-600 hover:text-white' : 'bg-red-500/10'}`}>刪除</button>
                 </div>
@@ -645,7 +646,7 @@
       );
     };
 
-    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, onResetYoutubeSubs, autoFetchYouTubeInfo }) => {
+    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, onResetYoutubeSubs, onResetSingleYoutubeSubs, autoFetchYouTubeInfo }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
@@ -743,10 +744,10 @@
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
               {activeTab === 'vtubers' && (
                 <div className="space-y-8">
-                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} />}
-                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} />
-                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
+                  <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} onForceRefetch={onResetSingleYoutubeSubs} />
+                  {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} onForceRefetch={onResetSingleYoutubeSubs} />}
+                  <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} onForceRefetch={onResetSingleYoutubeSubs} />
+                  <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist onForceRefetch={onResetSingleYoutubeSubs} />
                   <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                     <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
                     <button onClick={onResetNatAndLang} className="bg-orange-900 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-eraser mr-2"></i>清除所有人國籍與語言</button>
@@ -948,13 +949,13 @@
         let updates = {};
         let needsUpdate = false;
 
-        const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '查無頻道(請確認網址)', '後端連線失敗', '後端處理異常', '無網址', '請再按一次重抓', '0', null, undefined, ''];
+        const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '查無頻道(請確認網址)', '後端連線失敗', '後端處理異常', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
         const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
 
         const targetUrl = (vtuber.youtubeUrl || vtuber.channelUrl || '').trim();
 
         if (targetUrl && shouldFetchYt) {
-            // 💡 關鍵修正：讓畫面立刻顯示抓取中，確保使用者感覺到 API 正在努力跑
+            // 💡 讓畫面立刻顯示抓取中，確保使用者感覺到 API 正在努力跑
             setRealVtubers(prev => prev.map(v => v.id === vtuber.id ? { ...v, youtubeSubscribers: '自動抓取中...' } : v));
             if (selectedVTuber?.id === vtuber.id) setSelectedVTuber(prev => ({ ...prev, youtubeSubscribers: '自動抓取中...' }));
 
@@ -973,7 +974,7 @@
                 }
             } catch (err) {
                 console.error("Backend Fetch Error:", err);
-                updates.youtubeSubscribers = '後端連線失敗';
+                updates.youtubeSubscribers = err.message?.includes('internal') ? '網路或CORS錯誤(請稍後重試)' : '後端連線失敗';
             }
         }
 
@@ -990,45 +991,76 @@
         }
       };
 
+      // 💡 建立全域的抓取佇列 (Queue)，保證同一時間只會有一個 API 請求，徹底解決被後端或瀏覽器阻擋的風暴問題
+      const fetchQueue = useRef([]);
+      const isProcessingQueue = useRef(false);
       const attemptedFetches = useRef(new Map());
+
+      const processFetchQueue = async () => {
+        if (isProcessingQueue.current) return;
+        isProcessingQueue.current = true;
+        
+        while (fetchQueue.current.length > 0) {
+          const v = fetchQueue.current.shift();
+          await checkAndUpdateStats(v);
+          // 💡 每個請求之間強制等待 1.5 秒，給後端與瀏覽器充分的喘息時間
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        
+        isProcessingQueue.current = false;
+      };
+
       useEffect(() => {
         if (currentView === 'grid' && realVtubers.length > 0) {
-          const now = Date.now();
           const ONE_DAY = 24 * 60 * 60 * 1000;
-          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
+          
+          let addedToQueue = false;
           
           realVtubers.forEach(v => {
             const lastAttempt = attemptedFetches.current.get(v.id) || 0;
-            // 給予 10 秒的短暫冷卻，防止 React 嚴格模式造成重複呼叫卡死
-            if (now - lastAttempt < 10000) return;
+            // 💡 防呆冷卻從 10 秒提升至 60 秒，避免冷啟動太久導致重複觸發
+            if (Date.now() - lastAttempt < 60000) return; 
 
             const localLastFetch = localStorage.getItem(`v4_local_fetch_${v.id}`);
-            if (localLastFetch && now - parseInt(localLastFetch) < ONE_DAY && !ytErrorStates.includes(v.youtubeSubscribers)) return;
+            if (localLastFetch && Date.now() - parseInt(localLastFetch) < ONE_DAY && !ytErrorStates.includes(v.youtubeSubscribers)) return;
 
             const urlToUse = (v.youtubeUrl || v.channelUrl || '').trim();
-            if (urlToUse && (!v.lastYoutubeFetchTime || now - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers))) {
-              attemptedFetches.current.set(v.id, now);
-              checkAndUpdateStats(v);
+            if (urlToUse && (!v.lastYoutubeFetchTime || Date.now() - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers))) {
+              attemptedFetches.current.set(v.id, Date.now());
+              
+              // 確保不重複加入排隊隊伍
+              if (!fetchQueue.current.some(item => item.id === v.id)) {
+                fetchQueue.current.push(v);
+                addedToQueue = true;
+              }
             }
           });
+
+          if (addedToQueue) {
+            processFetchQueue();
+          }
         }
-      }, [currentView, realVtubers, user, isAdmin]); // 💡 關鍵修正：加入 user, isAdmin 確保登入狀態同步
+      }, [currentView, realVtubers, user, isAdmin]);
 
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
-          const now = Date.now();
           const lastAttempt = attemptedFetches.current.get(selectedVTuber.id) || 0;
-          if (now - lastAttempt < 10000) return;
+          if (Date.now() - lastAttempt < 60000) return;
 
-          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
           const localLastFetch = localStorage.getItem(`v4_local_fetch_${selectedVTuber.id}`);
           
-          if (!localLastFetch || now - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000 || ytErrorStates.includes(selectedVTuber.youtubeSubscribers)) {
-            attemptedFetches.current.set(selectedVTuber.id, now);
-            checkAndUpdateStats(selectedVTuber);
+          if (!localLastFetch || Date.now() - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000 || ytErrorStates.includes(selectedVTuber.youtubeSubscribers)) {
+            attemptedFetches.current.set(selectedVTuber.id, Date.now());
+            
+            if (!fetchQueue.current.some(item => item.id === selectedVTuber.id)) {
+              fetchQueue.current.push(selectedVTuber);
+              processFetchQueue();
+            }
           }
         }
-      }, [currentView, selectedVTuber?.id, selectedVTuber?.youtubeSubscribers, user, isAdmin]); // 💡 關鍵修正：加入 user, isAdmin 確保登入狀態同步
+      }, [currentView, selectedVTuber?.id, selectedVTuber?.youtubeSubscribers, user, isAdmin]);
 
       useEffect(() => {
         const handleClickOutside = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setIsNotifOpen(false); };
@@ -1207,8 +1239,10 @@
           const mSchedule = selectedSchedule === 'All' || (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
           return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule;
         });
-        if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0)); else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a)); else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-        else { let s = [...result]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } result = s; }
+        if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0)); 
+        else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a)); 
+        else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        // 💡 不再每次重新洗牌，直接沿用上方 displayVtubers 穩定的隨機排序結果
         return result;
       }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, user, sortOrder]); 
 
@@ -1381,13 +1415,23 @@
           if (prompt("請輸入 'CONFIRM'") !== 'CONFIRM') return showToast("已取消操作。"); 
           for (const v of realVtubers) { 
             if (!v.id.startsWith('mock')) { 
-              await setDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: '', lastYoutubeFetchTime: null }, { merge: true }); 
+              await setDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null }, { merge: true }); 
               localStorage.removeItem(`v4_local_fetch_${v.id}`);
             } 
           } 
-          setRealVtubers(prev => prev.map(v => ({...v, youtubeSubscribers: '', lastYoutubeFetchTime: null}))); 
+          attemptedFetches.current.clear();
+          setRealVtubers(prev => prev.map(v => ({...v, youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null}))); 
           showToast("✅ 已清除所有人 YT 訂閱數，回到前台列表就會開始自動呼叫後端重抓！"); 
         } catch (err) { showToast("清除失敗"); } 
+      };
+
+      const handleAdminResetSingleYoutubeSubs = async (vtuber) => { 
+        showToast("⏳ 開始單獨重抓，請稍候...");
+        attemptedFetches.current.delete(vtuber.id);
+        localStorage.removeItem(`v4_local_fetch_${vtuber.id}`);
+        // 💡 捨棄設定文字讓 useEffect 偵測的迂迴方式，直接帶入 force 參數強制抓取！
+        await checkAndUpdateStats(vtuber, true); 
+        showToast("✅ 重抓完成！"); 
       };
 
       const handleAddUpdate = async (updateData) => { try { const docRef = await addDoc(collection(db, getPath('updates')), { ...updateData, createdAt: Date.now() }); setRealUpdates(prev => [{ id: docRef.id, ...updateData, createdAt: Date.now() }, ...prev]); showToast("✅ 已發佈最新消息"); } catch(err) { showToast("發佈失敗"); } };
@@ -1677,7 +1721,7 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} onResetYoutubeSubs={handleAdminResetYoutubeSubs} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
+            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} onResetYoutubeSubs={handleAdminResetYoutubeSubs} onResetSingleYoutubeSubs={handleAdminResetSingleYoutubeSubs} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
           </main>
 
           {/* Modal 元件 */}
