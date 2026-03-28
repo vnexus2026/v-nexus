@@ -1423,14 +1423,13 @@
         } catch (err) { showToast("清除失敗"); } 
       };
 
-      const handleAdminResetSingleYoutubeSubs = async (id) => { 
-        try { 
-          await setDoc(doc(db, getPath('vtubers'), id), { youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null }, { merge: true }); 
-          localStorage.removeItem(`v4_local_fetch_${id}`);
-          attemptedFetches.current.delete(id);
-          setRealVtubers(prev => prev.map(v => v.id === id ? {...v, youtubeSubscribers: '請再按一次重抓', lastYoutubeFetchTime: null} : v)); 
-          showToast("✅ 已清除該名片的 YT 訂閱數，回到前台列表就會自動重抓！"); 
-        } catch (err) { showToast("清除失敗"); } 
+      const handleAdminResetSingleYoutubeSubs = async (vtuber) => { 
+        showToast("⏳ 開始單獨重抓，請稍候...");
+        attemptedFetches.current.delete(vtuber.id);
+        localStorage.removeItem(`v4_local_fetch_${vtuber.id}`);
+        // 💡 捨棄設定文字讓 useEffect 偵測的迂迴方式，直接帶入 force 參數強制抓取！
+        await checkAndUpdateStats(vtuber, true); 
+        showToast("✅ 重抓完成！"); 
       };
 
       const handleAddUpdate = async (updateData) => { try { const docRef = await addDoc(collection(db, getPath('updates')), { ...updateData, createdAt: Date.now() }); setRealUpdates(prev => [{ id: docRef.id, ...updateData, createdAt: Date.now() }, ...prev]); showToast("✅ 已發佈最新消息"); } catch(err) { showToast("發佈失敗"); } };
