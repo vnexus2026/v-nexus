@@ -1001,8 +1001,8 @@
           setRealVtubers(prev => prev.map(v => v.id === vtuber.id ? { ...v, ...updates } : v));
           setSelectedVTuber(prev => prev?.id === vtuber.id ? { ...prev, ...updates } : prev);
           
-          // 紀錄本機抓取時間，本機強制保護 API 額度 24 小時
-          localStorage.setItem(`local_fetch_${vtuber.id}`, now.toString());
+          // 紀錄本機抓取時間，本機強制保護 API 額度 24 小時 (升級至 v2 鑰匙)
+          localStorage.setItem(`v2_local_fetch_${vtuber.id}`, now.toString());
 
           try {
             await updateDoc(doc(db, getPath('vtubers'), vtuber.id), updates);
@@ -1011,14 +1011,14 @@
           }
         } else {
           // 如果沒有拿到數據，也要上鎖，防止錯誤網址導致無限重抓
-          localStorage.setItem(`local_fetch_${vtuber.id}`, now.toString());
+          localStorage.setItem(`v2_local_fetch_${vtuber.id}`, now.toString());
         }
       };
 
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
           // 單獨進入名片頁面時也加入本機 24 小時防護鎖
-          const localLastFetch = localStorage.getItem(`local_fetch_${selectedVTuber.id}`);
+          const localLastFetch = localStorage.getItem(`v2_local_fetch_${selectedVTuber.id}`);
           if (!localLastFetch || Date.now() - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000) {
             checkAndUpdateStats(selectedVTuber);
           }
@@ -1037,7 +1037,8 @@
             if (attemptedFetches.current.has(v.id)) return;
             
             // 雙重防護：如果這個瀏覽器 24 小時內已經抓過，直接跳過，不再消耗額度
-            const localLastFetch = localStorage.getItem(`local_fetch_${v.id}`);
+            // 使用 v2_local_fetch_ 鍵值強制作廢舊有被卡住的快取紀錄，強制重抓！
+            const localLastFetch = localStorage.getItem(`v2_local_fetch_${v.id}`);
             if (localLastFetch && now - parseInt(localLastFetch) < ONE_DAY) {
               return;
             }
