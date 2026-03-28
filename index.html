@@ -911,29 +911,55 @@
               } else if (urlToUse.includes('/c/')) {
                 const cname = urlToUse.split('/c/')[1].split(/[/?#]/)[0].trim();
                 apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
+              } else {
+                // 萬用防呆：如果網址沒有特定格式，嘗試擷取最後一段作為 handle 搜尋
+                const parts = urlToUse.split('/').filter(Boolean);
+                const lastPart = parts[parts.length - 1].split('?')[0].trim();
+                if (lastPart && lastPart !== 'youtube.com' && lastPart !== 'www.youtube.com') {
+                    apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(lastPart)}&key=${cleanApiKey}`;
+                }
               }
               
               if (apiUrl) {
+                let data = null;
+                let status = 200;
+                let fetchSuccess = false;
+
                 try {
+                  // 1. 優先嘗試正常連線 (正式上線後會走這裡)
                   const res = await fetch(apiUrl);
-                  if (!res.ok) {
-                    const errText = await res.text();
-                    console.error("YT API Error Response:", res.status, errText);
-                    if (res.status === 403) updates.youtubeSubscribers = '金鑰未授權(403)';
-                    else if (res.status === 400) updates.youtubeSubscribers = '請求格式錯(400)';
-                    else updates.youtubeSubscribers = 'API錯誤';
-                  } else {
-                    const data = await res.json();
-                    if (data.items && data.items.length > 0) {
-                      const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
-                      updates.youtubeSubscribers = formatCountDisplay(subCount);
-                    } else {
-                      updates.youtubeSubscribers = '查無頻道';
-                    }
+                  status = res.status;
+                  if (res.ok) {
+                    data = await res.json();
+                    fetchSuccess = true;
                   }
                 } catch (fetchErr) {
-                  console.error("Fetch API throw error (likely CORS/Adblock):", fetchErr);
-                  updates.youtubeSubscribers = '連線阻擋(CORS)';
+                  // 2. 若發生 CORS 阻擋 (測試環境)，瞬間切換使用代理伺服器繞過
+                  console.warn("Direct YT fetch blocked (likely CORS), switching to proxy...");
+                  try {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                    const proxyRes = await fetch(proxyUrl);
+                    status = proxyRes.status;
+                    if (proxyRes.ok) {
+                      data = await proxyRes.json();
+                      fetchSuccess = true;
+                    }
+                  } catch (proxyErr) {
+                    console.error("Proxy fetch also failed", proxyErr);
+                  }
+                }
+
+                if (fetchSuccess && data) {
+                  if (data.items && data.items.length > 0) {
+                    const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
+                    updates.youtubeSubscribers = formatCountDisplay(subCount);
+                  } else {
+                    updates.youtubeSubscribers = '查無頻道';
+                  }
+                } else {
+                  if (status === 403) updates.youtubeSubscribers = '金鑰未授權(403)';
+                  else if (status === 400) updates.youtubeSubscribers = '請求格式錯(400)';
+                  else updates.youtubeSubscribers = '連線阻擋(CORS)';
                 }
               } else {
                 updates.youtubeSubscribers = '無效網址';
