@@ -683,14 +683,12 @@
       );
     };
 
-    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs }) => {
+    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
       const [editTips, setEditTips] = useState(tips);
       const [editingVtuber, setEditingVtuber] = useState(null);
-      const [isSyncingSubs, setIsSyncingSubs] = useState(false);
-      const [syncProgress, setSyncProgress] = useState('');
 
       const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
       const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
@@ -763,9 +761,6 @@
                   <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                     <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
                     <button onClick={onResetNatAndLang} className="bg-orange-900 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-eraser mr-2"></i>清除所有人國籍與語言</button>
-                    <button onClick={() => onMassSyncSubs(setSyncProgress, setIsSyncingSubs)} disabled={isSyncingSubs} className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-blue-900/50 cursor-not-allowed text-gray-400' : 'bg-blue-900 hover:bg-blue-700 text-white'}`}>
-                      {isSyncingSubs ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</> : <><i className="fa-solid fa-rotate mr-2"></i>強制同步過期訂閱數</>}
-                    </button>
                   </div>
                 </div>
               )}
@@ -1284,77 +1279,6 @@
         } catch (err) { showToast("清除失敗"); } 
       };
 
-      const handleMassSyncSubs = async (setSyncProgress, setIsSyncingSubs) => {
-        if (!confirm("確定要背景同步所有名片的 YouTube 訂閱數嗎？\n(只會抓取超過24小時未更新的名片)")) return;
-        setIsSyncingSubs(true);
-        let successCount = 0;
-        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-        const now = Date.now();
-        const targets = realVtubers.filter(v => (v.youtubeUrl || v.channelUrl) && (now - (v.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS));
-        
-        if (targets.length === 0) {
-           showToast("✅ 所有名片的訂閱數皆為 24 小時內最新狀態！");
-           setIsSyncingSubs(false);
-           return;
-        }
-
-        for (let i = 0; i < targets.length; i++) {
-           const v = targets[i];
-           setSyncProgress(`正在同步 ${i + 1} / ${targets.length} : ${v.name}`);
-           try {
-             const url = v.youtubeUrl || v.channelUrl;
-             const fetchYouTubeStats = httpsCallable(functionsInstance, 'fetchYouTubeStats');
-             const result = await fetchYouTubeStats({ url });
-             if (result.data && result.data.success) {
-                const count = result.data.subscriberCount;
-                let formattedCount = count.toString();
-                if (count >= 10000) formattedCount = (count / 10000).toFixed(1).replace('.0', '') + '萬';
-                else if (count >= 1000) formattedCount = (count / 1000).toFixed(1).replace('.0', '') + 'K';
-                await updateDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: formattedCount, lastYoutubeFetchTime: Date.now() });
-                successCount++;
-             } else {
-                await updateDoc(doc(db, getPath('vtubers'), v.id), { lastYoutubeFetchTime: Date.now() });
-             }
-           } catch(err) {}
-           await new Promise(r => setTimeout(r, 1500));
-        }
-        setSyncProgress('');
-        setIsSyncingSubs(false);
-        showToast(`✅ 同步完成！成功更新 ${successCount} 筆資料。`);
-      };
-
-      // --- 獨立名片頁面自動更新訂閱數 (訪客觸發) ---
-      useEffect(() => {
-        if (currentView === 'profile' && selectedVTuber) {
-          const now = Date.now();
-          const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-          const url = selectedVTuber.youtubeUrl || selectedVTuber.channelUrl;
-          if (url && (now - (selectedVTuber.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS)) {
-            const autoSync = async () => {
-              try {
-                const fetchYouTubeStats = httpsCallable(functionsInstance, 'fetchYouTubeStats');
-                const result = await fetchYouTubeStats({ url });
-                if (result.data && result.data.success) {
-                  const count = result.data.subscriberCount;
-                  let formattedCount = count.toString();
-                  if (count >= 10000) formattedCount = (count / 10000).toFixed(1).replace('.0', '') + '萬';
-                  else if (count >= 1000) formattedCount = (count / 1000).toFixed(1).replace('.0', '') + 'K';
-                  
-                  await updateDoc(doc(db, getPath('vtubers'), selectedVTuber.id), {
-                    youtubeSubscribers: formattedCount,
-                    lastYoutubeFetchTime: Date.now()
-                  });
-                  setSelectedVTuber(prev => ({...prev, youtubeSubscribers: formattedCount, lastYoutubeFetchTime: Date.now()}));
-                } else {
-                  await updateDoc(doc(db, getPath('vtubers'), selectedVTuber.id), { lastYoutubeFetchTime: Date.now() });
-                }
-              } catch(err) { console.error(err); }
-            };
-            autoSync();
-          }
-        }
-      }, [currentView, selectedVTuber?.id]);
-
       const handleAddUpdate = async (updateData) => { try { const docRef = await addDoc(collection(db, getPath('updates')), { ...updateData, createdAt: Date.now() }); setRealUpdates(prev => [{ id: docRef.id, ...updateData, createdAt: Date.now() }, ...prev]); showToast("✅ 已發佈最新消息"); } catch(err) { showToast("發佈失敗"); } };
       const handleDeleteUpdate = async (id) => { if(!confirm("確定要刪除這則公告嗎？")) return; try { await deleteDoc(doc(db, getPath('updates'), id)); setRealUpdates(prev => prev.filter(u => u.id !== id)); showToast("✅ 已刪除公告"); } catch(err) { showToast("刪除失敗"); } };
 
@@ -1642,7 +1566,7 @@
                </div>
             )}
             
-            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} />}
+            {currentView === 'admin' && isAdmin && <AdminPage user={user} vtubers={realVtubers} bulletins={displayBulletins} collabs={displayCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} onSaveSettings={handleSaveSettings} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} />}
           </main>
 
           {/* Modal 元件 */}
