@@ -885,7 +885,7 @@
         let updates = {};
         let needsUpdate = false;
 
-        const ytErrorStates = ['自動抓取中...', '查無頻道', '無效網址', '無法讀取', '0', null, undefined, ''];
+        const ytErrorStates = ['自動抓取中...', '無法讀取', 'API錯誤', '0', null, undefined, ''];
         const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
 
         // 檢查 YouTube
@@ -896,24 +896,33 @@
             needsUpdate = true;
             try {
               let apiUrl = '';
+              const cleanApiKey = YOUTUBE_API_KEY.trim();
+
+              // 修正：加入 encodeURIComponent 防止中文/日文帳號或特殊符號導致 fetch 崩潰
               if (urlToUse.includes('@')) {
-                const handle = urlToUse.split('@')[1].split(/[/?]/)[0];
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${handle}&key=${YOUTUBE_API_KEY}`;
+                const handle = urlToUse.split('@')[1].split(/[/?#]/)[0].trim();
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/channel/')) {
-                const id = urlToUse.split('/channel/')[1].split(/[/?]/)[0];
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${id}&key=${YOUTUBE_API_KEY}`;
+                const id = urlToUse.split('/channel/')[1].split(/[/?#]/)[0].trim();
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(id)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/user/')) {
-                const username = urlToUse.split('/user/')[1].split(/[/?]/)[0];
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${username}&key=${YOUTUBE_API_KEY}`;
+                const username = urlToUse.split('/user/')[1].split(/[/?#]/)[0].trim();
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
               } else if (urlToUse.includes('/c/')) {
-                const cname = urlToUse.split('/c/')[1].split(/[/?]/)[0];
-                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${cname}&key=${YOUTUBE_API_KEY}`;
+                const cname = urlToUse.split('/c/')[1].split(/[/?#]/)[0].trim();
+                apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(cname)}&key=${cleanApiKey}`;
               }
               
               if (apiUrl) {
                 const res = await fetch(apiUrl);
                 const data = await res.json();
-                if (data.items && data.items.length > 0) {
+                
+                if (!res.ok) {
+                  console.error("YT API Error Response:", data);
+                  // 判斷是否為 GCP 額度限制或金鑰設定錯誤
+                  if (res.status === 403) updates.youtubeSubscribers = 'API受限/額度盡';
+                  else updates.youtubeSubscribers = 'API錯誤';
+                } else if (data.items && data.items.length > 0) {
                   const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
                   updates.youtubeSubscribers = formatCountDisplay(subCount);
                 } else {
@@ -922,7 +931,10 @@
               } else {
                 updates.youtubeSubscribers = '無效網址';
               }
-            } catch (e) { console.warn("YT Fetch Error", e); updates.youtubeSubscribers = '無法讀取'; }
+            } catch (e) { 
+              console.warn("YT Fetch Error", e); 
+              updates.youtubeSubscribers = '無法讀取'; 
+            }
           }
         }
 
@@ -944,7 +956,7 @@
         if (currentView === 'grid' && paginatedVTubers && paginatedVTubers.length > 0) {
           const now = Date.now();
           const ONE_DAY = 24 * 60 * 60 * 1000;
-          const ytErrorStates = ['自動抓取中...', '查無頻道', '無效網址', '無法讀取', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '無法讀取', 'API錯誤', '0', null, undefined, ''];
           
           paginatedVTubers.forEach(v => {
             if (attemptedFetches.current.has(v.id)) return;
