@@ -948,12 +948,12 @@
 
       const attemptedFetches = useRef(new Set());
       useEffect(() => {
-        if (currentView === 'grid' && paginatedVTubers && paginatedVTubers.length > 0) {
+        if (currentView === 'grid' && realVtubers.length > 0) {
           const now = Date.now();
           const ONE_DAY = 24 * 60 * 60 * 1000;
-          const ytErrorStates = ['自動抓取中...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '0', null, undefined, ''];
           
-          paginatedVTubers.forEach(v => {
+          realVtubers.forEach(v => {
             if (attemptedFetches.current.has(v.id)) return;
             
             const localLastFetch = localStorage.getItem(`v4_local_fetch_${v.id}`);
