@@ -701,6 +701,28 @@
         }
       };
 
+      // 💡 補回遺失的 API 測試執行函式
+      const handleTestYoutubeApi = async () => {
+        if (!testYtUrl.trim()) return showToast("請輸入要測試的 YouTube 網址！");
+        setIsTestingYt(true);
+        setTestYtResult("測試中，請稍候...");
+        try {
+          const fetchYT = httpsCallable(functions, 'fetchYouTubeStats');
+          const result = await fetchYT({ url: testYtUrl.trim(), data: { url: testYtUrl.trim() } });
+          if (result.data && result.data.success) {
+            setTestYtResult(`✅ 測試成功！抓取到訂閱數：${result.data.subscriberCount}`);
+            showToast("API 連線成功！");
+          } else {
+            setTestYtResult(`❌ 測試失敗：${result.data?.message || '未知錯誤'}`);
+          }
+        } catch (err) {
+          console.error(err);
+          setTestYtResult(`❌ 連線異常：請確認後端是否已部署成功`);
+        } finally {
+          setIsTestingYt(false);
+        }
+      };
+
       return (
         <>
           <div className="max-w-5xl mx-auto px-4 py-8 relative animate-fade-in-up">
