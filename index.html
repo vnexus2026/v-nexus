@@ -930,13 +930,13 @@
                 }
 
                 if (channelId) {
-                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(channelId)}&key=${cleanApiKey}`;
+                  apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&id=${encodeURIComponent(channelId)}&key=${cleanApiKey}`;
                 } else if (handle) {
                   // YouTube API 要求 handle 必須帶 @，且需經過 URL 編碼 (%40)
                   handle = handle.replace(/^@/, ''); // 預防重複 @
-                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
+                  apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forHandle=%40${encodeURIComponent(handle)}&key=${cleanApiKey}`;
                 } else if (username) {
-                  apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
+                  apiUrl = `https://youtube.googleapis.com/youtube/v3/channels?part=statistics&forUsername=${encodeURIComponent(username)}&key=${cleanApiKey}`;
                 }
               } catch (parseErr) {
                 console.warn("URL Parse Error:", parseErr);
@@ -944,30 +944,49 @@
               }
               
               if (apiUrl) {
+                let fetchSuccess = false;
+                let data = null;
+                let errorMsg = '';
+
                 try {
+                  // 1. 優先嘗試正常連線 (改用 youtube.googleapis.com 降低被擋機率)
                   const res = await fetch(apiUrl);
                   if (res.ok) {
-                    const data = await res.json();
-                    if (data.items && data.items.length > 0) {
-                      const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
-                      updates.youtubeSubscribers = formatCountDisplay(subCount);
-                    } else {
-                      updates.youtubeSubscribers = '查無頻道(請確認網址)';
-                    }
+                    data = await res.json();
+                    fetchSuccess = true;
                   } else {
                     const errData = await res.json().catch(()=>({}));
                     console.error("YT API Error:", res.status, errData);
-                    if (res.status === 403) {
-                      updates.youtubeSubscribers = '金鑰無效/配額耗盡';
-                    } else if (res.status === 400) {
-                      updates.youtubeSubscribers = '網址/格式錯誤(400)';
-                    } else {
-                      updates.youtubeSubscribers = `API錯誤(${res.status})`;
-                    }
+                    if (res.status === 403) errorMsg = '金鑰無效/配額耗盡';
+                    else if (res.status === 400) errorMsg = '網址/格式錯誤(400)';
+                    else errorMsg = `API錯誤(${res.status})`;
                   }
                 } catch (fetchErr) {
-                  console.error("Fetch API throw error (likely CORS/Adblock):", fetchErr);
-                  updates.youtubeSubscribers = '連線遭瀏覽器阻擋';
+                  console.warn("Fetch blocked (likely CORS/Adblock), trying proxy...", fetchErr);
+                  // 2. 若發生 CORS 阻擋 (測試環境或嚴格瀏覽器)，瞬間切換使用代理伺服器繞過
+                  try {
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
+                    const proxyRes = await fetch(proxyUrl);
+                    if (proxyRes.ok) {
+                      data = await proxyRes.json();
+                      fetchSuccess = true;
+                    } else {
+                      errorMsg = `代理錯誤(${proxyRes.status})`;
+                    }
+                  } catch (proxyErr) {
+                    errorMsg = '連線遭瀏覽器阻擋';
+                  }
+                }
+
+                if (fetchSuccess && data) {
+                  if (data.items && data.items.length > 0) {
+                    const subCount = parseInt(data.items[0].statistics.subscriberCount || 0);
+                    updates.youtubeSubscribers = formatCountDisplay(subCount);
+                  } else {
+                    updates.youtubeSubscribers = '查無頻道(請確認網址)';
+                  }
+                } else if (!updates.youtubeSubscribers) {
+                  updates.youtubeSubscribers = errorMsg || '無法識別的網址';
                 }
               } else if (!updates.youtubeSubscribers) {
                 updates.youtubeSubscribers = '無法識別的網址';
