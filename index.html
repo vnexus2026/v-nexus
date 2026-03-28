@@ -949,8 +949,8 @@
         let updates = {};
         let needsUpdate = false;
 
-        const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '查無頻道(請確認網址)', '後端連線失敗', '後端處理異常', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '網路或CORS錯誤', '0', null, undefined, ''];
-        const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers) || String(vtuber.youtubeSubscribers).startsWith('錯誤:');
+        const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '查無頻道(請確認網址)', '後端連線失敗', '後端處理異常', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
+        const shouldFetchYt = !vtuber.lastYoutubeFetchTime || now - vtuber.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(vtuber.youtubeSubscribers);
 
         const targetUrl = (vtuber.youtubeUrl || vtuber.channelUrl || '').trim();
 
@@ -961,32 +961,20 @@
 
             updates.lastYoutubeFetchTime = now;
             needsUpdate = true;
-            
-            // 💡 新增 3 次重試機制，徹底解決 AppCheck 延遲、CORS 或冷啟動造成的假性連線失敗
-            let result = null;
-            let lastErr = null;
-            for (let i = 0; i < 3; i++) {
-              try {
-                  const fetchYT = httpsCallable(functions, 'fetchYouTubeStats');
-                  result = await fetchYT({ url: targetUrl, data: { url: targetUrl } });
-                  break; // 成功則跳出迴圈
-              } catch (err) {
-                  lastErr = err;
-                  console.warn(`Fetch attempt ${i + 1} failed:`, err);
-                  if (i < 2) await new Promise(r => setTimeout(r, 2000)); // 失敗後等待 2 秒再試
-              }
-            }
-
-            if (result && result.data && result.data.success) {
-                updates.youtubeSubscribers = formatCountDisplay(result.data.subscriberCount);
-            } else if (result && result.data) {
-                const errMsg = result.data?.message || '查無頻道(請確認網址)';
-                updates.youtubeSubscribers = errMsg === '無網址' ? '請再按一次重抓' : errMsg;
-            } else {
-                console.error("Backend Fetch Final Error:", lastErr);
-                // 將真實錯誤訊息印在畫面上，若還是失敗能立刻知道真實原因
-                const errText = lastErr?.message || '';
-                updates.youtubeSubscribers = errText.includes('internal') ? '網路或CORS錯誤' : (errText ? `錯誤: ${errText.substring(0, 12)}` : '後端連線失敗');
+            try {
+                // 安全呼叫後端 Cloud Function (雙重包裝 payload 確保後端絕對接得到)
+                const fetchYT = httpsCallable(functions, 'fetchYouTubeStats');
+                const result = await fetchYT({ url: targetUrl, data: { url: targetUrl } });
+                
+                if (result.data && result.data.success) {
+                    updates.youtubeSubscribers = formatCountDisplay(result.data.subscriberCount);
+                } else {
+                    const errMsg = result.data?.message || '查無頻道(請確認網址)';
+                    updates.youtubeSubscribers = errMsg === '無網址' ? '請再按一次重抓' : errMsg;
+                }
+            } catch (err) {
+                console.error("Backend Fetch Error:", err);
+                updates.youtubeSubscribers = err.message?.includes('internal') ? '網路或CORS錯誤(請稍後重試)' : '後端連線失敗';
             }
         }
 
@@ -1003,45 +991,73 @@
         }
       };
 
+      // 💡 建立全域的抓取佇列 (Queue)，保證同一時間只會有一個 API 請求，徹底解決被後端或瀏覽器阻擋的風暴問題
+      const fetchQueue = useRef([]);
+      const isProcessingQueue = useRef(false);
       const attemptedFetches = useRef(new Map());
+
+      const processFetchQueue = async () => {
+        if (isProcessingQueue.current) return;
+        isProcessingQueue.current = true;
+        
+        while (fetchQueue.current.length > 0) {
+          const v = fetchQueue.current.shift();
+          await checkAndUpdateStats(v);
+          // 💡 每個請求之間強制等待 1.5 秒，給後端與瀏覽器充分的喘息時間
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        
+        isProcessingQueue.current = false;
+      };
 
       useEffect(() => {
         if (currentView === 'grid' && realVtubers.length > 0) {
           const ONE_DAY = 24 * 60 * 60 * 1000;
-          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '網路或CORS錯誤', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
           
-          let delay = 0;
+          let addedToQueue = false;
+          
           realVtubers.forEach(v => {
             const lastAttempt = attemptedFetches.current.get(v.id) || 0;
-            // 💡 放寬防呆冷卻至 30 秒，避免冷啟動太久導致重複觸發
-            if (Date.now() - lastAttempt < 30000) return; 
+            // 💡 防呆冷卻從 10 秒提升至 60 秒，避免冷啟動太久導致重複觸發
+            if (Date.now() - lastAttempt < 60000) return; 
 
             const localLastFetch = localStorage.getItem(`v4_local_fetch_${v.id}`);
-            if (localLastFetch && Date.now() - parseInt(localLastFetch) < ONE_DAY && !ytErrorStates.includes(v.youtubeSubscribers) && !String(v.youtubeSubscribers).startsWith('錯誤:')) return;
+            if (localLastFetch && Date.now() - parseInt(localLastFetch) < ONE_DAY && !ytErrorStates.includes(v.youtubeSubscribers)) return;
 
             const urlToUse = (v.youtubeUrl || v.channelUrl || '').trim();
-            if (urlToUse && (!v.lastYoutubeFetchTime || Date.now() - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers) || String(v.youtubeSubscribers).startsWith('錯誤:'))) {
+            if (urlToUse && (!v.lastYoutubeFetchTime || Date.now() - v.lastYoutubeFetchTime > ONE_DAY || ytErrorStates.includes(v.youtubeSubscribers))) {
               attemptedFetches.current.set(v.id, Date.now());
               
-              // 💡 回歸簡單的錯開機制，放棄容易卡死的 Queue
-              setTimeout(() => { checkAndUpdateStats(v); }, delay);
-              delay += 1500;
+              // 確保不重複加入排隊隊伍
+              if (!fetchQueue.current.some(item => item.id === v.id)) {
+                fetchQueue.current.push(v);
+                addedToQueue = true;
+              }
             }
           });
+
+          if (addedToQueue) {
+            processFetchQueue();
+          }
         }
       }, [currentView, realVtubers, user, isAdmin]);
 
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
           const lastAttempt = attemptedFetches.current.get(selectedVTuber.id) || 0;
-          if (Date.now() - lastAttempt < 30000) return;
+          if (Date.now() - lastAttempt < 60000) return;
 
-          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '網路或CORS錯誤', '0', null, undefined, ''];
+          const ytErrorStates = ['自動抓取中...', '儲存後將自動抓取...', '後端連線失敗', '後端處理異常', '查無頻道(請確認網址)', '無網址', '請再按一次重抓', '金鑰無效/配額耗盡', '網址/格式錯誤', '網路或CORS錯誤(請稍後重試)', '0', null, undefined, ''];
           const localLastFetch = localStorage.getItem(`v4_local_fetch_${selectedVTuber.id}`);
           
-          if (!localLastFetch || Date.now() - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000 || ytErrorStates.includes(selectedVTuber.youtubeSubscribers) || String(selectedVTuber.youtubeSubscribers).startsWith('錯誤:')) {
+          if (!localLastFetch || Date.now() - parseInt(localLastFetch) >= 24 * 60 * 60 * 1000 || ytErrorStates.includes(selectedVTuber.youtubeSubscribers)) {
             attemptedFetches.current.set(selectedVTuber.id, Date.now());
-            checkAndUpdateStats(selectedVTuber);
+            
+            if (!fetchQueue.current.some(item => item.id === selectedVTuber.id)) {
+              fetchQueue.current.push(selectedVTuber);
+              processFetchQueue();
+            }
           }
         }
       }, [currentView, selectedVTuber?.id, selectedVTuber?.youtubeSubscribers, user, isAdmin]);
