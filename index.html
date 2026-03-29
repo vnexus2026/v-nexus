@@ -890,6 +890,7 @@
       const handleAdminPublish = () => {
         if (!newCollab.dateTime || !newCollab.streamUrl || !newCollab.title) return showToast("請完整填寫！");
         const dt = new Date(newCollab.dateTime);
+        if (dt.getTime() < Date.now()) return showToast("聯動時間不能在過去哦！");
         onAddCollab({ ...newCollab, date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, startTimestamp: dt.getTime() });
         setNewCollab({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       };
@@ -1299,6 +1300,14 @@
           .filter(b => { const vt = displayVtubers.find(v => v.id === b.userId); return vt ? isVisible(vt, user) : true; })
           .map(b => { const vt = displayVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon" }; const applicantsData = (b.applicants || []).map(uid => displayVtubers.find(v => v.id === uid)).filter(Boolean); return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt), applicantsData }; }).sort((a, b) => b.createdAt - a.createdAt);
       }, [realBulletins, displayVtubers, user]);
+
+      const activeBulletinTypes = useMemo(() => {
+        const types = new Set();
+        displayBulletins.forEach(b => {
+          if (b.collabType) types.add(b.collabType);
+        });
+        return Array.from(types).sort();
+      }, [displayBulletins]);
 
       const filteredDisplayBulletins = useMemo(() => {
         if (bulletinFilter === 'All') return displayBulletins;
@@ -1879,7 +1888,7 @@
 
                 <div className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-gray-700">
                   <button onClick={() => setBulletinFilter('All')} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === 'All' ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>全部招募</button>
-                  {PREDEFINED_COLLABS.map(t => (
+                  {activeBulletinTypes.map(t => (
                     <button key={t} onClick={() => setBulletinFilter(t)} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === t ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{t}</button>
                   ))}
                 </div>
@@ -1915,6 +1924,7 @@
                        <button onClick={() => {
                          if (!publicCollabForm.dateTime || !publicCollabForm.streamUrl || !publicCollabForm.title) return showToast("請完整填寫必填欄位！");
                          const dt = new Date(publicCollabForm.dateTime);
+                         if (dt.getTime() < Date.now()) return showToast("聯動時間不能在過去哦！");
                          const newCollabData = { ...publicCollabForm, date: `${dt.getMonth()+1}/${dt.getDate()} (${['日','一','二','三','四','五','六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`, startTimestamp: dt.getTime() };
                          const addCollabToDb = async () => {
                            try {
