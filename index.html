@@ -1357,8 +1357,51 @@
         } catch (err) { showToast("操作失敗"); }
       };
 
-      const handleVerifyVtuber = async (id) => { try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false, verificationStatus: 'approved', showVerificationModal: 'approved' }, { merge: true }); setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: true, isBlacklisted: false, verificationStatus: 'approved' } : v)); showToast("已通過審核！"); } catch (err) { showToast("審核失敗"); } };
-      const handleRejectVtuber = async (id) => { if (!confirm("確定要退回/拒絕這張名片嗎？")) return; try { await setDoc(doc(db, getPath('vtubers'), id), { isVerified: false, verificationStatus: 'rejected', showVerificationModal: 'rejected' }, { merge: true }); setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: false, verificationStatus: 'rejected' } : v)); showToast("已退回該名片！"); } catch (err) { showToast("操作失敗"); } };
+      const handleVerifyVtuber = async (id) => {
+        try {
+          await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false, verificationStatus: 'approved', showVerificationModal: 'approved' }, { merge: true });
+          setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: true, isBlacklisted: false, verificationStatus: 'approved' } : v));
+          showToast("已通過審核！");
+
+          // 寄發審核通過信件
+          const targetVtuber = realVtubers.find(v => v.id === id);
+          const targetPrivate = privateDocs[id];
+          const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+          if (emailToSend && targetVtuber) {
+            await addDoc(collection(db, getPath('mail')), {
+              to: emailToSend,
+              message: {
+                subject: `[V-Nexus] 恭喜！您的創作者名片已審核通過 🎉`,
+                text: `您好，${targetVtuber.name}！\n\n恭喜您！您在 V-Nexus 提交的創作者名片已經審核通過並正式上架啦！\n\n趕快登入 V-Nexus 看看，並開始尋找您的聯動夥伴吧：\nhttps://www.vnexus2026.com/\n\n祝 聯動順利！\nV-Nexus 團隊`
+              }
+            }).catch(e => console.error("Mail Error:", e));
+          }
+        } catch (err) { showToast("審核失敗"); }
+      };
+
+      const handleRejectVtuber = async (id) => {
+        if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
+        try {
+          await setDoc(doc(db, getPath('vtubers'), id), { isVerified: false, verificationStatus: 'rejected', showVerificationModal: 'rejected' }, { merge: true });
+          setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: false, verificationStatus: 'rejected' } : v));
+          showToast("已退回該名片！");
+
+          // 寄發審核失敗信件
+          const targetVtuber = realVtubers.find(v => v.id === id);
+          const targetPrivate = privateDocs[id];
+          const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+          if (emailToSend && targetVtuber) {
+            await addDoc(collection(db, getPath('mail')), {
+              to: emailToSend,
+              message: {
+                subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
+                text: `您好，${targetVtuber.name}！\n\n很抱歉通知您，您在 V-Nexus 提交的創作者名片目前未能通過審核。\n\n請趕快回到網站看看是哪裡出了問題：\nhttps://www.vnexus2026.com/\n\n(常見未通過原因可能為：YT/TWITCH粉絲數加總未達500、一個月以上無活動紀錄、或是忘記將「V-Nexus審核中」放入您的社群平台簡介內以供官方驗證身分)\n\n若您已修正上述問題，歡迎隨時重新儲存名片以再次提交審核！\n\n感謝您的配合！\nV-Nexus 團隊`
+              }
+            }).catch(e => console.error("Mail Error:", e));
+          }
+        } catch (err) { showToast("操作失敗"); }
+      };
+
       const handleAdminUpdateVtuber = async (id, updatedData) => {
         try {
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
