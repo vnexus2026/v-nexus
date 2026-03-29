@@ -1084,6 +1084,28 @@
                     <button onClick={handleTestMail} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg">寫入一筆測試信件</button>
                   </div>
                   <div className="mt-8 border-t border-gray-700 pt-8">
+                    <h3 className="text-xl font-bold text-white mb-2"><i className="fa-brands fa-youtube text-red-500 mr-2"></i>YouTube API 測試</h3>
+                    <p className="text-sm text-gray-400 mb-4">輸入任意 YouTube 頻道網址，測試後端抓取功能是否正常運作。</p>
+                    <div className="flex gap-2">
+                      <input id="testYoutubeUrl" type="url" placeholder="https://www.youtube.com/..." className={inputCls + " flex-1"} />
+                      <button onClick={async () => {
+                        const url = document.getElementById('testYoutubeUrl').value;
+                        if(!url) return showToast("請輸入網址");
+                        showToast("⏳ 抓取中...");
+                        try {
+                          const res = await httpsCallable(functionsInstance, 'fetchYouTubeStats')({ url });
+                          if(res.data && res.data.success) {
+                            showToast(`✅ 抓取成功！訂閱數：${res.data.subscriberCount}`);
+                          } else {
+                            showToast(`❌ 失敗：${res.data?.message || '未知錯誤'}`);
+                          }
+                        } catch(e) {
+                          showToast(`❌ 錯誤：${e.message}`);
+                        }
+                      }} className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg whitespace-nowrap">測試抓取</button>
+                    </div>
+                  </div>
+                  <div className="mt-8 border-t border-gray-700 pt-8">
                     <h3 className="text-xl font-bold text-white mb-2"><i className="fa-brands fa-twitch text-purple-400 mr-2"></i>Twitch API 測試</h3>
                     <p className="text-sm text-gray-400 mb-4">輸入任意 Twitch 頻道網址，測試後端抓取功能是否正常運作。</p>
                     <div className="flex gap-2">
