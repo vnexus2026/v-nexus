@@ -215,6 +215,7 @@
     );
 
     const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onInvite, onDeleteBulletin, onEditBulletin }) => {
+      const [showApplicants, setShowApplicants] = useState(false);
       const isAuthor = user?.uid === b.userId;
       const hasApplied = (b.applicants || []).includes(user?.uid);
       return (
@@ -244,31 +245,56 @@
             </div>
             <div className="mt-4 pt-4 border-t border-gray-700/50">
               {isAuthor ? (
-                <div>
-                  <p className="text-xs text-purple-400 font-bold mb-3 flex items-center gap-2"><i className="fa-solid fa-users"></i> 有意願的創作者 ({b.applicantsData?.length || 0})</p>
-                  {b.applicantsData?.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {b.applicantsData.map(a => (
-                        <div key={a.id} className="flex items-center bg-gray-900 p-1.5 pr-2 rounded-lg border border-gray-700 hover:border-purple-500/50 transition-colors">
-                          <img src={sanitizeUrl(a.avatar)} onClick={() => onNavigateProfile(a)} className="w-7 h-7 rounded-full cursor-pointer object-cover" title="查看名片" />
-                          <span onClick={() => onNavigateProfile(a)} className="text-xs text-gray-300 ml-2 cursor-pointer hover:text-white font-bold max-w-[100px] truncate">{a.name}</span>
-                          <button onClick={() => onInvite(a)} className="ml-3 bg-purple-600 hover:bg-purple-500 text-[10px] text-white px-2.5 py-1.5 rounded shadow-lg transition-transform hover:scale-105">邀請聯動</button>
-                        </div>
-                      ))}
+                <div className="flex items-center justify-between bg-gray-800/40 hover:bg-gray-800 p-3 rounded-xl border border-gray-700 cursor-pointer transition-colors" onClick={() => setShowApplicants(true)}>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-purple-500/20 w-8 h-8 rounded-full flex items-center justify-center text-purple-400"><i className="fa-solid fa-users"></i></div>
+                    <span className="text-sm font-bold text-white">查看有意願的創作者 ({b.applicantsData?.length || 0})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex -space-x-2">
+                      {b.applicantsData?.slice(0,3).map(a => <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover" />)}
+                      {b.applicantsData?.length > 3 && <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">+{b.applicantsData.length - 3}</div>}
                     </div>
-                  ) : <p className="text-[10px] text-gray-500">目前還沒有人表達意願喔！</p>}
+                    <i className="fa-solid fa-chevron-right text-gray-500 text-xs ml-2"></i>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">目前 {b.applicantsData?.length || 0} 人有意願</span>
-                    <div className="flex -space-x-2">{b.applicantsData?.slice(0,3).map(a => <img key={a.id} src={sanitizeUrl(a.avatar)} onClick={() => onNavigateProfile(a)} className="w-6 h-6 rounded-full ring-2 ring-gray-800 cursor-pointer object-cover" title={a.name}/>)}{b.applicantsData?.length > 3 && <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">+{b.applicantsData.length - 3}</div>}</div>
+                  <div className="flex items-center gap-2 cursor-pointer group/apply hover:bg-gray-800/50 p-2 -ml-2 rounded-lg transition-colors" onClick={() => setShowApplicants(true)}>
+                    <span className="text-xs text-gray-400 group-hover/apply:text-white transition-colors">目前 {b.applicantsData?.length || 0} 人有意願</span>
+                    <div className="flex -space-x-2">{b.applicantsData?.slice(0,3).map(a => <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover" />)}{b.applicantsData?.length > 3 && <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">+{b.applicantsData.length - 3}</div>}</div>
+                    <span className="text-[10px] text-purple-400 opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">點擊展開</span>
                   </div>
                   {isVerifiedUser && <button onClick={() => onApply(b.id, !hasApplied)} className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]'}`}>{hasApplied ? '收回意願' : '✋ 我有意願'}</button>}
                 </div>
               )}
             </div>
           </div>
+          
+          {showApplicants && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); setShowApplicants(false); }}>
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-2xl animate-fade-in-up cursor-default" onClick={e => e.stopPropagation()}>
+                <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+                  <h3 className="font-bold text-white flex items-center gap-2"><i className="fa-solid fa-users text-purple-400"></i> 有意願的創作者 ({b.applicantsData?.length || 0})</h3>
+                  <button onClick={() => setShowApplicants(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div className="p-4 overflow-y-auto space-y-3">
+                  {b.applicantsData?.length > 0 ? b.applicantsData.map(a => (
+                    <div key={a.id} className="flex items-center justify-between bg-gray-800/50 p-3 rounded-xl border border-gray-700 hover:border-purple-500/50 transition-all cursor-pointer group" onClick={() => { setShowApplicants(false); onNavigateProfile(a); }}>
+                      <div className="flex items-center gap-4">
+                        <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border-2 border-gray-700 group-hover:border-purple-400 transition-colors" />
+                        <div>
+                          <p className="font-bold text-white text-sm group-hover:text-purple-300 transition-colors">{a.name}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">點擊查看名片</p>
+                        </div>
+                      </div>
+                      {isAuthor && <button onClick={(e) => { e.stopPropagation(); setShowApplicants(false); onInvite(a); }} className="bg-purple-600 hover:bg-purple-500 text-xs text-white px-4 py-2 rounded-lg shadow-lg transition-transform hover:scale-105 font-bold">發送邀約</button>}
+                    </div>
+                  )) : <p className="text-sm text-gray-500 text-center py-6">目前還沒有人表達意願喔！</p>}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     };
@@ -1624,7 +1650,7 @@
                   setTimeout(() => window.scrollTo(0, gridScrollY.current), 50);
                 }} className="text-gray-400 hover:text-white mb-6 flex items-center text-sm">
                   <i className="fa-solid fa-chevron-left mr-2"></i>
-                  {previousView === 'bulletin' ? '返回佈告欄' : previousView === 'collabs' ? '返回聯動表' : previousView === 'home' ? '返回首頁' : previousView === 'match' ? '返回配對' : '返回探索'}
+                  {previousView === 'bulletin' ? '返回佈告欄' : previousView === 'collabs' ? '返回聯動表' : previousView === 'inbox' ? '返回我的信箱' : previousView === 'home' ? '返回首頁' : previousView === 'match' ? '返回配對' : '返回探索'}
                 </button>
                 <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl">
                   <div className="h-48 sm:h-64 relative"><img src={sanitizeUrl(selectedVTuber.banner)} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div></div>
