@@ -450,8 +450,8 @@
         if (typeof url !== 'string' || url.length < 15) return;
         const timer = setTimeout(() => {
           const now = Date.now();
-          const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-          if (url.includes('twitch.tv') && (now - lastTwitchFetchTime > TWENTY_FOUR_HOURS)) {
+          const SIX_HOURS = 6 * 60 * 60 * 1000;
+          if (url.includes('twitch.tv') && (now - lastTwitchFetchTime > SIX_HOURS)) {
             handleAutoFetchTwitch(url);
           }
         }, 1500);
@@ -463,14 +463,14 @@
         if (typeof url !== 'string' || !url) return showToast("請先在下方填妥 Twitch 連結！");
         
         const now = Date.now();
-        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+        const SIX_HOURS = 6 * 60 * 60 * 1000;
         
-        if (now - lastTwitchFetchTime < TWENTY_FOUR_HOURS && !isAdmin) {
-           const remainHours = Math.ceil((TWENTY_FOUR_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000));
-           if (typeof autoUrl !== 'string') showToast(`⏳ 為了保護額度，24小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
+        if (now - lastTwitchFetchTime < SIX_HOURS && !isAdmin) {
+           const remainHours = Math.ceil((SIX_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000));
+           if (typeof autoUrl !== 'string') showToast(`⏳ 為了保護額度，6小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
            return;
         }
-        if (typeof autoUrl === 'string' && now - lastTwitchFetchTime <= TWENTY_FOUR_HOURS) return;
+        if (typeof autoUrl === 'string' && now - lastTwitchFetchTime <= SIX_HOURS) return;
 
         setIsFetchingTwitch(true);
         try {
@@ -650,12 +650,12 @@
             <div>
               <label className="block text-sm font-bold text-gray-300 mb-2">Twitch 追隨數</label>
               <div className="flex gap-2">
-                <input type="text" value={form.twitchFollowers || ''} onChange={e=>updateForm({twitchFollowers: e.target.value})} placeholder="系統抓取或手動輸入" className={inputCls} />
-                <button type="button" onClick={handleAutoFetchTwitch} disabled={isFetchingTwitch || (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)} className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 && !isAdmin ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
-                  {isFetchingTwitch ? <i className="fa-solid fa-spinner fa-spin"></i> : (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 && !isAdmin) ? <><i className="fa-solid fa-clock mr-1"></i>冷卻中</> : <><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>手動抓取</>}
+                <input type="text" readOnly value={form.twitchFollowers || ''} placeholder="系統將自動抓取" className={inputCls + " bg-gray-800 cursor-not-allowed text-gray-400"} />
+                <button type="button" onClick={handleAutoFetchTwitch} disabled={isFetchingTwitch || (Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin)} className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}>
+                  {isFetchingTwitch ? <i className="fa-solid fa-spinner fa-spin"></i> : (Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin) ? <><i className="fa-solid fa-clock mr-1"></i>冷卻中</> : <><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>手動抓取</>}
                 </button>
               </div>
-              <p className="text-[10px] text-purple-400/80 mt-1">（填妥下方 Twitch 連結後可手動抓取，每24小時限抓一次）</p>
+              <p className="text-[10px] text-purple-400/80 mt-1">（填妥下方 Twitch 連結後會自動抓取，每6小時限抓一次）</p>
             </div>
           </div>
           
@@ -917,7 +917,7 @@
       );
     };
 
-    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail }) => {
+    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
@@ -1010,8 +1010,11 @@
                   <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                     <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
                     <button onClick={onResetNatAndLang} className="bg-orange-900 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-wrench mr-2"></i>修復國籍語言格式</button>
-                    <button onClick={onMassSyncSubs} disabled={isSyncingSubs} className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-blue-900/50 cursor-not-allowed text-gray-400' : 'bg-blue-900 hover:bg-blue-700 text-white'}`}>
-                      {isSyncingSubs ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</> : <><i className="fa-solid fa-rotate mr-2"></i>強制同步過期訂閱數</>}
+                    <button onClick={onMassSyncSubs} disabled={isSyncingSubs} className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-900 hover:bg-red-700 text-white'}`}>
+                      {isSyncingSubs ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</> : <><i className="fa-brands fa-youtube mr-2"></i>強制同步 YT 訂閱</>}
+                    </button>
+                    <button onClick={onMassSyncTwitch} disabled={isSyncingSubs} className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-purple-900/50 cursor-not-allowed text-gray-400' : 'bg-purple-900 hover:bg-purple-700 text-white'}`}>
+                      {isSyncingSubs ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</> : <><i className="fa-brands fa-twitch mr-2"></i>強制同步 Twitch</>}
                     </button>
                   </div>
                 </div>
@@ -1696,30 +1699,24 @@
       };
 
       const handleMassSyncSubs = async () => {
-        if (!confirm("確定要背景同步所有名片的 YouTube 與 Twitch 粉絲數嗎？\n(將自動抓取超過24小時未更新，或「格式異常/無法讀取」的名片)")) return;
+        if (!confirm("確定要背景同步所有名片的 YouTube 粉絲數嗎？\n(將自動抓取超過24小時未更新，或「格式異常/無法讀取」的名片)")) return;
         setIsSyncingSubs(true);
         let successCount = 0;
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
         const now = Date.now();
         
-        // 找出需要更新的目標：1. 超過24小時未更新 2. 訂閱數是異常純文字(如"無法讀取")無視冷卻時間
         const targets = realVtubers.filter(v => {
             const hasYt = v.youtubeUrl || v.channelUrl;
-            const hasTw = v.twitchUrl;
-            if (!hasYt && !hasTw) return false;
+            if (!hasYt) return false;
             const ytExpired = hasYt && (now - (v.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS);
-            const twExpired = hasTw && (now - (v.lastTwitchFetchTime || 0) > TWENTY_FOUR_HOURS);
             const ytInvalid = hasYt && v.youtubeSubscribers && isNaN(parseFloat(String(v.youtubeSubscribers).replace(/,/g, '')));
-            const twInvalid = hasTw && v.twitchFollowers && isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, '')));
-            return ytExpired || twExpired || ytInvalid || twInvalid;
+            return ytExpired || ytInvalid;
         });
 
-        // 順手清理沒有網址卻卡著異常文字的幽靈資料
         for (const v of realVtubers) {
             if (!v.id.startsWith('mock')) {
                 let updates = {};
                 if (!(v.youtubeUrl || v.channelUrl) && v.youtubeSubscribers && isNaN(parseFloat(String(v.youtubeSubscribers).replace(/,/g, '')))) updates.youtubeSubscribers = '';
-                if (!v.twitchUrl && v.twitchFollowers && isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, '')))) updates.twitchFollowers = '';
                 if (Object.keys(updates).length > 0) {
                     await updateDoc(doc(db, getPath('vtubers'), v.id), updates);
                     setRealVtubers(prev => prev.map(rv => rv.id === v.id ? {...rv, ...updates} : rv));
@@ -1728,17 +1725,16 @@
         }
         
         if (targets.length === 0) {
-           showToast("✅ 所有名片的粉絲數皆為最新狀態，無異常資料！");
+           showToast("✅ 所有名片的 YouTube 粉絲數皆為最新狀態，無異常資料！");
            setIsSyncingSubs(false);
            return;
         }
 
         for (let i = 0; i < targets.length; i++) {
            const v = targets[i];
-           setSyncProgress(`正在同步 ${i + 1} / ${targets.length} : ${v.name}`);
+           setSyncProgress(`正在同步YT ${i + 1} / ${targets.length} : ${v.name}`);
            let updates = {};
            
-           // Fetch YT
            const ytUrl = v.youtubeUrl || v.channelUrl;
            if (ytUrl && (now - (v.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS || isNaN(parseFloat(String(v.youtubeSubscribers).replace(/,/g, ''))))) {
                try {
@@ -1753,22 +1749,6 @@
                  updates.lastYoutubeFetchTime = Date.now();
                } catch(e){}
            }
-
-           // Fetch TW
-           const twUrl = v.twitchUrl;
-           if (twUrl && (now - (v.lastTwitchFetchTime || 0) > TWENTY_FOUR_HOURS || isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, ''))))) {
-               try {
-                 const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url: twUrl });
-                 if (res.data && res.data.success) {
-                     const count = res.data.followerCount;
-                     let fmt = count.toString();
-                     if (count >= 10000) fmt = (count / 10000).toFixed(1).replace('.0', '') + '萬';
-                     else if (count >= 1000) fmt = (count / 1000).toFixed(1).replace('.0', '') + 'K';
-                     updates.twitchFollowers = fmt;
-                 }
-                 updates.lastTwitchFetchTime = Date.now();
-               } catch(e){}
-           }
            
            if (Object.keys(updates).length > 0) {
                await updateDoc(doc(db, getPath('vtubers'), v.id), updates);
@@ -1779,7 +1759,66 @@
         }
         setSyncProgress('');
         setIsSyncingSubs(false);
-        showToast(`✅ 同步完成！成功更新/修復 ${successCount} 筆資料。`);
+        showToast(`✅ YT 同步完成！成功更新/修復 ${successCount} 筆資料。`);
+      };
+
+      const handleMassSyncTwitch = async () => {
+        if (!confirm("確定要背景同步所有名片的 Twitch 追隨數嗎？\n(將自動抓取超過6小時未更新，或「格式異常/無法讀取」的名片)")) return;
+        setIsSyncingSubs(true);
+        let successCount = 0;
+        const SIX_HOURS = 6 * 60 * 60 * 1000;
+        const now = Date.now();
+        
+        const targets = realVtubers.filter(v => {
+            const hasTw = v.twitchUrl;
+            if (!hasTw) return false;
+            const twExpired = hasTw && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS);
+            const twInvalid = hasTw && v.twitchFollowers && isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, '')));
+            return twExpired || twInvalid;
+        });
+
+        for (const v of realVtubers) {
+            if (!v.id.startsWith('mock')) {
+                if (!v.twitchUrl && v.twitchFollowers && isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, '')))) {
+                    await updateDoc(doc(db, getPath('vtubers'), v.id), { twitchFollowers: '' });
+                    setRealVtubers(prev => prev.map(rv => rv.id === v.id ? {...rv, twitchFollowers: ''} : rv));
+                }
+            }
+        }
+        
+        if (targets.length === 0) {
+           showToast("✅ 所有名片的 Twitch 追隨數皆為最新狀態，無異常資料！");
+           setIsSyncingSubs(false);
+           return;
+        }
+
+        for (let i = 0; i < targets.length; i++) {
+           const v = targets[i];
+           setSyncProgress(`正在同步Twitch ${i + 1} / ${targets.length} : ${v.name}`);
+           
+           const twUrl = v.twitchUrl;
+           if (twUrl && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS || isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, ''))))) {
+               try {
+                 const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url: twUrl });
+                 const fetchTime = Date.now();
+                 let updates = { lastTwitchFetchTime: fetchTime };
+                 if (res.data && res.data.success) {
+                     const count = res.data.followerCount;
+                     let fmt = count.toString();
+                     if (count >= 10000) fmt = (count / 10000).toFixed(1).replace('.0', '') + '萬';
+                     else if (count >= 1000) fmt = (count / 1000).toFixed(1).replace('.0', '') + 'K';
+                     updates.twitchFollowers = fmt;
+                 }
+                 await updateDoc(doc(db, getPath('vtubers'), v.id), updates);
+                 setRealVtubers(prev => prev.map(rv => rv.id === v.id ? {...rv, ...updates} : rv));
+                 successCount++;
+               } catch(e){}
+           }
+           await new Promise(r => setTimeout(r, 1500));
+        }
+        setSyncProgress('');
+        setIsSyncingSubs(false);
+        showToast(`✅ Twitch 同步完成！成功更新/修復 ${successCount} 筆資料。`);
       };
 
       // --- 獨立名片頁面自動更新訂閱數 (訪客觸發) ---
@@ -1787,6 +1826,7 @@
         if (currentView === 'profile' && selectedVTuber) {
           const now = Date.now();
           const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+          const SIX_HOURS = 6 * 60 * 60 * 1000;
           
           const syncYt = async () => {
             const url = selectedVTuber.youtubeUrl || selectedVTuber.channelUrl;
@@ -1811,7 +1851,7 @@
 
           const syncTw = async () => {
             const url = selectedVTuber.twitchUrl;
-            if (url && (now - (selectedVTuber.lastTwitchFetchTime || 0) > TWENTY_FOUR_HOURS)) {
+            if (url && (now - (selectedVTuber.lastTwitchFetchTime || 0) > SIX_HOURS)) {
               try {
                 const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url });
                 const fetchTime = Date.now();
@@ -2166,7 +2206,7 @@
             )}
 
             {currentView === 'admin' && isAdmin && (
-              <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} />
+              <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} />
             )}
           </main>
 
