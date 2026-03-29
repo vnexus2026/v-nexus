@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-<!-- V-Nexus Beta 版前端準備就緒 -->
+<!-- V-Nexus 最新版前端確認與畫面重載 -->
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1083,6 +1083,28 @@
                     <p className="text-sm text-gray-400 mb-4">如果 Firebase 後台沒有看到 mail 路徑，請點擊下方按鈕寫入一筆測試資料，路徑就會自動出現。</p>
                     <button onClick={handleTestMail} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg">寫入一筆測試信件</button>
                   </div>
+                  <div className="mt-8 border-t border-gray-700 pt-8">
+                    <h3 className="text-xl font-bold text-white mb-2"><i className="fa-brands fa-twitch text-purple-400 mr-2"></i>Twitch API 測試</h3>
+                    <p className="text-sm text-gray-400 mb-4">輸入任意 Twitch 頻道網址，測試後端抓取功能是否正常運作。</p>
+                    <div className="flex gap-2">
+                      <input id="testTwitchUrl" type="url" placeholder="https://www.twitch.tv/..." className={inputCls + " flex-1"} />
+                      <button onClick={async () => {
+                        const url = document.getElementById('testTwitchUrl').value;
+                        if(!url) return showToast("請輸入網址");
+                        showToast("⏳ 抓取中...");
+                        try {
+                          const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url });
+                          if(res.data && res.data.success) {
+                            showToast(`✅ 抓取成功！追隨數：${res.data.followerCount}`);
+                          } else {
+                            showToast(`❌ 失敗：${res.data?.message || '未知錯誤'}`);
+                          }
+                        } catch(e) {
+                          showToast(`❌ 錯誤：${e.message}`);
+                        }
+                      }} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg whitespace-nowrap">測試抓取</button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1903,11 +1925,10 @@
 
             {currentView === 'grid' && (
               <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
-                <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'fixed inset-0 z-[100] p-6 bg-gray-900/95 backdrop-blur-xl overflow-y-auto block' : 'hidden lg:block lg:relative lg:bg-transparent lg:p-0 lg:z-auto'}`}>
-                  {isMobileFilterOpen && <div className="flex justify-between items-center mb-6 lg:hidden"><h3 className="font-bold text-white text-xl"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3><button onClick={() => setIsMobileFilterOpen(false)} className="text-gray-400 hover:text-white text-3xl"><i className="fa-solid fa-xmark"></i></button></div>}
+                <aside className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? 'block' : 'hidden lg:block'}`}>
                   <div className="hidden lg:block relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
                   <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
-                    <h3 className="hidden lg:block font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
+                    <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
                     <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
                     <div><p className="text-xs text-gray-500 mb-2">主要平台</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', 'YouTube', 'Twitch'].map(p => <button key={p} onClick={() => setSelectedPlatform(p)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{p === 'All' ? '全部' : p}</button>)}</div></div>
                     <div className="grid grid-cols-2 gap-3">
@@ -1916,7 +1937,6 @@
                     </div>
                     <div><p className="text-xs text-gray-500 mb-2">可聯動時段</p><select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal">{dynamicSchedules.map(d => <option key={d} value={d}>{d === 'All' ? '全部' : d}</option>)}</select></div>
                     <div className="flex flex-wrap gap-2 mt-2"><p className="w-full text-xs text-gray-500 mb-1">想找什麼聯動？</p>{dynamicCollabTypes.map(tag => <TagBadge key={tag} text={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />)}</div>
-                    {isMobileFilterOpen && <button onClick={() => setIsMobileFilterOpen(false)} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold mt-6 lg:hidden shadow-lg transition-transform hover:scale-105">完成篩選</button>}
                   </div>
                 </aside>
                 <div className="flex-1">
