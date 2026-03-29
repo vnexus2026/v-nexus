@@ -1951,6 +1951,10 @@
                 </div>
               </div>
             )}
+
+            {currentView === 'admin' && isAdmin && (
+              <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} />
+            )}
           </main>
 
           {/* 站內信發送 Modal */}
