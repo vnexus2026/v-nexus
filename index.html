@@ -465,12 +465,15 @@
         const now = Date.now();
         const SIX_HOURS = 6 * 60 * 60 * 1000;
         
-        if (now - lastTwitchFetchTime < SIX_HOURS && !isAdmin) {
-           const remainHours = Math.ceil((SIX_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000));
-           if (typeof autoUrl !== 'string') showToast(`⏳ 為了保護額度，6小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
-           return;
+        if (!isAdmin) {
+          if (now - lastTwitchFetchTime < SIX_HOURS) {
+             if (typeof autoUrl !== 'string') {
+               const remainHours = Math.ceil((SIX_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000));
+               showToast(`⏳ 為了保護額度，6小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
+             }
+             return;
+          }
         }
-        if (typeof autoUrl === 'string' && now - lastTwitchFetchTime <= SIX_HOURS) return;
 
         setIsFetchingTwitch(true);
         try {
@@ -509,14 +512,14 @@
         const now = Date.now();
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
         
-        if (now - lastFetchTime < TWENTY_FOUR_HOURS && !isAdmin) {
-           const remainHours = Math.ceil((TWENTY_FOUR_HOURS - (now - lastFetchTime)) / (60 * 60 * 1000));
-           if (typeof autoUrl !== 'string') showToast(`⏳ 為了保護額度，24小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
-           return;
-        }
-
-        if (typeof autoUrl === 'string' && now - lastFetchTime <= TWENTY_FOUR_HOURS) {
-            return;
+        if (!isAdmin) {
+          if (now - lastFetchTime < TWENTY_FOUR_HOURS) {
+             if (typeof autoUrl !== 'string') {
+               const remainHours = Math.ceil((TWENTY_FOUR_HOURS - (now - lastFetchTime)) / (60 * 60 * 1000));
+               showToast(`⏳ 為了保護額度，24小時內只能抓取一次。請 ${remainHours} 小時後再試！`);
+             }
+             return;
+          }
         }
 
         setIsFetchingSubscribers(true);
@@ -1465,8 +1468,10 @@
           const mSchedule = selectedSchedule === 'All' || (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
           return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule;
         });
-        if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0)); else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a)); else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-        else { let s = [...result]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } result = s; }
+        if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0)); 
+        else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a)); 
+        else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+        // 若為 random (預設)，直接沿用 displayVtubers 載入時的一致性隨機順序，不再次打亂，解決返回閃爍與重排問題
         return result;
       }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, user, sortOrder]); 
 
@@ -2090,7 +2095,7 @@
                       </div>
                       <div className="space-y-6">
                         <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700"><h4 className="font-bold text-gray-200 mb-2"><i className="fa-solid fa-mask text-green-400 mr-2"></i>演出型態</h4><p className="text-sm text-gray-400 mb-4">{selectedVTuber.streamingStyle || '一般型態'}</p><h4 className="font-bold text-gray-200 mb-3"><i className="fa-solid fa-bullseye text-blue-400 mr-2"></i>主要願意連動類型</h4><div className="flex flex-wrap gap-2">{(selectedVTuber.collabTypes || []).map(t=><span key={t} className="bg-purple-900/30 text-purple-300 border border-purple-500/30 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm">{t}</span>)}</div></div>
-                        <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700"><h4 className="font-bold text-gray-200 mb-3"><i className="fa-solid fa-calendar-check text-yellow-400 mr-2"></i>可聯動時段</h4><div className="text-sm text-gray-300 leading-relaxed"><p className="font-bold text-white mb-1">【{selectedVTuber.isScheduleAnytime ? '我都可以 (隨時可約)' : selectedVTuber.isScheduleExcept ? '除了以下時段，其餘皆可' : selectedVTuber.isScheduleCustom ? '自訂時間' : '指定可聯動時段'}】</p><p>{formatSchedule(selectedVTuber)}</p></div></div>
+                        <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700"><h4 className="font-bold text-gray-200 mb-3"><i className="fa-solid fa-calendar-check text-yellow-400 mr-2"></i>可聯動時段</h4><div className="text-sm text-gray-300 leading-relaxed"><p>{formatSchedule(selectedVTuber)}</p></div></div>
                       </div>
                     </div>
                   </div>
