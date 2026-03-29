@@ -451,12 +451,12 @@
         const timer = setTimeout(() => {
           const now = Date.now();
           const SIX_HOURS = 6 * 60 * 60 * 1000;
-          if (url.includes('twitch.tv') && (now - lastTwitchFetchTime > SIX_HOURS)) {
+          if (url.includes('twitch.tv') && (now - lastTwitchFetchTime > SIX_HOURS || isAdmin)) {
             handleAutoFetchTwitch(url);
           }
         }, 1500);
         return () => clearTimeout(timer);
-      }, [form.twitchUrl, lastTwitchFetchTime]);
+      }, [form.twitchUrl, lastTwitchFetchTime, isAdmin]);
 
       const handleAutoFetchTwitch = async (autoUrl = null) => {
         const url = typeof autoUrl === 'string' ? autoUrl : form.twitchUrl;
@@ -1777,7 +1777,8 @@
         const targets = realVtubers.filter(v => {
             const hasTw = v.twitchUrl;
             if (!hasTw) return false;
-            const twExpired = hasTw && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS);
+            const isOwnAdminCard = isAdmin && v.id === user?.uid;
+            const twExpired = hasTw && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS || isOwnAdminCard);
             const twInvalid = hasTw && v.twitchFollowers && isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, '')));
             return twExpired || twInvalid;
         });
@@ -1802,7 +1803,8 @@
            setSyncProgress(`正在同步Twitch ${i + 1} / ${targets.length} : ${v.name}`);
            
            const twUrl = v.twitchUrl;
-           if (twUrl && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS || isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, ''))))) {
+           const isOwnAdminCard = isAdmin && v.id === user?.uid;
+           if (twUrl && (now - (v.lastTwitchFetchTime || 0) > SIX_HOURS || isNaN(parseFloat(String(v.twitchFollowers).replace(/,/g, ''))) || isOwnAdminCard)) {
                try {
                  const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url: twUrl });
                  const fetchTime = Date.now();
@@ -1856,7 +1858,8 @@
 
           const syncTw = async () => {
             const url = selectedVTuber.twitchUrl;
-            if (url && (now - (selectedVTuber.lastTwitchFetchTime || 0) > SIX_HOURS)) {
+            const isOwnAdminCard = isAdmin && selectedVTuber.id === user?.uid;
+            if (url && (now - (selectedVTuber.lastTwitchFetchTime || 0) > SIX_HOURS || isOwnAdminCard)) {
               try {
                 const res = await httpsCallable(functionsInstance, 'fetchTwitchStats')({ url });
                 const fetchTime = Date.now();
