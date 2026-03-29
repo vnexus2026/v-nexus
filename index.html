@@ -1373,15 +1373,32 @@
       };
 
       const handleMassSyncSubs = async () => {
-        if (!confirm("確定要背景同步所有名片的 YouTube 訂閱數嗎？\n(只會抓取超過24小時未更新的名片)")) return;
+        if (!confirm("確定要背景同步所有名片的 YouTube 訂閱數嗎？\n(將自動抓取超過24小時未更新，或「格式異常/無法讀取」的名片)")) return;
         setIsSyncingSubs(true);
         let successCount = 0;
         const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
         const now = Date.now();
-        const targets = realVtubers.filter(v => (v.youtubeUrl || v.channelUrl) && (now - (v.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS));
+        
+        // 找出需要更新的目標：1. 超過24小時未更新 2. 訂閱數是異常純文字(如"無法讀取")無視冷卻時間
+        const targets = realVtubers.filter(v => {
+            if (!(v.youtubeUrl || v.channelUrl)) return false;
+            const isExpired = (now - (v.lastYoutubeFetchTime || 0) > TWENTY_FOUR_HOURS);
+            const isInvalidText = v.youtubeSubscribers && isNaN(parseFloat(String(v.youtubeSubscribers).replace(/,/g, '')));
+            return isExpired || isInvalidText;
+        });
+
+        // 順手清理沒有網址卻卡著異常文字的幽靈資料
+        for (const v of realVtubers) {
+            if (!v.id.startsWith('mock') && !(v.youtubeUrl || v.channelUrl)) {
+                if (v.youtubeSubscribers && isNaN(parseFloat(String(v.youtubeSubscribers).replace(/,/g, '')))) {
+                    await updateDoc(doc(db, getPath('vtubers'), v.id), { youtubeSubscribers: '' });
+                    setRealVtubers(prev => prev.map(rv => rv.id === v.id ? {...rv, youtubeSubscribers: ''} : rv));
+                }
+            }
+        }
         
         if (targets.length === 0) {
-           showToast("✅ 所有名片的訂閱數皆為 24 小時內最新狀態！");
+           showToast("✅ 所有名片的訂閱數皆為最新狀態，無異常資料！");
            setIsSyncingSubs(false);
            return;
         }
@@ -1411,7 +1428,7 @@
         }
         setSyncProgress('');
         setIsSyncingSubs(false);
-        showToast(`✅ 同步完成！成功更新 ${successCount} 筆資料。`);
+        showToast(`✅ 同步完成！成功更新/修復 ${successCount} 筆資料。`);
       };
 
       // --- 獨立名片頁面自動更新訂閱數 (訪客觸發) ---
