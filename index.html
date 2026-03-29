@@ -978,9 +978,20 @@
           setPreviousView(currentView);
           gridScrollY.current = window.scrollY;
         }
+        
+        // 預先同步切換視圖狀態，避免依賴 hashchange 造成的非同步延遲閃爍與位移
+        const cleanView = view.replace('#', '');
+        if (cleanView.startsWith('profile/')) { 
+          setProfileIdFromHash(cleanView.split('/')[1]); 
+          setCurrentView('profile'); 
+        } else { 
+          setProfileIdFromHash(null); 
+          setCurrentView(cleanView === 'profile' ? 'grid' : (cleanView || 'home')); 
+        }
+
         window.location.hash = view; 
         setIsMobileMenuOpen(false); 
-        if (!preserveScroll) window.scrollTo(0,0); 
+        if (!preserveScroll) setTimeout(() => window.scrollTo(0, 0), 10); 
       };
       
       const goToBulletin = () => { if(!isVerifiedUser) { showToast("請先認證名片解鎖功能"); navigate('dashboard'); } else navigate('bulletin'); };
