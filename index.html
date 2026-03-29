@@ -384,6 +384,46 @@
       const [isFetchingSubscribers, setIsFetchingSubscribers] = useState(false);
       const [lastFetchTime, setLastFetchTime] = useState(form.lastYoutubeFetchTime || 0);
 
+      const handleImageUpload = (e, field, maxWidth, maxHeight) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          e.target.value = ''; 
+          return showToast("❌ 檔案太大！請選擇 5MB 以下的圖片。");
+        }
+        
+        showToast("⏳ 圖片處理與壓縮中...");
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > maxWidth || height > maxHeight) {
+               const ratio = Math.min(maxWidth / width, maxHeight / height);
+               width = width * ratio;
+               height = height * ratio;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const base64Str = canvas.toDataURL('image/jpeg', 0.7); 
+            
+            if (base64Str.length > 800000) { 
+               e.target.value = '';
+               return showToast("❌ 壓縮後依然太大，請先自行縮小尺寸後再上傳！");
+            }
+            updateForm({ [field]: base64Str });
+            e.target.value = ''; 
+            showToast(`✅ ${field === 'avatar' ? '頭像' : '橫幅'}上傳並自動壓縮成功！`);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+
       useEffect(() => {
         const url = form.youtubeUrl || form.channelUrl;
         if (typeof url !== 'string' || url.length < 15) return;
@@ -590,8 +630,38 @@
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">頭像網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.avatar)} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} /></div></div>
-            <div><label className="block text-sm font-bold text-gray-300 mb-2">橫幅網址</label><div className="flex gap-3"><img src={sanitizeUrl(form.banner)} className="w-20 h-12 rounded-xl object-cover flex-shrink-0" /><input type="url" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} /></div></div>
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <span>頭像網址 / 上傳</span>
+                <span className="text-xs text-purple-400 font-normal">建議: 300x300px</span>
+              </label>
+              <div className="flex gap-3">
+                <img src={sanitizeUrl(form.avatar)} className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-gray-800" />
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  <input type="text" value={form.avatar} onChange={e=>updateForm({avatar: e.target.value})} className={inputCls} placeholder="可直接貼上圖片網址" />
+                  <div className="relative w-full">
+                    <input type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageUpload(e, 'avatar', 300, 300)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <button type="button" className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-2 rounded-lg border border-gray-600 transition-colors flex items-center justify-center gap-2 relative z-0"><i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片 (自動壓縮省空間)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <span>橫幅網址 / 上傳</span>
+                <span className="text-xs text-purple-400 font-normal">建議: 800x400px</span>
+              </label>
+              <div className="flex gap-3">
+                <img src={sanitizeUrl(form.banner)} className="w-20 h-12 rounded-xl object-cover flex-shrink-0 bg-gray-800" />
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  <input type="text" value={form.banner} onChange={e=>updateForm({banner: e.target.value})} className={inputCls} placeholder="可直接貼上圖片網址" />
+                  <div className="relative w-full">
+                    <input type="file" accept="image/png, image/jpeg, image/webp" onChange={(e) => handleImageUpload(e, 'banner', 800, 400)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <button type="button" className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-2 rounded-lg border border-gray-600 transition-colors flex items-center justify-center gap-2 relative z-0"><i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片 (自動壓縮省空間)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
             {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
