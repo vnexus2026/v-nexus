@@ -49,7 +49,6 @@
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
     // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
-    // 👇 請將引號內的文字替換成您的 YouTube API 金鑰
     const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY"; 
     // --------------------------------------------------
 
@@ -81,7 +80,6 @@
     const APP_ID = 'v-nexus-official';
     const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
-    // --- XSS 防護強化：加強版 URL 過濾器 (防雙重編碼繞過) ---
     const sanitizeUrl = (url) => {
       if (typeof url !== 'string' || !url) return '';
       const u = url.trim();
@@ -102,6 +100,7 @@
 
     const PREDEFINED_COLLABS = ['APEX', '瓦羅蘭', 'LOL', 'FPS', 'Minecraft', '合作遊戲', '企劃', '歌回', '雜談'];
     const COLLAB_CATEGORIES = ['遊戲', '雜談歌回', '特別企劃'];
+    const COLOR_OPTIONS = ['紅', '橙', '黃', '綠', '藍', '紫', '灰', '黑', '白']; // 新增色系選項
     const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-sm";
     const btnCls = "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
 
@@ -138,7 +137,6 @@
       return true;
     };
 
-    // --- UI 元件 ---
     const TagBadge = ({ text, onClick, selected }) => (<span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>);
 
     const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNavigateProfile }) => {
@@ -631,6 +629,32 @@
                 </select>
                 {form.personalityType === '其他' && <input type="text" value={form.personalityTypeOther || ''} onChange={e=>updateForm({personalityTypeOther: e.target.value})} placeholder="請輸入你是什麼人" className={inputCls + " mt-2"} />}
               </div>
+              {/* 新增：色系選擇 */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-300 mb-2">你是什麼色系? (至多三項)</label>
+                <div className="flex flex-wrap gap-3 bg-gray-900 border border-gray-700 rounded-xl p-4">
+                  {COLOR_OPTIONS.map(color => (
+                    <label key={color} className="flex items-center gap-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={(form.colorSchemes || []).includes(color)} 
+                        onChange={() => {
+                          let newColors = [...(form.colorSchemes || [])];
+                          if (newColors.includes(color)) {
+                            newColors = newColors.filter(c => c !== color);
+                          } else {
+                            if (newColors.length >= 3) return showToast("色系至多只能選擇三項喔！");
+                            newColors.push(color);
+                          }
+                          updateForm({ colorSchemes: newColors });
+                        }} 
+                        className="accent-purple-500 w-4 h-4" 
+                      />
+                      <span className="text-sm text-gray-300 group-hover:text-white transition-colors">{color}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <label className="block text-sm font-bold text-gray-300 mb-2">內容標籤 (逗號分隔)</label>
               <input type="text" value={form.tags} onChange={e=>updateForm({tags: e.target.value})} className={inputCls} />
             </div>
@@ -958,6 +982,7 @@
           nationalities: stdNats, isOtherNationality: isOtherN, otherNationalityText: otherNatText || '', 
           languages: safeLangs,
           personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
+          colorSchemes: v.colorSchemes || [], // 新增色系
           isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: Array.isArray(v.scheduleSlots) ? v.scheduleSlots : [], 
           youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '', lastYoutubeFetchTime: v.lastYoutubeFetchTime || 0,
           twitchFollowers: v.twitchFollowers || '', lastTwitchFetchTime: v.lastTwitchFetchTime || 0, mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
@@ -1177,6 +1202,7 @@
       const [selectedNationality, setSelectedNationality] = useState('All');
       const [selectedLanguage, setSelectedLanguage] = useState('All');
       const [selectedSchedule, setSelectedSchedule] = useState('All');
+      const [selectedColor, setSelectedColor] = useState('All'); // 新增色系篩選狀態
       const [collabCategoryTab, setCollabCategoryTab] = useState('All'); 
       const [bulletinFilter, setBulletinFilter] = useState('All');
       
@@ -1212,7 +1238,8 @@
 
       const getEmptyProfile = (uid) => ({
         name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
-        nationalities: [], isOtherNationality: false, otherNationalityText: '', languages: [], personalityType: '', personalityTypeOther: '', isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
+        nationalities: [], isOtherNationality: false, otherNationalityText: '', languages: [], personalityType: '', personalityTypeOther: '', colorSchemes: [], // 新增色系
+        isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active', 
         youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: '', lastYoutubeFetchTime: 0, lastTwitchFetchTime: 0
       });
       const [profileForm, setProfileForm] = useState(getEmptyProfile());
@@ -1334,7 +1361,7 @@
                 setProfileForm(prev => ({
                   ...prev, ...cp, name: cp.name || prev.name, description: cp.description || prev.description, tags: Array.isArray(cp.tags) ? cp.tags.join(', ') : cp.tags || '',
                   nationalities: stdNats, isOtherNationality: isOtherN, otherNationalityText: otherNatText || '',
-                  languages: safeLangs,
+                  languages: safeLangs, colorSchemes: cp.colorSchemes || [], // 新增色系
                   personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
                   collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
                   scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
@@ -1466,17 +1493,17 @@
           const mNat = selectedNationality === 'All' || (v.nationalities && v.nationalities.includes(selectedNationality)) || v.nationality === selectedNationality;
           const mLang = selectedLanguage === 'All' || (v.languages && v.languages.includes(selectedLanguage)) || v.language === selectedLanguage;
           const mSchedule = selectedSchedule === 'All' || (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
-          return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule;
+          const mColor = selectedColor === 'All' || (v.colorSchemes && v.colorSchemes.includes(selectedColor)); // 色系篩選邏輯
+          return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule && mColor;
         });
         if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0)); 
         else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a)); 
         else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-        // 若為 random (預設)，直接沿用 displayVtubers 載入時的一致性隨機順序，不再次打亂，解決返回閃爍與重排問題
         return result;
-      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, user, sortOrder]); 
+      }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, user, sortOrder]); 
 
       const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
-      useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, sortOrder]);
+      useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, sortOrder]);
 
       const ITEMS_PER_PAGE = 18; const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE)); const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
       const handlePageChange = (newPage) => { if (newPage >= 1 && newPage <= totalPages) { setCurrentPage(newPage); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
@@ -1501,7 +1528,7 @@
 
           const publicData = {
             name: customForm.name, agency: customForm.agency, streamingStyle: customForm.streamingStyle, description: customForm.description, tags: tagsArray, collabTypes: finalCollabs, 
-            nationalities: finalNats, languages: finalLangs, personalityType: finalPersonality || '',
+            nationalities: finalNats, languages: finalLangs, personalityType: finalPersonality || '', colorSchemes: customForm.colorSchemes || [], // 儲存色系
             isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
             scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, lastYoutubeFetchTime: customForm.lastYoutubeFetchTime || 0, twitchFollowers: customForm.twitchFollowers, lastTwitchFetchTime: customForm.lastTwitchFetchTime || 0, youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
             publicEmail: customForm.publicEmail || '', publicEmailVerified: customForm.publicEmailVerified || false, likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
@@ -1609,7 +1636,6 @@
           setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: true, isBlacklisted: false, verificationStatus: 'approved' } : v));
           showToast("已通過審核！");
 
-          // 寄發審核通過信件
           const targetVtuber = realVtubers.find(v => v.id === id);
           const targetPrivate = privateDocs[id];
           const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
@@ -1632,7 +1658,6 @@
           setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: false, verificationStatus: 'rejected' } : v));
           showToast("已退回該名片！");
 
-          // 寄發審核失敗信件
           const targetVtuber = realVtubers.find(v => v.id === id);
           const targetPrivate = privateDocs[id];
           const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
@@ -1652,10 +1677,9 @@
         try {
           const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
           let finalCollabs = [...(updatedData.collabTypes || [])]; if (updatedData.isOtherCollab && updatedData.otherCollabText?.trim()) finalCollabs.push(updatedData.otherCollabText.trim());
-          const finalNationality = updatedData.nationality === '其他' ? updatedData.nationalityOther : updatedData.nationality; const finalLanguage = updatedData.language === '其他' ? updatedData.languageOther : updatedData.language;
           const finalPersonality = updatedData.personalityType === '其他' ? updatedData.personalityTypeOther : updatedData.personalityType;
-          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, nationality: finalNationality || '', language: finalLanguage || '', personalityType: finalPersonality || '', updatedAt: Date.now() };
-          delete publicData.isVerified; delete publicData.isBlacklisted; delete publicData.verificationStatus; delete publicData.showVerificationModal; delete publicData.contactEmail; delete publicData.verificationNote; delete publicData.nationalityOther; delete publicData.languageOther; delete publicData.personalityTypeOther;
+          const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, personalityType: finalPersonality || '', colorSchemes: updatedData.colorSchemes || [], updatedAt: Date.now() };
+          delete publicData.isVerified; delete publicData.isBlacklisted; delete publicData.verificationStatus; delete publicData.showVerificationModal; delete publicData.contactEmail; delete publicData.verificationNote; delete publicData.personalityTypeOther;
           await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true }); 
           setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, ...publicData } : v)); showToast("強制更新成功！");
         } catch (err) { showToast("更新失敗"); }
@@ -1828,7 +1852,6 @@
         showToast(`✅ Twitch 同步完成！成功更新/修復 ${successCount} 筆資料。`);
       };
 
-      // --- 獨立名片頁面自動更新訂閱數 (訪客觸發) ---
       useEffect(() => {
         if (currentView === 'profile' && selectedVTuber) {
           const now = Date.now();
@@ -1908,7 +1931,6 @@
         <div className="flex flex-col min-h-screen relative">
           {toastMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-slide-down flex items-center gap-3 font-bold text-sm"><i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}</div>}
 
-          {/* 導覽列 */}
           <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0f111a]/95 border-b border-gray-800 shadow-xl">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
               <div className="h-16 flex items-center justify-between">
@@ -2006,6 +2028,18 @@
                       <div><p className="text-xs text-gray-500 mb-2">主要語言</p><select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal">{dynamicLanguages.map(l => <option key={l} value={l}>{l === 'All' ? '全部' : l}</option>)}</select></div>
                     </div>
                     <div><p className="text-xs text-gray-500 mb-2">可聯動時段</p><select value={selectedSchedule} onChange={(e) => setSelectedSchedule(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal">{dynamicSchedules.map(d => <option key={d} value={d}>{d === 'All' ? '全部' : d}</option>)}</select></div>
+                    {/* 新增：色系篩選 */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">代表色系</p>
+                      <select 
+                        value={selectedColor} 
+                        onChange={(e) => setSelectedColor(e.target.value)} 
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal"
+                      >
+                        <option value="All">全部色系</option>
+                        {COLOR_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
                     <div className="flex flex-wrap gap-2 mt-2"><p className="w-full text-xs text-gray-500 mb-1">想找什麼聯動？</p>{dynamicCollabTypes.map(tag => <TagBadge key={tag} text={tag} selected={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />)}</div>
                   </div>
                 </aside>
@@ -2067,7 +2101,19 @@
                         <div className="flex flex-wrap items-center justify-between gap-4">
                           <div>
                             <div className="flex items-center gap-2 mb-2"><h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">{selectedVTuber.name} {selectedVTuber.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>}</h1></div>
-                            <div className="flex flex-wrap gap-2 mt-2 items-center"><span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span>{(selectedVTuber.nationalities?.length > 0 || selectedVTuber.nationality) && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>{(selectedVTuber.nationalities?.length > 0 ? selectedVTuber.nationalities : [selectedVTuber.nationality]).join(', ')}</span>}{(selectedVTuber.languages?.length > 0 || selectedVTuber.language) && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-language mr-1 text-yellow-300"></i>{(selectedVTuber.languages?.length > 0 ? selectedVTuber.languages : [selectedVTuber.language]).join(', ')}</span>}{selectedVTuber.personalityType && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-user-tag mr-1 text-pink-300"></i>{selectedVTuber.personalityType}</span>}<span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span></div>
+                            <div className="flex flex-wrap gap-2 mt-2 items-center">
+                              <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">{selectedVTuber.agency}</span>
+                              {(selectedVTuber.nationalities?.length > 0 || selectedVTuber.nationality) && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>{(selectedVTuber.nationalities?.length > 0 ? selectedVTuber.nationalities : [selectedVTuber.nationality]).join(', ')}</span>}
+                              {(selectedVTuber.languages?.length > 0 || selectedVTuber.language) && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-language mr-1 text-yellow-300"></i>{(selectedVTuber.languages?.length > 0 ? selectedVTuber.languages : [selectedVTuber.language]).join(', ')}</span>}
+                              {selectedVTuber.personalityType && <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700"><i className="fa-solid fa-user-tag mr-1 text-pink-300"></i>{selectedVTuber.personalityType}</span>}
+                              {/* 新增：名片頁面顯示色系 */}
+                              {selectedVTuber.colorSchemes && selectedVTuber.colorSchemes.map(color => (
+                                <span key={color} className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
+                                  <i className="fa-solid fa-palette mr-1 text-purple-400"></i>{color}系
+                                </span>
+                              ))}
+                              <span className={`text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 ${selectedVTuber.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${selectedVTuber.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> 主要平台：{selectedVTuber.mainPlatform || 'YouTube'}</span>
+                            </div>
                             <div className="flex flex-wrap gap-3 mt-4 text-sm">
                               <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                               {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
@@ -2165,7 +2211,8 @@
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                        <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動類別 <span className="text-red-400">*</span></label><select value={publicCollabForm.category} onChange={e=>setPublicCollabForm({...publicCollabForm, category: e.target.value})} className={inputCls}>{COLLAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                        <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={publicCollabForm.dateTime} onChange={e=>setPublicCollabForm({...publicCollabForm, dateTime: e.target.value})} className={inputCls} /></div>
-                       <div className="relative"><label className="text-sm font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span className="text-red-400">*</span></label><div className="flex gap-2"><input type="url" placeholder="https://..." value={publicCollabForm.streamUrl} onChange={e=>setPublicCollabForm({...publicCollabForm, streamUrl: e.target.value})} className={inputCls} /><button type="button" onClick={() => autoFetchYouTubeInfo(publicCollabForm.streamUrl, (t) => setPublicCollabForm(p => ({...p, title: t})), (c) => setPublicCollabForm(p => ({...p, coverUrl: c})), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"><i className="fa-solid fa-wand-magic-sparkles"></i></button></div></div>
+                       <div className="relative"><label className="text-sm
+font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span className="text-red-400">*</span></label><div className="flex gap-2"><input type="url" placeholder="https://..." value={publicCollabForm.streamUrl} onChange={e=>setPublicCollabForm({...publicCollabForm, streamUrl: e.target.value})} className={inputCls} /><button type="button" onClick={() => autoFetchYouTubeInfo(publicCollabForm.streamUrl, (t) => setPublicCollabForm(p => ({...p, title: t})), (c) => setPublicCollabForm(p => ({...p, coverUrl: c})), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"><i className="fa-solid fa-wand-magic-sparkles"></i></button></div></div>
                      </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                        <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動標題 <span className="text-red-400">*</span></label><input type="text" placeholder="輸入標題..." value={publicCollabForm.title} onChange={e=>setPublicCollabForm({...publicCollabForm, title: e.target.value})} className={inputCls} /></div>
@@ -2346,6 +2393,21 @@
                   ))}
                 </div>
                 <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center"><button onClick={() => setIsLeaderboardModalOpen(false)} className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg">關閉</button></div>
+              </div>
+            </div>
+          )}
+
+          {/* 倒讚確認 Modal */}
+          {confirmDislikeData && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in-up" onClick={() => setConfirmDislikeData(null)}>
+              <div className="bg-gray-900 border border-red-500/50 rounded-3xl w-full max-w-md p-8 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+                <i className="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+                <h3 className="text-xl font-bold text-white mb-2">確定要對 {confirmDislikeData.name} 送出倒讚？</h3>
+                <p className="text-gray-400 text-sm mb-6">倒讚功能僅用於檢舉「負面行為」或「惡意騷擾」。<br/>若該名片累積超過 10 個倒讚將自動下架。</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setConfirmDislikeData(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-xl font-bold transition-colors">取消</button>
+                  <button onClick={handleConfirmDislike} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">確定送出</button>
+                </div>
               </div>
             </div>
           )}
