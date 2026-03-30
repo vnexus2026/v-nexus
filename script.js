@@ -164,7 +164,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
       </div>
     );
 
-    const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onInvite, onDeleteBulletin, onEditBulletin, openModalId, onClearOpenModalId }) => {
+    const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onInvite, onDeleteBulletin, onEditBulletin, openModalId, onClearOpenModalId }) => {const [isExpanded, setIsExpanded] = useState(false);
       const [showApplicants, setShowApplicants] = useState(false);
       const isAuthor = user?.uid === b.userId;
       const hasApplied = (b.applicants || []).includes(user?.uid);
@@ -177,8 +177,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
       }, [openModalId, b.id]);
 
       return (
-        <div className="bg-gray-800/60 border border-gray-700 rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
-          <div className="bg-gray-900/80 p-5 border-b border-gray-700 flex items-start gap-4">
+    <div className="bg-gray-800/60 border border-gray-700 rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
+      {b.image && (
+        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700">
+          <img src={sanitizeUrl(b.image)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="招募附圖" />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+        </div>
+      )}
+      <div className="bg-gray-900/80 p-5 border-b border-gray-700 flex items-start gap-4">
             <img src={sanitizeUrl(b.vtuber.avatar)} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onNavigateProfile(b.vtuber, false); }} className="w-14 h-14 rounded-full border-2 border-purple-500/50 object-cover flex-shrink-0 cursor-pointer hover:scale-105 transition-transform" />
             <div className="flex-1 flex justify-between items-start gap-2">
               <div>
@@ -193,7 +199,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             </div>
           </div>
           <div className="p-6 flex-1 flex flex-col">
-            <p className="text-gray-200 text-base mb-6 leading-relaxed whitespace-pre-wrap">{b.content}</p>
+            <div className="mb-4">
+            <div className={`text-gray-300 whitespace-pre-wrap text-sm leading-relaxed transition-all duration-300 ${isExpanded ? '' : 'line-clamp-[10]'}`}>
+              {b.content}
+            </div>
+            {/* 判斷文案如果超過 10 行或字數超過 250 字，就顯示展開按鈕 */}
+            {(b.content?.length > 250 || (b.content?.match(/\n/g) || []).length >= 10) && (
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsExpanded(!isExpanded); }} 
+                className="text-purple-400 hover:text-purple-300 text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg w-full justify-center"
+              >
+                {isExpanded ? <><i className="fa-solid fa-chevron-up"></i> 收起文案</> : <><i className="fa-solid fa-chevron-down"></i> 點擊查看完整文案</>}
+              </button>
+            )}
+          </div>
             <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
               <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col"><span className="text-[10px] text-gray-500 mb-1"><i className="fa-solid fa-users"></i> 人數</span><span className="text-sm font-bold text-gray-200">{b.collabSize || '未指定'}</span></div>
               <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col"><span className="text-[10px] text-gray-500 mb-1"><i className="fa-regular fa-calendar"></i> 時間</span><span className="text-sm font-bold text-gray-200">{formatDateTimeLocalStr(b.collabTime)}</span></div>
@@ -900,7 +919,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
       );
     };
 
-    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch }) => {
+    const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage }) => {
       const [activeTab, setActiveTab] = useState('vtubers');
       const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
       const [editRules, setEditRules] = useState(rules);
@@ -1066,6 +1085,42 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                   <div><h3 className="text-xl font-bold text-white mb-2">編輯小技巧</h3><textarea value={editTips} onChange={e=>setEditTips(e.target.value)} className={inputCls+" resize-none"} rows="8" /></div><div className="flex justify-end"><button onClick={() => onSaveSettings(editTips, undefined)} className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold">儲存小技巧</button></div>
                   
                   <div className="mt-8 border-t border-gray-700 pt-8">
+                    <h3 className="text-xl font-bold text-white mb-2"><i className="fa-solid fa-images text-purple-400 mr-2"></i>招募佈告欄預設圖片庫</h3>
+                    <p className="text-sm text-gray-400 mb-4">當使用者發布招募沒有上傳圖片時，將從這裡隨機挑選一張顯示。</p>
+                    <div className="flex flex-wrap gap-4 mb-4">
+                      {(defaultBulletinImages || []).map((img, idx) => (
+                        <div key={idx} className="relative group w-32 h-24">
+                          <img src={sanitizeUrl(img)} className="w-full h-full object-cover rounded-xl border border-gray-600" />
+                          <button onClick={() => onDeleteDefaultBulletinImage(idx)} className="absolute top-1 right-1 bg-red-600/90 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"><i className="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="relative w-full sm:w-64">
+                      <input type="file" accept="image/png, image/jpeg, image/webp" onChange={async (e) => {
+                        const file = e.target.files[0]; if(!file) return;
+                        if (file.size > 5 * 1024 * 1024) { e.target.value = ''; return showToast("❌ 圖片不能超過5MB"); }
+                        showToast("⏳ 處理中...");
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            let w = img.width, h = img.height; const maxW = 800, maxH = 800;
+                            if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w*=r; h*=r; }
+                            canvas.width = w; canvas.height = h;
+                            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                            onAddDefaultBulletinImage(canvas.toDataURL('image/jpeg', 0.8));
+                            e.target.value = '';
+                          };
+                          img.src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                      }} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                      <button className="w-full bg-gray-800 hover:bg-gray-700 text-white py-2 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-plus"></i> 新增預設圖片</button>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 border-t border-gray-700 pt-8">
                     <h3 className="text-xl font-bold text-white mb-2"><i className="fa-solid fa-envelope-circle-check text-blue-400 mr-2"></i>Email 系統測試</h3>
                     <p className="text-sm text-gray-400 mb-4">如果 Firebase 後台沒有看到 mail 路徑，請點擊下方按鈕寫入一筆測試資料，路徑就會自動出現。</p>
                     <button onClick={handleTestMail} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg">寫入一筆測試信件</button>
@@ -1169,8 +1224,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
       const [confirmDislikeData, setConfirmDislikeData] = useState(null);
       const [copiedTemplate, setCopiedTemplate] = useState(false);
       
-      const [newBulletin, setNewBulletin] = useState({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '' });
-      const [inviteMessage, setInviteMessage] = useState(''); 
+      const [newBulletin, setNewBulletin] = useState({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
+      const [defaultBulletinImages, setDefaultBulletinImages] = useState([]);
+      const [inviteMessage, setInviteMessage] = useState('');
       const [realNotifications, setRealNotifications] = useState([]);
       const [isNotifOpen, setIsNotifOpen] = useState(false);
       const notifRef = useRef(null);
@@ -1283,6 +1339,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             getDoc(doc(db, getPath('settings'), 'stats')).then(snap => { if (snap.exists()) setSiteStats(snap.data()); });
             getDoc(doc(db, getPath('settings'), 'tips')).then(snap => { if (snap.exists() && snap.data().content) setRealTips(snap.data().content); });
             getDoc(doc(db, getPath('settings'), 'rules')).then(snap => { if (snap.exists() && snap.data().content) setRealRules(snap.data().content); });
+            getDoc(doc(db, getPath('settings'), 'bulletinImages')).then(snap => { if (snap.exists() && snap.data().images) setDefaultBulletinImages(snap.data().images); });
             
             updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
 
@@ -1503,7 +1560,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
           if(!customForm.id) navigate('grid');
         } catch (err) { showToast("儲存失敗"); }
       };
+const handleBulletinImageUpload = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { e.target.value = ''; return showToast("❌ 檔案太大！請選擇 5MB 以下。"); }
+        showToast("⏳ 圖片壓縮中...");
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            let width = img.width, height = img.height; const maxWidth = 800, maxHeight = 800;
+            if (width > maxWidth || height > maxHeight) { const ratio = Math.min(maxWidth / width, maxHeight / height); width *= ratio; height *= ratio; }
+            const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            const base64Str = canvas.toDataURL('image/jpeg', 0.8); 
+            if (base64Str.length > 800000) { e.target.value = ''; return showToast("❌ 壓縮後依然太大！"); }
+            setNewBulletin(prev => ({ ...prev, image: base64Str })); e.target.value = ''; showToast(`✅ 圖片上傳成功！`);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
 
+      const handleAddDefaultBulletinImage = async (base64) => {
+        const newImages = [...defaultBulletinImages, base64];
+        try { await setDoc(doc(db, getPath('settings'), 'bulletinImages'), { images: newImages }, { merge: true }); setDefaultBulletinImages(newImages); showToast("✅ 已新增預設圖片"); } catch(e) { showToast("新增失敗"); }
+      };
+
+      const handleDeleteDefaultBulletinImage = async (idx) => {
+        if(!confirm("確定刪除這張預設圖片？")) return;
+        const newImages = defaultBulletinImages.filter((_, i) => i !== idx);
+        try { await setDoc(doc(db, getPath('settings'), 'bulletinImages'), { images: newImages }, { merge: true }); setDefaultBulletinImages(newImages); showToast("✅ 已刪除"); } catch(e) { showToast("刪除失敗"); }
+      };
       const handlePostBulletin = async () => {
         if (!user) return showToast("請先登入！"); if (!newBulletin.content.trim() || !newBulletin.collabType || !newBulletin.collabSize || !newBulletin.collabTime || !newBulletin.recruitEndTime) return showToast("請完整填寫！");
         const rEnd = new Date(newBulletin.recruitEndTime).getTime(); const cTime = new Date(newBulletin.collabTime).getTime();
@@ -1512,24 +1599,25 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         if (!myProfile?.isVerified) return showToast("名片審核通過後才能發布喔！");
         try {
           const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
+          const finalImage = newBulletin.image || (defaultBulletinImages.length > 0 ? defaultBulletinImages[Math.floor(Math.random() * defaultBulletinImages.length)] : '');
           if (newBulletin.id) {
-             await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), { content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd });
-             setRealBulletins(prev => prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd } : b));
+             await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), { content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage });
+             setRealBulletins(prev => prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage } : b));
              showToast("🚀 招募修改成功！");
           } else {
-             const newDocData = { userId: user.uid, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, applicants: [], createdAt: Date.now() };
+             const newDocData = { userId: user.uid, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage, applicants: [], createdAt: Date.now() };
              const newDocRef = await addDoc(collection(db, getPath('bulletins')), newDocData);
              setRealBulletins(prev => [{ id: newDocRef.id, ...newDocData }, ...prev]); 
              showToast("🚀 發布成功！");
           }
-          setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '' }); 
+          setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' }); 
         } catch (err) { showToast("操作失敗"); }
       };
 
       const handleEditBulletin = (b) => {
         const rEndD = new Date(b.recruitEndTime);
         const rEndStr = `${rEndD.getFullYear()}-${String(rEndD.getMonth()+1).padStart(2,'0')}-${String(rEndD.getDate()).padStart(2,'0')}T${String(rEndD.getHours()).padStart(2,'0')}:${String(rEndD.getMinutes()).padStart(2,'0')}`;
-        setNewBulletin({ id: b.id, content: b.content, collabType: PREDEFINED_COLLABS.includes(b.collabType) ? b.collabType : '其他', collabTypeOther: PREDEFINED_COLLABS.includes(b.collabType) ? '' : b.collabType, collabSize: b.collabSize, collabTime: b.collabTime, recruitEndTime: rEndStr });
+        setNewBulletin({ id: b.id, content: b.content, collabType: PREDEFINED_COLLABS.includes(b.collabType) ? b.collabType : '其他', collabTypeOther: PREDEFINED_COLLABS.includes(b.collabType) ? '' : b.collabType, collabSize: b.collabSize, collabTime: b.collabTime, recruitEndTime: rEndStr, image: b.image || '' });
         navigate('bulletin');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
@@ -2135,6 +2223,39 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                       <div><label className="block text-sm font-bold text-gray-300 mb-2">預計聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.collabTime} onChange={e=>setNewBulletin({...newBulletin, collabTime: e.target.value})} className={inputCls} /></div>
                       <div><label className="block text-sm font-bold text-gray-300 mb-2">招募截止時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.recruitEndTime} onChange={e=>setNewBulletin({...newBulletin, recruitEndTime: e.target.value})} className={inputCls} /></div>
                     </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">選擇預設圖 或 自行上傳 (未選將隨機套用)</label>
+                      <div className="flex flex-col gap-3">
+                        {/* 預設圖選擇區：如果管理員有上傳預設圖，則顯示成可橫向滑動的選單 */}
+                        {defaultBulletinImages.length > 0 && (
+                          <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar items-center">
+                            {defaultBulletinImages.map((img, idx) => (
+                              <img 
+                                key={idx} 
+                                src={sanitizeUrl(img)} 
+                                onClick={() => setNewBulletin(p => ({...p, image: img}))} 
+                                className={`w-28 h-16 rounded-lg object-cover cursor-pointer border-2 transition-all flex-shrink-0 ${newBulletin.image === img ? 'border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] opacity-100' : 'border-transparent hover:border-gray-500 opacity-50 hover:opacity-100'}`} 
+                                title="點擊套用此預設圖" 
+                              />
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* 自行上傳與清除區 */}
+                        <div className="flex gap-3 items-center">
+                          {newBulletin.image && !defaultBulletinImages.includes(newBulletin.image) && (
+                            <div className="relative"><img src={sanitizeUrl(newBulletin.image)} className="w-20 h-20 rounded-xl object-cover border border-gray-600" /><button type="button" onClick={()=>setNewBulletin(p=>({...p, image:''}))} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"><i className="fa-solid fa-xmark"></i></button></div>
+                          )}
+                          <div className="relative w-full sm:w-auto flex-shrink-0">
+                            <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleBulletinImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <button type="button" className="w-full sm:w-auto px-6 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm py-2.5 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> 自行上傳圖片</button>
+                          </div>
+                          {newBulletin.image && defaultBulletinImages.includes(newBulletin.image) && (
+                            <button type="button" onClick={()=>setNewBulletin(p=>({...p, image:''}))} className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 bg-red-500/10 px-3 py-2 rounded-lg font-bold transition-colors">取消選取預設圖</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                     <div className="flex justify-end gap-3 pt-4"><button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">{newBulletin.id ? '儲存修改' : '發布招募'}</button></div>
                   </div>
                 </div>
@@ -2217,7 +2338,7 @@ font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span classNa
             )}
 
             {currentView === 'admin' && isAdmin && (
-              <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} />
+              <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} />
             )}
           </main>
 
