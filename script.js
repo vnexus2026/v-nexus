@@ -1421,6 +1421,7 @@ function App() {
   const [realBulletins, setRealBulletins] = useState([]);
   const [realCollabs, setRealCollabs] = useState([]);
   const [realUpdates, setRealUpdates] = useState([]);
+  const [shuffleSeed, setShuffleSeed] = useState(Date.now());
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
@@ -1456,6 +1457,7 @@ function App() {
   const notifRef = useRef(null);
   const gridScrollY = useRef(0);
   const [currentPage, setCurrentPage] = useState(1);
+
   // --- 手動啟動通知函式 ---
   const handleEnableNotifications = async () => {
     if (!user) return showToast("請先登入");
@@ -1875,10 +1877,19 @@ function App() {
 
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
-    // 使用 getStableRandom 根據 ID 產生固定的隨機值進行排序
-    // 這樣只要瀏覽器沒重新整理，同一個 ID 的隨機權重就是固定的，不會因為資料更新而亂跳
-    return [...realVtubers].sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id));
-  }, [realVtubers.length]); // 僅在人數增減時重新排序，內容更新（如訂閱數改變）不觸發重排
+    // 建立一個偽隨機函數，會根據 shuffleSeed 的變化來計算新的排序
+    const seededRandom = (id) => {
+      let hash = 0;
+      const str = id + shuffleSeed.toString();
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0; // 轉換為 32bit 整數
+      }
+      return Math.abs(hash) / 2147483647;
+    };
+
+    return [...realVtubers].sort(() => Math.random() - 0.5);
+  }, [realVtubers, shuffleSeed]);
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set();
     displayVtubers.filter(v => isVisible(v, user)).forEach(v => {
@@ -2653,7 +2664,20 @@ function App() {
               <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-2">尋找 VTuber 夥伴 {user && realVtubers.find(v => v.id === user.uid && (!v.isVerified || v.isBlacklisted || v.activityStatus !== 'active')) && <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full"><i className="fa-solid fa-eye-slash mr-1"></i>隱藏中</span>}</h2>
-                  <button onClick={() => setIsTipsModalOpen(true)} className="bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-bold"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button>
+                  <button onClick={() => setIsTipsModalOpen(true)} className="bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-bold"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</button><button
+                    onClick={() => {
+                      // 1. 強制把排序選單設回隨機，否則洗牌會被推薦數排序覆蓋
+                      setSortOrder('random');
+                      // 2. 更新種子觸發重新計算
+                      setShuffleSeed(Date.now());
+                      // 3. 回到頁面頂端，讓使用者看到變化
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      showToast("🎲 已重新洗牌名片順序！");
+                    }}
+                    className="bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-purple-500/20"
+                  >
+                    <i className="fa-solid fa-shuffle mr-1"></i> 重新洗牌
+                  </button>
                   <button onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)} className="lg:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"><i className="fa-solid fa-filter"></i> 篩選</button>
                 </div>
                 <div className="flex flex-col gap-3 w-full sm:w-auto">
