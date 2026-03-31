@@ -1589,6 +1589,15 @@ function App() {
     }).sort((a, b) => b.successCount - a.successCount);
   }, [realBulletins, realVtubers, currentTime]);
 
+  // 在 App() 的 useEffect 內加入
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((reg) => console.log('SW Registered', reg))
+        .catch((err) => console.log('SW Register Fail', err));
+    }
+  }, []);
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
@@ -2151,30 +2160,59 @@ function App() {
         category: "系統測試",
         createdAt: Date.now()
       };
+      // --- 修正後的測試推播函式 ---
       const handleTestPushNotification = async () => {
-        if (!user) return showToast("請先登入！");
+        if (!user) return showToast("請先登入");
 
-        // 檢查資料庫中是否有你的 Token
-        const myData = realVtubers.find(v => v.id === user.uid);
-        if (!myData?.fcmToken) {
-          return showToast("❌ 偵測不到您的推播 Token。請確保您是用手機『加入主畫面』開啟，且已點擊『允許通知』。");
-        }
-
-        showToast("⏳ 正在發送測試推播...");
         try {
-          // 寫入一筆通知給自己，這會觸發後端的 Cloud Function
+          // 1. 檢查瀏覽器支援
+          if (!("ServiceWorkerRegistration" in window) || !("Notification" in window)) {
+            alert("❌ 錯誤：您的瀏覽器不支援通知功能。");
+            return;
+          }
+
+          // 2. 請求權限
+          let currentPerm = Notification.permission;
+          if (currentPerm !== "granted") {
+            currentPerm = await Notification.requestPermission();
+          }
+
+          if (currentPerm === "granted") {
+            // 3. 取得 Service Worker 註冊對象
+            const registration = await navigator.serviceWorker.ready;
+
+            if (registration) {
+              // 使用 Service Worker 顯示通知 (Android 必須使用此方法)
+              await registration.showNotification("V-Nexus 系統測試", {
+                body: "太棒了！您的設備成功收到通知啦！🎉",
+                icon: "https://duk.tw/u1jpPE.png",
+                badge: "https://duk.tw/u1jpPE.png", // Android 下拉選單的小圖示
+                vibrate: [200, 100, 200], // 震動模式
+                tag: 'test-notification', // 避免重複跳出
+                renotify: true
+              });
+              alert("✅ 系統已呼叫 Service Worker 發送通知！");
+            } else {
+              alert("❌ 錯誤：找不到 Service Worker 註冊資訊。");
+            }
+          } else {
+            alert("❌ 錯誤：通知權限被拒絕。請開啟瀏覽器設定允許通知。");
+          }
+
+          // 同時寫入資料庫觸發後端邏輯 (保留您原本的邏輯)
           await addDoc(collection(db, getPath('notifications')), {
             userId: user.uid,
-            fromUserId: "system",
-            fromUserName: "V-Nexus 測試員",
-            fromUserAvatar: "https://duk.tw/u1jpPE.png",
-            message: "🎉 恭喜！您的手機推播功能已成功啟動！",
-            createdAt: Date.now(),
-            read: false
+            fromUserId: user.uid,
+            fromUserName: "V-Nexus 系統測試",
+            type: "system",
+            message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
+            isRead: false,
+            createdAt: Date.now()
           });
-          showToast("✅ 測試指令已發出！請檢查手機通知中心（請先鎖屏或切換到其他 App 測試）。");
+
         } catch (err) {
-          showToast("❌ 發送失敗：" + err.message);
+          console.error("Test notification error:", err);
+          alert("❌ 程式發生錯誤: " + err.message);
         }
       };
 
