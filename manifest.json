@@ -1,0 +1,15 @@
+{
+  "name": "V-Nexus",
+  "short_name": "V-Nexus",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f111a",
+  "theme_color": "#a855f7",
+  "icons": [
+    {
+      "src": "https://duk.tw/u1jpPE.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

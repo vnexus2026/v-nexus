@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY";
 // --------------------------------------------------
@@ -1415,6 +1415,28 @@ function App() {
   const notifRef = useRef(null);
   const gridScrollY = useRef(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const setupNotifications = async (uid) => {
+    const messaging = getMessaging(app);
+    try {
+      // 請求權限
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        // 取得 FCM Token (這就像是手機的門牌號碼)
+        const token = await getToken(messaging, { vapidKey: 'BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU' }); // 需在 Firebase 後台產生
+        if (token) {
+          // 將 Token 存入該 VTuber 的資料庫，以便後端寄送
+          await updateDoc(doc(db, getPath('vtubers'), uid), { fcmToken: token });
+        }
+      }
+    } catch (err) { console.error("通知設定失敗", err); }
+  };
+
+  // 在 useEffect 偵測到 user 登入時呼叫
+  useEffect(() => {
+    if (user) {
+      setupNotifications(user.uid);
+    }
+  }, [user]);
   const [publicCollabForm, setPublicCollabForm] = useState({
     dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲',
     participants: [] // 確保這裡有寫這行
@@ -2291,7 +2313,7 @@ function App() {
       <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0f111a]/95 border-b border-gray-800 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('home')}><div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all"><i className="fa-solid fa-wand-magic-sparkles text-white"></i></div><span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">V-Nexus BETA版</span></div>
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('home')}><div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all"><i className="fa-solid fa-wand-magic-sparkles text-white"></i></div><span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">V-Nexus｜專為Vtuber打造的聯動平台</span></div>
             <div className="flex items-center gap-3">
               {!user ? <button onClick={handleLogin} className="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-200 px-4 py-1.5 rounded-full transition-colors font-bold text-sm"><i className="fa-brands fa-google text-red-500"></i> Google 登入</button> : (
                 <div className="flex items-center gap-3">
