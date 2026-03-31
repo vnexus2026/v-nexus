@@ -1457,92 +1457,50 @@ function App() {
   const handleEnableNotifications = async () => {
     if (!user) return showToast("請先登入");
 
-    // 檢查是否在 PWA 模式 (iOS 必備)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (!isStandalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
-      return showToast("請先點擊『分享』並『加入主畫面』後，從桌面開啟 App 才能啟動通知。");
+    // 1. 檢查是否為 HTTPS (Service Worker 必須在 HTTPS 下運作)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      return alert("❌ 推播通知必須在 HTTPS 安全連線下才能運作。");
     }
 
-    BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF - DMwInoa - XU
-  };
-  const [pSearch, setPSearch] = useState(''); // 新增：搜尋框的文字狀態
-
-
-  const [isSyncingSubs, setIsSyncingSubs] = useState(false);
-  const [syncProgress, setSyncProgress] = useState('');
-  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false);
-  const [openBulletinModalId, setOpenBulletinModalId] = useState(null);
-
-  const [readUpdateIds, setReadUpdateIds] = useState(() => { try { return JSON.parse(localStorage.getItem('readUpdates') || '[]'); } catch { return []; } });
-  const hasUnreadUpdates = realUpdates.some(u => !readUpdateIds.includes(u.id));
-
-  const handleMarkAllUpdatesRead = () => { const allIds = realUpdates.map(u => u.id); setReadUpdateIds(allIds); localStorage.setItem('readUpdates', JSON.stringify(allIds)); showToast("✅ 已全部標示為已讀"); };
-
-  const [realTips, setRealTips] = useState("您好，我是 [您的名字/頻道名]。\n想請問近期是否有機會邀請您一起進行 [企劃名稱/遊戲] 的連動呢？");
-  const [realRules, setRealRules] = useState("如果聯動的V朋朋有負面行為，請在他的名片按倒讚。只要超過 10 個倒讚即會自動下架。");
-  const [toastMsg, setToastMsg] = useState('');
-  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
-
-  const getEmptyProfile = (uid) => ({
-    name: '', agency: '個人勢', tags: '', description: '', avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${uid || Math.random()}&backgroundColor=b6e3f4`, banner: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=1000',
-    nationalities: [], isOtherNationality: false, otherNationalityText: '', languages: [], personalityType: '', personalityTypeOther: '', colorSchemes: [], // 新增色系
-    isScheduleAnytime: false, isScheduleExcept: false, isScheduleCustom: false, customScheduleText: '', scheduleSlots: [], collabTypes: [], isOtherCollab: false, otherCollabText: '', streamingStyle: '一般型態', activityStatus: 'active',
-    youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: '', lastYoutubeFetchTime: 0, lastTwitchFetchTime: 0
-  });
-  const [profileForm, setProfileForm] = useState(getEmptyProfile());
-  // --- 確保這段是放在 App 函式內，useState 的下方 ---
-  const handleTestPushNotification = async () => {
-    if (!user) return;
     try {
-      // 1. 檢查瀏覽器是否支援通知 API
-      if (!("Notification" in window)) {
-        alert("❌ 錯誤：您的瀏覽器完全不支援桌面通知功能！");
-        return;
+      showToast("⏳ 正在啟動推播系統...");
+
+      // 2. 請求通知權限
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟，否則無法收到通知。");
       }
 
-      // 2. 檢查並要求權限
-      let currentPerm = Notification.permission;
-      if (currentPerm !== "granted") {
-        currentPerm = await Notification.requestPermission();
-      }
+      // 3. 取得 Service Worker 註冊對象
+      const registration = await navigator.serviceWorker.ready;
 
-      // 3. 根據權限狀態執行 (修正版：相容 Android 與 Windows)
-      if (currentPerm === "granted") {
-        // 取得 Service Worker 註冊對象
-        const registration = await navigator.serviceWorker.ready;
-        if (registration) {
-          // 使用 showNotification 替代 new Notification
-          await registration.showNotification("V-Nexus 系統測試", {
-            body: "太棒了！您的設備成功收到通知啦！🎉",
-            icon: "https://duk.tw/u1jpPE.png",
-            badge: "https://duk.tw/u1jpPE.png",
-            vibrate: [200, 100, 200],
-            tag: "v-nexus-test",
-            renotify: true
-          });
-          alert("✅ 系統已透過 Service Worker 發送通知！");
-        } else {
-          alert("❌ 找不到 Service Worker 註冊資訊。");
-        }
-      } else if (currentPerm === "denied") {
-        alert("❌ 錯誤：通知權限被「拒絕」了！請點擊網址列左邊的鎖頭圖示，將通知改為「允許」。");
-      }
-
-      // 寫入資料庫的原本邏輯
-      await addDoc(collection(db, getPath('notifications')), {
-        userId: user.uid,
-        fromUserId: user.uid,
-        fromUserName: "V-Nexus 系統測試",
-        type: "system",
-        message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
-        isRead: false,
-        createdAt: Date.now()
+      // 4. 取得 FCM Token
+      const messaging = getMessaging(app);
+      const currentToken = await getToken(messaging, {
+        serviceWorkerRegistration: registration,
+        // 🚩 請換成您在 Firebase 後台產生的「Web 推播憑證」金鑰 (VAPID Key)
+        vapidKey: "BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU"
       });
-      showToast("✅ 測試指令已發出！");
+
+      if (currentToken) {
+        console.log("取得 Token:", currentToken);
+
+        // 5. 將 Token 存入 Firestore (這樣後端才知道要傳給誰)
+        await updateDoc(doc(db, getPath('vtubers'), user.uid), {
+          fcmToken: currentToken,
+          notificationsEnabled: true,
+          updatedAt: Date.now()
+        });
+
+        showToast("✅ 手機推播已成功啟動！");
+        alert("🎉 恭喜！您的設備已成功綁定推播功能。");
+      } else {
+        alert("❌ 無法取得 Token，請確認您的瀏覽器支援推播。");
+      }
 
     } catch (err) {
-      console.error("Test notification error:", err);
-      alert("❌ 程式發生錯誤: " + err.message);
+      console.error("啟動推播失敗:", err);
+      alert("❌ 啟動失敗: " + err.message);
     }
   };
 
@@ -1593,6 +1551,21 @@ function App() {
       return { ...vt, successCount: counts[uid] };
     }).sort((a, b) => b.successCount - a.successCount);
   }, [realBulletins, realVtubers, currentTime]);
+
+  useEffect(() => {
+    // 註冊 Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((reg) => console.log('Service Worker 註冊成功:', reg.scope))
+        .catch((err) => console.error('Service Worker 註冊失敗:', err));
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setProfileForm(getEmptyProfile(u?.uid));
+    });
+    // ... 其他程式碼
+  }, []);
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
