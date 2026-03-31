@@ -1589,6 +1589,9 @@ function App() {
     }).sort((a, b) => b.successCount - a.successCount);
   }, [realBulletins, realVtubers, currentTime]);
 
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  }
   // 在 App() 的 useEffect 內加入
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -2165,41 +2168,42 @@ function App() {
         if (!user) return showToast("請先登入");
 
         try {
-          // 1. 檢查瀏覽器支援
-          if (!("ServiceWorkerRegistration" in window) || !("Notification" in window)) {
-            alert("❌ 錯誤：您的瀏覽器不支援通知功能。");
+          // 1. 檢查瀏覽器是否支援 Service Worker 與 Notification
+          if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+            alert("❌ 錯誤：您的瀏覽器完全不支援桌面通知功能！");
             return;
           }
 
-          // 2. 請求權限
+          // 2. 檢查並要求權限
           let currentPerm = Notification.permission;
           if (currentPerm !== "granted") {
             currentPerm = await Notification.requestPermission();
           }
 
+          // 3. 根據權限狀態執行
           if (currentPerm === "granted") {
-            // 3. 取得 Service Worker 註冊對象
+            // --- 核心修正：改用 Service Worker 註冊對象來顯示通知 ---
+            // 取得目前準備就緒的 Service Worker
             const registration = await navigator.serviceWorker.ready;
 
             if (registration) {
-              // 使用 Service Worker 顯示通知 (Android 必須使用此方法)
+              // 在 Android 上，必須使用 registration.showNotification
               await registration.showNotification("V-Nexus 系統測試", {
-                body: "太棒了！您的設備成功收到通知啦！🎉",
+                body: "太棒了！您的 Android 設備成功收到通知啦！🎉",
                 icon: "https://duk.tw/u1jpPE.png",
-                badge: "https://duk.tw/u1jpPE.png", // Android 下拉選單的小圖示
-                vibrate: [200, 100, 200], // 震動模式
-                tag: 'test-notification', // 避免重複跳出
-                renotify: true
+                badge: "https://duk.tw/u1jpPE.png", // Android 選單上方的小圖示
+                vibrate: [200, 100, 200] // 震動測試
               });
-              alert("✅ 系統已呼叫 Service Worker 發送通知！");
+              alert("✅ 系統已透過 Service Worker 發送通知！");
             } else {
-              alert("❌ 錯誤：找不到 Service Worker 註冊資訊。");
+              alert("❌ 找不到 Service Worker 註冊資訊，請確認網站是否已正確啟動。");
             }
-          } else {
-            alert("❌ 錯誤：通知權限被拒絕。請開啟瀏覽器設定允許通知。");
+
+          } else if (currentPerm === "denied") {
+            alert("❌ 錯誤：通知權限被「拒絕」了！請到手機瀏覽器設定中改為「允許」。");
           }
 
-          // 同時寫入資料庫觸發後端邏輯 (保留您原本的邏輯)
+          // 原本寫入資料庫的邏輯保留
           await addDoc(collection(db, getPath('notifications')), {
             userId: user.uid,
             fromUserId: user.uid,
@@ -2209,6 +2213,7 @@ function App() {
             isRead: false,
             createdAt: Date.now()
           });
+          showToast("✅ 測試指令已發出！");
 
         } catch (err) {
           console.error("Test notification error:", err);
