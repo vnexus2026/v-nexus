@@ -1482,27 +1482,50 @@ function App() {
   const handleTestPushNotification = async () => {
     if (!user) return;
     try {
-
-      // ▼▼▼ 加入這 3 行，不透過後端，直接強迫 Windows 彈出通知！ ▼▼▼
-      if (Notification.permission === "granted") {
-        new Notification("V-Nexus 系統測試", { body: "太棒了！您的 Windows 電腦成功收到通知啦！🎉", icon: "https://duk.tw/u1jpPE.png" });
+      // 1. 檢查瀏覽器是否支援通知 API
+      if (!("Notification" in window)) {
+        alert("❌ 錯誤：您的瀏覽器完全不支援桌面通知功能！");
+        return;
       }
-      // ▲▲▲ 加入這 3 行 ▲▲▲
 
-      // 下面是您原本寫入資料庫的程式碼
+      // 2. 檢查並要求權限
+      let currentPerm = Notification.permission;
+      if (currentPerm !== "granted") {
+        currentPerm = await Notification.requestPermission();
+      }
+
+      // 3. 根據權限狀態執行
+      if (currentPerm === "granted") {
+        // 權限正常，強制呼叫通知
+        const testNotif = new Notification("V-Nexus 系統測試", {
+          body: "太棒了！您的 Windows 電腦成功收到通知啦！🎉",
+          icon: "https://duk.tw/u1jpPE.png"
+        });
+
+        testNotif.onerror = (e) => alert("❌ 系統攔截了通知！可能是因為沒用 HTTPS 安全連線。");
+        alert("✅ 系統已強制呼叫 Windows 通知！請查看螢幕右下角。");
+
+      } else if (currentPerm === "denied") {
+        alert("❌ 錯誤：通知權限被「拒絕」了！請點擊網址列左邊的鎖頭圖示，將通知改為「允許」。");
+      } else {
+        alert("❌ 錯誤：通知權限狀態未知 (" + currentPerm + ")");
+      }
+
+      // 寫入資料庫的原本邏輯
       await addDoc(collection(db, getPath('notifications')), {
         userId: user.uid,
-        fromUserId: user.uid, // 確保這裡是 user.uid
+        fromUserId: user.uid,
         fromUserName: "V-Nexus 系統測試",
         type: "system",
         message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
         isRead: false,
         createdAt: Date.now()
       });
-      showToast("✅ 測試指令已發出，請查看手機通知中心！");
+      showToast("✅ 測試指令已發出！");
+
     } catch (err) {
       console.error("Test notification error:", err);
-      showToast("❌ 發送失敗: " + err.message);
+      alert("❌ 程式發生錯誤: " + err.message);
     }
   };
 
