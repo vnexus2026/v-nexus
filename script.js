@@ -1599,7 +1599,28 @@ function App() {
         .catch(err => console.log('SW 註冊失敗:', err));
     });
   }
-  // 在 App() 的 useEffect 內加入
+  useEffect(() => {
+    if (!isLoading) {
+      // 增加一個小延遲，確保 React 已經渲染好初始畫面
+      const timer = setTimeout(() => {
+        const loader = document.getElementById('loading-screen');
+        if (loader) {
+          // 1. 開始淡出動畫
+          loader.style.opacity = '0';
+          // 2. 讓點擊可以穿透（防止動畫期間擋住按鈕）
+          loader.style.pointerEvents = 'none';
+
+          // 3. 等動畫跑完 (0.8s) 再徹底移除 display
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 800);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js')
@@ -1720,26 +1741,31 @@ function App() {
     setIsLoading(true);
     const fetchAllData = async () => {
       try {
+        // 先抓取基礎設定
         getDoc(doc(db, getPath('settings'), 'stats')).then(snap => { if (snap.exists()) setSiteStats(snap.data()); });
         getDoc(doc(db, getPath('settings'), 'tips')).then(snap => { if (snap.exists() && snap.data().content) setRealTips(snap.data().content); });
         getDoc(doc(db, getPath('settings'), 'rules')).then(snap => { if (snap.exists() && snap.data().content) setRealRules(snap.data().content); });
         getDoc(doc(db, getPath('settings'), 'bulletinImages')).then(snap => { if (snap.exists() && snap.data().images) setDefaultBulletinImages(snap.data().images); });
 
+        // 瀏覽量增加
         updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
 
-        const [vSnap, bSnap, cSnap, uSnap] = await Promise.all([
-          getDocs(collection(db, getPath('vtubers'))),
-          getDocs(collection(db, getPath('bulletins'))),
-          getDocs(collection(db, getPath('collabs'))),
-          getDocs(collection(db, getPath('updates')))
-        ]);
-
+        // 優先抓取 VTuber 名片 (最重要資料)
+        const vSnap = await getDocs(collection(db, getPath('vtubers')));
         const vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
         setRealVtubers(vData);
-        setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt));
 
+        // 名片一出來，立刻關閉 Loading
+        setIsLoading(false);
+        const loader = document.getElementById('loading-screen');
+
+
+        // 背景抓取其餘資料 (不阻塞主畫面)
+        getDocs(collection(db, getPath('bulletins'))).then(snap => setRealBulletins(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+        getDocs(collection(db, getPath('collabs'))).then(snap => setRealCollabs(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+        getDocs(collection(db, getPath('updates'))).then(snap => setRealUpdates(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt)));
+
+        // 處理當前使用者的名片表單初始化
         if (user) {
           const cp = vData.find(v => v.id === user.uid);
           if (cp) {
@@ -1747,10 +1773,8 @@ function App() {
             const pType = cp.personalityType || ''; const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
             const stdTypes = (cp.collabTypes || []).filter(t => PREDEFINED_COLLABS.includes(t));
             const othType = (cp.collabTypes || []).filter(t => !PREDEFINED_COLLABS.includes(t))[0] || '';
-
             const safeNats = Array.isArray(cp.nationalities) ? cp.nationalities : (typeof cp.nationalities === 'string' ? [cp.nationalities] : (cp.nationality ? [cp.nationality] : []));
             const safeLangs = Array.isArray(cp.languages) ? cp.languages : (typeof cp.languages === 'string' ? [cp.languages] : (cp.language ? [cp.language] : []));
-
             const isOtherN = safeNats.some(n => !['台灣', '日本', '香港', '馬來西亞'].includes(n));
             const otherNatText = isOtherN ? safeNats.find(n => !['台灣', '日本', '香港', '馬來西亞'].includes(n)) : '';
             const stdNats = safeNats.filter(n => ['台灣', '日本', '香港', '馬來西亞'].includes(n));
@@ -1758,7 +1782,7 @@ function App() {
             setProfileForm(prev => ({
               ...prev, ...cp, name: cp.name || prev.name, description: cp.description || prev.description, tags: Array.isArray(cp.tags) ? cp.tags.join(', ') : cp.tags || '',
               nationalities: stdNats, isOtherNationality: isOtherN, otherNationalityText: otherNatText || '',
-              languages: safeLangs, colorSchemes: cp.colorSchemes || [], // 新增色系
+              languages: safeLangs, colorSchemes: cp.colorSchemes || [],
               personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
               collabTypes: stdTypes, isOtherCollab: !!othType, otherCollabText: othType, isScheduleAnytime: cp.isScheduleAnytime || false, isScheduleExcept: cp.isScheduleExcept || false, isScheduleCustom: cp.isScheduleCustom || false, customScheduleText: cp.customScheduleText || '',
               scheduleSlots: cp.scheduleSlots || [], streamingStyle: cp.streamingStyle || prev.streamingStyle, activityStatus: cp.activityStatus || prev.activityStatus,
@@ -1766,7 +1790,12 @@ function App() {
             }));
           }
         }
-      } catch (err) { console.error("讀取失敗 (可能為資料庫權限):", err); } finally { setIsLoading(false); }
+      } catch (err) {
+        console.error("讀取失敗:", err);
+        setIsLoading(false);
+        const loader = document.getElementById('loading-screen');
+
+      }
     };
 
     fetchAllData();
