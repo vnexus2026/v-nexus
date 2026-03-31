@@ -970,7 +970,11 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
   }).length;
 
   const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
-  const randomCollabs = useMemo(() => [...safeDisplayCollabs].sort(() => 0.5 - Math.random()).slice(0, 4), [safeDisplayCollabs.map(c => c.id).join(',')]);
+  const randomCollabs = useMemo(() =>
+    [...safeDisplayCollabs]
+      .sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id))
+      .slice(0, 4),
+    [safeDisplayCollabs.map(c => c.id).join(',')]);
 
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
@@ -1384,6 +1388,14 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
       )}
     </>
   );
+};
+
+const stableRandomCache = {};
+const getStableRandom = (id) => {
+  if (!stableRandomCache[id]) {
+    stableRandomCache[id] = Math.random();
+  }
+  return stableRandomCache[id];
 };
 
 function App() {
@@ -1816,7 +1828,12 @@ function App() {
   const handleLogin = async () => { try { await signInWithPopup(auth, provider); showToast("🎉 登入成功！"); } catch (e) { showToast("登入失敗"); } };
   const handleLogout = async () => { await signOut(auth); navigate('home'); showToast("已登出"); };
 
-  const displayVtubers = useMemo(() => { const list = [...realVtubers]; for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[list[i], list[j]] = [list[j], list[i]]; } return list; }, [realVtubers]);
+  // --- 修改後的程式碼 ---
+  const displayVtubers = useMemo(() => {
+    // 使用 getStableRandom 根據 ID 產生固定的隨機值進行排序
+    // 這樣只要瀏覽器沒重新整理，同一個 ID 的隨機權重就是固定的，不會因為資料更新而亂跳
+    return [...realVtubers].sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id));
+  }, [realVtubers.length]); // 僅在人數增減時重新排序，內容更新（如訂閱數改變）不觸發重排
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set();
     displayVtubers.filter(v => isVisible(v, user)).forEach(v => {
