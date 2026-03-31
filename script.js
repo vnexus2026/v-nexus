@@ -1517,7 +1517,7 @@ function App() {
     try {
       await addDoc(collection(db, getPath('notifications')), {
         userId: user.uid,
-        fromUserId: "system",
+        fromUserId: user.uid,
         fromUserName: "V-Nexus 測試員",
         fromUserAvatar: "https://duk.tw/u1jpPE.png",
         message: "🎉 測試推播發送成功！",
