@@ -1,7 +1,9 @@
 {
+  "id": "v-nexus-pwa",
   "name": "V-Nexus",
   "short_name": "V-Nexus",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f111a",
   "theme_color": "#a855f7",

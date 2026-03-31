@@ -1417,6 +1417,14 @@ function App() {
   const [selectedColor, setSelectedColor] = useState('All'); // 新增色系篩選狀態
   const [collabCategoryTab, setCollabCategoryTab] = useState('All');
   const [bulletinFilter, setBulletinFilter] = useState('All');
+  const [publicCollabForm, setPublicCollabForm] = useState({
+    dateTime: '',
+    title: '',
+    streamUrl: '',
+    coverUrl: '',
+    category: '遊戲',
+    participants: []
+  });
 
   const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
@@ -1437,19 +1445,22 @@ function App() {
   const handleEnableNotifications = async () => {
     if (!user) return showToast("請先登入");
 
-    if (!('serviceWorker' in navigator)) {
-      return showToast("您的瀏覽器不支援此功能");
+    // 檢查是否在 PWA 模式 (iOS 必備)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (!isStandalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      return showToast("請先點擊『分享』並『加入主畫面』後，從桌面開啟 App 才能啟動通知。");
     }
 
     try {
-      // 1. 註冊 Service Worker
+      showToast("正在註冊服務線程...");
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
 
-      // 2. 請求權限
+      showToast("正在請求系統通知權限...");
       const permission = await Notification.requestPermission();
 
       if (permission === 'granted') {
         const messaging = getMessaging(app);
+        // 取得 Token
         const token = await getToken(messaging, {
           vapidKey: 'BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU',
           serviceWorkerRegistration: registration
@@ -1457,20 +1468,18 @@ function App() {
 
         if (token) {
           await updateDoc(doc(db, getPath('vtubers'), user.uid), { fcmToken: token });
-          showToast("✅ 通知功能已成功啟動！");
+          showToast("✅ 成功！Token 已存入資料庫。");
+        } else {
+          showToast("❌ 無法取得 Token，請檢查 Firebase 設定。");
         }
       } else {
-        showToast("❌ 您拒絕了通知權限");
+        showToast("❌ 權限被拒絕。請至手機『設定 > 通知 > V-Nexus』開啟。");
       }
     } catch (err) {
       console.error("FCM Error:", err);
-      showToast("啟動失敗，請確保已『加入主畫面』後再試");
+      showToast("錯誤：" + err.message);
     }
   };
-  const [publicCollabForm, setPublicCollabForm] = useState({
-    dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲',
-    participants: [] // 確保這裡有寫這行
-  });
   const [pSearch, setPSearch] = useState(''); // 新增：搜尋框的文字狀態
 
 
@@ -1499,27 +1508,27 @@ function App() {
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
   const handleTestPushNotification = async () => {
     if (!user) return showToast("請先登入！");
-
-    // 檢查資料庫中是否有你的 Token
     const myData = realVtubers.find(v => v.id === user.uid);
     if (!myData?.fcmToken) {
-      return showToast("❌ 偵測不到您的推播 Token。請確保已『啟動手機推播通知』。");
+      return showToast("❌ 偵測不到 Token，請先點擊『啟動手機推播通知』");
     }
 
-    showToast("⏳ 正在發送測試推播...");
+    showToast("⏳ 正在發送測試...");
     try {
       await addDoc(collection(db, getPath('notifications')), {
         userId: user.uid,
         fromUserId: "system",
         fromUserName: "V-Nexus 測試員",
         fromUserAvatar: "https://duk.tw/u1jpPE.png",
-        message: "🎉 恭喜！您的手機推播功能已成功啟動！",
+        message: "🎉 測試推播發送成功！",
         createdAt: Date.now(),
         read: false
       });
-      showToast("✅ 測試指令已發出！");
+      showToast("✅ 指令已發出，請查看手機通知中心");
     } catch (err) {
-      showToast("❌ 發送失敗");
+      // 這裡會顯示具體的報錯，例如：Missing or insufficient permissions
+      console.error("Firestore Error:", err);
+      showToast("❌ 發送失敗：" + err.message);
     }
   };
 
@@ -2744,137 +2753,86 @@ function App() {
 
             {isVerifiedUser && (
               <div id="public-collab-form" className="hidden bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-8 shadow-2xl mb-10 animate-fade-in-up">
-
                 <h3 className="text-xl font-bold text-white mb-6 border-b border-gray-700 pb-3">發布新的聯動行程</h3>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                   <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動類別 <span className="text-red-400">*</span></label><select value={publicCollabForm.category} onChange={e => setPublicCollabForm({ ...publicCollabForm, category: e.target.value })} className={inputCls}>{COLLAB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
                   <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={publicCollabForm.dateTime} onChange={e => setPublicCollabForm({ ...publicCollabForm, dateTime: e.target.value })} className={inputCls} /></div>
-                  <div className="relative"><label className="text-sm
-font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span className="text-red-400">*</span></label><div className="flex gap-2"><input type="url" placeholder="https://..." value={publicCollabForm.streamUrl} onChange={e => setPublicCollabForm({ ...publicCollabForm, streamUrl: e.target.value })} className={inputCls} /><button type="button" onClick={() => autoFetchYouTubeInfo(publicCollabForm.streamUrl, (t) => setPublicCollabForm(p => ({ ...p, title: t })), (c) => setPublicCollabForm(p => ({ ...p, coverUrl: c })), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"><i className="fa-solid fa-wand-magic-sparkles"></i></button></div></div>
+                  <div className="relative"><label className="text-sm font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span className="text-red-400">*</span></label><div className="flex gap-2"><input type="url" placeholder="https://..." value={publicCollabForm.streamUrl} onChange={e => setPublicCollabForm({ ...publicCollabForm, streamUrl: e.target.value })} className={inputCls} /><button type="button" onClick={() => autoFetchYouTubeInfo(publicCollabForm.streamUrl, (t) => setPublicCollabForm(p => ({ ...p, title: t })), (c) => setPublicCollabForm(p => ({ ...p, coverUrl: c })), showToast)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"><i className="fa-solid fa-wand-magic-sparkles"></i></button></div></div>
                 </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                   <div><label className="text-sm font-bold text-gray-300 mb-2 block">聯動標題 <span className="text-red-400">*</span></label><input type="text" placeholder="輸入標題..." value={publicCollabForm.title} onChange={e => setPublicCollabForm({ ...publicCollabForm, title: e.target.value })} className={inputCls} /></div>
                   <div><label className="text-sm font-bold text-gray-300 mb-2 block">封面圖網址</label><input type="url" placeholder="自訂封面圖 (選填)..." value={publicCollabForm.coverUrl} onChange={e => setPublicCollabForm({ ...publicCollabForm, coverUrl: e.target.value })} className={inputCls} /></div>
-                  {/* --- 新增：成員搜尋與選擇區 --- */}
-                  {/* --- 搜尋成員區塊：請完整替換這整個 div --- */}
-                  <div className="col-span-1 md:col-span-2 bg-gray-900/80 p-4 rounded-2xl border border-purple-500/30 mt-2">
-                    <label className="block text-sm font-bold text-purple-400 mb-3">
-                      <i className="fa-solid fa-users-plus mr-2"></i> 加入聯動成員 (搜尋站內名片)
-                    </label>
-
-                    {/* 1. 顯示「已經選中」的人 (這部分要一直顯示) */}
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {(publicCollabForm.participants || []).map(uid => {
-                        const vt = realVtubers.find(v => v.id === uid);
-                        return vt ? (
-                          <div key={uid} className="flex items-center gap-2 bg-purple-600/20 border border-purple-500/50 px-2 py-1 rounded-lg">
-                            <img src={sanitizeUrl(vt.avatar)} className="w-5 h-5 rounded-full object-cover" />
-                            <span className="text-xs text-white font-bold">{vt.name}</span>
-                            <button type="button" onClick={() => setPublicCollabForm(p => ({ ...p, participants: p.participants.filter(id => id !== uid) }))} className="text-red-400 hover:text-red-300">
-                              <i className="fa-solid fa-xmark"></i>
-                            </button>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-
-                    {/* 2. 搜尋輸入框 */}
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="輸入成員名稱搜尋..."
-                        value={pSearch}
-                        onChange={e => setPSearch(e.target.value)}
-                        className={inputCls + " !bg-gray-800"}
-                      />
-
-                      {/* 3. 搜尋結果：只有當 pSearch 有文字時才顯示 (這就是解決名單全部跑出來的關鍵) */}
-                      {pSearch && (
-                        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-40 overflow-y-auto">
-                          {realVtubers
-                            .filter(v => {
-                              const vName = v.name || "";
-                              const currentParticipants = publicCollabForm.participants || [];
-                              return (
-                                v.isVerified &&
-                                vName.toLowerCase().includes(pSearch.toLowerCase()) &&
-                                !currentParticipants.includes(v.id) &&
-                                v.id !== user?.uid
-                              );
-                            })
-                            .map(v => (
-                              <div
-                                key={v.id}
-                                onClick={() => {
-                                  setPublicCollabForm(p => ({ ...p, participants: [...(p.participants || []), v.id] }));
-                                  setPSearch('');
-                                }}
-                                className="flex items-center gap-3 p-2 hover:bg-purple-600/20 cursor-pointer border-b border-gray-700 last:border-0"
-                              >
-                                <img src={sanitizeUrl(v.avatar)} className="w-8 h-8 rounded-full object-cover" />
-                                <span className="text-sm text-white">{v.name}</span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {/* --- 搜尋區結束 --- */}
                 </div>
 
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => {
+                {/* 搜尋成員區塊 */}
+                <div className="bg-gray-900/80 p-4 rounded-2xl border border-purple-500/30 mb-6">
+                  <label className="block text-sm font-bold text-purple-400 mb-3"><i className="fa-solid fa-users-plus mr-2"></i> 加入聯動成員 (搜尋站內名片)</label>
+
+                  {/* 已選中的成員 */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(publicCollabForm.participants || []).map(uid => {
+                      const vt = realVtubers.find(v => v.id === uid);
+                      return vt ? (
+                        <div key={uid} className="flex items-center gap-2 bg-purple-600/20 border border-purple-500/50 px-2 py-1 rounded-lg">
+                          <img src={sanitizeUrl(vt.avatar)} className="w-5 h-5 rounded-full object-cover" />
+                          <span className="text-xs text-white font-bold">{vt.name}</span>
+                          <button type="button" onClick={() => setPublicCollabForm(p => ({ ...p, participants: p.participants.filter(id => id !== uid) }))} className="text-red-400 hover:text-red-300"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+                      ) : null;
+                    })}
+                  </div>
+
+                  {/* 搜尋輸入框與結果 */}
+                  <div className="relative">
+                    <input type="text" placeholder="輸入成員名稱搜尋..." value={pSearch} onChange={e => setPSearch(e.target.value)} className={inputCls + " !bg-gray-800"} />
+                    {pSearch && (
+                      <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-40 overflow-y-auto">
+                        {realVtubers
+                          .filter(v => v.isVerified && (v.name || "").toLowerCase().includes(pSearch.toLowerCase()) && !(publicCollabForm.participants || []).includes(v.id) && v.id !== user?.uid)
+                          .map(v => (
+                            <div key={v.id} onClick={() => { setPublicCollabForm(p => ({ ...p, participants: [...(p.participants || []), v.id] })); setPSearch(''); }} className="flex items-center gap-3 p-2 hover:bg-purple-600/20 cursor-pointer border-b border-gray-700 last:border-0">
+                              <img src={sanitizeUrl(v.avatar)} className="w-8 h-8 rounded-full object-cover" />
+                              <span className="text-sm text-white">{v.name}</span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button onClick={async () => {
                     if (!publicCollabForm.dateTime || !publicCollabForm.streamUrl || !publicCollabForm.title) return showToast("請完整填寫必填欄位！");
                     const dt = new Date(publicCollabForm.dateTime);
                     if (dt.getTime() < Date.now()) return showToast("聯動時間不能在過去哦！");
-                    const newCollabData = { ...publicCollabForm, date: `${dt.getMonth() + 1}/${dt.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`, startTimestamp: dt.getTime() };
-                    const addCollabToDb = async () => {
-                      try {
-                        // 找到這一段並修改
-                        const docRef = await addDoc(collection(db, getPath('collabs')), {
-                          ...newCollabData,
-                          userId: user.uid,
-                          participants: publicCollabForm.participants || [],
-                          reminderSent: false, // <--- 務必加入這一行，標記為尚未發送提醒
-                          createdAt: Date.now()
-                        });
-                        // 在 addDoc 成功後，對所有參與者發送通知
-                        publicCollabForm.participants.forEach(async (pId) => {
-                          const target = realVtubers.find(v => v.id === pId);
-                          if (!target) return;
+                    const newCollabData = { ...publicCollabForm, date: `${dt.getMonth() + 1}/${dt.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`, startTimestamp: dt.getTime(), reminderSent: false };
 
-                          // 1. 發送站內信通知
-                          // 修改通知發送的部分：
-                          await addDoc(collection(db, getPath('notifications')), {
-                            userId: pId,
-                            fromUserId: user.uid,
-                            fromUserName: myProfile?.name || user.displayName || "系統", // <-- 加入安全讀取
-                            fromUserAvatar: myProfile?.avatar || user.photoURL, // <-- 加入安全讀取
-                            message: `您已被加入聯動行程：【${publicCollabForm.title}】！時間：${newCollabData.date} ${newCollabData.time}。`,
-                            createdAt: Date.now(),
-                            read: false
+                    try {
+                      const docRef = await addDoc(collection(db, getPath('collabs')), { ...newCollabData, userId: user.uid, createdAt: Date.now() });
+
+                      // 發送通知給參與者
+                      publicCollabForm.participants.forEach(async (pId) => {
+                        const target = realVtubers.find(v => v.id === pId);
+                        if (!target) return;
+                        await addDoc(collection(db, getPath('notifications')), {
+                          userId: pId, fromUserId: user.uid, fromUserName: myProfile?.name || "系統", fromUserAvatar: myProfile?.avatar,
+                          message: `您已被加入聯動行程：【${publicCollabForm.title}】！`, createdAt: Date.now(), read: false
+                        });
+                        if (target.publicEmail) {
+                          await addDoc(collection(db, getPath('mail')), {
+                            to: target.publicEmail,
+                            message: { subject: `[V-Nexus] 聯動行程通知`, text: `您好 ${target.name}！\n\n「${myProfile?.name}」已將您加入聯動行程：${publicCollabForm.title}` }
                           });
+                        }
+                      });
 
-                          // 2. 立即發送一封「確認信」到對方的 Email
-                          const email = target.publicEmail || privateDocs[pId]?.contactEmail;
-                          if (email) {
-                            await addDoc(collection(db, getPath('mail')), {
-                              to: email,
-                              message: {
-                                subject: `[V-Nexus] 聯動行程通知：${publicCollabForm.title}`,
-                                text: `您好 ${target.name}！\n\n「${myProfile?.name}」已將您加入聯動行程：\n標題：${publicCollabForm.title}\n時間：${newCollabData.date} ${newCollabData.time}\n\n請記得準時參加喔！\n\n(系統將於聯動前兩天再次發信提醒您)`
-                              }
-                            });
-                          }
-                        });
-                        setRealCollabs(prev => [...prev, { id: docRef.id, ...newCollabData, userId: user.uid, participants: publicCollabForm.participants || [], reminderSent: false }]);
-
-                        showToast("✅ 已發布聯動行程！");
-                        setPublicCollabForm({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲', participants: [] }); // 重置參與者
-                        document.getElementById('public-collab-form').classList.add('hidden');
-                      } catch (err) { showToast("發布失敗"); }
-                    };
-                    addCollabToDb();
+                      setRealCollabs(prev => [...prev, { id: docRef.id, ...newCollabData, userId: user.uid }]);
+                      showToast("✅ 已發布聯動行程！");
+                      setPublicCollabForm({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲', participants: [] });
+                      document.getElementById('public-collab-form').classList.add('hidden');
+                    } catch (err) { showToast("發布失敗"); }
                   }} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">送出發布</button>
                 </div>
               </div>
@@ -2883,7 +2841,27 @@ font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span classNa
             <div className="flex gap-4 mb-8">
               {['All', ...COLLAB_CATEGORIES].map(cat => <button key={cat} onClick={() => setCollabCategoryTab(cat)} className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${collabCategoryTab === cat ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>{cat === 'All' ? '全部' : cat}</button>)}
             </div>
-            {filteredDisplayCollabs.length === 0 ? <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-700"><p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-4xl block"></i>目前沒有即將到來的聯動行程</p></div> : <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">{filteredDisplayCollabs.map(c => <CollabCard key={c.id} c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)} isAdmin={isAdmin} user={user} onDeleteCollab={handleDeleteCollab} vtuber={realVtubers.find(v => v.id === c.userId)} realVtubers={realVtubers} onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }} onShowParticipants={(collab) => setViewParticipantsCollab(collab)} />)}</div>}
+
+            {filteredDisplayCollabs.length === 0 ? (
+              <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-700"><p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-4xl block"></i>目前沒有即將到來的聯動行程</p></div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                {filteredDisplayCollabs.map(c => (
+                  <CollabCard
+                    key={c.id}
+                    c={c}
+                    isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)}
+                    isAdmin={isAdmin}
+                    user={user}
+                    onDeleteCollab={handleDeleteCollab}
+                    vtuber={realVtubers.find(v => v.id === c.userId)}
+                    realVtubers={realVtubers}
+                    onShowParticipants={(collab) => setViewParticipantsCollab(collab)}
+                    onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -3075,7 +3053,8 @@ font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span classNa
               </button>
             </div>
             <div className="p-4 overflow-y-auto space-y-3">
-              {viewParticipantsCollab.participants.map(pId => {
+
+              {(viewParticipantsCollab.participants || []).map(pId => {
                 const vt = realVtubers.find(v => v.id === pId);
                 if (!vt) return null;
                 return (
