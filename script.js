@@ -1590,7 +1590,11 @@ function App() {
   }, [realBulletins, realVtubers, currentTime]);
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then(reg => console.log('SW 註冊成功:', reg.scope))
+        .catch(err => console.log('SW 註冊失敗:', err));
+    });
   }
   // 在 App() 的 useEffect 內加入
   useEffect(() => {
@@ -2163,61 +2167,60 @@ function App() {
         category: "系統測試",
         createdAt: Date.now()
       };
-      // --- 修正後的測試推播函式 ---
       const handleTestPushNotification = async () => {
         if (!user) return showToast("請先登入");
 
         try {
-          // 1. 檢查瀏覽器是否支援 Service Worker 與 Notification
-          if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-            alert("❌ 錯誤：您的瀏覽器完全不支援桌面通知功能！");
+          // 1. 基本支援檢查
+          if (!('serviceWorker' in navigator)) {
+            alert("❌ 您的瀏覽器不支援 Service Worker，無法發送通知。");
             return;
           }
 
-          // 2. 檢查並要求權限
+          // 2. 請求權限 (這在電腦與手機都通用)
           let currentPerm = Notification.permission;
-          if (currentPerm !== "granted") {
+          if (currentPerm === "default") {
             currentPerm = await Notification.requestPermission();
           }
 
-          // 3. 根據權限狀態執行
-          if (currentPerm === "granted") {
-            // --- 核心修正：改用 Service Worker 註冊對象來顯示通知 ---
-            // 取得目前準備就緒的 Service Worker
-            const registration = await navigator.serviceWorker.ready;
-
-            if (registration) {
-              // 在 Android 上，必須使用 registration.showNotification
-              await registration.showNotification("V-Nexus 系統測試", {
-                body: "太棒了！您的 Android 設備成功收到通知啦！🎉",
-                icon: "https://duk.tw/u1jpPE.png",
-                badge: "https://duk.tw/u1jpPE.png", // Android 選單上方的小圖示
-                vibrate: [200, 100, 200] // 震動測試
-              });
-              alert("✅ 系統已透過 Service Worker 發送通知！");
-            } else {
-              alert("❌ 找不到 Service Worker 註冊資訊，請確認網站是否已正確啟動。");
-            }
-
-          } else if (currentPerm === "denied") {
-            alert("❌ 錯誤：通知權限被「拒絕」了！請到手機瀏覽器設定中改為「允許」。");
+          if (currentPerm !== "granted") {
+            alert("❌ 通知權限未開啟 (目前狀態: " + currentPerm + ")。請在瀏覽器設定中允許通知。");
+            return;
           }
 
-          // 原本寫入資料庫的邏輯保留
+          // 3. 核心修正：完全不使用 new Notification()
+          // 取得註冊好的 Service Worker
+          const registration = await navigator.serviceWorker.ready;
+
+          if (registration) {
+            // 這是電腦版與 Android 版通用的標準語法
+            await registration.showNotification("V-Nexus 系統測試", {
+              body: "🎉 恭喜！通知功能已成功啟動！(此方式相容電腦與手機)",
+              icon: "https://duk.tw/u1jpPE.png",
+              badge: "https://duk.tw/u1jpPE.png",
+              vibrate: [200, 100, 200],
+              tag: "v-nexus-test", // 標籤可以防止重複彈出
+              renotify: true
+            });
+            showToast("✅ 測試通知已發送！");
+          } else {
+            alert("❌ 找不到運作中的 Service Worker。");
+          }
+
+          // 4. 寫入資料庫 (原本的邏輯)
           await addDoc(collection(db, getPath('notifications')), {
             userId: user.uid,
             fromUserId: user.uid,
             fromUserName: "V-Nexus 系統測試",
             type: "system",
-            message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
+            message: "這是一則測試推播通知！",
             isRead: false,
             createdAt: Date.now()
           });
-          showToast("✅ 測試指令已發出！");
 
         } catch (err) {
-          console.error("Test notification error:", err);
-          alert("❌ 程式發生錯誤: " + err.message);
+          console.error("Notification Error:", err);
+          alert("❌ 發生錯誤: " + err.message);
         }
       };
 
