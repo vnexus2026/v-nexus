@@ -2501,7 +2501,7 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen relative">
-      {toastMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] animate-slide-down flex items-center gap-3 font-bold text-sm"><i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}</div>}
+      {toastMsg && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center gap-3 font-bold text-sm"><i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}</div>}
 
       <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0f111a]/95 border-b border-gray-800 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -3046,11 +3046,38 @@ function App() {
 
       {/* 規範 Modal */}
       {isRulesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in-up" onClick={() => setIsRulesModalOpen(false)}>
-          <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-red-900/30 p-5 border-b border-red-900/50 flex justify-between items-center"><h3 className="text-xl font-bold text-red-400 flex items-center gap-2"><i className="fa-solid fa-triangle-exclamation"></i> 聯動規範</h3><button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar"><div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm">{realRules}</div></div>
-            <div className="p-4 border-t border-gray-800 text-center"><button onClick={() => setIsRulesModalOpen(false)} className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto">我了解了</button></div>
+        /* 這裡移除了 backdrop-blur-sm 和 animate-fade-in-up */
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setIsRulesModalOpen(false)}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-red-900/30 p-5 border-b border-red-900/50 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-red-400 flex items-center gap-2">
+                <i className="fa-solid fa-triangle-exclamation"></i> 聯動規範
+              </h3>
+              <button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-white">
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm">
+                {realRules}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-800 text-center">
+              <button
+                onClick={() => setIsRulesModalOpen(false)}
+                className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto"
+              >
+                我了解了
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3070,20 +3097,47 @@ function App() {
 
       {/* 最新消息 Modal */}
       {isUpdatesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in-up" onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }}>
-          <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-            <div className="bg-blue-900/30 p-5 border-b border-blue-900/50 flex justify-between items-center"><h3 className="text-xl font-bold text-blue-400 flex items-center gap-2"><i className="fa-solid fa-bullhorn"></i> 最新消息與功能發布</h3><button onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
-              {realUpdates.length === 0 ? <p className="text-center text-gray-500">目前沒有新消息。</p> : realUpdates.map(u => (
-                <div key={u.id} className="relative">
-                  {!readUpdateIds.includes(u.id) && <span className="absolute -left-2 top-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}
-                  <h4 className="font-bold text-white text-lg mb-1">{u.title}</h4>
-                  <p className="text-xs text-blue-400 mb-2 font-mono">{u.date}</p>
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{u.content}</p>
-                </div>
-              ))}
+        /* 移除 backdrop-blur-sm 與 animate-fade-in-up */
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-blue-900/30 p-5 border-b border-blue-900/50 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-blue-400 flex items-center gap-2">
+                <i className="fa-solid fa-bullhorn"></i> 最新消息與功能發布
+              </h3>
+              <button onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }} className="text-gray-400 hover:text-white">
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
             </div>
-            <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center"><button onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg">知道了</button></div>
+
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
+              {realUpdates.length === 0 ? (
+                <p className="text-center text-gray-500">目前沒有新消息。</p>
+              ) : (
+                realUpdates.map(u => (
+                  <div key={u.id} className="relative">
+                    {!readUpdateIds.includes(u.id) && <span className="absolute -left-2 top-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}
+                    <h4 className="font-bold text-white text-lg mb-1">{u.title}</h4>
+                    <p className="text-xs text-blue-400 mb-2 font-mono">{u.date}</p>
+                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{u.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center">
+              <button
+                onClick={() => { setIsUpdatesModalOpen(false); handleMarkAllUpdatesRead(); }}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg"
+              >
+                知道了
+              </button>
+            </div>
           </div>
         </div>
       )}
