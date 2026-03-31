@@ -1618,6 +1618,19 @@ function App() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => { setUser(u); setProfileForm(getEmptyProfile(u?.uid)); });
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+
+    // ▼▼▼ 補上這段前景推播監聽 ▼▼▼
+    try {
+      const messaging = getMessaging(app);
+      onMessage(messaging, (payload) => {
+        console.log('收到前景推播:', payload);
+        showToast(`🔔 收到新通知: ${payload.notification?.title || payload.data?.title || '您有新訊息'}`);
+      });
+    } catch (e) {
+      console.warn("目前環境尚未啟用 Messaging", e);
+    }
+    // ▲▲▲ 補上這段前景推播監聽 ▲▲▲
+
     return () => { unsubscribeAuth(); clearInterval(timer); };
   }, []);
 
