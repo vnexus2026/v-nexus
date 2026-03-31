@@ -57,7 +57,7 @@ const sanitizeUrl = (url) => {
 
 const PREDEFINED_COLLABS = ['APEX', '瓦羅蘭', 'LOL', 'FPS', 'Minecraft', '合作遊戲', '企劃', '歌回', '雜談'];
 const COLLAB_CATEGORIES = ['遊戲', '雜談歌回', '特別企劃'];
-const COLOR_OPTIONS = ['紅', '橙', '黃', '綠', '藍', '紫', '灰', '黑', '白', '粉']; // 新增色系選項
+const COLOR_OPTIONS = ['紅', '橙', '黃', '綠', '藍', '靛', '紫', '灰', '黑', '白', '粉', '棕']; // 新增色系選項
 const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-sm";
 const btnCls = "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
 
@@ -1778,17 +1778,17 @@ function App() {
   useEffect(() => {
     if (user && user.uid) {
       getDoc(doc(db, getPath('vtubers_private'), user.uid)).then(docSnap => {
-  if (docSnap.exists()) {
-    const pData = docSnap.data();
-    setProfileForm(prev => ({ 
-      ...prev, 
-      contactEmail: pData.contactEmail || '', 
-      verificationNote: pData.verificationNote || '',
-      publicEmail: pData.publicEmail || '', // 【安全升級】從私密庫讀取
-      publicEmailVerified: pData.publicEmailVerified || false
-    }));
-  }
-}).catch(err => console.error(err));
+        if (docSnap.exists()) {
+          const pData = docSnap.data();
+          setProfileForm(prev => ({
+            ...prev,
+            contactEmail: pData.contactEmail || '',
+            verificationNote: pData.verificationNote || '',
+            publicEmail: pData.publicEmail || '', // 【安全升級】從私密庫讀取
+            publicEmailVerified: pData.publicEmailVerified || false
+          }));
+        }
+      }).catch(err => console.error(err));
       updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(() => { });
     }
   }, [user?.uid]);
@@ -2707,7 +2707,7 @@ function App() {
                         <div className="flex flex-wrap gap-3 mt-4 text-sm">
                           <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                           {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
-            
+
                           {(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) ? <a href={sanitizeUrl(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl)} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube{(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}</a> : ((selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) ? <span className="bg-red-500/5 text-red-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube<span className="ml-1 px-2 py-0.5 bg-red-500/10 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span></span> : null)}
                           {selectedVTuber.twitchUrl ? <a href={sanitizeUrl(selectedVTuber.twitchUrl)} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch{(selectedVTuber.twitchFollowers) && <span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.twitchFollowers}</span>}</a> : selectedVTuber.twitchFollowers ? <span className="bg-purple-500/5 text-purple-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch<span className="ml-1 px-2 py-0.5 bg-purple-500/10 rounded text-xs">{selectedVTuber.twitchFollowers}</span></span> : null}
                           {selectedVTuber.xUrl && <a href={sanitizeUrl(selectedVTuber.xUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
@@ -2715,7 +2715,7 @@ function App() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                       {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleOpenCollabModal(selectedVTuber)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-envelope-open-text mr-2"></i>發送站內信邀約</button>}
+                        {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleOpenCollabModal(selectedVTuber)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-envelope-open-text mr-2"></i>發送站內信邀約</button>}
                         {selectedVTuber.streamStyleUrl && <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看直播風格</a>}
                       </div>
                     </div>
