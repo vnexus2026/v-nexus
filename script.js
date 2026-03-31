@@ -1778,8 +1778,17 @@ function App() {
   useEffect(() => {
     if (user && user.uid) {
       getDoc(doc(db, getPath('vtubers_private'), user.uid)).then(docSnap => {
-        if (docSnap.exists()) setProfileForm(prev => ({ ...prev, contactEmail: docSnap.data().contactEmail || '', verificationNote: docSnap.data().verificationNote || '' }));
-      }).catch(err => console.error(err));
+  if (docSnap.exists()) {
+    const pData = docSnap.data();
+    setProfileForm(prev => ({ 
+      ...prev, 
+      contactEmail: pData.contactEmail || '', 
+      verificationNote: pData.verificationNote || '',
+      publicEmail: pData.publicEmail || '', // 【安全升級】從私密庫讀取
+      publicEmailVerified: pData.publicEmailVerified || false
+    }));
+  }
+}).catch(err => console.error(err));
       updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(() => { });
     }
   }, [user?.uid]);
@@ -1951,7 +1960,7 @@ function App() {
         nationalities: finalNats, languages: finalLangs, personalityType: finalPersonality || '', colorSchemes: customForm.colorSchemes || [], // 儲存色系
         isScheduleAnytime: customForm.isScheduleAnytime, isScheduleExcept: customForm.isScheduleExcept, isScheduleCustom: customForm.isScheduleCustom, customScheduleText: customForm.customScheduleText,
         scheduleSlots: customForm.scheduleSlots, mainPlatform: customForm.mainPlatform, youtubeSubscribers: customForm.youtubeSubscribers, lastYoutubeFetchTime: customForm.lastYoutubeFetchTime || 0, twitchFollowers: customForm.twitchFollowers, lastTwitchFetchTime: customForm.lastTwitchFetchTime || 0, youtubeUrl: customForm.youtubeUrl, twitchUrl: customForm.twitchUrl, xUrl: customForm.xUrl, igUrl: customForm.igUrl, streamStyleUrl: customForm.streamStyleUrl, avatar: customForm.avatar, banner: customForm.banner, activityStatus: customForm.activityStatus,
-        publicEmail: customForm.publicEmail || '', publicEmailVerified: customForm.publicEmailVerified || false, likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
+        likes: customForm.likes || 0, likedBy: customForm.likedBy || [], dislikes: customForm.dislikes || 0, dislikedBy: customForm.dislikedBy || [], status: customForm.status || '歡迎邀請', lastActiveAt: Date.now(), updatedAt: Date.now()
       };
 
       if (!existingProfile || existingProfile.verificationStatus === 'rejected') { publicData.isVerified = false; publicData.isBlacklisted = false; publicData.verificationStatus = 'pending'; publicData.showVerificationModal = null; }
@@ -2698,7 +2707,7 @@ function App() {
                         <div className="flex flex-wrap gap-3 mt-4 text-sm">
                           <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null} className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-up"></i> {selectedVTuber.likes || 0} 推薦</button>
                           {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleInitiateDislike(selectedVTuber)} className="bg-red-500/10 border border-red-500/30 text-red-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold"><i className="fa-solid fa-thumbs-down"></i> {selectedVTuber.dislikes || 0}</button>}
-                          {isVerifiedUser && selectedVTuber.publicEmail && <a href={sanitizeUrl(`mailto:${selectedVTuber.publicEmail}`)} className="bg-gray-700/50 text-gray-300 hover:bg-gray-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5"><i className="fa-solid fa-envelope text-yellow-400"></i> 直接寄信{selectedVTuber.publicEmailVerified && <i className="fa-solid fa-circle-check text-green-400 ml-0.5" title="信箱已認證"></i>}</a>}
+            
                           {(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl) ? <a href={sanitizeUrl(selectedVTuber.youtubeUrl || selectedVTuber.channelUrl)} target="_blank" rel="noopener noreferrer" className="bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube{(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span>}</a> : ((selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) ? <span className="bg-red-500/5 text-red-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-youtube"></i> YouTube<span className="ml-1 px-2 py-0.5 bg-red-500/10 rounded text-xs">{selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers}</span></span> : null)}
                           {selectedVTuber.twitchUrl ? <a href={sanitizeUrl(selectedVTuber.twitchUrl)} target="_blank" rel="noopener noreferrer" className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch{(selectedVTuber.twitchFollowers) && <span className="ml-1 px-2 py-0.5 bg-purple-500/20 rounded text-xs">{selectedVTuber.twitchFollowers}</span>}</a> : selectedVTuber.twitchFollowers ? <span className="bg-purple-500/5 text-purple-400/80 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5"><i className="fa-brands fa-twitch"></i> Twitch<span className="ml-1 px-2 py-0.5 bg-purple-500/10 rounded text-xs">{selectedVTuber.twitchFollowers}</span></span> : null}
                           {selectedVTuber.xUrl && <a href={sanitizeUrl(selectedVTuber.xUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg font-bold"><i className="fa-brands fa-x-twitter"></i> X</a>}
@@ -2706,7 +2715,7 @@ function App() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                        {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleOpenCollabModal(selectedVTuber)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-paper-plane mr-2"></i>發送站內邀約</button>}
+                       {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleOpenCollabModal(selectedVTuber)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-envelope-open-text mr-2"></i>發送站內信邀約</button>}
                         {selectedVTuber.streamStyleUrl && <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看直播風格</a>}
                       </div>
                     </div>
