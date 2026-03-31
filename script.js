@@ -900,7 +900,7 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
   );
 };
 
-const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavigateProfile, onBraveResponse }) => {
+const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDeleteAll, onNavigateProfile, onBraveResponse }) => {
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   const totalPages = Math.ceil(notifications.length / itemsPerPage);
@@ -912,7 +912,10 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onNavig
     <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-gray-700 pb-4 gap-4">
         <div><h2 className="text-3xl font-extrabold text-white flex items-center gap-3"><i className="fa-solid fa-envelope-open-text text-purple-400"></i> 我的信箱</h2><p className="text-gray-400 mt-2 text-sm">您的專屬通知中心</p></div>
-        {notifications.some(n => !n.read) && <button onClick={markAllAsRead} className="text-sm font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-4 py-2 rounded-xl"><i className="fa-solid fa-check-double mr-1"></i> 全部標示為已讀</button>}
+        <div className="flex flex-wrap gap-2">
+          {notifications.some(n => !n.read) && <button onClick={markAllAsRead} className="text-sm font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-4 py-2 rounded-xl"><i className="fa-solid fa-check-double mr-1"></i> 全部標示為已讀</button>}
+          {notifications.length > 0 && <button onClick={onDeleteAll} className="text-sm font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl"><i className="fa-solid fa-trash-can mr-1"></i> 一鍵刪除全部</button>}
+        </div>
       </div>
       {notifications.length === 0 ? (
         <div className="text-center py-24 bg-gray-800/40 rounded-3xl border border-gray-700/50 shadow-xl"><i className="fa-regular fa-envelope-open text-6xl text-gray-600 mb-6"></i><p className="text-gray-400 font-bold text-lg">信箱目前空空如也！</p></div>
@@ -1808,6 +1811,19 @@ function App() {
   const handleMarkNotifRead = async (id) => { try { await updateDoc(doc(db, getPath('notifications'), id), { read: true }); } catch (err) { } };
   const handleDeleteNotif = async (id) => { if (!confirm("確定要刪除這則通知嗎？")) return; try { await deleteDoc(doc(db, getPath('notifications'), id)); showToast("✅ 已刪除通知"); } catch (err) { showToast("刪除失敗"); } };
 
+  const handleDeleteAllNotifs = async () => {
+    if (myNotifications.length === 0) return showToast("信箱已經是空的囉！");
+    if (!confirm("確定要刪除全部信件嗎？此動作無法復原！")) return;
+    try {
+      showToast("⏳ 正在清空信箱...");
+      await Promise.all(myNotifications.map(n => deleteDoc(doc(db, getPath('notifications'), n.id))));
+      showToast("✅ 已成功清空所有信件！");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 刪除失敗，請稍後再試。");
+    }
+  };
+
   const handleBraveInvite = async (target) => {
     if (!user) return showToast("請先登入！");
     if (!isVerifiedUser) return showToast("需通過認證才能發送邀請！");
@@ -2566,7 +2582,7 @@ function App() {
       <main className="flex-1 pb-10">
         {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} realBulletins={realBulletins} />}
 
-        {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
+        {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onDeleteAll={handleDeleteAllNotifs} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
 
         {currentView === 'dashboard' && (
           <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
