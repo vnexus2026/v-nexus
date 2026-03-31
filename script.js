@@ -1469,6 +1469,7 @@ function App() {
         if (token) {
           await updateDoc(doc(db, getPath('vtubers'), user.uid), { fcmToken: token });
           showToast("✅ 成功！Token 已存入資料庫。");
+          prompt("成功！這是您的推播 Token，請完整複製：", currentToken);
         } else {
           showToast("❌ 無法取得 Token，請檢查 Firebase 設定。");
         }
