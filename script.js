@@ -683,7 +683,7 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
             value={form.name}
             onChange={e => updateForm({ name: e.target.value })}
             className={inputCls}
-            placeholder="請輸入您的藝名"
+            placeholder="請輸入您的名稱"
           />
         </div>
 
