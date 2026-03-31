@@ -959,7 +959,7 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDelet
   );
 };
 
-const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [] }) => {
+const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants }) => {
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
   const completedCollabsCount = safeBulletins.filter(b => {
     let targetSize = 0;
@@ -1021,7 +1021,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 vtuber={realVtubers.find(v => v.id === c.userId)}
                 realVtubers={realVtubers} // <-- 補上這一行
                 onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }}
-                onShowParticipants={(collab) => setViewParticipantsCollab(collab)}
+                onShowParticipants={onShowParticipants}
               />
             ))}
           </div>
@@ -2580,7 +2580,7 @@ function App() {
       </nav>
 
       <main className="flex-1 pb-10">
-        {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} realBulletins={realBulletins} />}
+        {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} realBulletins={realBulletins} onShowParticipants={(collab) => setViewParticipantsCollab(collab)} />}
 
         {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onDeleteAll={handleDeleteAllNotifs} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
 
