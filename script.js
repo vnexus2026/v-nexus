@@ -852,12 +852,40 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
       <div className="grid grid-cols-1 gap-6 pt-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e => updateForm({ streamStyleUrl: e.target.value })} className={inputCls} placeholder="填入影片連結" /></div></div>
 
       {!isAdmin && (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-          <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span></h3>
-          <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
-          <input required type="text" value={form.verificationNote || ''} onChange={e => updateForm({ verificationNote: e.target.value })} className={inputCls} placeholder="您的驗證方式為...(請填入Youtube或X，此資料保密)" />
-        </div>
-      )}
+  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
+    <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2">
+      <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span>
+    </h3>
+    <p className="text-xs text-gray-300 mb-4">
+      請將「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」字樣放入X或Youtube簡介中，審核通過即可移除。<br/>
+      <span className="text-yellow-400 font-bold">請在下方輸入您放入的平台，比如 X 或 YT</span>
+    </p>
+    <input 
+      required 
+      type="text" 
+      value={form.verificationNote || ''} 
+      placeholder="請輸入 X 或 YT"
+      onChange={(e) => {
+        // 自動將輸入轉為大寫，方便比對
+        const val = e.target.value.toUpperCase();
+        const targets = ["X", "YT"];
+        
+        // 檢查輸入是否為空，或是 "X" 或 "YT" 的開頭一部分
+        // 例如：輸入 "Y" (是 YT 的開頭)，輸入 "YT" (符合)
+        const isPrefix = targets.some(t => t.startsWith(val));
+
+        if (val === "" || isPrefix) {
+          // 如果符合 X 或 YT 的輸入過程，更新資料
+          updateForm({ verificationNote: val });
+        } else {
+          // 只要輸入的字不符合目標字串，就跳警告並維持原本內容
+          alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
+        }
+      }} 
+      className={inputCls} 
+    />
+  </div>
+)}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
@@ -1906,18 +1934,21 @@ function App() {
 
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
-    // 建立一個偽隨機函數，會根據 shuffleSeed 的變化來計算新的排序
-    const seededRandom = (id) => {
+    // 建立一個基於 id 和 shuffleSeed 的確定性隨機函數
+    // 這樣相同的 id + 相同的 seed 永遠會得到相同的排序權重
+    const getDeterministicOrder = (id) => {
       let hash = 0;
       const str = id + shuffleSeed.toString();
       for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash |= 0; // 轉換為 32bit 整數
       }
-      return Math.abs(hash) / 2147483647;
+      return hash;
     };
 
-    return [...realVtubers].sort(() => Math.random() - 0.5);
+    return [...realVtubers].sort((a, b) => {
+      return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
+    });
   }, [realVtubers, shuffleSeed]);
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set();
@@ -1987,7 +2018,14 @@ function App() {
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault(); if (!user) return showToast("請先登入！");
 
-    if (!isAdmin && (!customForm.verificationNote || !customForm.verificationNote.trim())) return showToast("請填寫真人身分驗證方式！");
+  // 在 handleSaveProfile 函數內搜尋關於 verificationNote 的檢查區塊
+if (!isAdmin) {
+  const note = (customForm.verificationNote || "").toUpperCase();
+  if (note !== "X" && note !== "YT") {
+    alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
+    return; // 攔截，不允許儲存
+  }
+}
     if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
 
     let finalCollabs = [...(customForm.collabTypes || [])]; if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) finalCollabs.push(customForm.otherCollabText.trim());
