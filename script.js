@@ -1456,14 +1456,32 @@ function App() {
   // --- 手動啟動通知函式 ---
   const handleEnableNotifications = async () => {
     if (!user) return showToast("請先登入");
-
-    // 檢查是否在 PWA 模式 (iOS 必備)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (!isStandalone && /iPhone|iPad|iPod/.test(navigator.userAgent)) {
-      return showToast("請先點擊『分享』並『加入主畫面』後，從桌面開啟 App 才能啟動通知。");
+    try {
+      showToast("⏳ 正在啟動推播系統...");
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟。");
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const messaging = getMessaging(app);
+      const currentToken = await getToken(messaging, {
+        serviceWorkerRegistration: registration,
+        vapidKey: "BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU"
+      });
+      if (currentToken) {
+        await updateDoc(doc(db, getPath('vtubers'), user.uid), {
+          fcmToken: currentToken,
+          notificationsEnabled: true
+        });
+        showToast("✅ 手機推播已成功啟動！");
+        alert("🎉 恭喜！您的設備已成功綁定推播功能。");
+      } else {
+        alert("❌ 無法取得 Token，請確認您的瀏覽器支援推播。");
+      }
+    } catch (err) {
+      console.error("啟動推播失敗:", err);
+      alert("❌ 啟動失敗: " + err.message);
     }
-
-    BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF - DMwInoa - XU
   };
   const [pSearch, setPSearch] = useState(''); // 新增：搜尋框的文字狀態
 
@@ -1492,57 +1510,32 @@ function App() {
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
   const handleTestPushNotification = async () => {
-    if (!user) return;
+    if (!user) return showToast("請先登入！");
+    showToast("⏳ 正在發送測試推播...");
     try {
-      // 1. 檢查瀏覽器是否支援通知 API
-      if (!("Notification" in window)) {
-        alert("❌ 錯誤：您的瀏覽器完全不支援桌面通知功能！");
-        return;
+      // 1. 先嘗試本地顯示 (確保 Service Worker 運作中)
+      const registration = await navigator.serviceWorker.ready;
+      if (registration) {
+        await registration.showNotification("V-Nexus 系統測試", {
+          body: "🎉 恭喜！您的設備已成功接收到通知！",
+          icon: "https://duk.tw/u1jpPE.png",
+          badge: "https://duk.tw/u1jpPE.png",
+          vibrate: [200, 100, 200]
+        });
       }
-
-      // 2. 檢查並要求權限
-      let currentPerm = Notification.permission;
-      if (currentPerm !== "granted") {
-        currentPerm = await Notification.requestPermission();
-      }
-
-      // 3. 根據權限狀態執行 (修正版：相容 Android 與 Windows)
-      if (currentPerm === "granted") {
-        // 取得 Service Worker 註冊對象
-        const registration = await navigator.serviceWorker.ready;
-        if (registration) {
-          // 使用 showNotification 替代 new Notification
-          await registration.showNotification("V-Nexus 系統測試", {
-            body: "太棒了！您的設備成功收到通知啦！🎉",
-            icon: "https://duk.tw/u1jpPE.png",
-            badge: "https://duk.tw/u1jpPE.png",
-            vibrate: [200, 100, 200],
-            tag: "v-nexus-test",
-            renotify: true
-          });
-          alert("✅ 系統已透過 Service Worker 發送通知！");
-        } else {
-          alert("❌ 找不到 Service Worker 註冊資訊。");
-        }
-      } else if (currentPerm === "denied") {
-        alert("❌ 錯誤：通知權限被「拒絕」了！請點擊網址列左邊的鎖頭圖示，將通知改為「允許」。");
-      }
-
-      // 寫入資料庫的原本邏輯
+      // 2. 寫入通知資料庫 (這會觸發後端 Cloud Functions 發送真正的 FCM 推播)
       await addDoc(collection(db, getPath('notifications')), {
         userId: user.uid,
-        fromUserId: user.uid,
-        fromUserName: "V-Nexus 系統測試",
-        type: "system",
-        message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
-        isRead: false,
-        createdAt: Date.now()
+        fromUserId: "system",
+        fromUserName: "V-Nexus 測試員",
+        fromUserAvatar: "https://duk.tw/u1jpPE.png",
+        message: "🎉 恭喜！您的手機推播功能已成功啟動！",
+        createdAt: Date.now(),
+        read: false
       });
       showToast("✅ 測試指令已發出！");
-
     } catch (err) {
-      console.error("Test notification error:", err);
-      alert("❌ 程式發生錯誤: " + err.message);
+      showToast("❌ 發送失敗：" + err.message);
     }
   };
 
@@ -1646,6 +1639,12 @@ function App() {
   }, [notifRef]);
 
   useEffect(() => {
+    // 註冊 Service Worker (推播必備)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then(reg => console.log('SW 註冊成功:', reg.scope))
+        .catch(err => console.error('SW 註冊失敗:', err));
+    }
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => { setUser(u); setProfileForm(getEmptyProfile(u?.uid)); });
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
 
