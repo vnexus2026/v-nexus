@@ -3,7 +3,8 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
+// --- 務必確認這行有在頂部 ---
+import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY";
 // --------------------------------------------------
@@ -1415,28 +1416,40 @@ function App() {
   const notifRef = useRef(null);
   const gridScrollY = useRef(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const setupNotifications = async (uid) => {
-    const messaging = getMessaging(app);
-    try {
-      // 請求權限
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        // 取得 FCM Token (這就像是手機的門牌號碼)
-        const token = await getToken(messaging, { vapidKey: 'BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU' }); // 需在 Firebase 後台產生
-        if (token) {
-          // 將 Token 存入該 VTuber 的資料庫，以便後端寄送
-          await updateDoc(doc(db, getPath('vtubers'), uid), { fcmToken: token });
-        }
-      }
-    } catch (err) { console.error("通知設定失敗", err); }
-  };
+  // --- 手動啟動通知函式 ---
+  const handleEnableNotifications = async () => {
+    if (!user) return showToast("請先登入");
 
-  // 在 useEffect 偵測到 user 登入時呼叫
-  useEffect(() => {
-    if (user) {
-      setupNotifications(user.uid);
+    if (!('serviceWorker' in navigator)) {
+      return showToast("您的瀏覽器不支援此功能");
     }
-  }, [user]);
+
+    try {
+      // 1. 註冊 Service Worker
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+      // 2. 請求權限
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        const messaging = getMessaging(app);
+        const token = await getToken(messaging, {
+          vapidKey: 'BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU',
+          serviceWorkerRegistration: registration
+        });
+
+        if (token) {
+          await updateDoc(doc(db, getPath('vtubers'), user.uid), { fcmToken: token });
+          showToast("✅ 通知功能已成功啟動！");
+        }
+      } else {
+        showToast("❌ 您拒絕了通知權限");
+      }
+    } catch (err) {
+      console.error("FCM Error:", err);
+      showToast("啟動失敗，請確保已『加入主畫面』後再試");
+    }
+  };
   const [publicCollabForm, setPublicCollabForm] = useState({
     dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲',
     participants: [] // 確保這裡有寫這行
@@ -2392,12 +2405,22 @@ function App() {
         {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
 
         {currentView === 'dashboard' && (
+
           <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-3"><i className="fa-solid fa-user-circle text-purple-400"></i> 創作者中心：編輯名片</h2>
               {myProfile && <div className="mt-4 mb-2"><button onClick={() => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id}`); }} className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2"><i className="fa-solid fa-eye"></i> 預覽我的公開名片</button></div>}
               {user && realVtubers.find(v => v.id === user.uid) ? (realVtubers.find(v => v.id === user.uid).isVerified ? <p className="text-green-400 mt-3 text-sm font-bold bg-green-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-circle-check mr-1"></i> 名片已認證上線</p> : <p className="text-yellow-400 mt-3 text-sm font-bold bg-yellow-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-user-clock mr-1"></i> 名片審核中，通過後將自動公開</p>) : <p className="text-gray-400 mt-2">填寫完成後請等待管理員審核，確保社群品質！</p>}
             </div>
+            {/* 安插在 Dashboard 的按鈕區 */}
+            {/* 找到 Dashboard 視圖中的按鈕區 */}
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2 ml-2"
+            >
+              <i className="fa-solid fa-bell"></i> 啟動手機推播通知
+            </button>
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl">
               <ProfileEditorForm form={profileForm} updateForm={(updates) => setProfileForm(prev => ({ ...prev, ...updates }))} onSubmit={(e) => handleSaveProfile(e)} showToast={showToast} isAdmin={false} user={user} />
             </div>
