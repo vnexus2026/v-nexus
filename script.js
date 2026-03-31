@@ -1087,7 +1087,9 @@ const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, is
 };
 
 // 在參數大括號的最後面加上 , onTestReminder
-const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage, onTestReminder }) => {
+// 找到 AdminPage 的開頭，在大括號最後面補上 , onTestPush
+const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage, onTestReminder, onTestPush
+}) => {
   const [activeTab, setActiveTab] = useState('vtubers');
   const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
   const [editRules, setEditRules] = useState(rules);
@@ -1340,6 +1342,21 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
               {/* 安插在 AdminPage 的 settings 頁籤內 */}
               <div className="mt-8 border-t border-gray-700 pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
+                  <i className="fa-solid fa-mobile-screen-button text-blue-400 mr-2"></i>手機推播功能測試
+                </h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  此功能僅限在手機「加入主畫面」後使用。點擊按鈕將發送一則推播通知給您自己。
+                </p>
+                <button
+                  onClick={onTestPush}
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                >
+                  立即測試手機推播
+                </button>
+              </div>
+
+              <div className="mt-8 border-t border-gray-700 pt-8">
+                <h3 className="text-xl font-bold text-white mb-2">
                   <i className="fa-solid fa-clock-rotate-left text-orange-400 mr-2"></i>聯動提醒系統測試
                 </h3>
                 <p className="text-sm text-gray-400 mb-4">
@@ -1479,6 +1496,32 @@ function App() {
     youtubeSubscribers: '', twitchFollowers: '', youtubeUrl: '', twitchUrl: '', mainPlatform: 'YouTube', streamStyleUrl: '', xUrl: '', igUrl: '', publicEmail: '', publicEmailVerified: false, contactEmail: '', verificationNote: '', lastYoutubeFetchTime: 0, lastTwitchFetchTime: 0
   });
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
+  // --- 確保這段是放在 App 函式內，useState 的下方 ---
+  const handleTestPushNotification = async () => {
+    if (!user) return showToast("請先登入！");
+
+    // 檢查資料庫中是否有你的 Token
+    const myData = realVtubers.find(v => v.id === user.uid);
+    if (!myData?.fcmToken) {
+      return showToast("❌ 偵測不到您的推播 Token。請確保已『啟動手機推播通知』。");
+    }
+
+    showToast("⏳ 正在發送測試推播...");
+    try {
+      await addDoc(collection(db, getPath('notifications')), {
+        userId: user.uid,
+        fromUserId: "system",
+        fromUserName: "V-Nexus 測試員",
+        fromUserAvatar: "https://duk.tw/u1jpPE.png",
+        message: "🎉 恭喜！您的手機推播功能已成功啟動！",
+        createdAt: Date.now(),
+        read: false
+      });
+      showToast("✅ 測試指令已發出！");
+    } catch (err) {
+      showToast("❌ 發送失敗");
+    }
+  };
 
   const isAdmin = user && user.email === 'apex.dasa@gmail.com';
   const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
@@ -2071,6 +2114,32 @@ function App() {
         reminderSent: false,
         category: "系統測試",
         createdAt: Date.now()
+      };
+      const handleTestPushNotification = async () => {
+        if (!user) return showToast("請先登入！");
+
+        // 檢查資料庫中是否有你的 Token
+        const myData = realVtubers.find(v => v.id === user.uid);
+        if (!myData?.fcmToken) {
+          return showToast("❌ 偵測不到您的推播 Token。請確保您是用手機『加入主畫面』開啟，且已點擊『允許通知』。");
+        }
+
+        showToast("⏳ 正在發送測試推播...");
+        try {
+          // 寫入一筆通知給自己，這會觸發後端的 Cloud Function
+          await addDoc(collection(db, getPath('notifications')), {
+            userId: user.uid,
+            fromUserId: "system",
+            fromUserName: "V-Nexus 測試員",
+            fromUserAvatar: "https://duk.tw/u1jpPE.png",
+            message: "🎉 恭喜！您的手機推播功能已成功啟動！",
+            createdAt: Date.now(),
+            read: false
+          });
+          showToast("✅ 測試指令已發出！請檢查手機通知中心（請先鎖屏或切換到其他 App 測試）。");
+        } catch (err) {
+          showToast("❌ 發送失敗：" + err.message);
+        }
       };
 
       const docRef = await addDoc(collection(db, getPath('collabs')), testData);
@@ -2843,7 +2912,7 @@ font-bold text-gray-300 mb-2 block">直播連結 (可自動抓圖) <span classNa
         )}
 
         {currentView === 'admin' && isAdmin && (
-          <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} onTestReminder={handleTestReminderSystem} />
+          <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} onTestReminder={handleTestReminderSystem} onTestPush={handleTestPushNotification} />
         )}
       </main>
 
