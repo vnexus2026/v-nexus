@@ -1451,35 +1451,7 @@ function App() {
       return showToast("請先點擊『分享』並『加入主畫面』後，從桌面開啟 App 才能啟動通知。");
     }
 
-    try {
-      showToast("正在註冊服務線程...");
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-
-      showToast("正在請求系統通知權限...");
-      const permission = await Notification.requestPermission();
-
-      if (permission === 'granted') {
-        const messaging = getMessaging(app);
-        // 取得 Token
-        const token = await getToken(messaging, {
-          vapidKey: 'BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF-DMwInoa-XU',
-          serviceWorkerRegistration: registration
-        });
-
-        if (token) {
-          await updateDoc(doc(db, getPath('vtubers'), user.uid), { fcmToken: token });
-          showToast("✅ 成功！Token 已存入資料庫。");
-          prompt("成功！這是您的推播 Token，請完整複製：", currentToken);
-        } else {
-          showToast("❌ 無法取得 Token，請檢查 Firebase 設定。");
-        }
-      } else {
-        showToast("❌ 權限被拒絕。請至手機『設定 > 通知 > V-Nexus』開啟。");
-      }
-    } catch (err) {
-      console.error("FCM Error:", err);
-      showToast("錯誤：" + err.message);
-    }
+    BDInEaWTbWBiCuiwlsSNZaz_0XbOqPlLQVE3LGaQK3eOE2TMuFpD8v_b0f00gxAmw5aB1NBEeSsF - DMwInoa - XU
   };
   const [pSearch, setPSearch] = useState(''); // 新增：搜尋框的文字狀態
 
@@ -1508,28 +1480,29 @@ function App() {
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
   const handleTestPushNotification = async () => {
-    if (!user) return showToast("請先登入！");
-    const myData = realVtubers.find(v => v.id === user.uid);
-    if (!myData?.fcmToken) {
-      return showToast("❌ 偵測不到 Token，請先點擊『啟動手機推播通知』");
-    }
-
-    showToast("⏳ 正在發送測試...");
+    if (!user) return;
     try {
+
+      // ▼▼▼ 加入這 3 行，不透過後端，直接強迫 Windows 彈出通知！ ▼▼▼
+      if (Notification.permission === "granted") {
+        new Notification("V-Nexus 系統測試", { body: "太棒了！您的 Windows 電腦成功收到通知啦！🎉", icon: "https://duk.tw/u1jpPE.png" });
+      }
+      // ▲▲▲ 加入這 3 行 ▲▲▲
+
+      // 下面是您原本寫入資料庫的程式碼
       await addDoc(collection(db, getPath('notifications')), {
         userId: user.uid,
-        fromUserId: user.uid,
-        fromUserName: "V-Nexus 測試員",
-        fromUserAvatar: "https://duk.tw/u1jpPE.png",
-        message: "🎉 測試推播發送成功！",
-        createdAt: Date.now(),
-        read: false
+        fromUserId: user.uid, // 確保這裡是 user.uid
+        fromUserName: "V-Nexus 系統測試",
+        type: "system",
+        message: "這是一則測試推播通知！如果您看到這個，代表推播功能運作正常 🎉",
+        isRead: false,
+        createdAt: Date.now()
       });
-      showToast("✅ 指令已發出，請查看手機通知中心");
+      showToast("✅ 測試指令已發出，請查看手機通知中心！");
     } catch (err) {
-      // 這裡會顯示具體的報錯，例如：Missing or insufficient permissions
-      console.error("Firestore Error:", err);
-      showToast("❌ 發送失敗：" + err.message);
+      console.error("Test notification error:", err);
+      showToast("❌ 發送失敗: " + err.message);
     }
   };
 
