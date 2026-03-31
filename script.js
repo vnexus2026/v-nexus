@@ -1509,9 +1509,8 @@ function App() {
       // 3. 根據權限狀態執行
       if (currentPerm === "granted") {
         // 權限正常，強制呼叫通知
-        const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification("V-Nexus 系統測試", {
-          body: "太棒了！您的手機與電腦都成功收到通知啦！🎉",
+        const testNotif = new Notification("V-Nexus 系統測試", {
+          body: "太棒了！您的 Windows 電腦成功收到通知啦！🎉",
           icon: "https://duk.tw/u1jpPE.png"
         });
 
