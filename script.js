@@ -1466,7 +1466,7 @@ function App() {
       const messaging = getMessaging(app);
       const currentToken = await getToken(messaging, {
         serviceWorkerRegistration: registration,
-        vapidKey: "851l4gPW6sF9ffh1YKdC5L_YuiNYf49fKRyU7fqRYZ4"
+        vapidKey: "BOsq0-39IZhc2I1Y5wiJ2mGrQIUT8zl59MlhMVh_4_41CUvJaYJlw3a1XV-6XM00fvteHsYsF3ukYKbn36SPuIw"
       });
       if (currentToken) {
         await updateDoc(doc(db, getPath('vtubers'), user.uid), {
