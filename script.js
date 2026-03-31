@@ -1506,21 +1506,26 @@ function App() {
         currentPerm = await Notification.requestPermission();
       }
 
-      // 3. 根據權限狀態執行
+      // 3. 根據權限狀態執行 (修正版：相容 Android 與 Windows)
       if (currentPerm === "granted") {
-        // 權限正常，強制呼叫通知
-        const testNotif = new Notification("V-Nexus 系統測試", {
-          body: "太棒了！您的 Windows 電腦成功收到通知啦！🎉",
-          icon: "https://duk.tw/u1jpPE.png"
-        });
-
-        testNotif.onerror = (e) => alert("❌ 系統攔截了通知！可能是因為沒用 HTTPS 安全連線。");
-        alert("✅ 系統已強制呼叫 Windows 通知！請查看螢幕右下角。");
-
+        // 取得 Service Worker 註冊對象
+        const registration = await navigator.serviceWorker.ready;
+        if (registration) {
+          // 使用 showNotification 替代 new Notification
+          await registration.showNotification("V-Nexus 系統測試", {
+            body: "太棒了！您的設備成功收到通知啦！🎉",
+            icon: "https://duk.tw/u1jpPE.png",
+            badge: "https://duk.tw/u1jpPE.png",
+            vibrate: [200, 100, 200],
+            tag: "v-nexus-test",
+            renotify: true
+          });
+          alert("✅ 系統已透過 Service Worker 發送通知！");
+        } else {
+          alert("❌ 找不到 Service Worker 註冊資訊。");
+        }
       } else if (currentPerm === "denied") {
         alert("❌ 錯誤：通知權限被「拒絕」了！請點擊網址列左邊的鎖頭圖示，將通知改為「允許」。");
-      } else {
-        alert("❌ 錯誤：通知權限狀態未知 (" + currentPerm + ")");
       }
 
       // 寫入資料庫的原本邏輯
