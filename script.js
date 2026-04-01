@@ -187,7 +187,7 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
   </div>
 );
 
-const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onInvite, onDeleteBulletin, onEditBulletin, openModalId, onClearOpenModalId }) => {
+const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onInvite, onDeleteBulletin, onEditBulletin, openModalId, onClearOpenModalId, currentView }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showApplicants, setShowApplicants] = useState(false);
   const isAuthor = user?.uid === b.userId;
@@ -2023,9 +2023,19 @@ function App() {
 
   const displayBulletins = useMemo(() => {
     return [...realBulletins].filter(b => !b.recruitEndTime || b.recruitEndTime > Date.now())
-      .filter(b => { const vt = displayVtubers.find(v => v.id === b.userId); return vt ? isVisible(vt, user) : true; })
-      .map(b => { const vt = displayVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon" }; const applicantsData = (b.applicants || []).map(uid => displayVtubers.find(v => v.id === uid)).filter(Boolean); return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt), applicantsData }; }).sort((a, b) => b.createdAt - a.createdAt);
-  }, [realBulletins, displayVtubers, user]);
+      .filter(b => {
+        const vt = realVtubers.find(v => v.id === b.userId); // 改用 realVtubers
+        return vt ? isVisible(vt, user) : true;
+      })
+      .map(b => {
+        const vt = realVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon" };
+
+        // 【關鍵修改】：改用 realVtubers 找報名者，才不會因為目前的搜尋過濾器導致報名者消失
+        const applicantsData = (b.applicants || []).map(uid => realVtubers.find(v => v.id === uid)).filter(Boolean);
+
+        return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt), applicantsData };
+      }).sort((a, b) => b.createdAt - a.createdAt);
+  }, [realBulletins, realVtubers, user, displayVtubers]); // 加入相關依賴
 
   const activeBulletinTypes = useMemo(() => {
     const types = new Set();
@@ -2758,7 +2768,7 @@ function App() {
             {user && myProfile && displayBulletins.filter(b => b.userId === user.uid).length > 0 && (
               <div className="mt-16 animate-fade-in-up">
                 <h3 className="text-2xl font-extrabold text-white mb-6 border-b border-gray-700 pb-3 flex items-center"><i className="fa-solid fa-bullhorn text-purple-400 mr-3"></i>我的招募管理 (可在此查看誰有意願)</h3>
-                <div className="grid grid-cols-1 gap-6">{displayBulletins.filter(b => b.userId === user.uid).map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber, isFromApplicants) => { if (vtuber && vtuber.id) { if (isFromApplicants) setOpenBulletinModalId(b.id); else setOpenBulletinModalId(null); setSelectedVTuber(vtuber); navigate(`profile/${vtuber.id}`); } else { showToast("找不到該名片！"); } }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={handleOpenCollabModal} onDeleteBulletin={handleDeleteBulletin} onEditBulletin={handleEditBulletin} openModalId={openBulletinModalId} onClearOpenModalId={() => setOpenBulletinModalId(null)} />)}</div>
+                <div className="grid grid-cols-1 gap-6">{displayBulletins.filter(b => b.userId === user.uid).map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber, isFromApplicants) => { if (vtuber && vtuber.id) { if (isFromApplicants) setOpenBulletinModalId(b.id); else setOpenBulletinModalId(null); setSelectedVTuber(vtuber); navigate(`profile/${vtuber.id}`); } else { showToast("找不到該名片！"); } }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={handleOpenCollabModal} onDeleteBulletin={handleDeleteBulletin} onEditBulletin={handleEditBulletin} openModalId={openBulletinModalId} onClearOpenModalId={() => setOpenBulletinModalId(null)} currentView={currentView} />)}</div>
               </div>
             )}
           </div>
@@ -3029,7 +3039,7 @@ function App() {
               ))}
             </div>
 
-            {filteredDisplayBulletins.length === 0 ? <p className="text-center text-gray-500 mt-20">目前沒有相關的招募文喔！</p> : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{filteredDisplayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber, isFromApplicants) => { if (vtuber && vtuber.id) { if (isFromApplicants) setOpenBulletinModalId(b.id); else setOpenBulletinModalId(null); setSelectedVTuber(vtuber); navigate(`profile/${vtuber.id}`); } else { showToast("找不到該名片！"); } }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={handleOpenCollabModal} onDeleteBulletin={handleDeleteBulletin} onEditBulletin={handleEditBulletin} openModalId={openBulletinModalId} onClearOpenModalId={() => setOpenBulletinModalId(null)} />)}</div>}
+            {filteredDisplayBulletins.length === 0 ? <p className="text-center text-gray-500 mt-20">目前沒有相關的招募文喔！</p> : <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{filteredDisplayBulletins.map(b => <BulletinCard key={b.id} b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={(vtuber, isFromApplicants) => { if (vtuber && vtuber.id) { if (isFromApplicants) setOpenBulletinModalId(b.id); else setOpenBulletinModalId(null); setSelectedVTuber(vtuber); navigate(`profile/${vtuber.id}`); } else { showToast("找不到該名片！"); } }} onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, b.userId)} onInvite={handleOpenCollabModal} onDeleteBulletin={handleDeleteBulletin} onEditBulletin={handleEditBulletin} openModalId={openBulletinModalId} onClearOpenModalId={() => setOpenBulletinModalId(null)} currentView={currentView} />)}</div>}
           </div>
         )}
 
