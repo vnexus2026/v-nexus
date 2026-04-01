@@ -853,9 +853,37 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
 
       {!isAdmin && (
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-          <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span></h3>
-          <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
-          <input required type="text" value={form.verificationNote || ''} onChange={e => updateForm({ verificationNote: e.target.value })} className={inputCls} placeholder="您的驗證方式為...(請填入Youtube或X，此資料保密)" />
+          <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2">
+            <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span>
+          </h3>
+          <p className="text-xs text-gray-300 mb-4">
+            請將「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」放入X或Youtube簡介中，管理員審核後即可刪除。<br />
+            <span className="text-yellow-400 font-bold">請在下方輸入您放入的平台 X 或 YT</span>
+          </p>
+          <input
+            required
+            type="text"
+            value={form.verificationNote || ''}
+            placeholder="請輸入 X 或 YT"
+            onChange={(e) => {
+              // 自動將輸入轉為大寫，方便比對
+              const val = e.target.value.toUpperCase();
+              const targets = ["X", "YT"];
+
+              // 檢查輸入是否為空，或是 "X" 或 "YT" 的開頭一部分
+              // 例如：輸入 "Y" (是 YT 的開頭)，輸入 "YT" (符合)
+              const isPrefix = targets.some(t => t.startsWith(val));
+
+              if (val === "" || isPrefix) {
+                // 如果符合 X 或 YT 的輸入過程，更新資料
+                updateForm({ verificationNote: val });
+              } else {
+                // 只要輸入的字不符合目標字串，就跳警告並維持原本內容
+                alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
+              }
+            }}
+            className={inputCls}
+          />
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
@@ -1032,7 +1060,19 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
   );
 };
 
+const maskEmail = (email) => {
+  if (!email || !email.includes('@')) return email;
+  const [name, domain] = email.split('@');
+  if (name.length <= 2) return `${name}***@${domain}`;
+  return `${name.substring(0, 2)}***${name.substring(name.length - 1)}@${domain}`;
+};
+
 const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = false, showSearch = false }) => {
+  const [revealedIds, setRevealedIds] = useState([]);
+
+  const toggleReveal = (id) => {
+    setRevealedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
   const [page, setPage] = useState(1);
   const [searchQ, setSearchQ] = useState('');
   const itemsPerPage = 10;
@@ -1064,7 +1104,28 @@ const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, is
                 <p className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? 'text-gray-400 line-through' : 'text-white'}`}>{v.name || '（空白名片）'}</p>
                 {!isBlacklist && <p className="text-xs text-gray-400 mt-1">{v.agency} | {v.activityStatus === 'sleep' ? '休眠' : v.activityStatus === 'graduated' ? '畢業' : '活躍'} | 倒讚: <span className="text-red-400">{v.dislikes || 0}</span></p>}
                 {isBlacklist && <p className="text-xs text-red-400 font-bold">倒讚數: {v.dislikes || 0}</p>}
-                {privateDocs[v.id]?.verificationNote && <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block"><i className="fa-solid fa-key mr-1"></i> 驗證備註: {privateDocs[v.id].verificationNote}</p>}
+                {privateDocs[v.id]?.verificationNote && (
+                  <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block">
+                    <i className="fa-solid fa-key mr-1"></i> 驗證備註: {v.isVerified ? '（已通過審核，隱藏中）' : privateDocs[v.id].verificationNote}
+                  </p>
+                )}
+
+                {privateDocs[v.id]?.contactEmail && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    <i className="fa-solid fa-envelope mr-1"></i>
+                    {revealedIds.includes(v.id) ? (
+                      <span>{privateDocs[v.id].contactEmail}</span>
+                    ) : (
+                      <span>{maskEmail(privateDocs[v.id].contactEmail)}</span>
+                    )}
+                    <button
+                      onClick={() => toggleReveal(v.id)}
+                      className="ml-2 text-[10px] text-purple-400 hover:underline"
+                    >
+                      {revealedIds.includes(v.id) ? '隱藏' : '解鎖查看'}
+                    </button>
+                  </p>
+                )}
                 {privateDocs[v.id]?.contactEmail && <p className="text-xs text-gray-400 mt-1"><i className="fa-solid fa-envelope mr-1"></i> {privateDocs[v.id].contactEmail}</p>}
                 <div className="flex gap-3 mt-1.5">
                   {(v.youtubeUrl || v.channelUrl) && <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 transition-colors"><i className="fa-brands fa-youtube"></i> 檢查</a>}
@@ -1949,18 +2010,21 @@ function App() {
 
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
-    // 建立一個偽隨機函數，會根據 shuffleSeed 的變化來計算新的排序
-    const seededRandom = (id) => {
+    // 建立一個基於 id 和 shuffleSeed 的確定性隨機函數
+    // 這樣相同的 id + 相同的 seed 永遠會得到相同的排序權重
+    const getDeterministicOrder = (id) => {
       let hash = 0;
       const str = id + shuffleSeed.toString();
       for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash |= 0; // 轉換為 32bit 整數
       }
-      return Math.abs(hash) / 2147483647;
+      return hash;
     };
 
-    return [...realVtubers].sort(() => Math.random() - 0.5);
+    return [...realVtubers].sort((a, b) => {
+      return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
+    });
   }, [realVtubers, shuffleSeed]);
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set();
@@ -2059,7 +2123,13 @@ function App() {
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault(); if (!user) return showToast("請先登入！");
 
-    if (!isAdmin && (!customForm.verificationNote || !customForm.verificationNote.trim())) return showToast("請填寫真人身分驗證方式！");
+    if (!isAdmin) {
+      const note = (customForm.verificationNote || "").toUpperCase();
+      if (note !== "X" && note !== "YT") {
+        alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
+        return; // 攔截，不允許儲存
+      }
+    }
     if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
 
     let finalCollabs = [...(customForm.collabTypes || [])]; if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) finalCollabs.push(customForm.otherCollabText.trim());
