@@ -1669,18 +1669,19 @@ const getStableRandom = (id) => {
   return stableRandomCache[id];
 };
 
-const ChatListContent = ({ currentUser, vtubers, onOpenChat }) => {
+const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat }) => {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentUser) return;
-    const q = collection(db, getPath('chat_rooms'));
+    const q = query(
+      collection(db, getPath('chat_rooms')),
+      where('participants', 'array-contains', currentUser.uid)
+    );
     const unsub = onSnapshot(q, (snap) => {
       let loadedRooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // 過濾出包含自己的聊天室，並且有對話紀錄的
-      loadedRooms = loadedRooms.filter(r => r.participants && r.participants.includes(currentUser.uid) && r.lastTimestamp);
-      // 依照最後訊息時間排序 (新 -> 舊)
+      // 依照最後訊息時間排序
       loadedRooms.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
       setRooms(loadedRooms);
       setLoading(false);
@@ -1697,28 +1698,30 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat }) => {
         const targetId = room.participants.find(id => id !== currentUser.uid);
         const target = vtubers.find(v => v.id === targetId);
         if (!target) return null;
-
-        // 判斷我是否在未讀名單中
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
 
         return (
           <div key={room.id} onClick={() => onOpenChat(target)} className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors group relative">
-            <img src={sanitizeUrl(target.avatar)} className="w-10 h-10 rounded-full object-cover" />
+            <img src={sanitizeUrl(target.avatar)} className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 group-hover:border-purple-500 transition-colors" />
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center mb-1">
-                <span className={`text-sm truncate ${isUnread ? 'font-black text-white' : 'font-bold text-gray-300'}`}>
-                  {target.name}
-                </span>
+                <span className={`text-sm truncate ${isUnread ? 'font-black text-white' : 'font-bold text-gray-300'}`}>{target.name}</span>
                 <span className="text-[10px] text-gray-500">{formatTime(room.lastTimestamp)}</span>
               </div>
-              <p className={`text-xs truncate ${isUnread ? 'text-purple-400 font-bold' : 'text-gray-400'}`}>
-                {room.lastMessage}
-              </p>
+              <p className={`text-xs truncate ${isUnread ? 'text-purple-400 font-bold' : 'text-gray-400'}`}>{room.lastMessage}</p>
             </div>
-            {/* 紅點 UI */}
-            {isUnread && (
-              <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
-            )}
+
+            {/* 右側按鈕區 */}
+            <div className="flex items-center gap-2">
+              {isUnread && <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>}
+              <button
+                onClick={(e) => onDeleteChat(e, room.id)}
+                className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
+                title="移除此對話"
+              >
+                <i className="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
           </div>
         );
       })}
@@ -1816,6 +1819,23 @@ function App() {
       }
     }
   };
+  const handleDeleteChat = async (e, roomId) => {
+    e.stopPropagation(); // 防止觸發開啟聊天室
+    if (!confirm("確定要從列表中移除此對話嗎？\n(移除後若對方再傳訊息或您主動發訊，對話將重新出現)")) return;
+
+    try {
+      const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+      // 將自己從參與者名單移除，這樣監聽器就不會抓到這間房間
+      await updateDoc(roomRef, {
+        participants: arrayRemove(user.uid)
+      });
+      showToast("✅ 已移除對話");
+    } catch (err) {
+      console.error("移除對話失敗:", err);
+      showToast("移除失敗");
+    }
+  };
+
   const [newBulletin, setNewBulletin] = useState({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
   const [defaultBulletinImages, setDefaultBulletinImages] = useState([]);
   const [inviteMessage, setInviteMessage] = useState('');
@@ -3848,6 +3868,7 @@ function App() {
                 currentUser={user}
                 vtubers={typeof realVtubers !== 'undefined' ? realVtubers : []}
                 onOpenChat={handleOpenChat}
+                onDeleteChat={handleDeleteChat} // 傳入剛寫好的刪除函數
               />
             </div>
           )}
