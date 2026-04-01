@@ -1979,26 +1979,20 @@ function App() {
   }, [realBulletins, realVtubers, currentTime]);
 
   useEffect(() => {
-    if (!isLoading) {
-      // 增加一個小延遲，確保 React 已經渲染好初始畫面
-      const timer = setTimeout(() => {
-        const loader = document.getElementById('loading-screen');
-        if (loader) {
-          // 1. 開始淡出動畫
-          loader.style.opacity = '0';
-          // 2. 讓點擊可以穿透（防止動畫期間擋住按鈕）
-          loader.style.pointerEvents = 'none';
-
-          // 3. 等動畫跑完 (0.8s) 再徹底移除 display
-          setTimeout(() => {
-            loader.style.display = 'none';
-          }, 800);
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
+  if (!isLoading) {
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+      // 立即開始淡出
+      loader.style.opacity = '0';
+      loader.style.pointerEvents = 'none';
+      
+      // 0.3秒後徹底移除 (對應 CSS transition 時間)
+      setTimeout(() => {
+        loader.style.display = 'none';
+      }, 300);
     }
-  }, [isLoading]);
+  }
+}, [isLoading]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
