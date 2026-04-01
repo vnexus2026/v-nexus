@@ -1898,12 +1898,13 @@ function App() {
             ...prev,
             contactEmail: pData.contactEmail || '',
             verificationNote: pData.verificationNote || '',
-            publicEmail: pData.publicEmail || '', // 【安全升級】從私密庫讀取
-            publicEmailVerified: pData.publicEmailVerified || false
+            // 只有當私密庫裡真的有資料時才覆蓋，否則維持原樣
+            publicEmail: pData.publicEmail !== undefined ? pData.publicEmail : prev.publicEmail,
+            publicEmailVerified: pData.publicEmailVerified !== undefined ? pData.publicEmailVerified : prev.publicEmailVerified
           }));
         }
       }).catch(err => console.error(err));
-      updateDoc(doc(db, getPath('vtubers'), user.uid), { lastActiveAt: Date.now() }).catch(() => { });
+      // ... 
     }
   }, [user?.uid]);
 
@@ -2148,7 +2149,13 @@ function App() {
       };
 
       if (!existingProfile || existingProfile.verificationStatus === 'rejected') { publicData.isVerified = false; publicData.isBlacklisted = false; publicData.verificationStatus = 'pending'; publicData.showVerificationModal = null; }
-      const privateData = { contactEmail: customForm.contactEmail, verificationNote: customForm.verificationNote, updatedAt: Date.now() };
+      const privateData = {
+        contactEmail: customForm.contactEmail,
+        verificationNote: customForm.verificationNote,
+        publicEmail: customForm.publicEmail,          // 新增這一行：將公開信箱存入私密庫
+        publicEmailVerified: customForm.publicEmailVerified, // 新增這一行：將驗證狀態存入私密庫
+        updatedAt: Date.now()
+      };
 
       await setDoc(doc(db, getPath('vtubers'), customForm.id || user.uid), publicData, { merge: true });
       await setDoc(doc(db, getPath('vtubers_private'), customForm.id || user.uid), privateData, { merge: true });
@@ -2321,13 +2328,19 @@ function App() {
 
   const handleAdminUpdateVtuber = async (id, updatedData) => {
     try {
-      const tagsArray = typeof updatedData.tags === 'string' ? updatedData.tags.split(',').map(t => t.trim()).filter(t => t) : updatedData.tags;
-      let finalCollabs = [...(updatedData.collabTypes || [])]; if (updatedData.isOtherCollab && updatedData.otherCollabText?.trim()) finalCollabs.push(updatedData.otherCollabText.trim());
-      const finalPersonality = updatedData.personalityType === '其他' ? updatedData.personalityTypeOther : updatedData.personalityType;
-      const publicData = { ...updatedData, tags: tagsArray, collabTypes: finalCollabs, personalityType: finalPersonality || '', colorSchemes: updatedData.colorSchemes || [], updatedAt: Date.now() };
-      delete publicData.isVerified; delete publicData.isBlacklisted; delete publicData.verificationStatus; delete publicData.showVerificationModal; delete publicData.contactEmail; delete publicData.verificationNote; delete publicData.personalityTypeOther;
-      await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true }); await setDoc(doc(db, getPath('vtubers_private'), id), { contactEmail: updatedData.contactEmail, verificationNote: updatedData.verificationNote, updatedAt: Date.now() }, { merge: true });
-      setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, ...publicData } : v)); showToast("強制更新成功！");
+      // ... publicData 處理不變
+      await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true });
+
+      await setDoc(doc(db, getPath('vtubers_private'), id), {
+        contactEmail: updatedData.contactEmail,
+        verificationNote: updatedData.verificationNote,
+        publicEmail: updatedData.publicEmail,           // 新增這一行
+        publicEmailVerified: updatedData.publicEmailVerified, // 新增這一行
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, ...publicData } : v));
+      showToast("強制更新成功！");
     } catch (err) { showToast("更新失敗"); }
   };
   const handleDeleteVtuber = async (id) => { if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return; try { await deleteDoc(doc(db, getPath('vtubers'), id)); await deleteDoc(doc(db, getPath('vtubers_private'), id)); setRealVtubers(prev => prev.filter(v => v.id !== id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); } };
