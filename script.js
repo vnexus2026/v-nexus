@@ -2332,6 +2332,19 @@ function App() {
   const handleLogin = async () => { try { await signInWithPopup(auth, provider); showToast("🎉 登入成功！"); } catch (e) { showToast("登入失敗"); } };
   const handleLogout = async () => { await signOut(auth); navigate('home'); showToast("已登出"); };
 
+  const handleLoginOther = async () => {
+    const otherProvider = new GoogleAuthProvider();
+    // 關鍵：強制要求 Google 顯示帳號選擇器
+    otherProvider.setCustomParameters({ prompt: 'select_account' });
+    try {
+      await signInWithPopup(auth, otherProvider);
+      showToast("🎉 登入成功！");
+    } catch (e) {
+      console.error("登入失敗:", e);
+      showToast("登入失敗");
+    }
+  };
+
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
     // 建立一個基於 id 和 shuffleSeed 的確定性隨機函數
@@ -3022,7 +3035,16 @@ function App() {
           <div className="h-16 flex items-center justify-between">
             <div className="flex items-center gap-2 cursor-pointer group" onClick={() => navigate('home')}><div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all"><i className="fa-solid fa-wand-magic-sparkles text-white"></i></div><span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">V-Nexus</span></div>
             <div className="flex items-center gap-3">
-              {!user ? <button onClick={handleLogin} className="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-200 px-4 py-1.5 rounded-full transition-colors font-bold text-sm"><i className="fa-brands fa-google text-red-500"></i> Google 登入</button> : (
+              {!user ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={handleLogin} className="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-200 px-4 py-1.5 rounded-full transition-colors font-bold text-sm">
+                    <i className="fa-brands fa-google text-red-500"></i> Google 登入
+                  </button>
+                  <button onClick={handleLoginOther} className="hidden sm:block text-gray-400 hover:text-white text-xs font-bold transition-colors" title="使用其他 Google 帳號">
+                    <i className="fa-solid fa-user-gear mr-1"></i> 切換帳號
+                  </button>
+                </div>
+              ) : (
                 <div className="flex items-center gap-3">
                   <div className="relative" ref={notifRef}>
                     <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-gray-300 hover:text-white p-2 text-xl relative transition-colors"><i className="fa-solid fa-bell"></i>{unreadCount > 0 && <span className="absolute top-1 right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white flex items-center justify-center">{unreadCount}</span></span>}</button>
