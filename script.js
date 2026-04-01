@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 // --- 務必確認這行有在頂部 ---
@@ -36,6 +36,168 @@ try {
 const provider = new GoogleAuthProvider();
 const APP_ID = 'v-nexus-official';
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
+
+const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
+const getRoomPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}`;
+const getMsgPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
+
+const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const scrollRef = useRef();
+  const roomId = generateRoomId(currentUser.uid, targetVtuber.id);
+
+  useEffect(() => {
+    // 改為：依照時間倒序排 (最新的在前面)，並且限制最多只拿最新 50 筆
+    const q = query(
+      collection(db, getMsgPath(roomId)),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      // 因為我們是用 desc 拿最新的 50 筆，陣列順序會是 [最新, 次新, ... , 最舊]
+      // 顯示在畫面上時，我們需要把它反過來，變成 [最舊, ..., 次新, 最新]，最新的才會在底部
+      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse();
+
+      setMessages(msgs);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    });
+    return unsub;
+  }, [roomId]);
+
+  useEffect(() => {
+    // 當訊息列表有變動（代表有新訊息）且視窗是開啟狀態時，自動清除自己的未讀狀態
+    if (messages.length > 0 && currentUser) {
+      const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+      updateDoc(roomRef, {
+        unreadBy: arrayRemove(currentUser.uid)
+      }).catch(e => console.error("自動清除未讀失敗:", e));
+    }
+  }, [messages, currentUser.uid]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!input.trim() || !currentUser) return;
+
+    const text = input;
+    const now = Date.now();
+    const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+
+    setInput('');
+
+    try {
+      // 1. 寫入訊息 (不變)
+      await addDoc(collection(db, getMsgPath(roomId)), {
+        senderId: currentUser.uid,
+        text: text,
+        createdAt: now
+      });
+
+      // 2. 取得房間資料以檢查頻率
+      const roomSnap = await getDoc(roomRef);
+      const roomData = roomSnap.exists() ? roomSnap.data() : {};
+      const lastEmailTime = roomData.lastEmailSentAt || 0;
+      const lastNotifTime = roomData.lastNotifSentAt || 0; // 新增通知時間檢查
+
+      const roomUpdate = {
+        lastTimestamp: now,
+        lastMessage: text,
+        participants: [currentUser.uid, targetVtuber.id],
+        unreadBy: arrayUnion(targetVtuber.id)
+      };
+
+      // A. 寄送 Email (維持 10 分鐘一次，避免騷擾)
+      if (now - lastEmailTime > 10 * 60 * 1000) {
+        roomUpdate.lastEmailSentAt = now;
+        if (targetVtuber.publicEmail) {
+          addDoc(collection(db, getPath('mail')), {
+            to: targetVtuber.publicEmail,
+            message: {
+              subject: `[V-Nexus] 您有來自 ${myProfile?.name || '創作者'} 的新私訊`,
+              text: `您好 ${targetVtuber.name}，\n\n「${myProfile?.name || '某位創作者'}」傳送了新私訊給您。\n請至網站查看：https://www.vnexus2026.com/`
+            }
+          }).catch(e => console.error("Mail error:", e));
+        }
+      }
+
+      // B. 站內通知 (改為 1 分鐘一次，讓對方的小鈴鐺能響起)
+      if (now - lastNotifTime > 1 * 60 * 1000) {
+        roomUpdate.lastNotifSentAt = now;
+        addDoc(collection(db, getPath('notifications')), {
+          userId: targetVtuber.id,
+          fromUserId: currentUser.uid,
+          fromUserName: myProfile?.name || "創作者",
+          fromUserAvatar: myProfile?.avatar || "",
+          message: "傳送了一則私訊，請查看右下角聊天室。",
+          createdAt: now,
+          read: false,
+          type: 'chat_notification'
+        }).catch(e => console.error("Notif error:", e));
+      }
+
+      await setDoc(roomRef, roomUpdate, { merge: true });
+
+    } catch (err) {
+      console.error("發送過程出錯詳細資訊:", err);
+      showToast("傳送失敗，請確認登入狀態");
+    }
+  };
+  return (
+    <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up border-purple-500/30">
+      {/* Header */}
+      <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-lg">
+        <div className="flex items-center gap-2">
+          <img src={sanitizeUrl(targetVtuber.avatar)} className="w-8 h-8 rounded-full border border-white/20 object-cover" />
+          <span className="font-bold text-sm truncate max-w-[120px]">{targetVtuber.name}</span>
+        </div>
+        <button onClick={onClose} className="hover:bg-purple-700 w-8 h-8 rounded-full transition-colors flex items-center justify-center">
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      {/* --- 新增：懸浮警告條 (固定在頂部) --- */}
+      <div className="bg-red-950/90 backdrop-blur-md border-b border-red-500/30 px-3 py-2 z-20 flex-shrink-0">
+        <p className="text-[16px] text-red-400 leading-relaxed text-center font-medium animate-pulse">
+          <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+          訊息僅留七天，僅聯絡使用，私密訊息或龐大討論請轉至DC謝謝。
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0f111a]">
+
+        {messages.map((m) => (
+          <div key={m.id} className={`flex ${m.senderId === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm ${m.senderId === currentUser.uid
+              ? 'bg-purple-600 text-white rounded-tr-none'
+              : 'bg-gray-800 text-gray-200 rounded-tl-none border border-gray-700'
+              }`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        <div ref={scrollRef}></div>
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSend} className="p-3 bg-gray-800/80 border-t border-gray-700 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="說點什麼..."
+          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-purple-500 transition-all"
+        />
+        <button type="submit" className="bg-purple-600 hover:bg-purple-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform hover:scale-105">
+          <i className="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  );
+};
+
+
 
 const sanitizeUrl = (url) => {
   if (typeof url !== 'string' || !url) return '';
@@ -1162,7 +1324,26 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
     const stdNats = safeNats.filter(n => PREDEFINED_NATIONALITIES.includes(n));
 
     const pType = v.personalityType || ''; const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
-
+    const handleMassCleanupChat = async () => {
+      if (!confirm("確定要刪除全站所有 7 天前的對話紀錄嗎？")) return;
+      setIsSyncingSubs(true);
+      setSyncProgress("清理聊天紀錄中...");
+      const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      try {
+        const roomsSnap = await getDocs(collection(db, `artifacts/${APP_ID}/public/data/chat_rooms`));
+        for (const room of roomsSnap.docs) {
+          const oldMsgs = await getDocs(query(
+            collection(db, `artifacts/${APP_ID}/public/data/chat_rooms/${room.id}/messages`),
+            where('createdAt', '<', oneWeekAgo)
+          ));
+          for (const m of oldMsgs.docs) {
+            await deleteDoc(m.ref);
+          }
+        }
+        showToast("✅ 已徹底清理一週前的舊訊息");
+      } catch (e) { showToast("清理失敗"); }
+      setIsSyncingSubs(false);
+    };
     setEditingVtuber({
       ...v,
       name: v.name || '',
@@ -1434,6 +1615,19 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
                 >
                   立即測試手機推播
                 </button>
+                <button onClick={async () => {
+                  if (!confirm("確定要徹底刪除全站 7 天前的舊訊息嗎？")) return;
+                  showToast("⏳ 正在清理中...");
+                  const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                  const roomsSnap = await getDocs(collection(db, `artifacts/${APP_ID}/public/data/chat_rooms`));
+
+                  for (const room of roomsSnap.docs) {
+                    const oldMsgs = await getDocs(query(collection(db, `${room.ref.path}/messages`), where('createdAt', '<', oneWeekAgo)));
+                    oldMsgs.forEach(m => deleteDoc(m.ref));
+                  }
+                  showToast("✅ 清理完畢");
+                }} className="bg-red-900 text-white px-4 py-2 rounded-lg">清理過期訊息</button>
+
               </div>
 
               <div className="mt-8 border-t border-gray-700 pt-8">
@@ -1475,6 +1669,63 @@ const getStableRandom = (id) => {
   return stableRandomCache[id];
 };
 
+const ChatListContent = ({ currentUser, vtubers, onOpenChat }) => {
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = collection(db, getPath('chat_rooms'));
+    const unsub = onSnapshot(q, (snap) => {
+      let loadedRooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 過濾出包含自己的聊天室，並且有對話紀錄的
+      loadedRooms = loadedRooms.filter(r => r.participants && r.participants.includes(currentUser.uid) && r.lastTimestamp);
+      // 依照最後訊息時間排序 (新 -> 舊)
+      loadedRooms.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+      setRooms(loadedRooms);
+      setLoading(false);
+    });
+    return unsub;
+  }, [currentUser]);
+
+  if (loading) return <div className="p-4 text-center text-gray-500"><i className="fa-solid fa-spinner fa-spin"></i></div>;
+  if (rooms.length === 0) return <div className="p-4 text-center text-gray-500 text-sm">目前沒有任何私訊紀錄</div>;
+
+  return (
+    <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
+      {rooms.map(room => {
+        const targetId = room.participants.find(id => id !== currentUser.uid);
+        const target = vtubers.find(v => v.id === targetId);
+        if (!target) return null;
+
+        // 判斷我是否在未讀名單中
+        const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
+
+        return (
+          <div key={room.id} onClick={() => onOpenChat(target)} className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors group relative">
+            <img src={sanitizeUrl(target.avatar)} className="w-10 h-10 rounded-full object-cover" />
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center mb-1">
+                <span className={`text-sm truncate ${isUnread ? 'font-black text-white' : 'font-bold text-gray-300'}`}>
+                  {target.name}
+                </span>
+                <span className="text-[10px] text-gray-500">{formatTime(room.lastTimestamp)}</span>
+              </div>
+              <p className={`text-xs truncate ${isUnread ? 'text-purple-400 font-bold' : 'text-gray-400'}`}>
+                {room.lastMessage}
+              </p>
+            </div>
+            {/* 紅點 UI */}
+            {isUnread && (
+              <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 function App() {
   const getInitialView = () => { const hash = window.location.hash.replace('#', ''); if (hash.startsWith('profile/')) return 'profile'; return hash === 'profile' ? 'grid' : (hash || 'home'); };
 
@@ -1497,6 +1748,29 @@ function App() {
   const [realUpdates, setRealUpdates] = useState([]);
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
+  const [chatTarget, setChatTarget] = useState(null);
+  const [allChatRooms, setAllChatRooms] = React.useState([]);
+  useEffect(() => {
+    if (!user) {
+      setAllChatRooms([]);
+      return;
+    }
+    const q = query(
+      collection(db, getPath('chat_rooms')),
+      where('participants', 'array-contains', user.uid)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setAllChatRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [user]);
+
+  // 計算是否有任何未讀訊息
+  const hasUnreadChat = useMemo(() => {
+    return allChatRooms.some(room =>
+      room.unreadBy && room.unreadBy.includes(user?.uid)
+    );
+  }, [allChatRooms, user]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
@@ -1523,7 +1797,25 @@ function App() {
   const [isUpdatesModalOpen, setIsUpdatesModalOpen] = useState(false);
   const [confirmDislikeData, setConfirmDislikeData] = useState(null);
   const [copiedTemplate, setCopiedTemplate] = useState(false);
+  const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關 
+  const handleOpenChat = async (targetVtuber) => {
+    setChatTarget(targetVtuber);
+    setIsChatListOpen(false);
 
+    if (user) {
+      const roomId = generateRoomId(user.uid, targetVtuber.id);
+      const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+
+      // 從未讀名單中移除自己
+      try {
+        await updateDoc(roomRef, {
+          unreadBy: arrayRemove(user.uid)
+        });
+      } catch (e) {
+        console.error("Clear unread error:", e);
+      }
+    }
+  };
   const [newBulletin, setNewBulletin] = useState({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
   const [defaultBulletinImages, setDefaultBulletinImages] = useState([]);
   const [inviteMessage, setInviteMessage] = useState('');
@@ -1745,26 +2037,32 @@ function App() {
   }, [notifRef]);
 
   useEffect(() => {
-    // 註冊 Service Worker (推播必備)
+    // 註冊 Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js')
         .then(reg => console.log('SW 註冊成功:', reg.scope))
         .catch(err => console.error('SW 註冊失敗:', err));
     }
-    const unsubscribeAuth = onAuthStateChanged(auth, (u) => { setUser(u); setProfileForm(getEmptyProfile(u?.uid)); });
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      // 關鍵：當偵測到帳號變動（包含登出）
+      if (!u || (user && u.uid !== user.uid)) {
+        setChatTarget(null);       // 關閉聊天小視窗
+        setIsChatListOpen(false);  // 關閉私訊列表
+      }
+
+      setUser(u);
+      setProfileForm(getEmptyProfile(u?.uid));
+    });
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
 
-    // ▼▼▼ 補上這段前景推播監聽 ▼▼▼
     try {
       const messaging = getMessaging(app);
       onMessage(messaging, (payload) => {
-        console.log('收到前景推播:', payload);
-        showToast(`🔔 收到新通知: ${payload.notification?.title || payload.data?.title || '您有新訊息'}`);
+        showToast(`🔔 收到新通知: ${payload.notification?.title || '您有新訊息'}`);
       });
     } catch (e) {
       console.warn("目前環境尚未啟用 Messaging", e);
     }
-    // ▲▲▲ 補上這段前景推播監聽 ▲▲▲
 
     return () => { unsubscribeAuth(); clearInterval(timer); };
   }, []);
@@ -1883,7 +2181,24 @@ function App() {
     let unsubN = () => { };
     if (user && user.uid) {
       const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
-      unsubN = onSnapshot(q, (snap) => setRealNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => console.error(err));
+      unsubN = onSnapshot(q, (snap) => {
+        const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        // 核心邏輯：檢測是否有「剛剛發出」且「未讀」的私訊通知
+        const latestChatNotif = newNotifs.find(n => !n.read && n.type === 'chat_notification' && (Date.now() - n.createdAt < 5000));
+
+        if (latestChatNotif) {
+          // 找出發送者是誰
+          const sender = realVtubers.find(v => v.id === latestChatNotif.fromUserId);
+          if (sender && chatTarget?.id !== sender.id) {
+            setChatTarget(sender); // 自動幫對方開啟聊天室
+            // 順便把該通知標為已讀，避免重複跳出
+            updateDoc(doc(db, getPath('notifications'), latestChatNotif.id), { read: true });
+          }
+        }
+
+        setRealNotifications(newNotifs);
+      }, (err) => console.error(err));
     } else { setRealNotifications([]); }
 
     return () => { unsubN(); };
@@ -1918,7 +2233,19 @@ function App() {
   const unreadCount = myNotifications.filter(n => !n.read).length;
   const markAllAsRead = () => myNotifications.forEach(n => { if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }); });
 
-  const handleNotifClick = (n) => { const sender = realVtubers.find(v => v.id === n.fromUserId); if (sender) { setSelectedVTuber(sender); navigate(`profile/${sender.id}`); } if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(() => { }); setIsNotifOpen(false); };
+  const handleNotifClick = (n) => {
+    const sender = realVtubers.find(v => v.id === n.fromUserId);
+    if (sender) {
+      if (n.type === 'chat_notification' || n.type === 'collab_invite') {
+        setChatTarget(sender); // 開啟聊天室
+      } else {
+        setSelectedVTuber(sender);
+        navigate(`profile/${sender.id}`);
+      }
+    }
+    if (!n.read) updateDoc(doc(db, getPath('notifications'), n.id), { read: true }).catch(() => { });
+    setIsNotifOpen(false);
+  };
   const handleNotifProfileNav = (userId) => { const vt = realVtubers.find(v => v.id === userId); if (vt) { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); } else showToast("找不到該名片，可能已被刪除或隱藏"); };
   const handleMarkNotifRead = async (id) => { try { await updateDoc(doc(db, getPath('notifications'), id), { read: true }); } catch (err) { } };
   const handleDeleteNotif = async (id) => { if (!confirm("確定要刪除這則通知嗎？")) return; try { await deleteDoc(doc(db, getPath('notifications'), id)); showToast("✅ 已刪除通知"); } catch (err) { showToast("刪除失敗"); } };
@@ -2935,6 +3262,14 @@ function App() {
                       </div>
                       <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                         {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleOpenCollabModal(selectedVTuber)} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex-shrink-0 flex items-center justify-center"><i className="fa-solid fa-envelope-open-text mr-2"></i>發送站內信邀約</button>}
+                        {isVerifiedUser && selectedVTuber.id !== user?.uid && (
+                          <button
+                            onClick={() => setChatTarget(selectedVTuber)}
+                            className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+                          >
+                            <i className="fa-solid fa-comment-dots"></i> 即時私訊
+                          </button>
+                        )}
                         {selectedVTuber.streamStyleUrl && <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer" className="bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-blue-600 hover:text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-video"></i> 觀看直播風格</a>}
                       </div>
                     </div>
@@ -3501,7 +3836,55 @@ function App() {
           </div>
         </div>
       )}
-      <footer className="py-6 border-t border-gray-800 text-center text-gray-500 text-sm"><p>© {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。</p></footer>
+      {user && !chatTarget && (
+        <div className="fixed bottom-4 right-4 z-[90]">
+          {isChatListOpen && (
+            <div className="absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden animate-fade-in-up">
+              <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-md">
+                <span className="font-bold text-sm flex items-center gap-2"><i className="fa-solid fa-comments"></i> 訊息列表</span>
+                <button onClick={() => setIsChatListOpen(false)} className="hover:bg-purple-700 w-6 h-6 rounded-full flex items-center justify-center transition-colors"><i className="fa-solid fa-xmark"></i></button>
+              </div>
+              <ChatListContent
+                currentUser={user}
+                vtubers={typeof realVtubers !== 'undefined' ? realVtubers : []}
+                onOpenChat={handleOpenChat}
+              />
+            </div>
+          )}
+          <button
+            onClick={() => setIsChatListOpen(!isChatListOpen)}
+            className="bg-purple-600 hover:bg-purple-500 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center justify-center transition-transform hover:scale-105 border-2 border-purple-400/30 relative"
+          >
+            <i className={`fa-solid ${isChatListOpen ? 'fa-xmark text-xl' : 'fa-message text-2xl'}`}></i>
+
+            {/* 新增：如果有未讀私訊且列表未開啟，顯示閃爍紅點 */}
+            {!isChatListOpen && hasUnreadChat && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-gray-900 flex items-center justify-center">
+                  <span className="text-[10px] text-white font-bold">!</span>
+                </span>
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
+      {user && chatTarget && (
+        <FloatingChat
+          targetVtuber={chatTarget}
+          currentUser={user}
+          // 加上安全檢查，如果 myProfile 不存在，就從清單中抓取，避免當機
+          myProfile={typeof myProfile !== 'undefined' ? myProfile : (typeof realVtubers !== 'undefined' ? realVtubers.find(v => v.id === user.uid) : null)}
+          onClose={() => setChatTarget(null)}
+          // 加上安全檢查，避免 showToast 未定義導致當機
+          showToast={typeof showToast !== 'undefined' ? showToast : (msg) => console.log(msg)}
+        />
+      )}
+
+      <footer className="py-6 border-t border-gray-800 text-center text-gray-500 text-sm">
+        <p>© {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。</p>
+      </footer>
     </div>
   );
 }
