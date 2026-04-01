@@ -852,40 +852,12 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
       <div className="grid grid-cols-1 gap-6 pt-2"><div><label className="block text-sm font-bold text-gray-300 mb-2">我的直播風格代表作</label><input type="url" value={form.streamStyleUrl} onChange={e => updateForm({ streamStyleUrl: e.target.value })} className={inputCls} placeholder="填入影片連結" /></div></div>
 
       {!isAdmin && (
-  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-    <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2">
-      <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span>
-    </h3>
-    <p className="text-xs text-gray-300 mb-4">
-      請將「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」字樣放入X或Youtube簡介中，審核通過即可移除。<br/>
-      <span className="text-yellow-400 font-bold">請在下方輸入您放入的平台，比如 X 或 YT</span>
-    </p>
-    <input 
-      required 
-      type="text" 
-      value={form.verificationNote || ''} 
-      placeholder="請輸入 X 或 YT"
-      onChange={(e) => {
-        // 自動將輸入轉為大寫，方便比對
-        const val = e.target.value.toUpperCase();
-        const targets = ["X", "YT"];
-        
-        // 檢查輸入是否為空，或是 "X" 或 "YT" 的開頭一部分
-        // 例如：輸入 "Y" (是 YT 的開頭)，輸入 "YT" (符合)
-        const isPrefix = targets.some(t => t.startsWith(val));
-
-        if (val === "" || isPrefix) {
-          // 如果符合 X 或 YT 的輸入過程，更新資料
-          updateForm({ verificationNote: val });
-        } else {
-          // 只要輸入的字不符合目標字串，就跳警告並維持原本內容
-          alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
-        }
-      }} 
-      className={inputCls} 
-    />
-  </div>
-)}
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
+          <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2"><i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用) <span className="text-red-400">*</span></h3>
+          <p className="text-xs text-gray-300 mb-4">請在X或Youtube簡介暫放「<span className="text-white font-bold bg-gray-800 px-1 rounded">V-Nexus審核中</span>」，審核後可移除。</p>
+          <input required type="text" value={form.verificationNote || ''} onChange={e => updateForm({ verificationNote: e.target.value })} className={inputCls} placeholder="您的驗證方式為...(請填入Youtube或X，此資料保密)" />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
         <div>
           <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
@@ -1450,6 +1422,7 @@ function App() {
   const [realCollabs, setRealCollabs] = useState([]);
   const [realUpdates, setRealUpdates] = useState([]);
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
+  const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
@@ -1934,21 +1907,18 @@ function App() {
 
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
-    // 建立一個基於 id 和 shuffleSeed 的確定性隨機函數
-    // 這樣相同的 id + 相同的 seed 永遠會得到相同的排序權重
-    const getDeterministicOrder = (id) => {
+    // 建立一個偽隨機函數，會根據 shuffleSeed 的變化來計算新的排序
+    const seededRandom = (id) => {
       let hash = 0;
       const str = id + shuffleSeed.toString();
       for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
         hash |= 0; // 轉換為 32bit 整數
       }
-      return hash;
+      return Math.abs(hash) / 2147483647;
     };
 
-    return [...realVtubers].sort((a, b) => {
-      return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
-    });
+    return [...realVtubers].sort(() => Math.random() - 0.5);
   }, [realVtubers, shuffleSeed]);
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set();
@@ -2018,14 +1988,7 @@ function App() {
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault(); if (!user) return showToast("請先登入！");
 
-  // 在 handleSaveProfile 函數內搜尋關於 verificationNote 的檢查區塊
-if (!isAdmin) {
-  const note = (customForm.verificationNote || "").toUpperCase();
-  if (note !== "X" && note !== "YT") {
-    alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
-    return; // 攔截，不允許儲存
-  }
-}
+    if (!isAdmin && (!customForm.verificationNote || !customForm.verificationNote.trim())) return showToast("請填寫真人身分驗證方式！");
     if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
 
     let finalCollabs = [...(customForm.collabTypes || [])]; if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) finalCollabs.push(customForm.otherCollabText.trim());
@@ -2110,6 +2073,7 @@ if (!isAdmin) {
     try {
       const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
       const finalImage = newBulletin.image || (defaultBulletinImages.length > 0 ? defaultBulletinImages[Math.floor(Math.random() * defaultBulletinImages.length)] : '');
+      setIsBulletinFormOpen(false);
       if (newBulletin.id) {
         await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), { content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage });
         setRealBulletins(prev => prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage } : b));
@@ -2128,6 +2092,7 @@ if (!isAdmin) {
     const rEndD = new Date(b.recruitEndTime);
     const rEndStr = `${rEndD.getFullYear()}-${String(rEndD.getMonth() + 1).padStart(2, '0')}-${String(rEndD.getDate()).padStart(2, '0')}T${String(rEndD.getHours()).padStart(2, '0')}:${String(rEndD.getMinutes()).padStart(2, '0')}`;
     setNewBulletin({ id: b.id, content: b.content, collabType: PREDEFINED_COLLABS.includes(b.collabType) ? b.collabType : '其他', collabTypeOther: PREDEFINED_COLLABS.includes(b.collabType) ? '' : b.collabType, collabSize: b.collabSize, collabTime: b.collabTime, recruitEndTime: rEndStr, image: b.image || '' });
+    setIsBulletinFormOpen(true);
     navigate('bulletin');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -2861,72 +2826,77 @@ if (!isAdmin) {
               <div><h2 className="text-3xl font-extrabold text-white flex items-center gap-3"><i className="fa-solid fa-bullhorn text-purple-400"></i>招募佈告欄</h2><p className="text-gray-400 mt-2 text-sm">在這裡發布您的聯動企劃，或是尋找有興趣的邀請吧！<span className="text-yellow-400 font-bold ml-2">(注意：招募時間截止前，發起人必須進入信箱發送正式邀請才算成功)</span></p></div>
               <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 <button onClick={() => setIsLeaderboardModalOpen(true)} className="bg-yellow-600 hover:bg-yellow-500 text-white px-5 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(202,138,4,0.4)] flex items-center justify-center transition-transform hover:-translate-y-1"><i className="fa-solid fa-trophy mr-2"></i>招募成功排行榜</button>
-                <button onClick={() => { setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); document.getElementById('bulletin-form')?.scrollIntoView({ behavior: 'smooth' }); }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] flex items-center justify-center transition-transform hover:-translate-y-1"><i className="fa-solid fa-pen-nib mr-2"></i>我要發布招募</button>
+                <button
+                  onClick={() => {
+                    if (!isBulletinFormOpen) {
+                      setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
+                    }
+                    setIsBulletinFormOpen(!isBulletinFormOpen);
+                  }}
+                  className={`${isBulletinFormOpen ? 'bg-gray-700' : 'bg-gradient-to-r from-purple-600 to-pink-600'} text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center justify-center transition-all hover:-translate-y-1`}
+                >
+                  <i className={`fa-solid ${isBulletinFormOpen ? 'fa-chevron-up' : 'fa-pen-nib'} mr-2`}></i>
+                  {isBulletinFormOpen ? '收起發布方框' : '我要發布招募'}
+                </button>
               </div>
             </div>
 
-            <div id="bulletin-form" className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-8 shadow-2xl mb-10">
-              <h3 className="text-xl font-bold text-white mb-6 border-b border-gray-700 pb-3">{newBulletin.id ? '編輯招募文' : '發布新招募'}</h3>
-              <div className="space-y-6">
-                <div><label className="block text-sm font-bold text-gray-300 mb-2">招募內容說明 <span className="text-red-400">*</span></label><textarea required rows="4" placeholder="請描述您的聯動企劃內容、希望的對象條件..." value={newBulletin.content} onChange={e => setNewBulletin({ ...newBulletin, content: e.target.value })} className={inputCls + " resize-none"} /></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">聯動類型 <span className="text-red-400">*</span></label>
-                    <select value={newBulletin.collabType} onChange={e => setNewBulletin({ ...newBulletin, collabType: e.target.value })} className={inputCls}><option value="">請選擇</option>{PREDEFINED_COLLABS.map(t => <option key={t} value={t}>{t}</option>)}<option value="其他">其他 (自行輸入)</option></select>
-                    {newBulletin.collabType === '其他' && <input type="text" placeholder="請輸入類型" value={newBulletin.collabTypeOther} onChange={e => setNewBulletin({ ...newBulletin, collabTypeOther: e.target.value })} className={inputCls + " mt-2"} />}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">預估人數 <span className="text-red-400">*</span></label>
-                    <select value={newBulletin.collabSize} onChange={e => setNewBulletin({ ...newBulletin, collabSize: e.target.value })} className={inputCls}><option value="">請選擇</option>{Array.from({ length: 20 }, (_, i) => i + 1).map(n => <option key={n} value={`${n}人`}>{n}人</option>)}</select>
-                  </div>
-                  <div><label className="block text-sm font-bold text-gray-300 mb-2">預計聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.collabTime} onChange={e => setNewBulletin({ ...newBulletin, collabTime: e.target.value })} className={inputCls} /></div>
-                  <div><label className="block text-sm font-bold text-gray-300 mb-2">招募截止時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.recruitEndTime} onChange={e => setNewBulletin({ ...newBulletin, recruitEndTime: e.target.value })} className={inputCls} /></div>
+            {isBulletinFormOpen && (
+              <div id="bulletin-form" className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-8 shadow-2xl mb-10 animate-fade-in-up">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
+                  <h3 className="text-xl font-bold text-white">{newBulletin.id ? '編輯招募文' : '發布新招募'}</h3>
+                  <button onClick={() => setIsBulletinFormOpen(false)} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
                 </div>
-                {/* 圖片上傳與按鈕同一行 (桌面版並排) */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2 mt-2">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-sm font-bold text-gray-300 mb-2">選擇預設圖 或 自行上傳 (未選將隨機套用)</label>
-                    <div className="flex flex-col gap-3">
-                      {/* 預設圖選擇區 */}
-                      {defaultBulletinImages.length > 0 && (
-                        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar items-center">
-                          {defaultBulletinImages.map((img, idx) => (
-                            <img
-                              key={idx}
-                              src={sanitizeUrl(img)}
-                              onClick={() => setNewBulletin(p => ({ ...p, image: img }))}
-                              className={`w-28 h-16 rounded-lg object-cover cursor-pointer border-2 transition-all flex-shrink-0 ${newBulletin.image === img ? 'border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] opacity-100' : 'border-transparent hover:border-gray-500 opacity-50 hover:opacity-100'}`}
-                              title="點擊套用此預設圖"
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 自行上傳與清除區 */}
-                      <div className="flex gap-3 items-center">
-                        {newBulletin.image && !defaultBulletinImages.includes(newBulletin.image) && (
-                          <div className="relative"><img src={sanitizeUrl(newBulletin.image)} className="w-12 h-12 rounded-lg object-cover border border-gray-600" /><button type="button" onClick={() => setNewBulletin(p => ({ ...p, image: '' }))} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]"><i className="fa-solid fa-xmark"></i></button></div>
+                <div className="space-y-6">
+                  <div><label className="block text-sm font-bold text-gray-300 mb-2">招募內容說明 <span className="text-red-400">*</span></label><textarea required rows="4" placeholder="請描述您的聯動企劃內容、希望的對象條件..." value={newBulletin.content} onChange={e => setNewBulletin({ ...newBulletin, content: e.target.value })} className={inputCls + " resize-none"} /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">聯動類型 <span className="text-red-400">*</span></label>
+                      <select value={newBulletin.collabType} onChange={e => setNewBulletin({ ...newBulletin, collabType: e.target.value })} className={inputCls}><option value="">請選擇</option>{PREDEFINED_COLLABS.map(t => <option key={t} value={t}>{t}</option>)}<option value="其他">其他 (自行輸入)</option></select>
+                      {newBulletin.collabType === '其他' && <input type="text" placeholder="請輸入類型" value={newBulletin.collabTypeOther} onChange={e => setNewBulletin({ ...newBulletin, collabTypeOther: e.target.value })} className={inputCls + " mt-2"} />}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">預估人數 <span className="text-red-400">*</span></label>
+                      <select value={newBulletin.collabSize} onChange={e => setNewBulletin({ ...newBulletin, collabSize: e.target.value })} className={inputCls}><option value="">請選擇</option>{Array.from({ length: 20 }, (_, i) => i + 1).map(n => <option key={n} value={`${n}人`}>{n}人</option>)}</select>
+                    </div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">預計聯動時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.collabTime} onChange={e => setNewBulletin({ ...newBulletin, collabTime: e.target.value })} className={inputCls} /></div>
+                    <div><label className="block text-sm font-bold text-gray-300 mb-2">招募截止時間 <span className="text-red-400">*</span></label><input type="datetime-local" lang="sv-SE" step="60" value={newBulletin.recruitEndTime} onChange={e => setNewBulletin({ ...newBulletin, recruitEndTime: e.target.value })} className={inputCls} /></div>
+                  </div>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2 mt-2">
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-sm font-bold text-gray-300 mb-2">選擇預設圖 或 自行上傳 (未選將隨機套用)</label>
+                      <div className="flex flex-col gap-3">
+                        {defaultBulletinImages.length > 0 && (
+                          <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar items-center">
+                            {defaultBulletinImages.map((img, idx) => (
+                              <img key={idx} src={sanitizeUrl(img)} onClick={() => setNewBulletin(p => ({ ...p, image: img }))} className={`w-28 h-16 rounded-lg object-cover cursor-pointer border-2 transition-all flex-shrink-0 ${newBulletin.image === img ? 'border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] opacity-100' : 'border-transparent hover:border-gray-500 opacity-50 hover:opacity-100'}`} title="點擊套用此預設圖" />
+                            ))}
+                          </div>
                         )}
-                        <div className="relative w-full sm:w-auto flex-shrink-0">
-                          <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleBulletinImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                          <button type="button" className="w-full sm:w-auto px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm py-2 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> 自行上傳圖片</button>
+                        <div className="flex gap-3 items-center">
+                          {newBulletin.image && !defaultBulletinImages.includes(newBulletin.image) && (
+                            <div className="relative"><img src={sanitizeUrl(newBulletin.image)} className="w-12 h-12 rounded-lg object-cover border border-gray-600" /><button type="button" onClick={() => setNewBulletin(p => ({ ...p, image: '' }))} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]"><i className="fa-solid fa-xmark"></i></button></div>
+                          )}
+                          <div className="relative w-full sm:w-auto flex-shrink-0">
+                            <input type="file" accept="image/png, image/jpeg, image/webp" onChange={handleBulletinImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <button type="button" className="w-full sm:w-auto px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm py-2 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> 自行上傳圖片</button>
+                          </div>
+                          {newBulletin.image && (
+                            <button type="button" onClick={() => setNewBulletin(p => ({ ...p, image: '' }))} className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 bg-red-500/10 px-3 py-2 rounded-lg font-bold transition-colors">取消選取圖片</button>
+                          )}
                         </div>
-                        {newBulletin.image && defaultBulletinImages.includes(newBulletin.image) && (
-                          <button type="button" onClick={() => setNewBulletin(p => ({ ...p, image: '' }))} className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 bg-red-500/10 px-3 py-2 rounded-lg font-bold transition-colors">取消選取</button>
-                        )}
                       </div>
                     </div>
-                  </div>
-
-                  {/* 發布按鈕區塊 */}
-                  <div className="flex-shrink-0 flex justify-end pb-1 md:pb-0">
-                    <button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 h-fit whitespace-nowrap">
-                      {newBulletin.id ? '儲存修改' : '發布招募'}
-                    </button>
+                    <div className="flex gap-3">
+                      <button onClick={() => setIsBulletinFormOpen(false)} className="px-6 py-3 text-gray-400 hover:text-white font-bold">取消</button>
+                      <button onClick={handlePostBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 h-fit whitespace-nowrap">
+                        {newBulletin.id ? '儲存修改' : '發布招募'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-gray-700">
               <button onClick={() => setBulletinFilter('All')} className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === 'All' ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>全部招募</button>
