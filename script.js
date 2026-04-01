@@ -2089,50 +2089,42 @@ function App() {
 
   // --- 自動提醒檢查邏輯 (Lazy Cron) ---
   useEffect(() => {
-    // 只有當資料載入完成且有聯動資料時才執行
-    if (isLoading || realCollabs.length === 0) return;
+    if (isLoading || !user) return;
 
     const checkAndSendReminders = async () => {
       const now = Date.now();
       const twentyFourHours = 24 * 60 * 60 * 1000;
 
-      // 找出「24小時內開始」且「尚未寄過提醒」的聯動
-      const upcomingCollabs = realCollabs.filter(c =>
-        c.startTimestamp &&
-        (c.startTimestamp - now) <= twentyFourHours &&
-        (c.startTimestamp - now) > 0 &&
-        c.reminderSent === false
+      // 關鍵優化：只抓取「尚未寄信」且「24小時內」的行程，不再全量讀取
+      const q = query(
+        collection(db, getPath('collabs')),
+        where('reminderSent', '==', false),
+        where('startTimestamp', '<=', now + twentyFourHours),
+        where('startTimestamp', '>', now)
       );
 
-      for (const collab of upcomingCollabs) {
-        // 標記為已寄出，防止重複觸發
-        await updateDoc(doc(db, getPath('collabs'), collab.id), { reminderSent: true });
+      const snap = await getDocs(q);
+      snap.forEach(async (collabDoc) => {
+        const collab = { id: collabDoc.id, ...collabDoc.data() };
+        await updateDoc(collabDoc.ref, { reminderSent: true });
 
-        // 取得所有參與者 (包含發起人)
         const allMemberIds = [collab.userId, ...(collab.participants || [])];
-
         allMemberIds.forEach(async (uid) => {
           const target = realVtubers.find(v => v.id === uid);
-          if (!target) return;
-
-          // 取得 Email (優先使用公開信箱)
-          const email = target.publicEmail;
-          if (email && email.includes('@')) {
-            await addDoc(collection(db, getPath('mail')), {
-              to: email,
+          if (target?.publicEmail) {
+            addDoc(collection(db, getPath('mail')), {
+              to: target.publicEmail,
               message: {
-                subject: `[V-Nexus 聯動提醒] 行程即將在 24 小時內開始！`,
-                text: `您好 ${target.name}！\n\n您參與的聯動行程【${collab.title}】即將在 24 小時內開始！\n\n時間：${collab.date} ${collab.time}\n直播連結：${collab.streamUrl}\n\n請記得準時參加喔！\n\nV-Nexus 團隊`
+                subject: `[V-Nexus 聯動提醒] 行程即將開始！`,
+                text: `您好 ${target.name}！您的聯動行程【${collab.title}】即將在 24 小時內開始！`
               }
-            }).catch(e => console.error("Reminder Mail Error:", e));
+            }).catch(() => { });
           }
         });
-      }
+      });
     };
-
-    // 執行檢查
     checkAndSendReminders();
-  }, [realCollabs, isLoading]);
+  }, [isLoading, user]);
   // --- 提醒邏輯結束 ---
 
   useEffect(() => {
