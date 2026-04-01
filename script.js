@@ -4,7 +4,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 // --- 務必確認這行有在頂部 ---
-import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY";
 // --------------------------------------------------
@@ -281,7 +281,7 @@ const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onI
         </div>
       </div>
 
-      {showApplicants && ReactDOM.createPortal(
+      {showApplicants && currentView !== 'profile' && ReactDOM.createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); setShowApplicants(false); }}>
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-2xl cursor-default" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
@@ -1095,7 +1095,7 @@ const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, is
 
 // 在參數大括號的最後面加上 , onTestReminder
 // 找到 AdminPage 的開頭，在大括號最後面補上 , onTestPush
-const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage, onTestReminder, onTestPush
+const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage, onTestReminder, onTestPush, onMassUpdateVerification
 }) => {
   const [activeTab, setActiveTab] = useState('vtubers');
   const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
@@ -1108,6 +1108,7 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
   const rejectedVtubers = safeVtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected' && !v.isBlacklisted);
   const verifiedVtubers = safeVtubers.filter(v => v.isVerified && !v.isBlacklisted);
   const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
+  const [isRejectedExpanded, setIsRejectedExpanded] = React.useState(false);
 
   const handleEditClick = (v) => {
     const safeCollabTypes = Array.isArray(v.collabTypes) ? v.collabTypes : [];
@@ -1184,11 +1185,47 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
           {activeTab === 'vtubers' && (
             <div className="space-y-8">
               <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-              {rejectedVtubers.length > 0 && <AdminVtuberList title="已退回名單" list={rejectedVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} />}
+              {/* 已退回名單 - 加入摺疊與搜尋功能 */}
+              {rejectedVtubers.length > 0 && (
+                <div className="mb-8 border border-orange-500/20 rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => setIsRejectedExpanded(!isRejectedExpanded)}
+                    className="w-full flex items-center justify-between p-4 bg-orange-500/5 hover:bg-orange-500/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xl font-bold text-orange-400">已退回名單 ({rejectedVtubers.length})</h3>
+                      <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded">點擊{isRejectedExpanded ? '收合' : '展開'}</span>
+                    </div>
+                    <i className={`fa-solid fa-chevron-${isRejectedExpanded ? 'up' : 'down'} text-orange-400`}></i>
+                  </button>
+
+                  {isRejectedExpanded && (
+                    <div className="p-4 bg-gray-900/30">
+                      <AdminVtuberList
+                        title="搜尋退回名單"
+                        list={rejectedVtubers}
+                        privateDocs={privateDocs}
+                        onVerify={onVerifyVtuber}
+                        onEdit={handleEditClick}
+                        onDelete={onDeleteVtuber}
+                        paginate={true}
+                        showSearch={true}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} showSearch={true} />
               <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
               <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                 <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
+                <button
+                  onClick={onMassUpdateVerification}
+                  disabled={isSyncingSubs}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-blue-900/50 cursor-not-allowed text-gray-400' : 'bg-blue-900 hover:bg-blue-700 text-white'}`}
+                >
+                  <i className="fa-solid fa-user-shield mr-2"></i>一鍵更改驗證內容為 'X'
+                </button>
                 <button onClick={onResetNatAndLang} className="bg-orange-900 hover:bg-orange-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-wrench mr-2"></i>修復國籍語言格式</button>
                 <button onClick={onMassSyncSubs} disabled={isSyncingSubs} className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-red-900/50 cursor-not-allowed text-gray-400' : 'bg-red-900 hover:bg-red-700 text-white'}`}>
                   {isSyncingSubs ? <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</> : <><i className="fa-brands fa-youtube mr-2"></i>強制同步 YT 訂閱</>}
@@ -1550,6 +1587,11 @@ function App() {
   const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active');
 
   const navigate = (view, preserveScroll = false) => {
+    if (!preserveScroll && !view.startsWith('profile/')) {
+      setViewParticipantsCollab(null);
+      setOpenBulletinModalId(null);
+    }
+
     if (view.startsWith('profile/') && currentView !== 'profile') {
       setPreviousView(currentView);
       gridScrollY.current = window.scrollY;
@@ -1963,16 +2005,28 @@ function App() {
 
   const filteredVTubers = useMemo(() => {
     let result = displayVtubers.filter(v => isVisible(v, user)).filter(v => {
-      const mSearch = v.name?.toLowerCase().includes(searchQuery.toLowerCase()) || v.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      // --- 全文字搜尋邏輯 ---
+      const s = searchQuery.toLowerCase();
+      const mSearch =
+        (v.name?.toLowerCase().includes(s)) ||
+        (v.description?.toLowerCase().includes(s)) ||
+        (v.agency?.toLowerCase().includes(s)) ||
+        (Array.isArray(v.tags) ? v.tags.some(t => t.toLowerCase().includes(s)) : v.tags?.toLowerCase().includes(s)) ||
+        (Array.isArray(v.collabTypes) && v.collabTypes.some(t => t.toLowerCase().includes(s))) ||
+        (v.otherCollabText?.toLowerCase().includes(s));
+      // --------------------
+
       const mTags = selectedTags.length === 0 || selectedTags.every(t => v.collabTypes?.includes(t));
       const mAgency = selectedAgency === 'All' || v.agency?.includes(selectedAgency);
       const mPlat = selectedPlatform === 'All' || (v.mainPlatform || 'YouTube') === selectedPlatform;
       const mNat = selectedNationality === 'All' || (v.nationalities && v.nationalities.includes(selectedNationality)) || v.nationality === selectedNationality;
       const mLang = selectedLanguage === 'All' || (v.languages && v.languages.includes(selectedLanguage)) || v.language === selectedLanguage;
       const mSchedule = selectedSchedule === 'All' || (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
-      const mColor = selectedColor === 'All' || (v.colorSchemes && v.colorSchemes.includes(selectedColor)); // 色系篩選邏輯
+      const mColor = selectedColor === 'All' || (v.colorSchemes && v.colorSchemes.includes(selectedColor));
+
       return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule && mColor;
     });
+    // ... 後面的排序邏輯不變
     if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0));
     else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a));
     else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
@@ -1983,7 +2037,24 @@ function App() {
   useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, sortOrder]);
 
   const ITEMS_PER_PAGE = 18; const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE)); const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const handlePageChange = (newPage) => { if (newPage >= 1 && newPage <= totalPages) { setCurrentPage(newPage); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+
+      // 解決手機版無法跳回頂部的問題
+      setTimeout(() => {
+        // 1. 執行標準滾動
+        window.scrollTo({ top: 0, behavior: 'auto' });
+
+        // 2. 針對部分手機瀏覽器 (如 iOS Safari) 的強制補強
+        document.body.scrollTop = 0; // 針對舊版 Chrome/Safari
+        document.documentElement.scrollTop = 0; // 針對 Firefox/IE/新版 Chrome
+
+        // 3. 如果你有導航欄遮擋問題，可以滾動到稍微靠下的位置 (選配)
+        // window.scrollTo(0, 0);
+      }, 50); // 50 毫秒的延遲足以讓手機完成畫面切換
+    }
+  };
 
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault(); if (!user) return showToast("請先登入！");
@@ -2221,6 +2292,45 @@ function App() {
   const handleDeleteCollab = async (id) => { if (!confirm("確定要刪除這個聯動行程嗎？")) return; try { await deleteDoc(doc(db, getPath('collabs'), id)); setRealCollabs(prev => prev.filter(c => c.id !== id)); showToast("已刪除聯動行程"); } catch (err) { showToast("刪除失敗"); } };
   const handleSaveSettings = async (tipsContent, rulesContent) => { try { if (tipsContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'tips'), { content: tipsContent }, { merge: true }); setRealTips(tipsContent); } if (rulesContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'rules'), { content: rulesContent }, { merge: true }); setRealRules(rulesContent); } showToast("系統設定已更新！"); } catch (err) { showToast("更新失敗"); } };
   const handleAdminResetAllCollabTypes = async () => { if (!confirm("⚠️ 確定要清除所有人的聯動類型嗎？")) return; try { if (prompt("請輸入 'CONFIRM'") !== 'CONFIRM') return showToast("已取消操作。"); for (const v of realVtubers) { if (!v.id.startsWith('mock')) { await setDoc(doc(db, getPath('vtubers'), v.id), { collabTypes: [] }, { merge: true }); } } setRealVtubers(prev => prev.map(v => ({ ...v, collabTypes: [] }))); showToast("✅ 已清除所有人聯動類型！"); } catch (err) { showToast("清除失敗"); } };
+  const handleAdminMassUpdateVerification = async () => {
+    if (!confirm("⚠️ 確定要將所有名片的真人驗證內容一鍵更改為 'X' 嗎？\n此動作將覆蓋所有現有的驗證備註！")) return;
+
+    const confirmText = prompt("請輸入 'X-CONFIRM' 以確認執行此大規模操作：");
+    if (confirmText !== 'X-CONFIRM') return showToast("操作已取消");
+
+    setIsSyncingSubs(true); // 借用同步狀態來顯示 Loading
+    setSyncProgress("正在更新驗證內容...");
+
+    try {
+      let count = 0;
+      // 遍歷所有 VTuber
+      for (const v of realVtubers) {
+        if (!v.id.startsWith('mock')) {
+          // 更新私密資料庫中的 verificationNote
+          await setDoc(doc(db, getPath('vtubers_private'), v.id), {
+            verificationNote: 'X',
+            updatedAt: Date.now()
+          }, { merge: true });
+          count++;
+        }
+      }
+      showToast(`✅ 已成功將 ${count} 筆名片的驗證內容更改為 'X'！`);
+
+      // 更新本地的 privateDocs 狀態，讓管理員介面即時顯示
+      const newPrivateDocs = { ...privateDocs };
+      Object.keys(newPrivateDocs).forEach(id => {
+        newPrivateDocs[id] = { ...newPrivateDocs[id], verificationNote: 'X' };
+      });
+      setPrivateDocs(newPrivateDocs);
+
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 更新失敗，請檢查權限或網路");
+    } finally {
+      setIsSyncingSubs(false);
+      setSyncProgress("");
+    }
+  };
   // --- 聯動提醒功能測試函式 ---
   const handleTestReminderSystem = async () => {
     if (!user) return showToast("請先登入！");
@@ -2239,62 +2349,6 @@ function App() {
         category: "系統測試",
         createdAt: Date.now()
       };
-      const handleTestPushNotification = async () => {
-        if (!user) return showToast("請先登入");
-
-        try {
-          // 1. 基本支援檢查
-          if (!('serviceWorker' in navigator)) {
-            alert("❌ 您的瀏覽器不支援 Service Worker，無法發送通知。");
-            return;
-          }
-
-          // 2. 請求權限 (這在電腦與手機都通用)
-          let currentPerm = Notification.permission;
-          if (currentPerm === "default") {
-            currentPerm = await Notification.requestPermission();
-          }
-
-          if (currentPerm !== "granted") {
-            alert("❌ 通知權限未開啟 (目前狀態: " + currentPerm + ")。請在瀏覽器設定中允許通知。");
-            return;
-          }
-
-          // 3. 核心修正：完全不使用 new Notification()
-          // 取得註冊好的 Service Worker
-          const registration = await navigator.serviceWorker.ready;
-
-          if (registration) {
-            // 這是電腦版與 Android 版通用的標準語法
-            await registration.showNotification("V-Nexus 系統測試", {
-              body: "🎉 恭喜！通知功能已成功啟動！(此方式相容電腦與手機)",
-              icon: "https://duk.tw/u1jpPE.png",
-              badge: "https://duk.tw/u1jpPE.png",
-              vibrate: [200, 100, 200],
-              tag: "v-nexus-test", // 標籤可以防止重複彈出
-              renotify: true
-            });
-            showToast("✅ 測試通知已發送！");
-          } else {
-            alert("❌ 找不到運作中的 Service Worker。");
-          }
-
-          // 4. 寫入資料庫 (原本的邏輯)
-          await addDoc(collection(db, getPath('notifications')), {
-            userId: user.uid,
-            fromUserId: user.uid,
-            fromUserName: "V-Nexus 系統測試",
-            type: "system",
-            message: "這是一則測試推播通知！",
-            isRead: false,
-            createdAt: Date.now()
-          });
-
-        } catch (err) {
-          console.error("Notification Error:", err);
-          alert("❌ 發生錯誤: " + err.message);
-        }
-      };
 
       const docRef = await addDoc(collection(db, getPath('collabs')), testData);
 
@@ -2306,6 +2360,7 @@ function App() {
       showToast("❌ 測試失敗：" + err.message);
     }
   };
+
   const handleAdminResetNatAndLang = async () => {
     if (!confirm("⚠️ 確定要自動修復所有「國籍與語言格式錯誤」的名片嗎？")) return;
     try {
@@ -2670,6 +2725,20 @@ function App() {
               <div className="hidden lg:block relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
               <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
                 <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300"><i className="fa-solid fa-filter mr-2"></i>進階篩選</h3>
+                {/* 手機版專用關鍵字搜尋框 */}
+                <div className="lg:hidden mb-4">
+                  <p className="text-xs text-gray-500 mb-2">關鍵字搜尋 (如: ASMR、歌回、企劃)</p>
+                  <div className="relative">
+                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input
+                      type="text"
+                      placeholder="搜尋名片內任何文字..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500 shadow-inner"
+                    />
+                  </div>
+                </div>
                 <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="grid grid-cols-2 gap-1 bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢', '社團勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`w-full py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
                 <div><p className="text-xs text-gray-500 mb-2">主要平台</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', 'YouTube', 'Twitch'].map(p => <button key={p} onClick={() => setSelectedPlatform(p)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{p === 'All' ? '全部' : p}</button>)}</div></div>
                 <div className="grid grid-cols-2 gap-3">
@@ -2738,18 +2807,27 @@ function App() {
         {currentView === 'profile' && selectedVTuber && (
           <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
             <button onClick={() => {
-              document.body.style.opacity = '0';
-              document.body.style.transition = 'opacity 0.1s';
-              const target = previousView === 'profile' ? 'grid' : (previousView || 'grid');
-              navigate(target, true);
+              // 執行返回導航，帶入 true 表示保留彈窗狀態
+              if (viewParticipantsCollab || openBulletinModalId) {
+                navigate(previousView || 'home', true);
+              } else {
+                const target = previousView === 'profile' ? 'grid' : (previousView || 'grid');
+                navigate(target, true);
+              }
+
               setTimeout(() => {
                 window.scrollTo(0, gridScrollY.current);
-                document.body.style.opacity = '1';
-                document.body.style.transition = '';
               }, 50);
             }} className="text-gray-400 hover:text-white mb-6 flex items-center text-sm transition-colors">
               <i className="fa-solid fa-chevron-left mr-2"></i>
-              {openBulletinModalId ? '看看其他有意願的Vtuber' : previousView === 'bulletin' ? '返回佈告欄' : previousView === 'collabs' ? '返回聯動表' : previousView === 'inbox' ? '返回我的信箱' : previousView === 'home' ? '返回首頁' : previousView === 'match' ? '返回配對' : '返回探索'}
+              {/* 判斷顯示文字 */}
+              {viewParticipantsCollab ? '返回聯動參與人員' :
+                openBulletinModalId ? '看看其他有意願的Vtuber' :
+                  previousView === 'bulletin' ? '返回佈告欄' :
+                    previousView === 'collabs' ? '返回聯動表' :
+                      previousView === 'inbox' ? '返回我的信箱' :
+                        previousView === 'home' ? '返回首頁' :
+                          previousView === 'match' ? '返回配對' : '返回探索'}
             </button>
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl">
               <div className="h-48 sm:h-64 relative"><img src={sanitizeUrl(selectedVTuber.banner)} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div></div>
@@ -3059,7 +3137,7 @@ function App() {
         )}
 
         {currentView === 'admin' && isAdmin && (
-          <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} onTestReminder={handleTestReminderSystem} onTestPush={handleTestPushNotification} />
+          <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} onTestReminder={handleTestReminderSystem} onTestPush={handleTestPushNotification} onMassUpdateVerification={handleAdminMassUpdateVerification} />
         )}
       </main>
 
@@ -3145,12 +3223,40 @@ function App() {
 
       {/* 邀約小技巧 Modal */}
       {isTipsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in-up" onClick={() => setIsTipsModalOpen(false)}>
-          <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center"><h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2"><i className="fa-solid fa-lightbulb"></i> 邀約小技巧</h3><button onClick={() => setIsTipsModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setIsTipsModalOpen(false)}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                <i className="fa-solid fa-lightbulb"></i> 邀約小技巧
+              </h3>
+              <button onClick={() => setIsTipsModalOpen(false)} className="text-gray-400 hover:text-white">
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
             <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm mb-6">{realTips}</div>
-              <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700"><p className="text-xs text-gray-500 mb-2 font-bold">複製公版邀約詞 (可自行修改)</p><div className="bg-black/50 p-3 rounded-lg text-sm text-gray-300 font-mono mb-3 select-all">您好，我是 OOO！\n近期想規劃一個 [遊戲/企劃] 的聯動，\n想請問是否有榮幸能邀請您一起參與呢？\n時間預計在 OO/OO，詳細企劃案如下...\n期待您的回覆！</div><button onClick={() => { navigator.clipboard.writeText("您好，我是 OOO！\n近期想規劃一個 [遊戲/企劃] 的聯動，\n想請問是否有榮幸能邀請您一起參與呢？\n時間預計在 OO/OO，詳細企劃案如下...\n期待您的回覆！"); setCopiedTemplate(true); setTimeout(() => setCopiedTemplate(false), 2000); }} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg font-bold transition-colors text-sm">{copiedTemplate ? '✅ 已複製！' : '📋 點擊複製'}</button></div>
+              <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700">
+                <p className="text-xs text-gray-500 mb-2 font-bold">複製公版邀約詞 (可自行修改)</p>
+                <div className="bg-black/50 p-3 rounded-lg text-sm text-gray-300 font-mono mb-3 select-all">
+                  您好，我是 OOO！\n近期想規劃一個 [遊戲/企劃] 的聯動，\n想請問是否有榮幸能邀請您一起參與呢？\n時間預計在 OO/OO，詳細企劃案如下...\n期待您的回覆！
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText("您好，我是 OOO！\n近期想規劃一個 [遊戲/企劃] 的聯動，\n想請問是否有榮幸能邀請您一起參與呢？\n時間預計在 OO/OO，詳細企劃案如下...\n期待您的回覆！");
+                    setCopiedTemplate(true);
+                    setTimeout(() => setCopiedTemplate(false), 2000);
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg font-bold transition-colors text-sm"
+                >
+                  {copiedTemplate ? '✅ 已複製！' : '📋 點擊複製'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3220,31 +3326,52 @@ function App() {
 
       {/* 招募成功排行榜 Modal */}
       {isLeaderboardModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in-up" onClick={() => setIsLeaderboardModalOpen(false)}>
-          <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setIsLeaderboardModalOpen(false)}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2"><i className="fa-solid fa-trophy"></i> 招募成功排行榜</h3>
-              <button onClick={() => setIsLeaderboardModalOpen(false)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+              <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                <i className="fa-solid fa-trophy"></i> 招募成功排行榜
+              </h3>
+              <button onClick={() => setIsLeaderboardModalOpen(false)} className="text-gray-400 hover:text-white">
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3">
-              {leaderboardData.length === 0 ? <p className="text-center text-gray-500 py-10">目前還沒有人達成招募目標喔！<br />趕快成為第一個吧！</p> : leaderboardData.map((vt, idx) => (
-                <div key={vt.id || idx} className={`flex items-center gap-4 p-3 rounded-xl border ${idx === 0 ? 'bg-yellow-500/20 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : idx === 1 ? 'bg-gray-300/20 border-gray-300/50 shadow-[0_0_10px_rgba(209,213,219,0.2)]' : idx === 2 ? 'bg-orange-500/20 border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.2)]' : 'bg-gray-800/50 border-gray-700'}`}>
-                  <div className="w-8 text-center flex-shrink-0">
-                    {idx === 0 ? <i className="fa-solid fa-crown text-2xl text-yellow-400"></i> : idx === 1 ? <i className="fa-solid fa-medal text-xl text-gray-300"></i> : idx === 2 ? <i className="fa-solid fa-award text-xl text-orange-400"></i> : <span className="text-gray-500 font-bold">{idx + 1}</span>}
+              {leaderboardData.length === 0 ? (
+                <p className="text-center text-gray-500 py-10">目前還沒有人達成招募目標喔！<br />趕快成為第一個吧！</p>
+              ) : (
+                leaderboardData.map((vt, idx) => (
+                  <div key={vt.id || idx} className={`flex items-center gap-4 p-3 rounded-xl border ${idx === 0 ? 'bg-yellow-500/20 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : idx === 1 ? 'bg-gray-300/20 border-gray-300/50 shadow-[0_0_10px_rgba(209,213,219,0.2)]' : idx === 2 ? 'bg-orange-500/20 border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.2)]' : 'bg-gray-800/50 border-gray-700'}`}>
+                    <div className="w-8 text-center flex-shrink-0">
+                      {idx === 0 ? <i className="fa-solid fa-crown text-2xl text-yellow-400"></i> : idx === 1 ? <i className="fa-solid fa-medal text-xl text-gray-300"></i> : idx === 2 ? <i className="fa-solid fa-award text-xl text-orange-400"></i> : <span className="text-gray-500 font-bold">{idx + 1}</span>}
+                    </div>
+                    <img src={sanitizeUrl(vt.avatar)} className={`w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 ${idx === 0 ? 'border-yellow-400' : idx === 1 ? 'border-gray-300' : idx === 2 ? 'border-orange-400' : 'border-gray-600'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold truncate ${idx === 0 ? 'text-yellow-400 text-lg' : idx === 1 ? 'text-gray-200 text-base' : idx === 2 ? 'text-orange-300 text-base' : 'text-gray-300 text-sm'}`}>{vt.name}</p>
+                      <p className="text-xs text-gray-500">累積成功次數</p>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <span className={`font-black text-2xl ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-orange-400' : 'text-gray-400'}`}>{vt.successCount}</span>
+                      <span className="text-xs text-gray-500 ml-1">次</span>
+                    </div>
                   </div>
-                  <img src={sanitizeUrl(vt.avatar)} className={`w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 ${idx === 0 ? 'border-yellow-400' : idx === 1 ? 'border-gray-300' : idx === 2 ? 'border-orange-400' : 'border-gray-600'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-bold truncate ${idx === 0 ? 'text-yellow-400 text-lg' : idx === 1 ? 'text-gray-200 text-base' : idx === 2 ? 'text-orange-300 text-base' : 'text-gray-300 text-sm'}`}>{vt.name}</p>
-                    <p className="text-xs text-gray-500">累積成功次數</p>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <span className={`font-black text-2xl ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-orange-400' : 'text-gray-400'}`}>{vt.successCount}</span>
-                    <span className="text-xs text-gray-500 ml-1">次</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-            <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center"><button onClick={() => setIsLeaderboardModalOpen(false)} className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg">關閉</button></div>
+            <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center">
+              <button
+                onClick={() => setIsLeaderboardModalOpen(false)}
+                className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg"
+              >
+                關閉
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3264,7 +3391,7 @@ function App() {
         </div>
       )}
       {/* 聯動成員名單彈窗 */}
-      {viewParticipantsCollab && (
+      {viewParticipantsCollab && currentView !== 'profile' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewParticipantsCollab(null)}>
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
@@ -3287,7 +3414,7 @@ function App() {
                     onClick={() => {
                       setSelectedVTuber(vt);
                       navigate(`profile/${vt.id}`);
-                      setViewParticipantsCollab(null);
+                      // 這裡絕對不能有 setViewParticipantsCollab(null)
                     }}
                   >
                     <div className="flex items-center gap-4">
