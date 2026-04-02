@@ -2436,8 +2436,8 @@ function App() {
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
-      // 1. 名片資料 (用於註冊人數統計)
-      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin'].includes(currentView);
+      // 1. 名片資料：增加 'bulletin' 和 'collabs'，確保這兩個頁面也能抓到 VTuber 資訊來顯示頭像名字
+      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin', 'bulletin', 'collabs'].includes(currentView);
 
       if (needsVtuberList) {
         const now = Date.now();
@@ -2445,25 +2445,30 @@ function App() {
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
         const isCacheValid = cachedData && cachedTs && (now - parseInt(cachedTs) < ONE_DAY);
-        const forceRefresh = (currentView === 'admin'); // 如果在管理員頁面，建議增加刷新頻率
+        const forceRefresh = (currentView === 'admin'); 
 
         if (isCacheValid && !forceRefresh) {
           setRealVtubers(JSON.parse(cachedData));
-          setTimeout(() => setIsLoading(false), 50);
+          // 只有在還沒載入過的情況下才關閉 Loading
+          if (isLoading) setIsLoading(false);
         } else {
           // 📡 從網路抓取最新資料
-          const vSnap = await getDocs(collection(db, getPath('vtubers')));
-          const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          syncVtuberCache(data); // 抓完順便存進快取
-          setRealVtubers(data);
-          setIsLoading(false);
+          try {
+            const vSnap = await getDocs(collection(db, getPath('vtubers')));
+            const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data); 
+            setRealVtubers(data);
+          } catch (e) {
+            console.error("抓取 VTuber 列表失敗:", e);
+          } finally {
+            if (isLoading) setIsLoading(false);
+          }
         }
       }
 
-      // 2. 佈告欄與行程 (首頁計算「成功聯動次數」必須抓取佈告欄)
+      // 2. 佈告欄與行程資料
       const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
-        // 首頁不需要顯示全螢幕 Loading，背景抓取即可
         try {
           const [bSnap, cSnap, uSnap] = await Promise.all([
             getDocs(collection(db, getPath('bulletins'))),
@@ -2473,7 +2478,9 @@ function App() {
           setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
           setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
           setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+          console.error("抓取活動資料失敗:", e); 
+        }
       }
     };
 
