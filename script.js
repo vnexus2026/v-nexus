@@ -2896,7 +2896,7 @@ function App() {
   const handlePostBulletin = async () => {
     if (!user) return showToast("請先登入！");
 
-    // 1. 基礎欄位驗證 (加入了 !newBulletin.image)
+    // 1. 必填檢查 (包含圖片)
     if (!newBulletin.content.trim() || !newBulletin.collabType || !newBulletin.collabSize || !newBulletin.collabTime || !newBulletin.recruitEndTime || !newBulletin.image) {
       return showToast("請完整填寫所有必填欄位，並選擇一張招募圖片！");
     }
@@ -2909,10 +2909,19 @@ function App() {
     if (!myProfile?.isVerified) return showToast("名片審核通過後才能發布喔！");
 
     try {
+      showToast("⏳ 正在處理圖片並發布招募...");
+
       const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
 
-      // 2. 移除原本的「隨機挑選」邏輯，直接使用使用者選定的圖片
-      const finalImage = newBulletin.image;
+      // --- 關鍵修正：將招募圖片上傳至 Storage ---
+      let finalImage = newBulletin.image;
+
+      // 如果圖片是 Base64 格式 (代表是新上傳的或從預設圖選取的長字元)
+      if (finalImage && finalImage.startsWith('data:image')) {
+        // 產生一個唯一的檔名，避免覆蓋
+        const fileName = `bulletin_${Date.now()}.jpg`;
+        finalImage = await uploadImageToStorage(user.uid, newBulletin.image, fileName);
+      }
 
       setIsBulletinFormOpen(false);
 
@@ -2950,8 +2959,8 @@ function App() {
       setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
       sessionStorage.removeItem('othersDataTime');
     } catch (err) {
-      console.error(err);
-      showToast("操作失敗");
+      console.error("發布招募失敗:", err);
+      showToast("❌ 操作失敗，請檢查網路或圖片大小");
     }
   };
 
