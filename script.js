@@ -1454,21 +1454,34 @@ const AdminPage = ({
   onTestReminder, onTestPush, onMassUpdateVerification, onMassMigrateImages
 }) => {
 
-  // 👇 新增這幾行：宣告需要的分類變數與展開狀態，避免 ReferenceError
-  const pendingVtubers = vtubers.filter(v =>
-    !v.isVerified &&
-    !v.isBlacklisted &&
-    v.verificationStatus !== 'rejected' // 只要沒被拒絕且沒通過，就是待審核
-  );
-  const rejectedVtubers = vtubers.filter(v =>
-    !v.isVerified &&
-    v.verificationStatus === 'rejected' // 明確被標記為 rejected 的才進退回名單
-  );
-  const verifiedVtubers = vtubers.filter(v =>
-    v.isVerified === true &&
-    !v.isBlacklisted // 已通過且沒被黑單的
-  );
-  const blacklistedVtubers = vtubers.filter(v => v.isBlacklisted);
+ const getAdminSortTime = (v) => {
+  const getTime = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (val.toMillis) return val.toMillis();
+    return 0;
+  };
+  // 優先取註冊時間，沒有就取更新時間
+  return getTime(v.createdAt) || getTime(v.updatedAt) || 0;
+};
+
+const pendingVtubers = vtubers
+  .filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected')
+  .sort((a, b) => getAdminSortTime(a) - getAdminSortTime(b)); // 待審核：舊到新(先來的先審)
+
+const rejectedVtubers = vtubers
+  .filter(v => !v.isVerified && v.verificationStatus === 'rejected')
+  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 退回：新到舊
+
+const verifiedVtubers = vtubers
+  .filter(v => v.isVerified === true && !v.isBlacklisted)
+  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // ✅ 已上架：最新註冊/更新排前面
+
+const blacklistedVtubers = vtubers
+  .filter(v => v.isBlacklisted)
+  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 黑單：新到舊
+
+
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
 
   const [activeTab, setActiveTab] = useState('vtubers');
@@ -2942,7 +2955,8 @@ function App() {
         slug: (customForm.slug || '').trim().toLowerCase(),
         personalityType: finalPersonality,
         lastActiveAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(), // 👈 注意這裡結尾要有逗號
+        createdAt: existingProfile?.createdAt || Date.now() // ✅ 補上這一行
       };
 
       // 💡 關鍵修正：移除 UI 狀態欄位與可能為 undefined 的欄位
