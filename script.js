@@ -1250,6 +1250,25 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
       .slice(0, 4);
   }, [safeDisplayCollabs.length]); // 簡化依賴項，避免在依賴項中使用 map 導致崩潰
 
+  const newestVtubers = useMemo(() => {
+  return [...realVtubers]
+    .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
+    .sort((a, b) => {
+      // ✅ 強化的時間抓取函式
+      const getTimestamp = (v) => {
+        const val = v.createdAt || v.updatedAt || 0; // 如果沒有註冊時間，就用更新時間
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp 物件
+        return 0;
+      };
+      
+      // 依照時間降冪排序 (最新的在前面)
+      return getTimestamp(b) - getTimestamp(a);
+    })
+    .slice(0, 5); // 只取前 5 名
+}, [realVtubers]);
+
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-6"><i className="fa-solid fa-rocket"></i> <span>專為 VTuber 打造的聯動平台</span></div>
@@ -1299,12 +1318,39 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
 
       <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
 
-      {randomCollabs.length > 0 && (
-        <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
-            <div className="text-left"><h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2><p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p></div>
-            <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2"><i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！</button>
+{newestVtubers.length > 0 && (
+        <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+            <div className="text-left">
+              <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
+                <i className="fa-solid fa-sparkles text-yellow-400"></i> 歡迎新Vtuber朋朋的加入！
+              </h2>
+              <p className="text-gray-400 text-sm">最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！</p>
+            </div>
           </div>
+          {/* 電腦版顯示 5 欄，平板 3 欄，手機 1~2 欄，讓版面看起來整齊不擁擠 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
+            {newestVtubers.map(v => (
+              <VTuberCard
+                key={v.id}
+                v={v}
+                user={null}
+                isVerifiedUser={false}
+                onSelect={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                onDislike={() => {}}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+       <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+          <div className="text-left"><h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2><p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p></div>
+          <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2"><i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！</button>
+        </div>
+        
+        {randomCollabs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
             {randomCollabs.map(c => (
               <CollabCard
@@ -1312,15 +1358,20 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 c={c}
                 isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)}
                 vtuber={realVtubers.find(v => v.id === c.userId)}
-                realVtubers={realVtubers} // <-- 補上這一行
+                realVtubers={realVtubers}
                 onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }}
                 onShowParticipants={onShowParticipants}
               />
             ))}
           </div>
-          <button onClick={() => navigate('collabs')} className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700 max-w-4xl mx-auto">
+              <p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-3xl block"></i>目前沒有即將到來的聯動行程</p>
+          </div>
+        )}
+
+        <button onClick={() => navigate('collabs')} className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
+      </div>
     </section>
   );
 };
@@ -2671,19 +2722,19 @@ function App() {
     };
 
     const getLatestActivityTime = (v) => {
-      const getTime = (val) => {
-        if (!val) return 0;
-        if (typeof val === 'number') return val;
-        if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp
-        return 0;
-      };
-      // 比較最後活動、最後更新、建立時間，取最大的一個
-      return Math.max(
-        getTime(v.lastActiveAt),
-        getTime(v.updatedAt),
-        getTime(v.createdAt)
-      );
-    };
+  const getTime = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (val.toMillis) return val.toMillis();
+    return 0;
+  };
+  // ✅ 同時考慮最後活躍、更新、以及建立時間，確保「有動靜」的人排在前面
+  return Math.max(
+    getTime(v.lastActiveAt),
+    getTime(v.updatedAt),
+    getTime(v.createdAt)
+  );
+};
 
     const list = Array.isArray(realVtubers) ? [...realVtubers] : [];
 
