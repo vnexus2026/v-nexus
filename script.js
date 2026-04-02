@@ -2892,29 +2892,67 @@ function App() {
     const newImages = defaultBulletinImages.filter((_, i) => i !== idx);
     try { await setDoc(doc(db, getPath('settings'), 'bulletinImages'), { images: newImages }, { merge: true }); setDefaultBulletinImages(newImages); showToast("✅ 已刪除"); } catch (e) { showToast("刪除失敗"); }
   };
+
   const handlePostBulletin = async () => {
-    if (!user) return showToast("請先登入！"); if (!newBulletin.content.trim() || !newBulletin.collabType || !newBulletin.collabSize || !newBulletin.collabTime || !newBulletin.recruitEndTime) return showToast("請完整填寫！");
-    const rEnd = new Date(newBulletin.recruitEndTime).getTime(); const cTime = new Date(newBulletin.collabTime).getTime();
+    if (!user) return showToast("請先登入！");
+
+    // 1. 基礎欄位驗證 (加入了 !newBulletin.image)
+    if (!newBulletin.content.trim() || !newBulletin.collabType || !newBulletin.collabSize || !newBulletin.collabTime || !newBulletin.recruitEndTime || !newBulletin.image) {
+      return showToast("請完整填寫所有必填欄位，並選擇一張招募圖片！");
+    }
+
+    const rEnd = new Date(newBulletin.recruitEndTime).getTime();
+    const cTime = new Date(newBulletin.collabTime).getTime();
+
     if (rEnd < Date.now() && !newBulletin.id) return showToast("截止時間不能在過去！");
     if (cTime < rEnd) return showToast("⚠️ 聯動時間不能早於招募截止日！");
     if (!myProfile?.isVerified) return showToast("名片審核通過後才能發布喔！");
+
     try {
       const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
-      const finalImage = newBulletin.image || (defaultBulletinImages.length > 0 ? defaultBulletinImages[Math.floor(Math.random() * defaultBulletinImages.length)] : '');
+
+      // 2. 移除原本的「隨機挑選」邏輯，直接使用使用者選定的圖片
+      const finalImage = newBulletin.image;
+
       setIsBulletinFormOpen(false);
+
       if (newBulletin.id) {
-        await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), { content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage });
+        // 編輯模式
+        await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), {
+          content: newBulletin.content,
+          collabType: ft,
+          collabSize: newBulletin.collabSize,
+          collabTime: newBulletin.collabTime,
+          recruitEndTime: rEnd,
+          image: finalImage
+        });
         setRealBulletins(prev => prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage } : b));
         showToast("🚀 招募修改成功！");
       } else {
-        const newDocData = { userId: user.uid, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage, applicants: [], createdAt: Date.now() };
+        // 新增模式
+        const newDocData = {
+          userId: user.uid,
+          content: newBulletin.content,
+          collabType: ft,
+          collabSize: newBulletin.collabSize,
+          collabTime: newBulletin.collabTime,
+          recruitEndTime: rEnd,
+          image: finalImage,
+          applicants: [],
+          createdAt: Date.now()
+        };
         const newDocRef = await addDoc(collection(db, getPath('bulletins')), newDocData);
         setRealBulletins(prev => [{ id: newDocRef.id, ...newDocData }, ...prev]);
         showToast("🚀 發布成功！");
       }
+
+      // 重置表單
       setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
       sessionStorage.removeItem('othersDataTime');
-    } catch (err) { showToast("操作失敗"); }
+    } catch (err) {
+      console.error(err);
+      showToast("操作失敗");
+    }
   };
 
   const handleEditBulletin = (b) => {
@@ -3727,7 +3765,9 @@ function App() {
                   </div>
                   <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2 mt-2">
                     <div className="flex-1 min-w-0">
-                      <label className="block text-sm font-bold text-gray-300 mb-2">選擇預設圖 或 自行上傳 (未選將隨機套用)</label>
+                      <label className="block text-sm font-bold text-gray-300 mb-2">
+                        選擇預設圖 或 自行上傳 <span className="text-red-400">* (必選)</span>
+                      </label>
                       <div className="flex flex-col gap-3">
                         {defaultBulletinImages.length > 0 && (
                           <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar items-center">
