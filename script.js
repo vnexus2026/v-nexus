@@ -2290,7 +2290,11 @@ function App() {
 
     let unsubN = () => { };
     if (user && user.uid) {
-      const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
+      // 確保 path 存在才執行查詢
+      const notifPath = getPath('notifications');
+      if (!notifPath) return;
+
+      const q = query(collection(db, notifPath), where("userId", "==", user.uid));
       unsubN = onSnapshot(q, (snap) => {
         const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
