@@ -41,6 +41,9 @@ const APP_ID = 'v-nexus-official';
 const ONE_DAY = 1 * 60 * 60 * 1000; // 12小時的毫秒數
 const VTUBER_CACHE_KEY = 'vnexus_vtubers_data';
 const VTUBER_CACHE_TS = 'vnexus_vtubers_ts';
+const STATS_CACHE_KEY = 'vnexus_stats_data'; // ⚠️ 新增這行
+const STATS_CACHE_TS = 'vnexus_stats_ts';     // ⚠️ 新增這行
+const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
 const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
@@ -301,26 +304,32 @@ const isVisible = (v, currentUser) => {
 
 const TagBadge = ({ text, onClick, selected }) => (<span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>);
 
-const AnimatedCounter = ({ value, duration = 1500 }) => {
+const AnimatedCounter = ({ value, duration = 500 }) => {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    if (typeof value !== 'number' || isNaN(value)) return;
+    // 如果數值為 0 或無效，不執行動畫
+    if (!value || isNaN(value)) {
+      setDisplayValue(0);
+      return;
+    }
 
     let startTimestamp = null;
-    let requestId;
-
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       setDisplayValue(Math.floor(progress * value));
       if (progress < 1) {
-        requestId = window.requestAnimationFrame(step);
+        window.requestAnimationFrame(step);
       }
     };
 
-    requestId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(requestId); // 卸載時清理動畫
+    // 稍微延遲 100ms 啟動，確保組件已完全掛載，肉眼能捕捉到跳動
+    const timer = setTimeout(() => {
+      window.requestAnimationFrame(step);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [value, duration]);
 
   return <span>{displayValue.toLocaleString()}</span>;
@@ -2349,27 +2358,46 @@ function App() {
   useEffect(() => {
     const fetchBaseSettings = async () => {
       try {
-        const [statsSnap, tipsSnap, rulesSnap, imgSnap] = await Promise.all([
-          getDoc(doc(db, getPath('settings'), 'stats')),
+        const now = Date.now();
+        const cachedStats = localStorage.getItem(STATS_CACHE_KEY);
+        const cachedStatsTs = localStorage.getItem(STATS_CACHE_TS);
+
+        // 1. 處理「網站統計數字」的快取邏輯
+        if (cachedStats && cachedStatsTs && (now - parseInt(cachedStatsTs) < STATS_CACHE_LIMIT)) {
+          // 🚀 0 次讀取：從本地讀取統計數字
+          setSiteStats(JSON.parse(cachedStats));
+        } else {
+          // 📡 超過一小時，才去抓一次最新的統計數字
+          const statsSnap = await getDoc(doc(db, getPath('settings'), 'stats'));
+          if (statsSnap.exists()) {
+            const statsData = statsSnap.data();
+            setSiteStats(statsData);
+            localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
+            localStorage.setItem(STATS_CACHE_TS, now.toString());
+          }
+        }
+
+        // 2. 抓取其他必要設定 (Tips, Rules, Images) - 這些變動極少，也可以考慮快取，但目前先維持原樣
+        const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
           getDoc(doc(db, getPath('settings'), 'tips')),
           getDoc(doc(db, getPath('settings'), 'rules')),
           getDoc(doc(db, getPath('settings'), 'bulletinImages'))
         ]);
-        if (statsSnap.exists()) setSiteStats(statsSnap.data());
+
         if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
         if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
         if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
 
-        // 只有首頁需要瀏覽量加 1
+        // 3. 瀏覽量增加邏輯 (寫入次數優化)
+        // 雖然我們「讀取」是吃快取，但「增加人次」的寫入動作依然要在首頁執行
         if (currentView === 'home' && !sessionStorage.getItem('hasCountedView')) {
           updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => { });
           sessionStorage.setItem('hasCountedView', 'true');
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error("基礎設定載入失敗:", err); }
     };
     fetchBaseSettings();
 
-    // 監聽通知與私訊 (核心：不可刪除，否則聊天彈窗會失效)
     let unsubN = () => { };
     if (user?.uid) {
       unsubN = onSnapshot(query(collection(db, getPath('notifications')), where("userId", "==", user.uid)), async (snap) => {
@@ -2377,7 +2405,6 @@ function App() {
         const latestChatNotif = newNotifs.find(n => !n.read && n.type === 'chat_notification' && (Date.now() - n.createdAt < 5000));
 
         if (latestChatNotif) {
-          // 找發送者，如果目前 local 沒有，就單獨去抓那一筆 (1次讀取)
           let sender = realVtubers.find(v => v.id === latestChatNotif.fromUserId);
           if (!sender) {
             const sSnap = await getDoc(doc(db, getPath('vtubers'), latestChatNotif.fromUserId));
@@ -2392,24 +2419,28 @@ function App() {
       });
     }
     return () => unsubN();
-  }, [user, currentView, realVtubers.length]); // 依賴 realVtubers 以便比對發送者
+  }, [user, currentView, realVtubers.length]);
 
-  // --- 專屬：名片清單 24 小時快取 (這才是省錢關鍵) ---
+  // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
-      // 只有在特定頁面才需要下載全部名片
-      if (['grid', 'profile', 'match', 'blacklist', 'dashboard'].includes(currentView)) {
+      // 1. 名片資料 (用於註冊人數統計)
+      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard'].includes(currentView);
+
+      if (needsVtuberList) {
         const now = Date.now();
         const cachedData = localStorage.getItem(VTUBER_CACHE_KEY);
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
         if (cachedData && cachedTs && (now - parseInt(cachedTs) < ONE_DAY)) {
-          // 🚀 0 次讀取：從電腦硬碟讀取
-          setRealVtubers(JSON.parse(cachedData));
-          setIsLoading(false);
+          // 🚀 命中快取
+          const data = JSON.parse(cachedData);
+          setRealVtubers(data);
+          // 即使有快取，也給予一個微小的非載入狀態延遲，讓動畫有感
+          setTimeout(() => setIsLoading(false), 50);
         } else {
-          // 📡 只有過期了才去 Firebase 下載
-          setIsLoading(true);
+          // 📡 從網路抓取
+          if (currentView !== 'home') setIsLoading(true);
           try {
             const vSnap = await getDocs(collection(db, getPath('vtubers')));
             const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2421,18 +2452,23 @@ function App() {
         }
       }
 
-      // 其他動態資料 (佈告欄、更新、行程) 
-      if (['bulletin', 'collabs', 'home'].includes(currentView)) {
-        const [bSnap, cSnap, uSnap] = await Promise.all([
-          getDocs(collection(db, getPath('bulletins'))),
-          getDocs(collection(db, getPath('collabs'))),
-          getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-        ]);
-        setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // 2. 佈告欄與行程 (首頁計算「成功聯動次數」必須抓取佈告欄)
+      const needsActivityData = ['home', 'bulletin', 'collabs'].includes(currentView);
+      if (needsActivityData) {
+        // 首頁不需要顯示全螢幕 Loading，背景抓取即可
+        try {
+          const [bSnap, cSnap, uSnap] = await Promise.all([
+            getDocs(collection(db, getPath('bulletins'))),
+            getDocs(collection(db, getPath('collabs'))),
+            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+          ]);
+          setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+          setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (e) { console.error(e); }
       }
     };
+
     fetchLargeData();
   }, [currentView]);
 
@@ -3490,7 +3526,25 @@ function App() {
       </nav>
 
       <main className="flex-1 pb-10">
-        {currentView === 'home' && <HomePage navigate={navigate} onOpenRules={() => setIsRulesModalOpen(true)} onOpenUpdates={() => setIsUpdatesModalOpen(true)} hasUnreadUpdates={hasUnreadUpdates} siteStats={siteStats} realCollabs={realCollabs} displayCollabs={displayCollabs} currentTime={currentTime} isLoadingCollabs={isLoading} goToBulletin={goToBulletin} registeredCount={!isLoading ? displayVtubers.length : null} realVtubers={realVtubers} setSelectedVTuber={setSelectedVTuber} realBulletins={realBulletins} onShowParticipants={(collab) => setViewParticipantsCollab(collab)} />}
+        {currentView === 'home' && <HomePage
+          navigate={navigate}
+          onOpenRules={() => setIsRulesModalOpen(true)}
+          onOpenUpdates={() => setIsUpdatesModalOpen(true)}
+          hasUnreadUpdates={hasUnreadUpdates}
+          siteStats={siteStats}
+          realCollabs={realCollabs}
+          displayCollabs={displayCollabs}
+          currentTime={currentTime}
+          // 這裡改為檢查 realBulletins 是否有資料，來決定統計數字是否顯示轉圈圈
+          isLoadingCollabs={realBulletins.length === 0}
+          goToBulletin={goToBulletin}
+          // 這裡直接傳長度，讓 AnimatedCounter 自己處理 0 到 X 的動畫
+          registeredCount={realVtubers.length}
+          realVtubers={realVtubers}
+          setSelectedVTuber={setSelectedVTuber}
+          realBulletins={realBulletins}
+          onShowParticipants={(collab) => setViewParticipantsCollab(collab)}
+        />}
 
         {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onDeleteAll={handleDeleteAllNotifs} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
 
