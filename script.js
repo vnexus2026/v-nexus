@@ -2654,13 +2654,28 @@ function App() {
   const displayVtubers = useMemo(() => {
     const getDeterministicOrder = (id) => {
       if (!id) return 0;
-      const idStr = String(id); // 確保 id 是字串，防止調用 .length 報錯
+      const idStr = String(id);
       let hash = 0;
       for (let i = 0; i < idStr.length; i++) {
         hash = ((hash << 5) - hash) + idStr.charCodeAt(i);
         hash |= 0;
       }
       return Math.sin(hash ^ shuffleSeed);
+    };
+
+    const getLatestActivityTime = (v) => {
+      const getTime = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp
+        return 0;
+      };
+      // 比較最後活動、最後更新、建立時間，取最大的一個
+      return Math.max(
+        getTime(v.lastActiveAt),
+        getTime(v.updatedAt),
+        getTime(v.createdAt)
+      );
     };
 
     const list = Array.isArray(realVtubers) ? [...realVtubers] : [];
@@ -2671,10 +2686,10 @@ function App() {
       }
       if (sortOrder === 'likes') return (b.likes || 0) - (a.likes || 0);
       if (sortOrder === 'subscribers') return parseSubscribers(b) - parseSubscribers(a);
+
+      // --- 這裡就是修改的地方：將「最新加入」改為「最近動態」排序 ---
       if (sortOrder === 'newest') {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
-        return timeB - timeA;
+        return getLatestActivityTime(b) - getLatestActivityTime(a);
       }
       return 0;
     });
@@ -3715,7 +3730,7 @@ function App() {
                 </div>
                 <div className="flex flex-col gap-3 w-full sm:w-auto">
                   <div className="block lg:hidden relative w-full"><i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i><input type="text" placeholder="搜尋 VTuber..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500" /></div>
-                  <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"><option value="random">🔀 隨機排列</option><option value="likes">👍 最推薦</option><option value="subscribers">📺 最多訂閱</option><option value="newest">✨ 最新加入</option></select>
+                  <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"><option value="newest">✨ 最近動態 (更新/加入)</option><option value="random">🔀 隨機排列</option><option value="likes">👍 最推薦</option><option value="subscribers">📺 最多訂閱</option></select>
                 </div>
               </div>
               {isLoading ? <div className="text-center text-gray-500 py-10"><i className="fa-solid fa-spinner fa-spin text-2xl"></i></div> : filteredVTubers.length === 0 ? <p className="text-center text-gray-500 mt-20">目前無公開名片</p> : (
