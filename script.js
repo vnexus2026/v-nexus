@@ -4290,33 +4290,61 @@ function App() {
           <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md p-8 text-center shadow-2xl relative">
 
             <div className={`absolute top-0 left-0 w-full h-2 ${myProfile.showVerificationModal === 'approved' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`}></div>
-            <div className="mb-6"><div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${myProfile.showVerificationModal === 'approved' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}><i className={`fa-solid ${myProfile.showVerificationModal === 'approved' ? 'fa-check text-4xl' : 'fa-xmark text-5xl'}`}></i></div></div>
-            <h2 className="text-2xl font-extrabold text-white mb-4">{myProfile.showVerificationModal === 'approved' ? '名片審核通過！' : '名片審核未通過'}</h2>
-            {myProfile.showVerificationModal === 'approved' ? (<p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">恭喜你審核通過！<br />開始尋找聯動夥伴吧！</p>) : (<p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上你都有達到，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！<br /><br />請繼續加油！</p>)}
-            <div className="flex justify-center">
-              {myProfile.showVerificationModal === 'approved' ? (<button onClick={async () => { await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null }); setRealVtubers(prev => prev.map(v => v.id === myProfile.id ? { ...v, showVerificationModal: null } : v)); navigate('grid'); }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full">開始找夥伴</button>) : (<button onClick={async () => { await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null }); setRealVtubers(prev => prev.map(v => v.id === myProfile.id ? { ...v, showVerificationModal: null } : v)); }} className="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-3 rounded-xl font-bold transition-colors w-full">我了解了</button>)}
+
+            <div className="mb-6">
+              <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${myProfile.showVerificationModal === 'approved' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                <i className={`fa-solid ${myProfile.showVerificationModal === 'approved' ? 'fa-check text-4xl' : 'fa-xmark text-5xl'}`}></i>
+              </div>
             </div>
 
+            <h2 className="text-2xl font-extrabold text-white mb-4">
+              {myProfile.showVerificationModal === 'approved' ? '名片審核通過！' : '名片審核未通過'}
+            </h2>
+
+            {myProfile.showVerificationModal === 'approved' ? (
+              <p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">
+                恭喜你審核通過！<br />開始尋找聯動夥伴吧！
+              </p>
+            ) : (
+              <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">
+                很抱歉，您的名片未能通過審核。通常是因為未達到訂閱門檻，或未在 X/YT 簡介中加入驗證字樣。請修改後重新提交。<br /><br />請繼續加油！
+              </p>
+            )}
+
             <div className="flex justify-center">
-              <button onClick={async () => {
-                // 1. 定義要清除的欄位
-                const updates = { showVerificationModal: null };
+              <button
+                onClick={async () => {
+                  const status = myProfile.showVerificationModal;
+                  const updates = { showVerificationModal: null };
 
-                // 2. 更新資料庫
-                await updateDoc(doc(db, getPath('vtubers'), myProfile.id), updates);
+                  try {
+                    // 1. 先更新 Firestore
+                    await updateDoc(doc(db, getPath('vtubers'), myProfile.id), updates);
 
-                // 3. 更新本地狀態並「強制同步快取」
-                setRealVtubers(prev => {
-                  const newList = prev.map(v => v.id === myProfile.id ? { ...v, ...updates } : v);
-                  syncVtuberCache(newList); // 👈 關鍵：這行沒加，重新整理就會一直跳出來
-                  return newList;
-                });
+                    // 2. 關鍵：更新本地狀態的同時，強制同步更新 localStorage 快取
+                    setRealVtubers(prev => {
+                      const newList = prev.map(v => v.id === myProfile.id ? { ...v, ...updates } : v);
+                      // 這裡呼叫你定義好的同步函式，把 showVerificationModal: null 存入快取
+                      syncVtuberCache(newList);
+                      return newList;
+                    });
 
-                // 4. 導航
-                if (myProfile.showVerificationModal === 'approved') {
-                  navigate('grid');
-                }
-              }} className="...">
+                    // 3. 根據結果導向不同頁面
+                    if (status === 'approved') {
+                      navigate('grid');
+                    }
+                    // 如果是 rejected，就留在原地讓使用者看 dashboard
+                  } catch (err) {
+                    console.error("關閉通知失敗:", err);
+                    // 即使資料庫失敗，本地也要先關掉，避免卡死
+                    setRealVtubers(prev => prev.map(v => v.id === myProfile.id ? { ...v, ...updates } : v));
+                  }
+                }}
+                className={`${myProfile.showVerificationModal === 'approved'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500'
+                  : 'bg-gray-800 hover:bg-gray-700 border border-gray-600'
+                  } text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full transition-all`}
+              >
                 {myProfile.showVerificationModal === 'approved' ? '開始找夥伴' : '我了解了'}
               </button>
             </div>
