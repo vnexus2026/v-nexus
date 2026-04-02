@@ -304,7 +304,7 @@ const isVisible = (v, currentUser) => {
 
 const TagBadge = ({ text, onClick, selected }) => (<span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>);
 
-const AnimatedCounter = ({ value, duration = 500 }) => {
+const AnimatedCounter = ({ value, duration = 1500 }) => {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -2235,8 +2235,8 @@ function App() {
         // 動畫結束後徹底隱藏
         setTimeout(() => {
           loader.style.display = 'none';
-        }, 1500);
-      }, 1500);
+        }, 800);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, []);
