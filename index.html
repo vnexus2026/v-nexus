@@ -19,21 +19,24 @@
 
 <body class="selection:bg-purple-500 selection:text-white m-0 p-0 overflow-x-hidden">
   <div id="loading-screen"
-  style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f111a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; opacity: 1; transition: opacity 0.2s ease-in-out; pointer-events: auto;">
-  <div
-    style="width:50px; height:50px; border:4px solid #1f2937; border-top:4px solid #a855f7; border-radius:50%; animation: spin 1s linear infinite;">
-  </div>
-  <p style="color:#a855f7; margin-top:15px; font-weight:bold; font-family:sans-serif; letter-spacing: 1px; text-align: center; padding: 0 20px;">
-    你是否在雪山上救過一隻狐狸?
-  </p>
-  <style>
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
-</div>
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f111a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; opacity: 1; transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: auto;">
+    <div
+      style="width:50px; height:50px; border:4px solid #1f2937; border-top:4px solid #a855f7; border-radius:50%; animation: spin 1s linear infinite;">
+    </div>
+    <p style="color:#a855f7; margin-top:15px; font-weight:bold; font-family:sans-serif; letter-spacing: 2px;">V-NEXUS
+      載入中...</p>
+    <style>
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
 
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </div>
   <div id="root"></div>
 
   <script src="script.js" type="text/babel" data-type="module"></script>
