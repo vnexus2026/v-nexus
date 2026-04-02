@@ -953,7 +953,7 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
           <div>
             <label className="block text-sm font-bold text-gray-300 mb-2">所屬勢力</label>
             <select value={form.agency} onChange={e => updateForm({ agency: e.target.value })} className={inputCls}>
-              <option>個人勢</option><option>企業勢</option><option>社團勢</option>
+              <option>個人勢</option><option>企業勢</option><option>社團勢</option><option>合作勢</option>
             </select>
           </div>
           <div>
@@ -3692,7 +3692,7 @@ function App() {
                     />
                   </div>
                 </div>
-                <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="grid grid-cols-2 gap-1 bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢', '社團勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`w-full py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
+                <div><p className="text-xs text-gray-500 mb-2">所屬勢力</p><div className="grid grid-cols-2 gap-1 bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', '個人勢', '企業勢', '社團勢', '合作勢'].map(a => <button key={a} onClick={() => setSelectedAgency(a)} className={`w-full py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>{a === 'All' ? '全部' : a}</button>)}</div></div>
                 <div><p className="text-xs text-gray-500 mb-2">主要平台</p><div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">{['All', 'YouTube', 'Twitch'].map(p => <button key={p} onClick={() => setSelectedPlatform(p)} className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? 'bg-purple-600 text-white' : 'text-gray-400'}`}>{p === 'All' ? '全部' : p}</button>)}</div></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><p className="text-xs text-gray-500 mb-2">國籍</p><select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal">{dynamicNationalities.map(n => <option key={n} value={n}>{n === 'All' ? '全部' : n}</option>)}</select></div>
