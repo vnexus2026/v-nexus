@@ -3079,17 +3079,16 @@ function App() {
       setRealBulletins(prev => prev.map(b => b.id === bulletinId ? { ...b, applicants: isApplying ? [...(b.applicants || []), user.uid] : (b.applicants || []).filter(id => id !== user.uid) } : b));
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
-        addDoc(collection(db, getPath('notifications')), { userId: bulletinAuthorId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '有人有意願！快去招募佈告欄看看！', createdAt: Date.now(), read: false }).catch(() => { });
-        const authorProfile = realVtubers.find(v => v.id === bulletinAuthorId);
-        if (authorProfile && authorProfile.publicEmail) {
-          addDoc(collection(db, getPath('mail')), {
-            to: authorProfile.publicEmail,
-            message: {
-              subject: `[V-Nexus] 您的招募有新的意願通知！`,
-              text: `您好，${authorProfile.name}！\n\n「${myProfile?.name || '某位創作者'}」剛剛對您的聯動招募表達了意願！\n\n快登入 V-Nexus https://www.vnexus2026.com/ 招募佈告欄查看並與對方聯繫吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
-            }
-          }).catch((err) => console.error("Mail Error:", err));
-        }
+        // 僅保留站內通知，並更新通知訊息內容
+        addDoc(collection(db, getPath('notifications')), { 
+          userId: bulletinAuthorId, 
+          fromUserId: user.uid, 
+          fromUserName: myProfile?.name || user.displayName || '某位創作者', 
+          fromUserAvatar: myProfile?.avatar || user.photoURL, 
+          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！V-NEXUS｜https://www.vnexus2026.com/', 
+          createdAt: Date.now(), 
+          read: false 
+        }).catch(() => { });
       }
     } catch (err) { showToast("操作失敗"); }
   };
