@@ -2155,7 +2155,7 @@ function App() {
     setIsLoading(true);
     const fetchAllData = async () => {
       try {
-        // 1. 合併抓取基礎設定 (使用 Promise.all 減少等待時間)
+        // --- 1. 抓取設定檔 (保持不變) ---
         const [statsSnap, tipsSnap, rulesSnap, imgSnap] = await Promise.all([
           getDoc(doc(db, getPath('settings'), 'stats')),
           getDoc(doc(db, getPath('settings'), 'tips')),
@@ -2168,37 +2168,70 @@ function App() {
         if (rulesSnap.exists() && rulesSnap.data().content) setRealRules(rulesSnap.data().content);
         if (imgSnap.exists() && imgSnap.data().images) setDefaultBulletinImages(imgSnap.data().images);
 
-        // 2. 增加瀏覽量 (背景執行，不阻塞)
-        updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) })
-          .catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
+        // --- 2. 優化：頁面瀏覽量防呆 ---
+        // 使用 sessionStorage 確保每個使用者開啟瀏覽器的一個 Session 內只增加一次瀏覽量
+        if (!sessionStorage.getItem('hasCountedView')) {
+          updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) })
+            .catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
+          sessionStorage.setItem('hasCountedView', 'true');
+        }
 
-        // 3. 優先抓取 VTuber 名片 (核心資料)
-        const vSnap = await getDocs(collection(db, getPath('vtubers')));
-        const vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setRealVtubers(vData);
+        // --- 3. 優化：為大數據加入 Session 快取 (10分鐘過期) ---
+        const CACHE_TIME = 10 * 60 * 1000;
+        const now = Date.now();
+        const cachedVtubersTime = sessionStorage.getItem('vDataTime');
 
-        // 名片載入完成後關閉 Loading
-        setIsLoading(false);
+        let vData = [];
 
-        // 4. 背景抓取其餘次要資料 (延遲 200ms 執行，確保主畫面流暢)
+        // 如果快取存在且在 10 分鐘內，直接使用快取 (0 讀取)
+        if (cachedVtubersTime && (now - parseInt(cachedVtubersTime) < CACHE_TIME)) {
+          vData = JSON.parse(sessionStorage.getItem('vData'));
+          setRealVtubers(vData);
+          setIsLoading(false);
+        } else {
+          // 否則向 Firestore 請求，並存入快取
+          const vSnap = await getDocs(collection(db, getPath('vtubers')));
+          vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setRealVtubers(vData);
+          setIsLoading(false);
+
+          try {
+            sessionStorage.setItem('vData', JSON.stringify(vData));
+            sessionStorage.setItem('vDataTime', now.toString());
+          } catch (e) { console.warn("快取寫入失敗(可能容量超過)", e); }
+        }
+
+        // --- 4. 背景抓取次要資料 (一樣加入快取邏輯) ---
         setTimeout(async () => {
-          const [bSnap, cSnap, uSnap] = await Promise.all([
-            getDocs(collection(db, getPath('bulletins'))),
-            getDocs(collection(db, getPath('collabs'))),
-            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(20)))
-          ]);
-          setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+          const cachedOthersTime = sessionStorage.getItem('othersDataTime');
+          if (cachedOthersTime && (now - parseInt(cachedOthersTime) < CACHE_TIME)) {
+            setRealBulletins(JSON.parse(sessionStorage.getItem('bData') || '[]'));
+            setRealCollabs(JSON.parse(sessionStorage.getItem('cData') || '[]'));
+            setRealUpdates(JSON.parse(sessionStorage.getItem('uData') || '[]'));
+          } else {
+            const [bSnap, cSnap, uSnap] = await Promise.all([
+              getDocs(collection(db, getPath('bulletins'))),
+              getDocs(collection(db, getPath('collabs'))),
+              getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(20)))
+            ]);
+
+            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            setRealBulletins(bData);
+            setRealCollabs(cData);
+            setRealUpdates(uData);
+
+            try {
+              sessionStorage.setItem('bData', JSON.stringify(bData));
+              sessionStorage.setItem('cData', JSON.stringify(cData));
+              sessionStorage.setItem('uData', JSON.stringify(uData));
+              sessionStorage.setItem('othersDataTime', now.toString());
+            } catch (e) { }
+          }
         }, 200);
 
-        // 5. 處理當前使用者的名片表單初始化 (邏輯維持原樣)
-        if (user) {
-          const cp = vData.find(v => v.id === user.uid);
-          if (cp) {
-            // ... (這裡保留你原本處理 profileForm 的邏輯) ...
-          }
-        }
       } catch (err) {
         console.error("讀取失敗:", err);
         setIsLoading(false);
@@ -2545,6 +2578,7 @@ function App() {
 
       showToast(existingProfile && existingProfile.isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
       if (!customForm.id) navigate('grid');
+      sessionStorage.removeItem('vDataTime');
     } catch (err) { showToast("儲存失敗"); }
   };
   const handleBulletinImageUpload = (e) => {
@@ -2599,6 +2633,7 @@ function App() {
         showToast("🚀 發布成功！");
       }
       setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
+      sessionStorage.removeItem('othersDataTime');
     } catch (err) { showToast("操作失敗"); }
   };
 
@@ -2736,6 +2771,7 @@ function App() {
       });
       setRealCollabs(prev => [...prev, { id: docRef.id, ...collabData, userId: user?.uid || 'admin', reminderSent: false, createdAt: Date.now() }]);
       showToast("已發布聯動行程");
+      sessionStorage.removeItem('othersDataTime');
     } catch (err) { showToast("新增失敗"); }
   };
   const handleDeleteCollab = async (id) => { if (!confirm("確定要刪除這個聯動行程嗎？")) return; try { await deleteDoc(doc(db, getPath('collabs'), id)); setRealCollabs(prev => prev.filter(c => c.id !== id)); showToast("已刪除聯動行程"); } catch (err) { showToast("刪除失敗"); } };
@@ -3492,6 +3528,7 @@ function App() {
                       showToast("✅ 已發布聯動行程！");
                       setPublicCollabForm({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲', participants: [] });
                       document.getElementById('public-collab-form').classList.add('hidden');
+                      sessionStorage.removeItem('othersDataTime');
                     } catch (err) { showToast("發布失敗"); }
                   }} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">送出發布</button>
                 </div>
