@@ -2180,7 +2180,7 @@ function App() {
     const vQuery = query(
       collection(db, getPath('vtubers')), 
       orderBy('updatedAt', 'desc'), 
-      limit(60) 
+      limit(250) 
     );
     const vSnap = await getDocs(vQuery);
     const vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2268,9 +2268,8 @@ function App() {
 
   useEffect(() => {
     if (isAdmin) {
-  // 原本是 getDocs(collection(db, getPath('vtubers_private')))
-  // 修改為只抓取最近的 50 筆，避免一次抓取全部私密資料
-  const privQuery = query(collection(db, getPath('vtubers_private')), orderBy('updatedAt', 'desc'), limit(30));
+  // 管理員建議設高一點，或是未來實作分頁加載
+  const privQuery = query(collection(db, getPath('vtubers_private')), orderBy('updatedAt', 'desc'), limit(300));
   getDocs(privQuery).then(snap => { 
     const pDocs = {}; 
     snap.docs.forEach(d => pDocs[d.id] = d.data()); 
