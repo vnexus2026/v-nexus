@@ -38,6 +38,9 @@ try {
 
 const provider = new GoogleAuthProvider();
 const APP_ID = 'v-nexus-official';
+const ONE_DAY = 12 * 60 * 60 * 1000; // 12小時的毫秒數
+const VTUBER_CACHE_KEY = 'vnexus_vtubers_data';
+const VTUBER_CACHE_TS = 'vnexus_vtubers_ts';
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
 const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
@@ -2344,111 +2347,94 @@ function App() {
   // --- 提醒邏輯結束 ---
 
   useEffect(() => {
-    setIsLoading(true);
-    const fetchAllData = async () => {
+    const fetchBaseSettings = async () => {
       try {
-        // --- 1. 抓取設定檔 (保持不變) ---
         const [statsSnap, tipsSnap, rulesSnap, imgSnap] = await Promise.all([
           getDoc(doc(db, getPath('settings'), 'stats')),
           getDoc(doc(db, getPath('settings'), 'tips')),
           getDoc(doc(db, getPath('settings'), 'rules')),
           getDoc(doc(db, getPath('settings'), 'bulletinImages'))
         ]);
-
         if (statsSnap.exists()) setSiteStats(statsSnap.data());
-        if (tipsSnap.exists() && tipsSnap.data().content) setRealTips(tipsSnap.data().content);
-        if (rulesSnap.exists() && rulesSnap.data().content) setRealRules(rulesSnap.data().content);
-        if (imgSnap.exists() && imgSnap.data().images) setDefaultBulletinImages(imgSnap.data().images);
+        if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
+        if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
+        if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
 
-        // --- 2. 優化：頁面瀏覽量防呆 ---
-        // 使用 sessionStorage 確保每個使用者開啟瀏覽器的一個 Session 內只增加一次瀏覽量
-        if (!sessionStorage.getItem('hasCountedView')) {
-          updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) })
-            .catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
+        // 只有首頁需要瀏覽量加 1
+        if (currentView === 'home' && !sessionStorage.getItem('hasCountedView')) {
+          updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => { });
           sessionStorage.setItem('hasCountedView', 'true');
         }
-
-        // --- 3. 優化：為大數據加入 Session 快取 (10分鐘過期) ---
-        const CACHE_TIME = 10 * 60 * 1000;
-        const now = Date.now();
-        const cachedVtubersTime = sessionStorage.getItem('vDataTime');
-
-        let vData = [];
-
-        // 如果快取存在且在 10 分鐘內，直接使用快取 (0 讀取)
-        const vSnap = await getDocs(collection(db, getPath('vtubers')));
-        vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setRealVtubers(vData);
-        setIsLoading(false);
-
-        // --- 4. 背景抓取次要資料 (一樣加入快取邏輯) ---
-        setTimeout(async () => {
-          const cachedOthersTime = sessionStorage.getItem('othersDataTime');
-          if (cachedOthersTime && (now - parseInt(cachedOthersTime) < CACHE_TIME)) {
-            setRealBulletins(JSON.parse(sessionStorage.getItem('bData') || '[]'));
-            setRealCollabs(JSON.parse(sessionStorage.getItem('cData') || '[]'));
-            setRealUpdates(JSON.parse(sessionStorage.getItem('uData') || '[]'));
-          } else {
-            const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDocs(collection(db, getPath('bulletins'))),
-              getDocs(collection(db, getPath('collabs'))),
-              getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(20)))
-            ]);
-
-            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-            setRealBulletins(bData);
-            setRealCollabs(cData);
-            setRealUpdates(uData);
-
-            try {
-              sessionStorage.setItem('bData', JSON.stringify(bData));
-              sessionStorage.setItem('cData', JSON.stringify(cData));
-              sessionStorage.setItem('uData', JSON.stringify(uData));
-              sessionStorage.setItem('othersDataTime', now.toString());
-            } catch (e) { }
-          }
-        }, 200);
-
-      } catch (err) {
-        console.error("讀取失敗:", err);
-        setIsLoading(false);
-      }
+      } catch (err) { console.error(err); }
     };
+    fetchBaseSettings();
 
-    fetchAllData();
-
+    // 監聽通知與私訊 (核心：不可刪除，否則聊天彈窗會失效)
     let unsubN = () => { };
-    if (user && user.uid) {
-      // 確保 path 存在才執行查詢
-      const notifPath = getPath('notifications');
-      if (!notifPath) return;
-
-      const q = query(collection(db, notifPath), where("userId", "==", user.uid));
-      unsubN = onSnapshot(q, (snap) => {
+    if (user?.uid) {
+      unsubN = onSnapshot(query(collection(db, getPath('notifications')), where("userId", "==", user.uid)), async (snap) => {
         const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        // 核心邏輯：檢測是否有「剛剛發出」且「未讀」的私訊通知
         const latestChatNotif = newNotifs.find(n => !n.read && n.type === 'chat_notification' && (Date.now() - n.createdAt < 5000));
 
         if (latestChatNotif) {
-          // 找出發送者是誰
-          const sender = realVtubers.find(v => v.id === latestChatNotif.fromUserId);
+          // 找發送者，如果目前 local 沒有，就單獨去抓那一筆 (1次讀取)
+          let sender = realVtubers.find(v => v.id === latestChatNotif.fromUserId);
+          if (!sender) {
+            const sSnap = await getDoc(doc(db, getPath('vtubers'), latestChatNotif.fromUserId));
+            if (sSnap.exists()) sender = { id: sSnap.id, ...sSnap.data() };
+          }
           if (sender && chatTarget?.id !== sender.id) {
-            setChatTarget(sender); // 自動幫對方開啟聊天室
-            // 順便把該通知標為已讀，避免重複跳出
+            setChatTarget(sender);
             updateDoc(doc(db, getPath('notifications'), latestChatNotif.id), { read: true });
           }
         }
-
         setRealNotifications(newNotifs);
-      }, (err) => console.error(err));
-    } else { setRealNotifications([]); }
+      });
+    }
+    return () => unsubN();
+  }, [user, currentView, realVtubers.length]); // 依賴 realVtubers 以便比對發送者
 
-    return () => { unsubN(); };
-  }, [user]);
+  // --- 專屬：名片清單 24 小時快取 (這才是省錢關鍵) ---
+  useEffect(() => {
+    const fetchLargeData = async () => {
+      // 只有在特定頁面才需要下載全部名片
+      if (['grid', 'profile', 'match', 'blacklist', 'dashboard'].includes(currentView)) {
+        const now = Date.now();
+        const cachedData = localStorage.getItem(VTUBER_CACHE_KEY);
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+
+        if (cachedData && cachedTs && (now - parseInt(cachedTs) < ONE_DAY)) {
+          // 🚀 0 次讀取：從電腦硬碟讀取
+          setRealVtubers(JSON.parse(cachedData));
+          setIsLoading(false);
+        } else {
+          // 📡 只有過期了才去 Firebase 下載
+          setIsLoading(true);
+          try {
+            const vSnap = await getDocs(collection(db, getPath('vtubers')));
+            const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            setRealVtubers(data);
+            localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(data));
+            localStorage.setItem(VTUBER_CACHE_TS, now.toString());
+          } catch (e) { console.error(e); }
+          setIsLoading(false);
+        }
+      }
+
+      // 其他動態資料 (佈告欄、更新、行程) 
+      if (['bulletin', 'collabs', 'home'].includes(currentView)) {
+        const [bSnap, cSnap, uSnap] = await Promise.all([
+          getDocs(collection(db, getPath('bulletins'))),
+          getDocs(collection(db, getPath('collabs'))),
+          getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+        ]);
+        setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }
+    };
+    fetchLargeData();
+  }, [currentView]);
 
   useEffect(() => {
     if (user && user.uid && realVtubers.length > 0) {
