@@ -87,53 +87,56 @@ const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!input.trim() || !currentUser) return;
+    if (!input.trim() || !currentUser || !targetVtuber?.id) return;
 
     const text = input;
     const now = Date.now();
-    const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+    // 統一使用 getPath 確保路徑與監聽器完全一致
+    const roomRef = doc(db, getPath('chat_rooms'), roomId);
 
     setInput('');
 
     try {
-      // 1. 寫入訊息 (不變)
+      // 1. 寫入訊息到子集合
       await addDoc(collection(db, getMsgPath(roomId)), {
         senderId: currentUser.uid,
         text: text,
         createdAt: now
       });
 
-      // 2. 取得房間資料以檢查頻率
+      // 2. 取得房間資料以檢查 Email 發送頻率
       const roomSnap = await getDoc(roomRef);
       const roomData = roomSnap.exists() ? roomSnap.data() : {};
       const lastEmailTime = roomData.lastEmailSentAt || 0;
-      const lastNotifTime = roomData.lastNotifSentAt || 0; // 新增通知時間檢查
+      const lastNotifTime = roomData.lastNotifSentAt || 0;
 
+      // 3. 更新房間主文件 (這步失敗對方列表就不會更新)
       const roomUpdate = {
         lastTimestamp: now,
         lastMessage: text,
+        // 確保參與者名單正確，對方才能透過 where('participants', 'array-contains', ...) 搜到
         participants: [currentUser.uid, targetVtuber.id],
         unreadBy: arrayUnion(targetVtuber.id)
       };
 
-      // A. 寄送 Email (維持 10 分鐘一次，避免騷擾)
+      // A. 寄送 Email (10 分鐘一次)
       if (now - lastEmailTime > 10 * 60 * 1000) {
         roomUpdate.lastEmailSentAt = now;
         if (targetVtuber.publicEmail) {
-          addDoc(collection(db, getPath('mail')), {
+          await addDoc(collection(db, getPath('mail')), {
             to: targetVtuber.publicEmail,
             message: {
               subject: `[V-Nexus] 您有來自 ${myProfile?.name || '創作者'} 的新私訊`,
               text: `您好 ${targetVtuber.name}，\n\n「${myProfile?.name || '某位創作者'}」傳送了新私訊給您。\n請至網站查看：https://www.vnexus2026.com/`
             }
-          }).catch(e => console.error("Mail error:", e));
+          });
         }
       }
 
-      // B. 站內通知 (改為 1 分鐘一次，讓對方的小鈴鐺能響起)
+      // B. 站內通知 (1 分鐘一次)
       if (now - lastNotifTime > 1 * 60 * 1000) {
         roomUpdate.lastNotifSentAt = now;
-        addDoc(collection(db, getPath('notifications')), {
+        await addDoc(collection(db, getPath('notifications')), {
           userId: targetVtuber.id,
           fromUserId: currentUser.uid,
           fromUserName: myProfile?.name || "創作者",
@@ -142,16 +145,18 @@ const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast
           createdAt: now,
           read: false,
           type: 'chat_notification'
-        }).catch(e => console.error("Notif error:", e));
+        });
       }
 
+      // 執行房間更新
       await setDoc(roomRef, roomUpdate, { merge: true });
 
     } catch (err) {
       console.error("發送過程出錯詳細資訊:", err);
-      showToast("傳送失敗，請確認登入狀態");
+      showToast("傳送失敗，請確認登入狀態或權限");
     }
   };
+
   return (
     <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up border-purple-500/30">
       {/* Header */}
