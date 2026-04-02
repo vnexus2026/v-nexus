@@ -2435,7 +2435,7 @@ function App() {
   useEffect(() => {
     const fetchLargeData = async () => {
       // 1. 名片資料 (用於註冊人數統計)
-      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard'].includes(currentView);
+      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin'].includes(currentView);
 
       if (needsVtuberList) {
         const now = Date.now();
@@ -2463,7 +2463,7 @@ function App() {
       }
 
       // 2. 佈告欄與行程 (首頁計算「成功聯動次數」必須抓取佈告欄)
-      const needsActivityData = ['home', 'bulletin', 'collabs'].includes(currentView);
+      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
         // 首頁不需要顯示全螢幕 Loading，背景抓取即可
         try {
@@ -2544,10 +2544,17 @@ function App() {
   }, [user?.uid, realVtubers]);
 
   useEffect(() => {
-    if (isAdmin) {
-      getDocs(collection(db, getPath('vtubers_private'))).then(snap => { const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs); }).catch(err => console.error(err));
+    // 只有當前頁面是 admin 且 user 確定是管理員時才抓取
+    if (isAdmin && currentView === 'admin') {
+      getDocs(collection(db, getPath('vtubers_private')))
+        .then(snap => {
+          const pDocs = {};
+          snap.docs.forEach(d => pDocs[d.id] = d.data());
+          setPrivateDocs(pDocs);
+        })
+        .catch(err => console.error("抓取私密資料失敗:", err));
     }
-  }, [isAdmin]);
+  }, [isAdmin, currentView]);
 
   const myNotifications = useMemo(() => user ? realNotifications.filter(n => n.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt) : [], [realNotifications, user]);
   const unreadCount = myNotifications.filter(n => !n.read).length;
