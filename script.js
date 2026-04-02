@@ -258,6 +258,27 @@ const isVisible = (v, currentUser) => {
 
 const TagBadge = ({ text, onClick, selected }) => (<span onClick={onClick} className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]' : 'bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white'}`}>{text}</span>);
 
+const AnimatedCounter = ({ value, duration = 1500 }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    if (typeof value !== 'number' || isNaN(value)) return;
+
+    let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      setDisplayValue(Math.floor(progress * value));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+    window.requestAnimationFrame(step);
+  }, [value, duration]);
+
+  return <span>{displayValue.toLocaleString()}</span>;
+};
+
 const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNavigateProfile, realVtubers, onShowParticipants }) => {
   if (!c) return null;
   const displayImg = sanitizeUrl(c.coverUrl || getYouTubeThumbnail(c.streamUrl) || 'https://duk.tw/bs1Moc.jpg');
@@ -1189,9 +1210,31 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
         <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
       </div>
       <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]"><p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">網站總瀏覽人次</p><p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">{siteStats?.pageViews !== null ? siteStats.pageViews : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}</p></div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]"><p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">V-NEXUS已成功讓VTUBER聯動</p><p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">{!isLoadingCollabs ? completedCollabsCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">次</span></p></div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]"><p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前VTUBER註冊人數</p><p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">{registeredCount !== null && registeredCount !== undefined ? registeredCount : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>} <span className="text-xl text-gray-500 font-bold">位</span></p></div>
+        {/* 瀏覽人次 */}
+        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">網站總瀏覽人次</p>
+          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+            {siteStats?.pageViews !== null ? <AnimatedCounter value={siteStats.pageViews} /> : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}
+          </p>
+        </div>
+
+        {/* 成功聯動次數 */}
+        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">V-NEXUS已成功讓VTUBER聯動</p>
+          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
+            {!isLoadingCollabs ? <AnimatedCounter value={completedCollabsCount} /> : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}
+            <span className="text-xl text-gray-500 font-bold ml-1">次</span>
+          </p>
+        </div>
+
+        {/* 註冊人數 */}
+        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前VTUBER註冊人數</p>
+          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
+            {registeredCount !== null ? <AnimatedCounter value={registeredCount} /> : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}
+            <span className="text-xl text-gray-500 font-bold ml-1">位</span>
+          </p>
+        </div>
       </div>
 
       <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
@@ -1979,26 +2022,20 @@ function App() {
   }, [realBulletins, realVtubers, currentTime]);
 
   useEffect(() => {
-    if (!isLoading) {
-      // 增加一個小延遲，確保 React 已經渲染好初始畫面
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+      // 強制 300ms 後開始淡出，不論資料是否加載完成
       const timer = setTimeout(() => {
-        const loader = document.getElementById('loading-screen');
-        if (loader) {
-          // 1. 開始淡出動畫
-          loader.style.opacity = '0';
-          // 2. 讓點擊可以穿透（防止動畫期間擋住按鈕）
-          loader.style.pointerEvents = 'none';
-
-          // 3. 等動畫跑完 (0.8s) 再徹底移除 display
-          setTimeout(() => {
-            loader.style.display = 'none';
-          }, 800);
-        }
-      }, 100);
-
+        loader.style.opacity = '0';
+        loader.style.pointerEvents = 'none';
+        // 動畫結束後徹底隱藏
+        setTimeout(() => {
+          loader.style.display = 'none';
+        }, 1500);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading]);
+  }, []);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
