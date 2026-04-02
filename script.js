@@ -1382,7 +1382,7 @@ const AdminPage = ({
   isSyncingSubs, syncProgress, setIsSyncingSubs, setSyncProgress,
   onSendMassEmail, onMassSyncTwitch, defaultBulletinImages,
   onAddDefaultBulletinImage, onDeleteDefaultBulletinImage,
-  onTestReminder, onTestPush, onMassUpdateVerification
+  onTestReminder, onTestPush, onMassUpdateVerification, onMassMigrateImages
 }) => {
 
   // 👇 新增這幾行：宣告需要的分類變數與展開狀態，避免 ReferenceError
@@ -1741,12 +1741,27 @@ const AdminPage = ({
                 >
                   立即測試 24h 提醒寄送
                 </button>
+                <button
+                  onClick={onMassMigrateImages}
+                  disabled={isSyncingSubs}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? 'bg-emerald-900/50 cursor-not-allowed text-gray-400' : 'bg-emerald-700 hover:bg-emerald-600 text-white'}`}
+                >
+                  {isSyncingSubs ? (
+                    <><i className="fa-solid fa-spinner fa-spin mr-2"></i> {syncProgress}</>
+                  ) : (
+                    <><i className="fa-solid fa-images mr-2"></i>一鍵遷移 Base64 圖片至 Storage</>
+                  )}
+                </button>
+
               </div>
+
             </div>
 
           )}
         </div>
       </div>
+
+
 
       {editingVtuber && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
@@ -2041,6 +2056,107 @@ function App() {
       showToast("✅ 測試指令已發出！");
     } catch (err) {
       showToast("❌ 發送失敗：" + err.message);
+    }
+  };
+
+  const handleMassMigrateImagesToStorage = async () => {
+    if (!confirm("⚠️ 確定要執行全站圖片遷移嗎？\n這會將所有以「長字元(Base64)」儲存的圖片轉存至 Storage 並替換為網址。\n這能大幅提升網站載入速度！")) return;
+
+    const confirmText = prompt("請輸入 'MIGRATE' 以確認執行：");
+    if (confirmText !== 'MIGRATE') return showToast("操作已取消");
+
+    setIsSyncingSubs(true);
+    let successCount = 0;
+    let skipCount = 0;
+
+    try {
+      for (let i = 0; i < realVtubers.length; i++) {
+        const v = realVtubers[i];
+        if (v.id.startsWith('mock')) continue; // 跳過測試資料
+
+        let updates = {};
+        setSyncProgress(`正在處理 (${i + 1}/${realVtubers.length}): ${v.name}`);
+
+        // 檢查頭像是否為 Base64
+        if (v.avatar && v.avatar.startsWith('data:image')) {
+          try {
+            const newUrl = await uploadImageToStorage(v.id, v.avatar, 'avatar.jpg');
+            updates.avatar = newUrl;
+          } catch (e) { console.error(`${v.name} 頭像遷移失敗`, e); }
+        }
+
+        // 檢查橫幅是否為 Base64
+        if (v.banner && v.banner.startsWith('data:image')) {
+          try {
+            const newUrl = await uploadImageToStorage(v.id, v.banner, 'banner.jpg');
+            updates.banner = newUrl;
+          } catch (e) { console.error(`${v.name} 橫幅遷移失敗`, e); }
+        }
+
+        // 如果有更新，寫入資料庫
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(doc(db, getPath('vtubers'), v.id), {
+            ...updates,
+            updatedAt: Date.now()
+          });
+          successCount++;
+          // 同步更新本地狀態，避免畫面閃爍
+          setRealVtubers(prev => prev.map(rv => rv.id === v.id ? { ...rv, ...updates } : rv));
+        } else {
+          skipCount++;
+        }
+
+        // 稍微延遲避免觸發頻率限制
+        await new Promise(r => setTimeout(r, 300));
+      }
+      showToast(`✅ 遷移完成！成功轉換 ${successCount} 位，跳過 ${skipCount} 位（已是網址）。`);
+    } catch (err) {
+      console.error("遷移過程出錯:", err);
+      showToast("❌ 遷移中斷，請查看控制台錯誤");
+    } finally {
+      setIsSyncingSubs(false);
+      setSyncProgress("");
+    }
+  };
+
+  const handleMigrateMyImages = async () => {
+    if (!user) return showToast("請先登入！");
+
+    // 取得目前資料庫中的名片資料
+    const myData = realVtubers.find(v => v.id === user.uid);
+    if (!myData) return showToast("找不到您的名片資料，請先儲存名片。");
+
+    const hasBase64Avatar = myData.avatar && myData.avatar.startsWith('data:image');
+    const hasBase64Banner = myData.banner && myData.banner.startsWith('data:image');
+
+    if (!hasBase64Avatar && !hasBase64Banner) {
+      return showToast("✅ 您的圖片已經是網址格式，不需要遷移。");
+    }
+
+    try {
+      showToast("⏳ 正在將您的圖片上傳至 Storage...");
+      let updates = {};
+
+      if (hasBase64Avatar) {
+        const url = await uploadImageToStorage(user.uid, myData.avatar, 'avatar.jpg');
+        updates.avatar = url;
+      }
+      if (hasBase64Banner) {
+        const url = await uploadImageToStorage(user.uid, myData.banner, 'banner.jpg');
+        updates.banner = url;
+      }
+
+      await updateDoc(doc(db, getPath('vtubers'), user.uid), {
+        ...updates,
+        updatedAt: Date.now()
+      });
+
+      // 更新本地狀態讓畫面即時變化
+      setRealVtubers(prev => prev.map(v => v.id === user.uid ? { ...v, ...updates } : v));
+      showToast("🎉 遷移成功！您的圖片現在儲存在 Storage 了。");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 遷移失敗，請檢查 Storage 權限。");
     }
   };
 
@@ -3342,19 +3458,25 @@ function App() {
             <div className="text-center mb-8">
               <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-3"><i className="fa-solid fa-user-circle text-purple-400"></i> 創作者中心：編輯名片</h2>
 
-              {myProfile && <div className="mt-4 mb-2"><button onClick={() => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id}`); }} className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2"><i className="fa-solid fa-eye"></i> 預覽我的公開名片</button></div>}
-
               {user && realVtubers.find(v => v.id === user.uid) ? (realVtubers.find(v => v.id === user.uid).isVerified ? <p className="text-green-400 mt-3 text-sm font-bold bg-green-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-circle-check mr-1"></i> 名片已認證上線</p> : <p className="text-yellow-400 mt-3 text-sm font-bold bg-yellow-500/10 inline-block px-4 py-1 rounded-full"><i className="fa-solid fa-user-clock mr-1"></i> 名片審核中，通過後將自動公開</p>) : <p className="text-gray-400 mt-2">填寫完成後請等待管理員審核，確保社群品質！</p>}
 
               {/* ▼▼▼ 把推播按鈕移到這裡，並用 flex justify-center 包住讓他置中 ▼▼▼ */}
-              <div className="mt-5 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleEnableNotifications}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2"
-                >
-                  <i className="fa-solid fa-bell"></i> 啟動手機推播通知(目前僅適用於Android)
-                </button>
+              <div className="mt-5 flex flex-col sm:flex-row justify-center gap-3">
+
+                <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  {myProfile && (
+                    <button onClick={() => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id}`); }} className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
+                      <i className="fa-solid fa-eye"></i> 預覽我的公開名片
+                    </button>
+                  )}
+
+                  <button type="button" onClick={handleEnableNotifications} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2">
+                    <i className="fa-solid fa-bell"></i> 啟動手機推播通知
+                  </button>
+
+                  {/* ⚠️ 這是你要的測試按鈕 */}
+
+                </div>
               </div>
               {/* ▲▲▲ 按鈕區塊結束 ▲▲▲ */}
 
@@ -3837,6 +3959,7 @@ function App() {
             onMassUpdateVerification={handleAdminMassUpdateVerification}
             setIsSyncingSubs={setIsSyncingSubs}
             setSyncProgress={setSyncProgress}
+            onMassMigrateImages={handleMassMigrateImagesToStorage}
           />
         )}
       </main>
