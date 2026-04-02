@@ -2883,8 +2883,20 @@ function App() {
   };
 
   const handleAddDefaultBulletinImage = async (base64) => {
-    const newImages = [...defaultBulletinImages, base64];
-    try { await setDoc(doc(db, getPath('settings'), 'bulletinImages'), { images: newImages }, { merge: true }); setDefaultBulletinImages(newImages); showToast("✅ 已新增預設圖片"); } catch (e) { showToast("新增失敗"); }
+    showToast("⏳ 正在上傳預設圖片至 Storage...");
+    try {
+      // 將預設圖存放在 system/bulletin_defaults 資料夾下
+      const fileName = `default_${Date.now()}.jpg`;
+      const storageUrl = await uploadImageToStorage('system', base64, `bulletin_defaults/${fileName}`);
+
+      const newImages = [...defaultBulletinImages, storageUrl];
+      await setDoc(doc(db, getPath('settings'), 'bulletinImages'), { images: newImages }, { merge: true });
+      setDefaultBulletinImages(newImages);
+      showToast("✅ 預設圖片已新增並存至 Storage");
+    } catch (e) {
+      console.error(e);
+      showToast("❌ 新增失敗，請檢查 Storage 權限");
+    }
   };
 
   const handleDeleteDefaultBulletinImage = async (idx) => {
