@@ -1402,9 +1402,19 @@ const AdminPage = ({
 }) => {
 
   // 👇 新增這幾行：宣告需要的分類變數與展開狀態，避免 ReferenceError
-  const pendingVtubers = vtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
-  const rejectedVtubers = vtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected');
-  const verifiedVtubers = vtubers.filter(v => v.isVerified);
+  const pendingVtubers = vtubers.filter(v =>
+    !v.isVerified &&
+    !v.isBlacklisted &&
+    v.verificationStatus !== 'rejected' // 只要沒被拒絕且沒通過，就是待審核
+  );
+  const rejectedVtubers = vtubers.filter(v =>
+    !v.isVerified &&
+    v.verificationStatus === 'rejected' // 明確被標記為 rejected 的才進退回名單
+  );
+  const verifiedVtubers = vtubers.filter(v =>
+    v.isVerified === true &&
+    !v.isBlacklisted // 已通過且沒被黑單的
+  );
   const blacklistedVtubers = vtubers.filter(v => v.isBlacklisted);
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
 
@@ -3072,10 +3082,26 @@ function App() {
 
   const handleVerifyVtuber = async (id) => {
     try {
-      await setDoc(doc(db, getPath('vtubers'), id), { isVerified: true, isBlacklisted: false, verificationStatus: 'approved', showVerificationModal: 'approved' }, { merge: true });
-      setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: true, isBlacklisted: false, verificationStatus: 'approved' } : v));
-      showToast("已通過審核！");
+      const updates = {
+        isVerified: true,
+        isBlacklisted: false,
+        verificationStatus: 'approved',
+        showVerificationModal: 'approved'
+      };
 
+      // 1. 更新 Firestore
+      await setDoc(doc(db, getPath('vtubers'), id), updates, { merge: true });
+
+      // 2. 更新本地狀態並同步快取
+      setRealVtubers(prev => {
+        const newList = prev.map(v => v.id === id ? { ...v, ...updates } : v);
+        syncVtuberCache(newList); // 關鍵：同步 localStorage
+        return newList;
+      });
+
+      showToast("✅ 已通過審核！名片已上架。");
+
+      // 寄送 Email 邏輯保持不變...
       const targetVtuber = realVtubers.find(v => v.id === id);
       const targetPrivate = privateDocs[id];
       const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
@@ -3084,20 +3110,38 @@ function App() {
           to: emailToSend,
           message: {
             subject: `[V-Nexus] 恭喜！您的創作者名片已審核通過 🎉`,
-            text: `您好，${targetVtuber.name}！\n\n恭喜您！您在 V-Nexus 提交的創作者名片已經審核通過並正式上架啦！\n\n趕快登入 V-Nexus 看看，並開始尋找您的聯動夥伴吧：\nhttps://www.vnexus2026.com/\n\n祝 聯動順利！\nV-Nexus 團隊`
+            text: `您好，${targetVtuber.name}！\n\n恭喜您！您的名片已經正式上架。`
           }
         }).catch(e => console.error("Mail Error:", e));
       }
-    } catch (err) { showToast("審核失敗"); }
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 審核失敗");
+    }
   };
 
   const handleRejectVtuber = async (id) => {
     if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
     try {
-      await setDoc(doc(db, getPath('vtubers'), id), { isVerified: false, verificationStatus: 'rejected', showVerificationModal: 'rejected' }, { merge: true });
-      setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, isVerified: false, verificationStatus: 'rejected' } : v));
-      showToast("已退回該名片！");
+      const updates = {
+        isVerified: false,
+        verificationStatus: 'rejected',
+        showVerificationModal: 'rejected'
+      };
 
+      // 1. 更新 Firestore
+      await setDoc(doc(db, getPath('vtubers'), id), updates, { merge: true });
+
+      // 2. 更新本地狀態並同步快取
+      setRealVtubers(prev => {
+        const newList = prev.map(v => v.id === id ? { ...v, ...updates } : v);
+        syncVtuberCache(newList); // 關鍵：同步 localStorage
+        return newList;
+      });
+
+      showToast("🟠 已退回該名片至退回名單。");
+
+      // 寄送 Email 邏輯保持不變...
       const targetVtuber = realVtubers.find(v => v.id === id);
       const targetPrivate = privateDocs[id];
       const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
@@ -3106,11 +3150,14 @@ function App() {
           to: emailToSend,
           message: {
             subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
-            text: `您好，${targetVtuber.name}！\n\n很抱歉通知您，您在 V-Nexus 提交的創作者名片目前未能通過審核。\n\n請趕快回到網站看看是哪裡出了問題：\nhttps://www.vnexus2026.com/\n\n(常見未通過原因可能為：YT/TWITCH粉絲數加總未達500、一個月以上無活動紀錄、或是忘記將「V-Nexus審核中」放入您的社群平台簡介內以供官方驗證身分)\n\n若您已修正上述問題，歡迎隨時重新儲存名片以再次提交審核！\n\n感謝您的配合！\nV-Nexus 團隊`
+            text: `您好，${targetVtuber.name}！很抱歉，您的名片未能通過審核，請查看原因並修改。`
           }
         }).catch(e => console.error("Mail Error:", e));
       }
-    } catch (err) { showToast("操作失敗"); }
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 操作失敗");
+    }
   };
 
   const handleAdminUpdateVtuber = async (id, updatedData) => {
