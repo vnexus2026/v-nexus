@@ -38,7 +38,7 @@ try {
 
 const provider = new GoogleAuthProvider();
 const APP_ID = 'v-nexus-official';
-const ONE_DAY = 12 * 60 * 60 * 1000; // 12小時的毫秒數
+const ONE_DAY = 1 * 60 * 60 * 1000; // 12小時的毫秒數
 const VTUBER_CACHE_KEY = 'vnexus_vtubers_data';
 const VTUBER_CACHE_TS = 'vnexus_vtubers_ts';
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
@@ -2756,6 +2756,12 @@ function App() {
     }
   };
 
+  const syncVtuberCache = (newList) => {
+    setRealVtubers(newList);
+    localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
+  };
+
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault();
     if (!user) return showToast("請先登入！");
@@ -2764,58 +2770,58 @@ function App() {
     if (!isAdmin) {
       const note = (customForm.verificationNote || "").toUpperCase();
       if (note !== "X" && note !== "YT") {
-        alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可。");
+        alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
         return;
       }
     }
 
     // 2. 驗證信箱狀態
     if (customForm.publicEmail && customForm.publicEmail.trim() !== '' && !customForm.publicEmailVerified) {
-      return showToast("請先完成公開工商信箱驗證！");
+      return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
     }
 
+    // 3. 處理連動類型與時段驗證
+    let finalCollabs = [...(customForm.collabTypes || [])];
+    if (customForm.isOtherCollab && customForm.otherCollabText?.trim()) {
+      finalCollabs.push(customForm.otherCollabText.trim());
+    }
+    if (finalCollabs.length === 0) return showToast("請至少選擇一項連動類型！");
+
     try {
-      showToast("⏳ 正在上傳圖片並儲存名片...");
+      showToast("⏳ 正在處理圖片並儲存名片...");
       const targetUid = customForm.id || user.uid;
 
-      // --- A. 圖片上傳至 Storage (關鍵修正：確保等待回傳 URL) ---
-      let finalAvatarUrl = customForm.avatar;
-      let finalBannerUrl = customForm.banner;
-
-      if (customForm.avatar && customForm.avatar.startsWith('data:image')) {
-        finalAvatarUrl = await uploadImageToStorage(targetUid, customForm.avatar, 'avatar.jpg');
-      }
-      if (customForm.banner && customForm.banner.startsWith('data:image')) {
-        finalBannerUrl = await uploadImageToStorage(targetUid, customForm.banner, 'banner.jpg');
-      }
+      // --- A. 圖片上傳至 Storage ---
+      const avatarUrl = await uploadImageToStorage(targetUid, customForm.avatar, 'avatar.jpg');
+      const bannerUrl = await uploadImageToStorage(targetUid, customForm.banner, 'banner.jpg');
 
       // --- B. 準備寫入 Firestore 的資料 ---
       const tagsArray = (customForm.tags || '').split(',').map(t => t.trim()).filter(t => t);
       const existingProfile = realVtubers.find(v => v.id === targetUid);
+      const finalPersonality = customForm.personalityType === '其他' ? customForm.personalityTypeOther : customForm.personalityType;
 
       const publicData = {
-        ...customForm, // 繼承原本表單內容
+        ...customForm,
         id: targetUid,
-        avatar: finalAvatarUrl, // 使用上傳後的 URL
-        banner: finalBannerUrl, // 使用上傳後的 URL
+        avatar: avatarUrl,
+        banner: bannerUrl,
         tags: tagsArray,
         slug: (customForm.slug || '').trim().toLowerCase(),
-        personalityType: customForm.personalityType === '其他' ? customForm.personalityTypeOther : customForm.personalityType,
+        personalityType: finalPersonality || '',
         lastActiveAt: Date.now(),
         updatedAt: Date.now()
       };
 
-      // 移除不屬於公開庫的欄位
-      delete publicData.contactEmail;
-      delete publicData.verificationNote;
-      delete publicData.publicEmail;
-      delete publicData.publicEmailVerified;
+      // 移除不屬於資料庫的 UI 狀態欄位
+      const uiFields = ['contactEmail', 'verificationNote', 'publicEmail', 'publicEmailVerified', 'isOtherCollab', 'otherCollabText', 'isOtherNationality', 'otherNationalityText', 'personalityTypeOther'];
+      uiFields.forEach(f => delete publicData[f]);
 
-      // 如果是新名片，設定初始狀態
+      // 如果是新名片或被退回的名片，重置審核狀態
       if (!existingProfile || existingProfile.verificationStatus === 'rejected') {
         publicData.isVerified = false;
         publicData.isBlacklisted = false;
         publicData.verificationStatus = 'pending';
+        publicData.showVerificationModal = null;
       }
 
       const privateData = {
@@ -2826,23 +2832,28 @@ function App() {
         updatedAt: Date.now()
       };
 
-      // --- C. 執行寫入 ---
+      // --- C. 執行寫入資料庫 ---
       await setDoc(doc(db, getPath('vtubers'), targetUid), publicData, { merge: true });
       await setDoc(doc(db, getPath('vtubers_private'), targetUid), privateData, { merge: true });
 
-      // 更新本地狀態
+      // --- D. 更新本地狀態與快取 (關鍵修正) ---
       setRealVtubers(prev => {
         const exists = prev.find(v => v.id === targetUid);
-        if (exists) return prev.map(v => v.id === targetUid ? { ...v, ...publicData } : v);
-        return [...prev, publicData];
+        const updatedList = exists
+          ? prev.map(v => v.id === targetUid ? { ...v, ...publicData } : v)
+          : [...prev, publicData];
+
+        // 立即同步到 localStorage
+        syncVtuberCache(updatedList);
+        return updatedList;
       });
 
-      showToast("🎉 儲存成功！");
+      showToast(existingProfile && existingProfile.isVerified ? "🎉 名片已更新！" : "🎉 名片已建立！等待審核。");
       if (!customForm.id) navigate('grid');
 
     } catch (err) {
-      console.error("儲存失敗詳細錯誤:", err);
-      showToast("❌ 儲存失敗，請檢查圖片大小或網路");
+      console.error("儲存失敗:", err);
+      showToast("❌ 儲存失敗，請檢查網路或圖片大小");
     }
   };
 
@@ -3080,39 +3091,19 @@ function App() {
         (Array.isArray(updatedData.tags) ? updatedData.tags : []);
 
       const publicData = {
-        name: updatedData.name,
-        slug: (updatedData.slug || '').trim().toLowerCase(),
-        agency: updatedData.agency,
-        streamingStyle: updatedData.streamingStyle,
-        description: updatedData.description,
+        ...updatedData,
+        id: id,
+        avatar: avatarUrl,
+        banner: bannerUrl,
         tags: tagsArray,
-        collabTypes: updatedData.collabTypes || [],
-        nationalities: updatedData.nationalities || [],
-        languages: updatedData.languages || [],
-        personalityType: updatedData.personalityType === '其他' ? updatedData.personalityTypeOther : updatedData.personalityType,
-        colorSchemes: updatedData.colorSchemes || [],
-        isScheduleAnytime: updatedData.isScheduleAnytime,
-        isScheduleExcept: updatedData.isScheduleExcept,
-        isScheduleCustom: updatedData.isScheduleCustom,
-        customScheduleText: updatedData.customScheduleText,
-        scheduleSlots: updatedData.scheduleSlots || [],
-        mainPlatform: updatedData.mainPlatform,
-        youtubeSubscribers: updatedData.youtubeSubscribers,
-        twitchFollowers: updatedData.twitchFollowers,
-        youtubeUrl: updatedData.youtubeUrl,
-        twitchUrl: updatedData.twitchUrl,
-        xUrl: updatedData.xUrl,
-        igUrl: updatedData.igUrl,
-        streamStyleUrl: updatedData.streamStyleUrl,
-        avatar: avatarUrl, // 使用上傳後的網址
-        banner: bannerUrl, // 使用上傳後的網址
-        activityStatus: updatedData.activityStatus,
-        likes: updatedData.likes || 0,
-        dislikes: updatedData.dislikes || 0,
         updatedAt: Date.now()
       };
 
-      // --- C. 寫入資料庫 ---
+      // 移除私密資料庫的欄位，避免重複存入公開庫
+      delete publicData.contactEmail;
+      delete publicData.verificationNote;
+
+      // --- C. 執行寫入資料庫 ---
       await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true });
 
       await setDoc(doc(db, getPath('vtubers_private'), id), {
@@ -3123,12 +3114,17 @@ function App() {
         updatedAt: Date.now()
       }, { merge: true });
 
-      // 更新本地狀態
-      setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, ...publicData } : v));
-      showToast("✅ 管理員強制更新成功！");
+      // --- D. 更新本地狀態與快取 ---
+      setRealVtubers(prev => {
+        const updatedList = prev.map(v => v.id === id ? { ...v, ...publicData } : v);
+        syncVtuberCache(updatedList);
+        return updatedList;
+      });
+
+      showToast("✅ 管理員強制更新成功，快取已同步！");
 
     } catch (err) {
-      console.error("Admin Update Error:", err);
+      console.error("管理員更新失敗:", err);
       showToast("❌ 更新失敗");
     }
   };
