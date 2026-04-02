@@ -4288,7 +4288,15 @@ function App() {
       {user && myProfile && myProfile.showVerificationModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md p-8 text-center shadow-2xl relative">
-            {/* ... 省略裝飾代碼 ... */}
+
+            <div className={`absolute top-0 left-0 w-full h-2 ${myProfile.showVerificationModal === 'approved' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`}></div>
+            <div className="mb-6"><div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${myProfile.showVerificationModal === 'approved' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}><i className={`fa-solid ${myProfile.showVerificationModal === 'approved' ? 'fa-check text-4xl' : 'fa-xmark text-5xl'}`}></i></div></div>
+            <h2 className="text-2xl font-extrabold text-white mb-4">{myProfile.showVerificationModal === 'approved' ? '名片審核通過！' : '名片審核未通過'}</h2>
+            {myProfile.showVerificationModal === 'approved' ? (<p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">恭喜你審核通過！<br />開始尋找聯動夥伴吧！</p>) : (<p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上你都有達到，那就是你沒有將V-Nexus審核中放入你的X或YT簡介內，無法審核成功喔！<br /><br />請繼續加油！</p>)}
+            <div className="flex justify-center">
+              {myProfile.showVerificationModal === 'approved' ? (<button onClick={async () => { await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null }); setRealVtubers(prev => prev.map(v => v.id === myProfile.id ? { ...v, showVerificationModal: null } : v)); navigate('grid'); }} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full">開始找夥伴</button>) : (<button onClick={async () => { await updateDoc(doc(db, getPath('vtubers'), myProfile.id), { showVerificationModal: null }); setRealVtubers(prev => prev.map(v => v.id === myProfile.id ? { ...v, showVerificationModal: null } : v)); }} className="bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-3 rounded-xl font-bold transition-colors w-full">我了解了</button>)}
+            </div>
+
             <div className="flex justify-center">
               <button onClick={async () => {
                 // 1. 定義要清除的欄位
