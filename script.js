@@ -1713,9 +1713,11 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat }) => 
   useEffect(() => {
     if (!currentUser) return;
     const q = query(
-      collection(db, getPath('chat_rooms')),
-      where('participants', 'array-contains', currentUser.uid)
-    );
+  collection(db, getPath('chat_rooms')),
+  where('participants', 'array-contains', currentUser.uid),
+  orderBy('lastTimestamp', 'desc'), // 配合時間排序
+  limit(30)
+);
     const unsub = onSnapshot(q, (snap) => {
       let loadedRooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // 依照最後訊息時間排序
@@ -2154,62 +2156,74 @@ function App() {
   useEffect(() => {
     setIsLoading(true);
     const fetchAllData = async () => {
-      try {
-        // 1. 合併抓取基礎設定 (使用 Promise.all 減少等待時間)
-        const [statsSnap, tipsSnap, rulesSnap, imgSnap] = await Promise.all([
-          getDoc(doc(db, getPath('settings'), 'stats')),
-          getDoc(doc(db, getPath('settings'), 'tips')),
-          getDoc(doc(db, getPath('settings'), 'rules')),
-          getDoc(doc(db, getPath('settings'), 'bulletinImages'))
-        ]);
+  try {
+    // 1. 抓取基礎設定 (這部分讀取量很小)
+    const [statsSnap, tipsSnap, rulesSnap, imgSnap] = await Promise.all([
+      getDoc(doc(db, getPath('settings'), 'stats')),
+      getDoc(doc(db, getPath('settings'), 'tips')),
+      getDoc(doc(db, getPath('settings'), 'rules')),
+      getDoc(doc(db, getPath('settings'), 'bulletinImages'))
+    ]);
 
-        if (statsSnap.exists()) setSiteStats(statsSnap.data());
-        if (tipsSnap.exists() && tipsSnap.data().content) setRealTips(tipsSnap.data().content);
-        if (rulesSnap.exists() && rulesSnap.data().content) setRealRules(rulesSnap.data().content);
-        if (imgSnap.exists() && imgSnap.data().images) setDefaultBulletinImages(imgSnap.data().images);
+    if (statsSnap.exists()) setSiteStats(statsSnap.data());
+    if (tipsSnap.exists() && tipsSnap.data().content) setRealTips(tipsSnap.data().content);
+    if (rulesSnap.exists() && rulesSnap.data().content) setRealRules(rulesSnap.data().content);
+    if (imgSnap.exists() && imgSnap.data().images) setDefaultBulletinImages(imgSnap.data().images);
 
-        // 2. 增加瀏覽量 (背景執行，不阻塞)
-        updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) })
-          .catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
+    // 2. 增加瀏覽量
+    updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) })
+      .catch(() => setDoc(doc(db, getPath('settings'), 'stats'), { pageViews: 1 }, { merge: true }));
 
-        // 3. 優先抓取 VTuber 名片 (核心資料)
-        const vSnap = await getDocs(collection(db, getPath('vtubers')));
-        const vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setRealVtubers(vData);
+    // --- 重點優化區：加上 limit 限制讀取量 ---
+    
+    // 3. 抓取 VTuber 名片：限制只抓取最近更新的 60 筆 (避免一次抓幾百筆)
+    const vQuery = query(
+      collection(db, getPath('vtubers')), 
+      orderBy('updatedAt', 'desc'), 
+      limit(60) 
+    );
+    const vSnap = await getDocs(vQuery);
+    const vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    setRealVtubers(vData);
 
-        // 名片載入完成後關閉 Loading
-        setIsLoading(false);
+    setIsLoading(false);
 
-        // 4. 背景抓取其餘次要資料 (延遲 200ms 執行，確保主畫面流暢)
-        setTimeout(async () => {
-          const [bSnap, cSnap, uSnap] = await Promise.all([
-            getDocs(collection(db, getPath('bulletins'))),
-            getDocs(collection(db, getPath('collabs'))),
-            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(20)))
-          ]);
-          setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, 200);
+    // 4. 背景抓取其餘資料：同樣加上限制
+    setTimeout(async () => {
+      // 招募文：只抓最新的 40 筆
+      const bQuery = query(collection(db, getPath('bulletins')), orderBy('createdAt', 'desc'), limit(40));
+      // 聯動表：只抓最近的 40 筆
+      const cQuery = query(collection(db, getPath('collabs')), orderBy('startTimestamp', 'asc'), limit(40));
+      // 公告：維持 20 筆
+      const uQuery = query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(20));
 
-        // 5. 處理當前使用者的名片表單初始化 (邏輯維持原樣)
-        if (user) {
-          const cp = vData.find(v => v.id === user.uid);
-          if (cp) {
-            // ... (這裡保留你原本處理 profileForm 的邏輯) ...
-          }
-        }
-      } catch (err) {
-        console.error("讀取失敗:", err);
-        setIsLoading(false);
-      }
-    };
+      const [bSnap, cSnap, uSnap] = await Promise.all([
+        getDocs(bQuery),
+        getDocs(cQuery),
+        getDocs(uQuery)
+      ]);
+
+      setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, 200);
+
+  } catch (err) {
+    console.error("讀取失敗:", err);
+    setIsLoading(false);
+  }
+};
 
     fetchAllData();
 
     let unsubN = () => { };
     if (user && user.uid) {
-      const q = query(collection(db, getPath('notifications')), where("userId", "==", user.uid));
+      const q = query(
+  collection(db, getPath('notifications')), 
+  where("userId", "==", user.uid),
+  orderBy("createdAt", "desc"),
+  limit(40) // 限制 40 則
+);
       unsubN = onSnapshot(q, (snap) => {
         const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -2254,8 +2268,15 @@ function App() {
 
   useEffect(() => {
     if (isAdmin) {
-      getDocs(collection(db, getPath('vtubers_private'))).then(snap => { const pDocs = {}; snap.docs.forEach(d => pDocs[d.id] = d.data()); setPrivateDocs(pDocs); }).catch(err => console.error(err));
-    }
+  // 原本是 getDocs(collection(db, getPath('vtubers_private')))
+  // 修改為只抓取最近的 50 筆，避免一次抓取全部私密資料
+  const privQuery = query(collection(db, getPath('vtubers_private')), orderBy('updatedAt', 'desc'), limit(30));
+  getDocs(privQuery).then(snap => { 
+    const pDocs = {}; 
+    snap.docs.forEach(d => pDocs[d.id] = d.data()); 
+    setPrivateDocs(pDocs); 
+  }).catch(err => console.error(err));
+}
   }, [isAdmin]);
 
   const myNotifications = useMemo(() => user ? realNotifications.filter(n => n.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt) : [], [realNotifications, user]);
