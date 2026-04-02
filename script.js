@@ -3085,7 +3085,7 @@ function App() {
           fromUserId: user.uid, 
           fromUserName: myProfile?.name || user.displayName || '某位創作者', 
           fromUserAvatar: myProfile?.avatar || user.photoURL, 
-          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！V-NEXUS｜https://www.vnexus2026.com/', 
+          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！https://www.vnexus2026.com/', 
           createdAt: Date.now(), 
           read: false 
         }).catch(() => { });
