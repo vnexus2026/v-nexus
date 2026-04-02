@@ -180,10 +180,9 @@ const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0f111a]">
-
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.senderId === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm ${m.senderId === currentUser.uid
+            <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${m.senderId === currentUser.uid
               ? 'bg-purple-600 text-white rounded-tr-none'
               : 'bg-gray-800 text-gray-200 rounded-tl-none border border-gray-700'
               }`}>
@@ -1251,23 +1250,23 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
   }, [safeDisplayCollabs.length]); // 簡化依賴項，避免在依賴項中使用 map 導致崩潰
 
   const newestVtubers = useMemo(() => {
-  return [...realVtubers]
-    .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
-    .sort((a, b) => {
-      // ✅ 強化的時間抓取函式
-      const getTimestamp = (v) => {
-        const val = v.createdAt || v.updatedAt || 0; // 如果沒有註冊時間，就用更新時間
-        if (!val) return 0;
-        if (typeof val === 'number') return val;
-        if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp 物件
-        return 0;
-      };
-      
-      // 依照時間降冪排序 (最新的在前面)
-      return getTimestamp(b) - getTimestamp(a);
-    })
-    .slice(0, 5); // 只取前 5 名
-}, [realVtubers]);
+    return [...realVtubers]
+      .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
+      .sort((a, b) => {
+        // ✅ 強化的時間抓取函式
+        const getTimestamp = (v) => {
+          const val = v.createdAt || v.updatedAt || 0; // 如果沒有註冊時間，就用更新時間
+          if (!val) return 0;
+          if (typeof val === 'number') return val;
+          if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp 物件
+          return 0;
+        };
+
+        // 依照時間降冪排序 (最新的在前面)
+        return getTimestamp(b) - getTimestamp(a);
+      })
+      .slice(0, 5); // 只取前 5 名
+  }, [realVtubers]);
 
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
@@ -1318,7 +1317,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
 
       <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
 
-{newestVtubers.length > 0 && (
+      {newestVtubers.length > 0 && (
         <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <div className="text-left">
@@ -1337,19 +1336,19 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 user={null}
                 isVerifiedUser={false}
                 onSelect={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                onDislike={() => {}}
+                onDislike={() => { }}
               />
             ))}
           </div>
         </div>
       )}
 
-       <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
+      <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
           <div className="text-left"><h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2><p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p></div>
           <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2"><i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！</button>
         </div>
-        
+
         {randomCollabs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
             {randomCollabs.map(c => (
@@ -1366,7 +1365,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
           </div>
         ) : (
           <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700 max-w-4xl mx-auto">
-              <p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-3xl block"></i>目前沒有即將到來的聯動行程</p>
+            <p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-3xl block"></i>目前沒有即將到來的聯動行程</p>
           </div>
         )}
 
@@ -1454,32 +1453,32 @@ const AdminPage = ({
   onTestReminder, onTestPush, onMassUpdateVerification, onMassMigrateImages
 }) => {
 
- const getAdminSortTime = (v) => {
-  const getTime = (val) => {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    if (val.toMillis) return val.toMillis();
-    return 0;
+  const getAdminSortTime = (v) => {
+    const getTime = (val) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      if (val.toMillis) return val.toMillis();
+      return 0;
+    };
+    // 優先取註冊時間，沒有就取更新時間
+    return getTime(v.createdAt) || getTime(v.updatedAt) || 0;
   };
-  // 優先取註冊時間，沒有就取更新時間
-  return getTime(v.createdAt) || getTime(v.updatedAt) || 0;
-};
 
-const pendingVtubers = vtubers
-  .filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected')
-  .sort((a, b) => getAdminSortTime(a) - getAdminSortTime(b)); // 待審核：舊到新(先來的先審)
+  const pendingVtubers = vtubers
+    .filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected')
+    .sort((a, b) => getAdminSortTime(a) - getAdminSortTime(b)); // 待審核：舊到新(先來的先審)
 
-const rejectedVtubers = vtubers
-  .filter(v => !v.isVerified && v.verificationStatus === 'rejected')
-  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 退回：新到舊
+  const rejectedVtubers = vtubers
+    .filter(v => !v.isVerified && v.verificationStatus === 'rejected')
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 退回：新到舊
 
-const verifiedVtubers = vtubers
-  .filter(v => v.isVerified === true && !v.isBlacklisted)
-  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // ✅ 已上架：最新註冊/更新排前面
+  const verifiedVtubers = vtubers
+    .filter(v => v.isVerified === true && !v.isBlacklisted)
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // ✅ 已上架：最新註冊/更新排前面
 
-const blacklistedVtubers = vtubers
-  .filter(v => v.isBlacklisted)
-  .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 黑單：新到舊
+  const blacklistedVtubers = vtubers
+    .filter(v => v.isBlacklisted)
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 黑單：新到舊
 
 
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
@@ -2509,7 +2508,7 @@ function App() {
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
         const isCacheValid = cachedData && cachedTs && (now - parseInt(cachedTs) < ONE_DAY);
-        const forceRefresh = (currentView === 'admin'); 
+        const forceRefresh = (currentView === 'admin');
 
         if (isCacheValid && !forceRefresh) {
           setRealVtubers(JSON.parse(cachedData));
@@ -2520,7 +2519,7 @@ function App() {
           try {
             const vSnap = await getDocs(collection(db, getPath('vtubers')));
             const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data); 
+            syncVtuberCache(data);
             setRealVtubers(data);
           } catch (e) {
             console.error("抓取 VTuber 列表失敗:", e);
@@ -2542,8 +2541,8 @@ function App() {
           setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
           setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
           setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) { 
-          console.error("抓取活動資料失敗:", e); 
+        } catch (e) {
+          console.error("抓取活動資料失敗:", e);
         }
       }
     };
@@ -2735,19 +2734,19 @@ function App() {
     };
 
     const getLatestActivityTime = (v) => {
-  const getTime = (val) => {
-    if (!val) return 0;
-    if (typeof val === 'number') return val;
-    if (val.toMillis) return val.toMillis();
-    return 0;
-  };
-  // ✅ 同時考慮最後活躍、更新、以及建立時間，確保「有動靜」的人排在前面
-  return Math.max(
-    getTime(v.lastActiveAt),
-    getTime(v.updatedAt),
-    getTime(v.createdAt)
-  );
-};
+      const getTime = (val) => {
+        if (!val) return 0;
+        if (typeof val === 'number') return val;
+        if (val.toMillis) return val.toMillis();
+        return 0;
+      };
+      // ✅ 同時考慮最後活躍、更新、以及建立時間，確保「有動靜」的人排在前面
+      return Math.max(
+        getTime(v.lastActiveAt),
+        getTime(v.updatedAt),
+        getTime(v.createdAt)
+      );
+    };
 
     const list = Array.isArray(realVtubers) ? [...realVtubers] : [];
 
@@ -3145,14 +3144,14 @@ function App() {
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
         // 僅保留站內通知，並更新通知訊息內容
-        addDoc(collection(db, getPath('notifications')), { 
-          userId: bulletinAuthorId, 
-          fromUserId: user.uid, 
-          fromUserName: myProfile?.name || user.displayName || '某位創作者', 
-          fromUserAvatar: myProfile?.avatar || user.photoURL, 
-          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！https://www.vnexus2026.com/', 
-          createdAt: Date.now(), 
-          read: false 
+        addDoc(collection(db, getPath('notifications')), {
+          userId: bulletinAuthorId,
+          fromUserId: user.uid,
+          fromUserName: myProfile?.name || user.displayName || '某位創作者',
+          fromUserAvatar: myProfile?.avatar || user.photoURL,
+          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！https://www.vnexus2026.com/',
+          createdAt: Date.now(),
+          read: false
         }).catch(() => { });
       }
     } catch (err) { showToast("操作失敗"); }
