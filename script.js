@@ -242,17 +242,37 @@ const autoFetchYouTubeInfo = async (url, setTitle, setCoverUrl, showToast) => {
 };
 
 const parseSubscribers = (v) => {
-  const parseStr = (str) => { if (!str) return 0; let s = String(str); let num = parseFloat(s.replace(/[^0-9.]/g, '')); if (isNaN(num)) return 0; if (s.toUpperCase().includes('K')) num *= 1000; if (s.toUpperCase().includes('M')) num *= 1000000; if (s.toUpperCase().includes('萬')) num *= 10000; return num; };
+  const parseStr = (str) => {
+    if (!str) return 0;
+    let s = String(str);
+    // 關鍵修正：增加防呆，確保 replace 只作用於字串
+    let num = parseFloat(s.replace(/[^0-9.]/g, ''));
+    if (isNaN(num)) return 0;
+    if (s.toUpperCase().includes('K')) num *= 1000;
+    if (s.toUpperCase().includes('M')) num *= 1000000;
+    if (s.toUpperCase().includes('萬')) num *= 10000;
+    return num;
+  };
   return parseStr(v.youtubeSubscribers || v.subscribers) + parseStr(v.twitchFollowers);
 };
 
 const isVisible = (v, currentUser) => {
-  if (!v) return false;
+  if (!v || !v.id) return false; // 確保 v 及其 id 存在
   if (currentUser && v.id === currentUser.uid) return true;
   if (String(v.id || '').startsWith('mock')) return true;
   if (!v.isVerified || v.isBlacklisted) return false;
   if (v.activityStatus === 'sleep' || v.activityStatus === 'graduated') return false;
-  if (Date.now() - (v.lastActiveAt || v.updatedAt || v.createdAt || Date.now()) > 30 * 24 * 60 * 60 * 1000) return false;
+
+  // 修正：處理 Firebase Timestamp 物件轉換為數字
+  const getTime = (val) => {
+    if (!val) return Date.now();
+    if (typeof val === 'number') return val;
+    if (val.toMillis) return val.toMillis();
+    return Date.now();
+  };
+
+  const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
+  if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
   return true;
 };
 
@@ -265,15 +285,19 @@ const AnimatedCounter = ({ value, duration = 1500 }) => {
     if (typeof value !== 'number' || isNaN(value)) return;
 
     let startTimestamp = null;
+    let requestId;
+
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
       setDisplayValue(Math.floor(progress * value));
       if (progress < 1) {
-        window.requestAnimationFrame(step);
+        requestId = window.requestAnimationFrame(step);
       }
     };
-    window.requestAnimationFrame(step);
+
+    requestId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(requestId); // 卸載時清理動畫
   }, [value, duration]);
 
   return <span>{displayValue.toLocaleString()}</span>;
@@ -297,8 +321,8 @@ const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNaviga
       <div className="p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
         <div className="mb-2"><span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-1 rounded-lg border border-purple-500/30 font-bold">{c.category || '遊戲'}</span></div>
         <h3 className={`text-xl font-extrabold text-white mb-6 line-clamp-2 leading-tight transition-colors ${isLive ? 'text-red-400' : 'group-hover:text-red-400'}`}>{c.title}</h3>
-        {/* 顯示參與成員 */}
-        {c.participants && c.participants.length > 0 && (
+        {/* 👇 加上防呆確保 isArray 才 map */}
+        {Array.isArray(c.participants) && c.participants.length > 0 && (
           <div
             className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-gray-800/50 p-1 -ml-1 rounded-lg transition-colors group/members"
             onClick={(e) => { e.stopPropagation(); onShowParticipants(c); }}
@@ -374,7 +398,8 @@ const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onI
   const [isExpanded, setIsExpanded] = useState(false);
   const [showApplicants, setShowApplicants] = useState(false);
   const isAuthor = user?.uid === b.userId;
-  const hasApplied = (b.applicants || []).includes(user?.uid);
+  // 👇 加上防呆，確保 b.applicants 是陣列
+  const hasApplied = Array.isArray(b.applicants) ? b.applicants.includes(user?.uid) : false;
 
   useEffect(() => {
     if (openModalId === b.id) {
@@ -1172,23 +1197,24 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDelet
 
 const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants }) => {
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
-  const completedCollabsCount = safeBulletins.filter(b => {
-    let targetSize = 0;
-    if (b.collabSize) {
-      targetSize = parseInt(b.collabSize.replace('人', ''), 10);
-    }
-    if (isNaN(targetSize)) targetSize = 0;
-    const isEnded = b.recruitEndTime && currentTime > b.recruitEndTime;
-    const applicantsCount = Array.isArray(b.applicants) ? b.applicants.length : 0;
-    return isEnded && targetSize > 0 && applicantsCount >= targetSize;
-  }).length;
+  const completedCollabsCount = useMemo(() => {
+    return safeBulletins.filter(b => {
+      if (!b) return false;
+      let targetSize = parseInt(String(b.collabSize || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      const isEnded = b.recruitEndTime && currentTime > b.recruitEndTime;
+      const applicantsCount = Array.isArray(b.applicants) ? b.applicants.length : 0;
+      return isEnded && targetSize > 0 && applicantsCount >= targetSize;
+    }).length;
+  }, [safeBulletins, currentTime]);
 
   const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
-  const randomCollabs = useMemo(() =>
-    [...safeDisplayCollabs]
+  const randomCollabs = useMemo(() => {
+    if (!safeDisplayCollabs.length) return [];
+    return [...safeDisplayCollabs]
+      .filter(c => c && c.id) // 過濾掉可能存在的無效資料
       .sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id))
-      .slice(0, 4),
-    [safeDisplayCollabs.map(c => c.id).join(',')]);
+      .slice(0, 4);
+  }, [safeDisplayCollabs.length]); // 簡化依賴項，避免在依賴項中使用 map 導致崩潰
 
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
@@ -1331,26 +1357,63 @@ const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, is
 
 // 在參數大括號的最後面加上 , onTestReminder
 // 找到 AdminPage 的開頭，在大括號最後面補上 , onTestPush
-const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs, onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber, onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab, onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes, onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs, isSyncingSubs, syncProgress, onSendMassEmail, onMassSyncTwitch, defaultBulletinImages, onAddDefaultBulletinImage, onDeleteDefaultBulletinImage, onTestReminder, onTestPush, onMassUpdateVerification
+const AdminPage = ({
+  user, vtubers, bulletins, collabs, updates, rules, tips, privateDocs,
+  onSaveSettings, onDeleteVtuber, onVerifyVtuber, onRejectVtuber,
+  onUpdateVtuber, onDeleteBulletin, onAddCollab, onDeleteCollab,
+  onAddUpdate, onDeleteUpdate, showToast, onResetAllCollabTypes,
+  onResetNatAndLang, autoFetchYouTubeInfo, onMassSyncSubs,
+  isSyncingSubs, syncProgress, setIsSyncingSubs, setSyncProgress,
+  onSendMassEmail, onMassSyncTwitch, defaultBulletinImages,
+  onAddDefaultBulletinImage, onDeleteDefaultBulletinImage,
+  onTestReminder, onTestPush, onMassUpdateVerification
 }) => {
+
+  // 👇 新增這幾行：宣告需要的分類變數與展開狀態，避免 ReferenceError
+  const pendingVtubers = vtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
+  const rejectedVtubers = vtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected');
+  const verifiedVtubers = vtubers.filter(v => v.isVerified);
+  const blacklistedVtubers = vtubers.filter(v => v.isBlacklisted);
+  const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
+
   const [activeTab, setActiveTab] = useState('vtubers');
   const [newCollab, setNewCollab] = useState({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲' });
   const [editRules, setEditRules] = useState(rules);
   const [editTips, setEditTips] = useState(tips);
   const [editingVtuber, setEditingVtuber] = useState(null);
 
-  const safeVtubers = Array.isArray(vtubers) ? vtubers : [];
-  const pendingVtubers = safeVtubers.filter(v => !v.isVerified && !v.isBlacklisted && v.verificationStatus !== 'rejected');
-  const rejectedVtubers = safeVtubers.filter(v => !v.isVerified && v.verificationStatus === 'rejected' && !v.isBlacklisted);
-  const verifiedVtubers = safeVtubers.filter(v => v.isVerified && !v.isBlacklisted);
-  const blacklistedVtubers = safeVtubers.filter(v => v.isBlacklisted || v.dislikes >= 10);
-  const [isRejectedExpanded, setIsRejectedExpanded] = React.useState(false);
+  // 修正：將此函數移出 handleEditClick 之外
+  const handleMassCleanupChat = async () => {
+    if (!confirm("確定要刪除全站所有 7 天前的對話紀錄嗎？")) return;
+    setIsSyncingSubs(true);
+    setSyncProgress("清理聊天紀錄中...");
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    try {
+      const roomsSnap = await getDocs(collection(db, `artifacts/${APP_ID}/public/data/chat_rooms`));
+      for (const room of roomsSnap.docs) {
+        const oldMsgs = await getDocs(query(
+          collection(db, `artifacts/${APP_ID}/public/data/chat_rooms/${room.id}/messages`),
+          where('createdAt', '<', oneWeekAgo)
+        ));
+        for (const m of oldMsgs.docs) {
+          await deleteDoc(m.ref);
+        }
+      }
+      showToast("✅ 已徹底清理一週前的舊訊息");
+    } catch (e) {
+      console.error(e);
+      showToast("清理失敗");
+    }
+    setIsSyncingSubs(false);
+    setSyncProgress("");
+  };
 
   const handleEditClick = (v) => {
     const safeCollabTypes = Array.isArray(v.collabTypes) ? v.collabTypes : [];
     const standard = safeCollabTypes.filter(t => PREDEFINED_COLLABS.includes(t));
     const other = safeCollabTypes.find(t => !PREDEFINED_COLLABS.includes(t)) || '';
-    const PREDEFINED_NATIONALITIES = ['台灣', '日本', '香港', '馬來西亞']; const PREDEFINED_LANGUAGES = ['國', '日', '英', '粵', '台語'];
+    const PREDEFINED_NATIONALITIES = ['台灣', '日本', '香港', '馬來西亞'];
+    const PREDEFINED_LANGUAGES = ['國', '日', '英', '粵', '台語'];
     const PREDEFINED_PERSONALITIES = ['我是I人', '時I時E', '我大E人', '看心情'];
 
     const safeNats = Array.isArray(v.nationalities) ? v.nationalities : (typeof v.nationalities === 'string' ? [v.nationalities] : (v.nationality ? [v.nationality] : []));
@@ -1360,27 +1423,9 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
     const otherNatText = isOtherN ? safeNats.find(n => !PREDEFINED_NATIONALITIES.includes(n)) : '';
     const stdNats = safeNats.filter(n => PREDEFINED_NATIONALITIES.includes(n));
 
-    const pType = v.personalityType || ''; const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
-    const handleMassCleanupChat = async () => {
-      if (!confirm("確定要刪除全站所有 7 天前的對話紀錄嗎？")) return;
-      setIsSyncingSubs(true);
-      setSyncProgress("清理聊天紀錄中...");
-      const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-      try {
-        const roomsSnap = await getDocs(collection(db, `artifacts/${APP_ID}/public/data/chat_rooms`));
-        for (const room of roomsSnap.docs) {
-          const oldMsgs = await getDocs(query(
-            collection(db, `artifacts/${APP_ID}/public/data/chat_rooms/${room.id}/messages`),
-            where('createdAt', '<', oneWeekAgo)
-          ));
-          for (const m of oldMsgs.docs) {
-            await deleteDoc(m.ref);
-          }
-        }
-        showToast("✅ 已徹底清理一週前的舊訊息");
-      } catch (e) { showToast("清理失敗"); }
-      setIsSyncingSubs(false);
-    };
+    const pType = v.personalityType || '';
+    const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
+
     setEditingVtuber({
       ...v,
       name: v.name || '',
@@ -1390,7 +1435,7 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
       nationalities: stdNats, isOtherNationality: isOtherN, otherNationalityText: otherNatText || '',
       languages: safeLangs,
       personalityType: isOtherP ? '其他' : pType, personalityTypeOther: isOtherP ? pType : '',
-      colorSchemes: v.colorSchemes || [], // 新增色系
+      colorSchemes: v.colorSchemes || [],
       isScheduleAnytime: v.isScheduleAnytime || false, isScheduleExcept: v.isScheduleExcept || false, isScheduleCustom: v.isScheduleCustom || false, customScheduleText: v.customScheduleText || '', scheduleSlots: Array.isArray(v.scheduleSlots) ? v.scheduleSlots : [],
       youtubeSubscribers: v.youtubeSubscribers || v.subscribers || '', lastYoutubeFetchTime: v.lastYoutubeFetchTime || 0,
       twitchFollowers: v.twitchFollowers || '', lastTwitchFetchTime: v.lastTwitchFetchTime || 0, mainPlatform: v.mainPlatform || 'YouTube', streamStyleUrl: v.streamStyleUrl || '',
@@ -1686,11 +1731,25 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
           )}
         </div>
       </div>
+
       {editingVtuber && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl">
-            <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10"><h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3><button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button></div>
-            <div className="p-6 overflow-y-auto"><ProfileEditorForm form={editingVtuber} updateForm={(updates) => setEditingVtuber(prev => ({ ...prev, ...updates }))} onSubmit={(e) => { e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }} onCancel={() => setEditingVtuber(null)} isAdmin={true} showToast={showToast} user={user} /></div>
+            <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+              <h3 className="font-bold text-white"><i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：{editingVtuber.name}</h3>
+              <button onClick={() => setEditingVtuber(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <ProfileEditorForm
+                form={editingVtuber}
+                updateForm={(updates) => setEditingVtuber(prev => ({ ...prev, ...updates }))}
+                onSubmit={(e) => { e.preventDefault(); onUpdateVtuber(editingVtuber.id, editingVtuber); setEditingVtuber(null); }}
+                onCancel={() => setEditingVtuber(null)}
+                isAdmin={true}
+                showToast={showToast}
+                user={user}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1700,6 +1759,7 @@ const AdminPage = ({ user, vtubers, bulletins, collabs, updates, rules, tips, pr
 
 const stableRandomCache = {};
 const getStableRandom = (id) => {
+  if (!id) return 0;
   if (!stableRandomCache[id]) {
     stableRandomCache[id] = Math.random();
   }
@@ -2184,22 +2244,10 @@ function App() {
         let vData = [];
 
         // 如果快取存在且在 10 分鐘內，直接使用快取 (0 讀取)
-        if (cachedVtubersTime && (now - parseInt(cachedVtubersTime) < CACHE_TIME)) {
-          vData = JSON.parse(sessionStorage.getItem('vData'));
-          setRealVtubers(vData);
-          setIsLoading(false);
-        } else {
-          // 否則向 Firestore 請求，並存入快取
-          const vSnap = await getDocs(collection(db, getPath('vtubers')));
-          vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setRealVtubers(vData);
-          setIsLoading(false);
-
-          try {
-            sessionStorage.setItem('vData', JSON.stringify(vData));
-            sessionStorage.setItem('vDataTime', now.toString());
-          } catch (e) { console.warn("快取寫入失敗(可能容量超過)", e); }
-        }
+        const vSnap = await getDocs(collection(db, getPath('vtubers')));
+        vData = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRealVtubers(vData);
+        setIsLoading(false);
 
         // --- 4. 背景抓取次要資料 (一樣加入快取邏輯) ---
         setTimeout(async () => {
@@ -2389,37 +2437,54 @@ function App() {
 
   // --- 修改後的程式碼 ---
   const displayVtubers = useMemo(() => {
-    // 建立一個基於 id 和 shuffleSeed 的確定性隨機函數
-    // 這樣相同的 id + 相同的 seed 永遠會得到相同的排序權重
     const getDeterministicOrder = (id) => {
+      if (!id) return 0;
+      const idStr = String(id); // 確保 id 是字串，防止調用 .length 報錯
       let hash = 0;
-      const str = id + shuffleSeed.toString();
-      for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash |= 0; // 轉換為 32bit 整數
+      for (let i = 0; i < idStr.length; i++) {
+        hash = ((hash << 5) - hash) + idStr.charCodeAt(i);
+        hash |= 0;
       }
-      return hash;
+      return Math.sin(hash ^ shuffleSeed);
     };
 
-    return [...realVtubers].sort((a, b) => {
-      return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
+    const list = Array.isArray(realVtubers) ? [...realVtubers] : [];
+
+    return list.sort((a, b) => {
+      if (sortOrder === 'random') {
+        return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
+      }
+      if (sortOrder === 'likes') return (b.likes || 0) - (a.likes || 0);
+      if (sortOrder === 'subscribers') return parseSubscribers(b) - parseSubscribers(a);
+      if (sortOrder === 'newest') {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+        return timeB - timeA;
+      }
+      return 0;
     });
-  }, [realVtubers, shuffleSeed]);
+  }, [realVtubers, sortOrder, shuffleSeed]);
+
+
   const dynamicCollabTypes = useMemo(() => {
-    const types = new Set();
-    displayVtubers.filter(v => isVisible(v, user)).forEach(v => {
+    const types = new Set(); // 👈 補上這一行宣告
+    if (!Array.isArray(displayVtubers)) return [];
+
+    displayVtubers.filter(v => v && isVisible(v, user)).forEach(v => {
       if (Array.isArray(v.collabTypes)) {
         v.collabTypes.forEach(t => {
-          const trimmedType = t.trim();
-          // 關鍵修改：只有當該類型屬於「官方預設類型」時，才顯示在篩選標籤中
-          if (trimmedType && PREDEFINED_COLLABS.includes(trimmedType)) {
-            types.add(trimmedType);
+          if (typeof t === 'string') {
+            const trimmedType = t.trim();
+            if (trimmedType && PREDEFINED_COLLABS.includes(trimmedType)) {
+              types.add(trimmedType);
+            }
           }
         });
       }
     });
     return Array.from(types).sort();
   }, [displayVtubers, user]);
+
   const dynamicNationalities = useMemo(() => { const nats = new Set(); displayVtubers.filter(v => isVisible(v, user)).forEach(v => { if (Array.isArray(v.nationalities)) { v.nationalities.forEach(n => nats.add(n)); } else if (v.nationality) { nats.add(v.nationality); } }); return ['All', ...Array.from(nats).sort()]; }, [displayVtubers, user]);
   const dynamicLanguages = useMemo(() => { const langs = new Set(); displayVtubers.filter(v => isVisible(v, user)).forEach(v => { if (Array.isArray(v.languages)) { v.languages.forEach(l => langs.add(l)); } else if (v.language) { langs.add(v.language); } }); return ['All', ...Array.from(langs).sort()]; }, [displayVtubers, user]);
   const dynamicSchedules = useMemo(() => { const days = new Set(); displayVtubers.filter(v => isVisible(v, user)).forEach(v => { if (v.isScheduleAnytime) days.add('隨時可約'); if (Array.isArray(v.scheduleSlots)) { v.scheduleSlots.forEach(s => { if (s.day) days.add(s.day); }); } }); return ['All', ...Array.from(days).sort()]; }, [displayVtubers, user]);
@@ -2431,13 +2496,15 @@ function App() {
         return vt ? isVisible(vt, user) : true;
       })
       .map(b => {
-        const vt = realVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon" };
+        const vt = realVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "[https://api.dicebear.com/7.x/avataaars/svg?seed=Anon](https://api.dicebear.com/7.x/avataaars/svg?seed=Anon)" };
 
-        // 【關鍵修改】：改用 realVtubers 找報名者，才不會因為目前的搜尋過濾器導致報名者消失
-        const applicantsData = (b.applicants || []).map(uid => realVtubers.find(v => v.id === uid)).filter(Boolean);
+        // 👇 【防呆修改】：確保 applicants 必定是陣列，防止舊資料格式錯誤導致 .map() 崩潰
+        const safeApplicants = Array.isArray(b.applicants) ? b.applicants : [];
+        const applicantsData = safeApplicants.map(uid => realVtubers.find(v => v.id === uid)).filter(Boolean);
 
         return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt), applicantsData };
       }).sort((a, b) => b.createdAt - a.createdAt);
+
   }, [realBulletins, realVtubers, user, displayVtubers]); // 加入相關依賴
 
   const activeBulletinTypes = useMemo(() => {
@@ -2453,41 +2520,57 @@ function App() {
     return displayBulletins.filter(b => b.collabType === bulletinFilter);
   }, [displayBulletins, bulletinFilter]);
 
-  const displayCollabs = useMemo(() => [...realCollabs].filter(c => !c.startTimestamp || currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)).sort((a, b) => (a.startTimestamp || a.createdAt || 0) - (b.startTimestamp || b.createdAt || 0)), [realCollabs, currentTime]);
+  const displayCollabs = useMemo(() => {
+    const getTimeSafely = (val) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      if (val.toMillis) return val.toMillis();
+      return 0;
+    };
+    return [...realCollabs].filter(c => {
+      const start = getTimeSafely(c.startTimestamp);
+      return !start || currentTime <= start + (2 * 60 * 60 * 1000);
+    }).sort((a, b) => getTimeSafely(a.startTimestamp || a.createdAt) - getTimeSafely(b.startTimestamp || b.createdAt));
+  }, [realCollabs, currentTime]);
+
   const filteredDisplayCollabs = useMemo(() => { if (collabCategoryTab === 'All') return displayCollabs; return displayCollabs.filter(c => (c.category || '遊戲') === collabCategoryTab); }, [displayCollabs, collabCategoryTab]);
 
+
   const filteredVTubers = useMemo(() => {
-    let result = displayVtubers.filter(v => isVisible(v, user)).filter(v => {
-      // --- 全文字搜尋邏輯 ---
-      const s = searchQuery.toLowerCase();
-      const mSearch =
-        (v.name?.toLowerCase().includes(s)) ||
-        (v.description?.toLowerCase().includes(s)) ||
-        (v.agency?.toLowerCase().includes(s)) ||
-        (Array.isArray(v.tags) ? v.tags.some(t => t.toLowerCase().includes(s)) : v.tags?.toLowerCase().includes(s)) ||
-        (Array.isArray(v.collabTypes) && v.collabTypes.some(t => t.toLowerCase().includes(s))) ||
-        (v.otherCollabText?.toLowerCase().includes(s));
-      // --------------------
+    return displayVtubers.filter(v => {
+      if (!v || !isVisible(v, user)) return false;
+      const searchLower = (searchQuery || "").toLowerCase();
+      const vTags = Array.isArray(v.tags) ? v.tags : [];
+      const vName = (v.name || "").toLowerCase(); // 確保 name 存在才轉小寫
 
-      const mTags = selectedTags.length === 0 || selectedTags.every(t => v.collabTypes?.includes(t));
-      const mAgency = selectedAgency === 'All' || v.agency?.includes(selectedAgency);
-      const mPlat = selectedPlatform === 'All' || (v.mainPlatform || 'YouTube') === selectedPlatform;
-      const mNat = selectedNationality === 'All' || (v.nationalities && v.nationalities.includes(selectedNationality)) || v.nationality === selectedNationality;
-      const mLang = selectedLanguage === 'All' || (v.languages && v.languages.includes(selectedLanguage)) || v.language === selectedLanguage;
-      const mSchedule = selectedSchedule === 'All' || (selectedSchedule === '隨時可約' && v.isScheduleAnytime) || (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
-      const mColor = selectedColor === 'All' || (v.colorSchemes && v.colorSchemes.includes(selectedColor));
+      const matchSearch = vName.includes(searchLower) ||
+        vTags.some(t => String(t || "").toLowerCase().includes(searchLower));
 
-      return mSearch && mTags && mAgency && mPlat && mNat && mLang && mSchedule && mColor;
+      const matchTags = selectedTags.length === 0 || selectedTags.every(t => vTags.includes(t));
+      const matchAgency = selectedAgency === 'All' || v.agency === selectedAgency;
+      const matchPlatform = selectedPlatform === 'All' || v.mainPlatform === selectedPlatform;
+
+      const vNats = Array.isArray(v.nationalities) ? v.nationalities : [];
+      const matchNationality = selectedNationality === 'All' || vNats.includes(selectedNationality);
+
+      const vLangs = Array.isArray(v.languages) ? v.languages : [];
+      const matchLanguage = selectedLanguage === 'All' || vLangs.includes(selectedLanguage);
+
+      const matchSchedule = selectedSchedule === 'All' ||
+        (selectedSchedule === '隨時可約' && v.isScheduleAnytime) ||
+        (Array.isArray(v.scheduleSlots) && v.scheduleSlots.some(s => s.day === selectedSchedule));
+
+      const vColors = Array.isArray(v.colorSchemes) ? v.colorSchemes : [];
+      const matchColor = selectedColor === 'All' || vColors.includes(selectedColor);
+
+      return matchSearch && matchTags && matchAgency && matchPlatform && matchNationality && matchLanguage && matchSchedule && matchColor;
     });
-    // ... 後面的排序邏輯不變
-    if (sortOrder === 'likes') result.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-    else if (sortOrder === 'subscribers') result.sort((a, b) => parseSubscribers(b) - parseSubscribers(a));
-    else if (sortOrder === 'newest') result.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-    return result;
-  }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, user, sortOrder]);
+  }, [displayVtubers, searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, user]);
+
 
   const toggleTag = (tag) => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, sortOrder]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedTags, selectedAgency, selectedPlatform, selectedNationality, selectedLanguage, selectedSchedule, selectedColor, sortOrder, shuffleSeed]);
 
   const ITEMS_PER_PAGE = 18; const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE)); const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const handlePageChange = (newPage) => {
@@ -2743,20 +2826,59 @@ function App() {
 
   const handleAdminUpdateVtuber = async (id, updatedData) => {
     try {
-      // ... publicData 處理不變
+      const tagsArray = typeof updatedData.tags === 'string' ?
+        updatedData.tags.split(',').map(t => t.trim()).filter(t => t) :
+        (Array.isArray(updatedData.tags) ? updatedData.tags : []);
+
+      const publicData = {
+        name: updatedData.name,
+        slug: (updatedData.slug || '').trim().toLowerCase(),
+        agency: updatedData.agency,
+        streamingStyle: updatedData.streamingStyle,
+        description: updatedData.description,
+        tags: tagsArray,
+        collabTypes: updatedData.collabTypes || [],
+        nationalities: updatedData.nationalities || [],
+        languages: updatedData.languages || [],
+        personalityType: updatedData.personalityType === '其他' ? updatedData.personalityTypeOther : updatedData.personalityType,
+        colorSchemes: updatedData.colorSchemes || [],
+        isScheduleAnytime: updatedData.isScheduleAnytime,
+        isScheduleExcept: updatedData.isScheduleExcept,
+        isScheduleCustom: updatedData.isScheduleCustom,
+        customScheduleText: updatedData.customScheduleText,
+        scheduleSlots: updatedData.scheduleSlots || [],
+        mainPlatform: updatedData.mainPlatform,
+        youtubeSubscribers: updatedData.youtubeSubscribers,
+        twitchFollowers: updatedData.twitchFollowers,
+        youtubeUrl: updatedData.youtubeUrl,
+        twitchUrl: updatedData.twitchUrl,
+        xUrl: updatedData.xUrl,
+        igUrl: updatedData.igUrl,
+        streamStyleUrl: updatedData.streamStyleUrl,
+        avatar: updatedData.avatar,
+        banner: updatedData.banner,
+        activityStatus: updatedData.activityStatus,
+        likes: updatedData.likes || 0,
+        dislikes: updatedData.dislikes || 0,
+        updatedAt: Date.now()
+      };
+
       await setDoc(doc(db, getPath('vtubers'), id), publicData, { merge: true });
 
       await setDoc(doc(db, getPath('vtubers_private'), id), {
-        contactEmail: updatedData.contactEmail,
-        verificationNote: updatedData.verificationNote,
-        publicEmail: updatedData.publicEmail,           // 新增這一行
-        publicEmailVerified: updatedData.publicEmailVerified, // 新增這一行
+        contactEmail: updatedData.contactEmail || '',
+        verificationNote: updatedData.verificationNote || '',
+        publicEmail: updatedData.publicEmail || '',
+        publicEmailVerified: updatedData.publicEmailVerified || false,
         updatedAt: Date.now()
       }, { merge: true });
 
       setRealVtubers(prev => prev.map(v => v.id === id ? { ...v, ...publicData } : v));
-      showToast("強制更新成功！");
-    } catch (err) { showToast("更新失敗"); }
+      showToast("✅ 強制更新成功！");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 更新失敗");
+    }
   };
   const handleDeleteVtuber = async (id) => { if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return; try { await deleteDoc(doc(db, getPath('vtubers'), id)); await deleteDoc(doc(db, getPath('vtubers_private'), id)); setRealVtubers(prev => prev.filter(v => v.id !== id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); } };
   const handleDeleteBulletin = async (id) => { if (!confirm("確定要刪除這則招募文嗎？")) return; try { await deleteDoc(doc(db, getPath('bulletins'), id)); setRealBulletins(prev => prev.filter(b => b.id !== id)); showToast("已刪除招募文"); } catch (err) { showToast("刪除失敗"); } };
@@ -3587,7 +3709,43 @@ function App() {
         )}
 
         {currentView === 'admin' && isAdmin && (
-          <AdminPage user={user} vtubers={realVtubers} bulletins={realBulletins} collabs={realCollabs} updates={realUpdates} rules={realRules} tips={realTips} privateDocs={privateDocs} onSaveSettings={handleSaveSettings} onDeleteVtuber={handleDeleteVtuber} onVerifyVtuber={handleVerifyVtuber} onRejectVtuber={handleRejectVtuber} onUpdateVtuber={handleAdminUpdateVtuber} onDeleteBulletin={handleDeleteBulletin} onAddCollab={handleAddCollab} onDeleteCollab={handleDeleteCollab} onAddUpdate={handleAddUpdate} onDeleteUpdate={handleDeleteUpdate} showToast={showToast} onResetAllCollabTypes={handleAdminResetAllCollabTypes} onResetNatAndLang={handleAdminResetNatAndLang} autoFetchYouTubeInfo={autoFetchYouTubeInfo} onMassSyncSubs={handleMassSyncSubs} onMassSyncTwitch={handleMassSyncTwitch} isSyncingSubs={isSyncingSubs} syncProgress={syncProgress} onSendMassEmail={handleSendMassEmail} defaultBulletinImages={defaultBulletinImages} onAddDefaultBulletinImage={handleAddDefaultBulletinImage} onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage} onTestReminder={handleTestReminderSystem} onTestPush={handleTestPushNotification} onMassUpdateVerification={handleAdminMassUpdateVerification} />
+          <AdminPage
+            user={user}
+            vtubers={realVtubers}
+            bulletins={realBulletins}
+            collabs={realCollabs}
+            updates={realUpdates}
+            rules={realRules}
+            tips={realTips}
+            privateDocs={privateDocs}
+            onSaveSettings={handleSaveSettings}
+            onDeleteVtuber={handleDeleteVtuber}
+            onVerifyVtuber={handleVerifyVtuber}
+            onRejectVtuber={handleRejectVtuber}
+            onUpdateVtuber={handleAdminUpdateVtuber}
+            onDeleteBulletin={handleDeleteBulletin}
+            onAddCollab={handleAddCollab}
+            onDeleteCollab={handleDeleteCollab}
+            onAddUpdate={handleAddUpdate}
+            onDeleteUpdate={handleDeleteUpdate}
+            showToast={showToast}
+            onResetAllCollabTypes={handleAdminResetAllCollabTypes}
+            onResetNatAndLang={handleAdminResetNatAndLang}
+            autoFetchYouTubeInfo={autoFetchYouTubeInfo}
+            onMassSyncSubs={handleMassSyncSubs}
+            onMassSyncTwitch={handleMassSyncTwitch}
+            isSyncingSubs={isSyncingSubs}
+            syncProgress={syncProgress}
+            onSendMassEmail={handleSendMassEmail}
+            defaultBulletinImages={defaultBulletinImages}
+            onAddDefaultBulletinImage={handleAddDefaultBulletinImage}
+            onDeleteDefaultBulletinImage={handleDeleteDefaultBulletinImage}
+            onTestReminder={handleTestReminderSystem}
+            onTestPush={handleTestPushNotification}
+            onMassUpdateVerification={handleAdminMassUpdateVerification}
+            setIsSyncingSubs={setIsSyncingSubs}
+            setSyncProgress={setSyncProgress}
+          />
         )}
       </main>
 
