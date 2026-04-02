@@ -201,17 +201,21 @@ const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast
 };
 
 const uploadImageToStorage = async (uid, dataStr, fileName) => {
-  if (!dataStr || !dataStr.startsWith('data:image')) return dataStr; // 如果不是 Base64 則直接回傳原網址
+  // 如果不是 Base64 (不包含 data:image)，直接回傳原網址
+  if (!dataStr || !dataStr.startsWith('data:image')) return dataStr;
+
   try {
     const storageRef = ref(storage, `vtubers/${uid}/${fileName}`);
-    // 使用 uploadString 上傳 Base64
+    // 關鍵：使用 'data_url' 模式上傳，這才能解析 data:image/jpeg;base64,...
     await uploadString(storageRef, dataStr, 'data_url');
+
     // 取得下載網址
     const downloadURL = await getDownloadURL(storageRef);
+    console.log("上傳成功，新網址為:", downloadURL);
     return downloadURL;
   } catch (error) {
-    console.error("Storage Upload Error:", error);
-    throw error;
+    console.error("Storage 上傳失敗細節:", error);
+    throw error; // 丟出錯誤讓呼叫端處理
   }
 };
 
@@ -2060,59 +2064,55 @@ function App() {
   };
 
   const handleMassMigrateImagesToStorage = async () => {
-    if (!confirm("⚠️ 確定要執行全站圖片遷移嗎？\n這會將所有以「長字元(Base64)」儲存的圖片轉存至 Storage 並替換為網址。\n這能大幅提升網站載入速度！")) return;
-
-    const confirmText = prompt("請輸入 'MIGRATE' 以確認執行：");
-    if (confirmText !== 'MIGRATE') return showToast("操作已取消");
+    if (!confirm("確定要執行全站圖片遷移？")) return;
 
     setIsSyncingSubs(true);
     let successCount = 0;
-    let skipCount = 0;
+    let failCount = 0;
 
     try {
+      // 這裡確保 realVtubers 有資料
+      if (realVtubers.length === 0) {
+        alert("目前清單中沒有 VTuber 資料可供遷移");
+        setIsSyncingSubs(false);
+        return;
+      }
+
       for (let i = 0; i < realVtubers.length; i++) {
         const v = realVtubers[i];
-        if (v.id.startsWith('mock')) continue; // 跳過測試資料
+        if (v.id.startsWith('mock')) continue;
 
         let updates = {};
         setSyncProgress(`正在處理 (${i + 1}/${realVtubers.length}): ${v.name}`);
 
-        // 檢查頭像是否為 Base64
-        if (v.avatar && v.avatar.startsWith('data:image')) {
-          try {
+        // 偵測 Base64 並轉換
+        try {
+          if (v.avatar && v.avatar.startsWith('data:image')) {
             const newUrl = await uploadImageToStorage(v.id, v.avatar, 'avatar.jpg');
             updates.avatar = newUrl;
-          } catch (e) { console.error(`${v.name} 頭像遷移失敗`, e); }
-        }
-
-        // 檢查橫幅是否為 Base64
-        if (v.banner && v.banner.startsWith('data:image')) {
-          try {
+          }
+          if (v.banner && v.banner.startsWith('data:image')) {
             const newUrl = await uploadImageToStorage(v.id, v.banner, 'banner.jpg');
             updates.banner = newUrl;
-          } catch (e) { console.error(`${v.name} 橫幅遷移失敗`, e); }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(db, getPath('vtubers'), v.id), updates);
+            successCount++;
+            // 即時更新本地狀態
+            setRealVtubers(prev => prev.map(rv => rv.id === v.id ? { ...rv, ...updates } : rv));
+          }
+        } catch (e) {
+          console.error(`${v.name} 遷移失敗:`, e);
+          failCount++;
         }
 
-        // 如果有更新，寫入資料庫
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(doc(db, getPath('vtubers'), v.id), {
-            ...updates,
-            updatedAt: Date.now()
-          });
-          successCount++;
-          // 同步更新本地狀態，避免畫面閃爍
-          setRealVtubers(prev => prev.map(rv => rv.id === v.id ? { ...rv, ...updates } : rv));
-        } else {
-          skipCount++;
-        }
-
-        // 稍微延遲避免觸發頻率限制
-        await new Promise(r => setTimeout(r, 300));
+        // 稍微等待，避免 Firebase 頻率限制
+        await new Promise(r => setTimeout(r, 200));
       }
-      showToast(`✅ 遷移完成！成功轉換 ${successCount} 位，跳過 ${skipCount} 位（已是網址）。`);
+      alert(`遷移結束！\n成功：${successCount} 筆\n失敗：${failCount} 筆\n(若失敗次數多，請檢查 Storage Rules 權限)`);
     } catch (err) {
-      console.error("遷移過程出錯:", err);
-      showToast("❌ 遷移中斷，請查看控制台錯誤");
+      alert("遷移過程發生嚴重錯誤: " + err.message);
     } finally {
       setIsSyncingSubs(false);
       setSyncProgress("");
