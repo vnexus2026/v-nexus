@@ -1964,12 +1964,17 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState('random');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    return !localStorage.getItem(VTUBER_CACHE_KEY);
+  });
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [siteStats, setSiteStats] = useState({ pageViews: null });
   const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
   const [user, setUser] = useState(null);
-  const [realVtubers, setRealVtubers] = useState([]);
+  const [realVtubers, setRealVtubers] = useState(() => {
+    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
+  });
   const [privateDocs, setPrivateDocs] = useState({});
   const [realBulletins, setRealBulletins] = useState([]);
   const [realCollabs, setRealCollabs] = useState([]);
@@ -2505,35 +2510,25 @@ function App() {
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
-
-      // 1. 名片資料：增加 'bulletin' 和 'collabs'，確保這兩個頁面也能抓到 VTuber 資訊來顯示頭像名字
-      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin', 'bulletin', 'collabs'].includes(currentView);
+      const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin', 'bulletin', 'collabs', 'articles'].includes(currentView);
 
       if (needsVtuberList) {
         const now = Date.now();
-        const cachedData = localStorage.getItem(VTUBER_CACHE_KEY);
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
-        const isCacheValid = cachedData && cachedTs && (now - parseInt(cachedTs) < ONE_DAY);
+        // 如果快取過期或是管理員頁面，才去抓新的
+        const isExpired = !cachedTs || (now - parseInt(cachedTs) > ONE_DAY);
         const forceRefresh = (currentView === 'admin');
 
-        if (isCacheValid && !forceRefresh) {
-          setRealVtubers(JSON.parse(cachedData));
-          // 只有在還沒載入過的情況下才關閉 Loading
-          if (isLoading) setIsLoading(false);
-        } else {
-          // 📡 從網路抓取最新資料
+        if (isExpired || forceRefresh) {
           try {
             const vSnap = await getDocs(collection(db, getPath('vtubers')));
             const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data);
-            setRealVtubers(data);
-          } catch (e) {
-            console.error("抓取 VTuber 列表失敗:", e);
-          } finally {
-            if (isLoading) setIsLoading(false);
-          }
+            syncVtuberCache(data); // 這會更新 state 並存入快取
+          } catch (e) { console.error(e); }
         }
+        // 關鍵：無論如何都關閉 Loading，因為我們在 useState 已經確保有快取資料了
+        setIsLoading(false);
       }
 
       // 2. 佈告欄與行程資料
