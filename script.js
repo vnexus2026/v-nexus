@@ -3133,7 +3133,7 @@ function App() {
   const handlePostBulletin = async () => {
     if (!user) return showToast("請先登入！");
 
-    // 1. 必填檢查 (包含圖片)
+    // 1. 必填檢查
     if (!newBulletin.content.trim() || !newBulletin.collabType || !newBulletin.collabSize || !newBulletin.collabTime || !newBulletin.recruitEndTime || !newBulletin.image) {
       return showToast("請完整填寫所有必填欄位，並選擇一張招募圖片！");
     }
@@ -3146,16 +3146,13 @@ function App() {
     if (!myProfile?.isVerified) return showToast("名片審核通過後才能發布喔！");
 
     try {
-      showToast("⏳ 正在處理圖片並發布招募...");
+      showToast("⏳ 正在處理中...");
 
       const ft = newBulletin.collabType === '其他' ? newBulletin.collabTypeOther : newBulletin.collabType;
-
-      // --- 關鍵修正：將招募圖片上傳至 Storage ---
       let finalImage = newBulletin.image;
 
-      // 如果圖片是 Base64 格式 (代表是新上傳的或從預設圖選取的長字元)
+      // 圖片處理
       if (finalImage && finalImage.startsWith('data:image')) {
-        // 產生一個唯一的檔名，避免覆蓋
         const fileName = `bulletin_${Date.now()}.jpg`;
         finalImage = await uploadImageToStorage(user.uid, newBulletin.image, fileName);
       }
@@ -3163,7 +3160,7 @@ function App() {
       setIsBulletinFormOpen(false);
 
       if (newBulletin.id) {
-        // 編輯模式
+        // --- 編輯模式 ---
         await updateDoc(doc(db, getPath('bulletins'), newBulletin.id), {
           content: newBulletin.content,
           collabType: ft,
@@ -3172,10 +3169,16 @@ function App() {
           recruitEndTime: rEnd,
           image: finalImage
         });
-        setRealBulletins(prev => prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage } : b));
+
+        // ✨ 更新 State 且同步更新快取
+        setRealBulletins(prev => {
+          const newList = prev.map(b => b.id === newBulletin.id ? { ...b, content: newBulletin.content, collabType: ft, collabSize: newBulletin.collabSize, collabTime: newBulletin.collabTime, recruitEndTime: rEnd, image: finalImage } : b);
+          syncBulletinCache(newList);
+          return newList;
+        });
         showToast("🚀 招募修改成功！");
       } else {
-        // 新增模式
+        // --- 新增模式 ---
         const newDocData = {
           userId: user.uid,
           content: newBulletin.content,
@@ -3188,13 +3191,18 @@ function App() {
           createdAt: Date.now()
         };
         const newDocRef = await addDoc(collection(db, getPath('bulletins')), newDocData);
-        setRealBulletins(prev => [{ id: newDocRef.id, ...newDocData }, ...prev]);
+
+        // ✨ 更新 State 且同步更新快取
+        setRealBulletins(prev => {
+          const newList = [{ id: newDocRef.id, ...newDocData }, ...prev];
+          syncBulletinCache(newList);
+          return newList;
+        });
         showToast("🚀 發布成功！");
       }
 
       // 重置表單
       setNewBulletin({ id: null, content: '', collabType: '', collabTypeOther: '', collabSize: '', collabTime: '', recruitEndTime: '', image: '' });
-      sessionStorage.removeItem('othersDataTime');
     } catch (err) {
       console.error("發布招募失敗:", err);
       showToast("❌ 操作失敗，請檢查網路或圖片大小");
@@ -3214,7 +3222,13 @@ function App() {
     if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過官方認證才能報名！");
     try {
       await updateDoc(doc(db, getPath('bulletins'), bulletinId), { applicants: isApplying ? arrayUnion(user.uid) : arrayRemove(user.uid) });
-      setRealBulletins(prev => prev.map(b => b.id === bulletinId ? { ...b, applicants: isApplying ? [...(b.applicants || []), user.uid] : (b.applicants || []).filter(id => id !== user.uid) } : b));
+
+      setRealBulletins(prev => {
+        const newList = prev.map(b => b.id === bulletinId ? { ...b, applicants: isApplying ? [...(b.applicants || []), user.uid] : (b.applicants || []).filter(id => id !== user.uid) } : b);
+        syncBulletinCache(newList); // ✨ 同步快取
+        return newList;
+      });
+
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
         // 僅保留站內通知，並更新通知訊息內容
