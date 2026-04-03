@@ -561,24 +561,25 @@ const CollabCard = ({
   );
   return (
     <div
-      className={`group ${isLive ? "bg-red-950/40 border-2 border-red-500 shadow-[0_0_30px_rgba(220,38,38,0.4)] transform scale-[1.02] z-10" : "bg-gray-800/60 border border-gray-700 hover:border-red-500/50 hover:shadow-red-500/20"} rounded-3xl overflow-hidden flex flex-col transition-all relative w-full`}
+      className={`group ${isLive ? "bg-red-950/40 border-2 border-red-500 shadow-lg transform scale-[1.01]" : "bg-gray-800/60 border border-gray-700 hover:border-red-500/50"} rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col transition-all relative w-full`}
     >
       {isLive && (
-        <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center py-1.5 font-bold text-xs tracking-widest z-30 animate-pulse">
-          <i className="fa-solid fa-satellite-dish mr-2"></i> 正在進行聯動中
+        <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center py-1 font-bold text-[10px] tracking-widest z-30 animate-pulse">
+          LIVE
         </div>
       )}
+
       {onDeleteCollab && (isAdmin || (user && c.userId === user.uid)) && (
         <button
           onClick={() => onDeleteCollab(c.id)}
-          className={`absolute ${isLive ? "top-10" : "top-4"} right-4 z-20 bg-black/60 backdrop-blur-md text-gray-300 hover:text-red-400 hover:bg-black/80 p-2 rounded-lg transition-colors`}
-          title="刪除此行程"
+          className="absolute top-2 right-2 z-20 bg-black/60 text-gray-300 p-1.5 rounded-lg hover:text-red-400 transition-colors"
         >
-          <i className="fa-solid fa-trash"></i>
+          <i className="fa-solid fa-trash text-xs"></i>
         </button>
       )}
+
       <div
-        className={`h-48 relative overflow-hidden flex-shrink-0 ${isLive ? "mt-8" : ""}`}
+        className={`h-32 sm:h-48 relative overflow-hidden flex-shrink-0 ${isLive ? "mt-6" : ""}`}
       >
         <img
           src={displayImg}
@@ -586,78 +587,74 @@ const CollabCard = ({
           alt="聯動封面"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/20 to-transparent"></div>
-        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-gray-600 text-white px-3 py-1.5 rounded-xl flex flex-col items-center shadow-lg transform -rotate-2">
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
+        <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-md border border-gray-600 text-white px-2 py-1 rounded-lg flex flex-col items-center shadow-lg">
+          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-wider">
             {c.date}
           </span>
-          <span className="text-sm text-red-400 font-extrabold">{c.time}</span>
+          <span className="text-xs text-red-400 font-extrabold">{c.time}</span>
         </div>
-        {c.streamUrl && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none">
-            <div
-              className={`w-16 h-16 ${isLive ? "bg-red-500" : "bg-red-600/90"} text-white rounded-full flex items-center justify-center pl-1 shadow-[0_0_30px_rgba(220,38,38,0.8)] backdrop-blur-sm`}
-            >
-              <i className="fa-solid fa-play text-2xl"></i>
-            </div>
-          </div>
-        )}
       </div>
-      <div className="p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
-        <div className="mb-2">
-          <span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-1 rounded-lg border border-purple-500/30 font-bold">
+
+      <div className="p-4 sm:p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
+        <div className="mb-1.5">
+          <span className="bg-purple-500/20 text-purple-300 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-md border border-purple-500/30 font-bold">
             {c.category || "遊戲"}
           </span>
         </div>
         <h3
-          className={`text-xl font-extrabold text-white mb-6 line-clamp-2 leading-tight transition-colors ${isLive ? "text-red-400" : "group-hover:text-red-400"}`}
+          className={`text-sm sm:text-xl font-extrabold text-white mb-3 line-clamp-1 sm:line-clamp-2 leading-tight transition-colors ${isLive ? "text-red-400" : "group-hover:text-red-400"}`}
         >
           {c.title}
         </h3>
-        {/* 👇 加上防呆確保 isArray 才 map */}
+
+        {/* 聯動成員名單 - 手機版縮小頭像 */}
         {Array.isArray(c.participants) && c.participants.length > 0 && (
           <div
-            className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-gray-800/50 p-1 -ml-1 rounded-lg transition-colors group/members"
+            className="flex items-center gap-2 mb-4 cursor-pointer group/members"
             onClick={(e) => {
               e.stopPropagation();
               onShowParticipants(c);
             }}
           >
-            <span className="text-[10px] text-gray-500 font-bold">
-              聯動成員:
+            <span className="text-[9px] sm:text-[10px] text-gray-500 font-bold">
+              成員:
             </span>
-            <div className="flex -space-x-2">
-              {c.participants.map((pId) => {
+            <div className="flex -space-x-1.5 sm:-space-x-2">
+              {c.participants.slice(0, 5).map((pId) => {
                 const pVt = realVtubers.find((v) => v.id === pId);
                 return pVt ? (
                   <img
                     key={pId}
                     src={sanitizeUrl(pVt.avatar)}
-                    className="w-6 h-6 rounded-full border border-gray-900 object-cover"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-gray-900 object-cover"
                   />
                 ) : null;
               })}
+              {c.participants.length > 5 && (
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-800 border border-gray-900 flex items-center justify-center text-[8px] text-white">
+                  +{c.participants.length - 5}
+                </div>
+              )}
             </div>
-            <span className="text-[10px] text-purple-400 opacity-0 group-hover/members:opacity-100 transition-opacity ml-1">
-              查看名單
-            </span>
           </div>
         )}
+
         <div className="mt-auto">
           {c.streamUrl ? (
             <a
               href={sanitizeUrl(c.streamUrl)}
               target="_blank"
               rel="noopener noreferrer"
-              className={`w-full ${isLive ? "bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.6)] animate-pulse" : "bg-red-600 hover:bg-red-500 group-hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]"} text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2`}
+              className={`w-full ${isLive ? "bg-red-500" : "bg-red-600 hover:bg-red-500"} text-white py-2.5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex justify-center items-center gap-2`}
             >
-              <i className="fa-solid fa-play-circle text-lg"></i> 前往待機室 /
-              觀看直播
+              <i className="fa-solid fa-play-circle"></i> 前往觀看
             </a>
           ) : (
-            <div className="w-full bg-gray-800 text-gray-500 py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 border border-gray-700">
-              <i className="fa-solid fa-clock"></i> 直播連結尚未提供
+            <div className="w-full bg-gray-800 text-gray-500 py-2.5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-bold flex justify-center items-center gap-2 border border-gray-700">
+              尚未提供連結
             </div>
           )}
+
           {vtuber && vtuber.id !== "admin" && onNavigateProfile && (
             <div
               onClick={(e) => {
@@ -665,23 +662,21 @@ const CollabCard = ({
                 e.stopPropagation();
                 onNavigateProfile(vtuber);
               }}
-              className="mt-4 pt-4 border-t border-gray-700/50 flex items-center justify-between cursor-pointer group/author hover:bg-gray-800/80 p-2 -mx-2 rounded-xl transition-colors"
+              className="mt-3 pt-3 border-t border-gray-700/50 flex items-center justify-between cursor-pointer group/author"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <img
                   src={sanitizeUrl(vtuber.avatar)}
-                  className="w-8 h-8 rounded-full border border-gray-600 object-cover"
+                  className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-gray-600 object-cover"
                 />
                 <div className="text-left">
-                  <p className="text-[10px] text-gray-400 mb-0.5">發起人</p>
-                  <p className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors truncate max-w-[150px]">
+                  <p className="text-[8px] text-gray-500">發起人</p>
+                  <p className="text-[10px] sm:text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors truncate max-w-[100px] sm:max-w-[150px]">
                     {vtuber.name}
                   </p>
                 </div>
               </div>
-              <button className="text-xs bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg group-hover/author:bg-purple-600 group-hover/author:text-white transition-colors font-bold">
-                <i className="fa-solid fa-id-card mr-1.5"></i>查看名片
-              </button>
+              <i className="fa-solid fa-chevron-right text-gray-600 text-[10px]"></i>
             </div>
           )}
         </div>
@@ -693,98 +688,81 @@ const CollabCard = ({
 const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
   <div
     onClick={onSelect}
-    className={`group bg-gray-800/40 border ${!v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
+    className={`group bg-gray-800/40 border ${!v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
   >
-    <div className="absolute top-2 left-2 z-10 flex gap-1">
+    {/* 狀態標籤 - 手機版縮小 */}
+    <div className="absolute top-1.5 left-1.5 z-10 flex gap-1">
       {!v.isVerified && (
-        <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
-          待審核
+        <div className="bg-yellow-500 text-black text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg">
+          待審
         </div>
       )}
       {v.activityStatus === "sleep" && (
-        <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
-          休眠中
+        <div className="bg-gray-600 text-white text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg">
+          休眠
         </div>
       )}
       <div
-        className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}
+        className={`text-white text-[8px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}
       >
         <i
           className={`fa-brands fa-${v.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}
-        ></i>{" "}
-        {v.mainPlatform || "YouTube"}
+        ></i>
       </div>
     </div>
 
-    {/* ▼ 橫幅圖片區塊：使用 absolute inset-0 完美服貼 h-24 ▼ */}
-    <div className="h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
+    {/* 橫幅 - 手機版高度降低 */}
+    <div className="h-16 sm:h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
       <LazyImage
         src={sanitizeUrl(v.banner)}
         containerCls="absolute inset-0 w-full h-full"
         imgCls="opacity-60 group-hover:scale-105 transition-transform"
       />
-      <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white z-10">
+      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[8px] sm:text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white z-10">
         {v.agency}
       </span>
     </div>
 
-    <div className="p-4 relative flex-1 flex flex-col">
-      {/* ▼ 頭像圖片區塊：固定 w-16 h-16 不變形 ▼ */}
+    <div className="p-2 sm:p-4 relative flex-1 flex flex-col">
+      {/* 頭像 - 手機版縮小 */}
       <LazyImage
         src={sanitizeUrl(v.avatar)}
-        containerCls="absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10"
-        imgCls="rounded-xl"
+        containerCls="absolute -top-6 sm:-top-8 left-2 sm:left-4 w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl border-2 border-gray-800 bg-gray-900 z-10"
+        imgCls="rounded-lg sm:rounded-xl"
       />
 
-      <div className="ml-20 mb-3">
-        <h3 className="font-bold text-white truncate flex items-center gap-1">
+      <div className="ml-14 sm:ml-20 mb-2 min-h-[40px] sm:min-h-[48px]">
+        <h3 className="font-bold text-white text-xs sm:text-base truncate flex items-center gap-1">
           {v.name}{" "}
           {v.isVerified && (
-            <i
-              className="fa-solid fa-circle-check text-blue-400 text-xs"
-              title="已認證"
-            ></i>
+            <i className="fa-solid fa-circle-check text-blue-400 text-[10px] sm:text-xs"></i>
           )}
         </h3>
-        <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
-          {(v.youtubeSubscribers ||
-            v.subscribers ||
-            v.youtubeUrl ||
-            v.channelUrl) && (
-            <span className="flex items-center gap-1">
+        {/* 訂閱數 - 手機版極簡化 */}
+        <div className="flex flex-wrap gap-1.5 text-[9px] sm:text-xs mt-0.5 text-gray-400">
+          {(v.youtubeSubscribers || v.subscribers) && (
+            <span className="flex items-center gap-0.5">
               <i className="fa-brands fa-youtube text-red-400"></i>{" "}
-              {v.youtubeSubscribers || v.subscribers || "未公開"}
+              {v.youtubeSubscribers || v.subscribers}
             </span>
           )}
-          {(v.twitchFollowers || v.twitchUrl) && (
-            <span className="flex items-center gap-1">
+          {v.twitchFollowers && (
+            <span className="flex items-center gap-0.5">
               <i className="fa-brands fa-twitch text-purple-400"></i>{" "}
-              {v.twitchFollowers || "未公開"}
+              {v.twitchFollowers}
             </span>
           )}
-          <span className="flex items-center gap-1 text-green-400">
-            <i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}
-          </span>
         </div>
       </div>
-      <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
-      {v.streamStyleUrl && (
-        <div className="mt-1 mb-1">
-          <a
-            href={sanitizeUrl(v.streamStyleUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"
-          >
-            <i className="fa-solid fa-video"></i> 觀看我的直播風格
-          </a>
-        </div>
-      )}
-      <div className="mt-auto pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
-          <i className="fa-solid fa-clock text-purple-400"></i>{" "}
-          <span className="truncate">{formatSchedule(v)}</span>
+
+      {/* 描述 - 僅在電腦版顯示以節省空間 */}
+      <p className="hidden sm:block text-xs text-gray-400 line-clamp-2 h-8 mb-2">
+        {v.description}
+      </p>
+
+      <div className="mt-auto pt-2 border-t border-gray-700/50 flex items-center justify-between">
+        <div className="flex items-center gap-1 text-[9px] sm:text-xs text-green-400 font-bold">
+          <i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}
         </div>
         {isVerifiedUser && v.id !== user?.uid && (
           <button
@@ -792,88 +770,23 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
               e.stopPropagation();
               onDislike(v);
             }}
-            className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-50 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0"
-            title="檢舉負面行為"
+            className="text-red-400/50 hover:text-red-400 p-1 transition-colors"
           >
             <i className="fa-solid fa-thumbs-down text-[10px]"></i>
           </button>
         )}
       </div>
-      <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
-        {(v.youtubeUrl || v.channelUrl) &&
-        (v.youtubeUrl || v.channelUrl) !== "#" ? (
-          <a
-            href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1"
-            title="YouTube"
-          >
-            <i className="fa-brands fa-youtube text-sm"></i>
-            {(v.youtubeSubscribers || v.subscribers) && (
-              <span className="text-[10px] font-bold">
-                {v.youtubeSubscribers || v.subscribers}
-              </span>
-            )}
-          </a>
-        ) : v.youtubeSubscribers || v.subscribers ? (
-          <div
-            className="bg-red-500/10 text-red-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1"
-            title="YouTube 訂閱數"
-          >
-            <i className="fa-brands fa-youtube text-sm"></i>
-            <span className="text-[10px] font-bold">
-              {v.youtubeSubscribers || v.subscribers}
-            </span>
-          </div>
-        ) : null}
-        {v.twitchUrl && v.twitchUrl !== "#" ? (
-          <a
-            href={sanitizeUrl(v.twitchUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-purple-500/20 text-purple-400 hover:bg-purple-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1"
-            title="Twitch"
-          >
-            <i className="fa-brands fa-twitch text-sm"></i>
-            {v.twitchFollowers && (
-              <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
-            )}
-          </a>
-        ) : v.twitchFollowers ? (
-          <div
-            className="bg-purple-500/10 text-purple-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1"
-            title="Twitch 追隨數"
-          >
-            <i className="fa-brands fa-twitch text-sm"></i>
-            <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
-          </div>
-        ) : null}
-        {v.xUrl && v.xUrl !== "#" && (
-          <a
-            href={sanitizeUrl(v.xUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-blue-500/20 text-blue-400 hover:bg-blue-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
-            title="X (Twitter)"
-          >
-            <i className="fa-brands fa-x-twitter text-sm"></i>
-          </a>
+
+      {/* 社群按鈕 - 僅在電腦版顯示 */}
+      <div className="hidden sm:flex mt-2 pt-2 border-t border-gray-700/50 gap-2">
+        {(v.youtubeUrl || v.channelUrl) && (
+          <i className="fa-brands fa-youtube text-red-400 text-xs"></i>
         )}
-        {v.igUrl && v.igUrl !== "#" && (
-          <a
-            href={sanitizeUrl(v.igUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
-            title="Instagram"
-          >
-            <i className="fa-brands fa-instagram text-sm"></i>
-          </a>
+        {v.twitchUrl && (
+          <i className="fa-brands fa-twitch text-purple-400 text-xs"></i>
+        )}
+        {v.xUrl && (
+          <i className="fa-brands fa-x-twitter text-blue-400 text-xs"></i>
         )}
       </div>
     </div>
@@ -896,7 +809,6 @@ const BulletinCard = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showApplicants, setShowApplicants] = useState(false);
   const isAuthor = user?.uid === b.userId;
-  // 👇 加上防呆，確保 b.applicants 是陣列
   const hasApplied = Array.isArray(b.applicants)
     ? b.applicants.includes(user?.uid)
     : false;
@@ -909,10 +821,9 @@ const BulletinCard = ({
   }, [openModalId, b.id]);
 
   return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
-      {/* ▼▼▼ 招募大圖修改處 ▼▼▼ */}
+    <div className="bg-gray-800/60 border border-gray-700 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
       {b.image && (
-        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700 bg-gray-900">
+        <div className="w-full h-32 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700 bg-gray-900">
           <LazyImage
             src={sanitizeUrl(b.image)}
             containerCls="absolute inset-0 w-full h-full"
@@ -923,8 +834,7 @@ const BulletinCard = ({
         </div>
       )}
 
-      <div className="bg-gray-900/80 p-5 border-b border-gray-700 flex items-start gap-4">
-        {/* ▼▼▼ 發起人頭像修改處 ▼▼▼ */}
+      <div className="bg-gray-900/80 p-3 sm:p-5 border-b border-gray-700 flex items-start gap-3 sm:gap-4">
         <LazyImage
           src={sanitizeUrl(b.vtuber.avatar)}
           onClick={(e) => {
@@ -932,185 +842,102 @@ const BulletinCard = ({
             e.stopPropagation();
             onNavigateProfile(b.vtuber, false);
           }}
-          containerCls="w-14 h-14 rounded-full border-2 border-purple-500/50 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform z-10"
+          containerCls="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-purple-500/50 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform z-10"
           imgCls="rounded-full"
         />
-
-        <div className="flex-1 flex justify-between items-start gap-2">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-purple-400 font-bold text-[10px] bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                發起人
-              </span>
+        <div className="flex-1 flex justify-between items-start gap-2 min-w-0">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-0.5">
               <span
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   onNavigateProfile(b.vtuber, false);
                 }}
-                className="font-extrabold text-white text-lg hover:text-purple-400 transition-colors cursor-pointer"
+                className="font-extrabold text-white text-sm sm:text-lg hover:text-purple-400 transition-colors cursor-pointer truncate"
               >
                 {b.vtuber.name}
               </span>
-              {b.vtuber.isVerified && (
-                <i
-                  className="fa-solid fa-circle-check text-blue-400 text-sm"
-                  title="已認證"
-                ></i>
-              )}
-              <span className="text-white font-bold text-xs bg-purple-600 px-2.5 py-1 rounded-lg ml-1 shadow-sm border border-purple-500">
+              <span className="text-white font-bold text-[9px] sm:text-xs bg-purple-600 px-1.5 py-0.5 rounded-md shadow-sm border border-purple-500">
                 {b.collabType || "未指定"}
               </span>
             </div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] text-gray-400">
-                {b.vtuber.agency}
-              </span>
-              <span className="text-gray-600 text-[10px]">•</span>
-              <span className="text-[10px] text-gray-400">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] sm:text-[10px] text-gray-400">
                 {b.postedAt} 發布
               </span>
             </div>
           </div>
         </div>
       </div>
-      <div className="p-6 flex-1 flex flex-col">
-        {/* 找到 BulletinCard 內部的這個區塊並完整替換 */}
+      <div className="p-4 sm:p-6 flex-1 flex flex-col">
         <div className="mb-4">
-          {/* 將 line-clamp-[10] 改為 line-clamp-4，讓未展開時更簡潔 */}
           <div
-            className={`text-gray-300 whitespace-pre-wrap text-sm leading-relaxed transition-all duration-300 ${isExpanded ? "" : "line-clamp-4"}`}
+            className={`text-gray-300 whitespace-pre-wrap text-xs sm:text-sm leading-relaxed transition-all duration-300 ${isExpanded ? "" : "line-clamp-3"}`}
           >
             {b.content}
           </div>
-
-          {/* 移除原本的長度判斷條件，讓所有卡片都顯示按鈕 */}
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="text-purple-400 hover:text-purple-300 text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg w-full justify-center"
+            className="text-purple-400 hover:text-purple-300 text-[10px] sm:text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg w-full justify-center"
           >
             {isExpanded ? (
               <>
-                <i className="fa-solid fa-chevron-up"></i> 收起文案
+                <i className="fa-solid fa-chevron-up"></i> 收起
               </>
             ) : (
               <>
-                <i className="fa-solid fa-chevron-down"></i> 點擊查看完整文案
+                <i className="fa-solid fa-chevron-down"></i> 查看完整文案
               </>
             )}
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
-          <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-gray-500 mb-1">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 mt-auto mb-4">
+          <div className="bg-gray-900/50 p-2 sm:p-3 rounded-xl flex flex-col">
+            <span className="text-[9px] sm:text-[10px] text-gray-500 mb-0.5">
               <i className="fa-solid fa-users"></i> 人數
             </span>
-            <span className="text-sm font-bold text-gray-200">
+            <span className="text-xs sm:text-sm font-bold text-gray-200">
               {b.collabSize || "未指定"}
             </span>
           </div>
-          <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-gray-500 mb-1">
+          <div className="bg-gray-900/50 p-2 sm:p-3 rounded-xl flex flex-col">
+            <span className="text-[9px] sm:text-[10px] text-gray-500 mb-0.5">
               <i className="fa-regular fa-calendar"></i> 時間
             </span>
-            <span className="text-sm font-bold text-gray-200">
+            <span className="text-xs sm:text-sm font-bold text-gray-200">
               {formatDateTimeLocalStr(b.collabTime)}
             </span>
           </div>
-          <div className="bg-red-500/5 p-3 rounded-xl border border-red-500/20 flex flex-col col-span-2">
-            <span className="text-[10px] text-red-400/80 mb-1">
-              <i className="fa-solid fa-hourglass-half"></i> 截止
-            </span>
-            <span className="text-sm font-bold text-red-300">
-              {b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}
-            </span>
-          </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-gray-700/50">
+        <div className="mt-2 pt-4 border-t border-gray-700/50">
           {isAuthor ? (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               <div
-                className="flex items-center justify-between bg-gray-800/40 hover:bg-gray-800 p-3 rounded-xl border border-gray-700 cursor-pointer transition-colors"
+                className="flex items-center justify-between bg-gray-800/40 p-2 sm:p-3 rounded-xl border border-gray-700 cursor-pointer"
                 onClick={() => setShowApplicants(true)}
               >
-                <div className="flex items-center gap-3">
-                  <div className="bg-purple-500/20 w-8 h-8 rounded-full flex items-center justify-center text-purple-400">
-                    <i className="fa-solid fa-users"></i>
-                  </div>
-                  <span className="text-sm font-bold text-white">
-                    查看有意願的Vtuber ({b.applicantsData?.length || 0})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex -space-x-2">
-                    {b.applicantsData?.slice(0, 3).map((a) => (
-                      <img
-                        key={a.id}
-                        src={sanitizeUrl(a.avatar)}
-                        className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
-                      />
-                    ))}
-                    {b.applicantsData?.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
-                        +{b.applicantsData.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <i className="fa-solid fa-chevron-right text-gray-500 text-xs ml-2"></i>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-700/50">
-                <button
-                  onClick={() => onEditBulletin && onEditBulletin(b)}
-                  className="text-[10px] font-bold bg-blue-600/80 hover:bg-blue-500 text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
-                >
-                  <i className="fa-solid fa-pen mr-1.5"></i>編輯招募
-                </button>
-                <button
-                  onClick={() => onDeleteBulletin && onDeleteBulletin(b.id)}
-                  className="text-[10px] font-bold bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
-                >
-                  <i className="fa-solid fa-trash mr-1.5"></i>刪除招募
-                </button>
+                <span className="text-[10px] sm:text-sm font-bold text-white">
+                  查看意願 ({b.applicantsData?.length || 0})
+                </span>
+                <i className="fa-solid fa-chevron-right text-gray-500 text-[10px]"></i>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <div
-                className="flex items-center gap-2 cursor-pointer group/apply hover:bg-gray-800/50 p-2 -ml-2 rounded-lg transition-colors"
-                onClick={() => setShowApplicants(true)}
-              >
-                <span className="text-xs text-gray-400 group-hover/apply:text-white transition-colors">
-                  目前 {b.applicantsData?.length || 0} 人有意願
-                </span>
-                <div className="flex -space-x-2">
-                  {b.applicantsData?.slice(0, 3).map((a) => (
-                    <img
-                      key={a.id}
-                      src={sanitizeUrl(a.avatar)}
-                      className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
-                    />
-                  ))}
-                  {b.applicantsData?.length > 3 && (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
-                      +{b.applicantsData.length - 3}
-                    </div>
-                  )}
-                </div>
-                <span className="text-[10px] text-purple-400 opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
-                  點擊展開
-                </span>
-              </div>
+              <span className="text-[10px] text-gray-400">
+                {b.applicantsData?.length || 0} 人有意願
+              </span>
               {isVerifiedUser && (
                 <button
                   onClick={() => onApply(b.id, !hasApplied)}
-                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
+                  className={`text-[10px] sm:text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl transition-transform ${hasApplied ? "bg-gray-700 text-gray-300" : "bg-purple-600 text-white shadow-lg"}`}
                 >
-                  {hasApplied ? "收回意願" : "✋ 我有意願"}
+                  {hasApplied ? "收回" : "✋ 我有意願"}
                 </button>
               )}
             </div>
@@ -2767,7 +2594,6 @@ const HomePage = ({
 }) => {
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
 
-  // 1. 取得最新的 3 則招募
   const topBulletins = useMemo(() => {
     return [...safeBulletins]
       .filter((b) => !b.recruitEndTime || b.recruitEndTime > currentTime)
@@ -2835,7 +2661,7 @@ const HomePage = ({
         };
         return getTimestamp(b) - getTimestamp(a);
       })
-      .slice(0, 5);
+      .slice(0, 5); // ✅ 已改回 5 個
   }, [realVtubers]);
 
   return (
@@ -2900,43 +2726,47 @@ const HomePage = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-6 mt-12 sm:mt-20 mb-8">
+        <div className="bg-gray-800/40 border border-gray-700/50 px-4 py-4 sm:px-8 sm:py-6 rounded-2xl sm:rounded-3xl min-w-[140px] sm:min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-[10px] sm:text-sm font-bold mb-1 sm:mb-2 tracking-widest uppercase">
             網站總瀏覽人次
           </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+          <p className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             {siteStats?.pageViews !== null ? (
               <AnimatedCounter value={siteStats.pageViews} />
             ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
+              <i className="fa-solid fa-spinner fa-spin text-xl sm:text-2xl"></i>
             )}
           </p>
         </div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
-            V-NEXUS已成功讓VTUBER聯動
+        <div className="bg-gray-800/40 border border-gray-700/50 px-4 py-4 sm:px-8 sm:py-6 rounded-2xl sm:rounded-3xl min-w-[140px] sm:min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-[10px] sm:text-sm font-bold mb-1 sm:mb-2 tracking-widest uppercase">
+            成功聯動次數
           </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
+          <p className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
             {!isLoadingCollabs ? (
               <AnimatedCounter value={completedCollabsCount} />
             ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
+              <i className="fa-solid fa-spinner fa-spin text-xl sm:text-2xl"></i>
             )}
-            <span className="text-xl text-gray-500 font-bold ml-1">次</span>
+            <span className="text-sm sm:text-xl text-gray-500 font-bold ml-1">
+              次
+            </span>
           </p>
         </div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
-            目前VTUBER註冊人數
+        <div className="bg-gray-800/40 border border-gray-700/50 px-4 py-4 sm:px-8 sm:py-6 rounded-2xl sm:rounded-3xl min-w-[140px] sm:min-w-[220px] shadow-xl flex-1 max-w-[300px]">
+          <p className="text-gray-400 text-[10px] sm:text-sm font-bold mb-1 sm:mb-2 tracking-widest uppercase">
+            目前註冊人數
           </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
+          <p className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
             {registeredCount !== null ? (
               <AnimatedCounter value={registeredCount} />
             ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
+              <i className="fa-solid fa-spinner fa-spin text-xl sm:text-2xl"></i>
             )}
-            <span className="text-xl text-gray-500 font-bold ml-1">位</span>
+            <span className="text-sm sm:text-xl text-gray-500 font-bold ml-1">
+              位
+            </span>
           </p>
         </div>
       </div>
@@ -2945,128 +2775,100 @@ const HomePage = ({
         本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
       </p>
 
-      {/* --- 新增：首頁招募預覽區 --- */}
-      <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 text-left">
+      {/* 區塊一：招募佈告欄預覽 */}
+      <div className="mt-8 mb-10 sm:mb-16 pt-8 sm:pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-3 text-left">
           <div>
-            <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
+            <h2 className="text-lg sm:text-2xl font-extrabold text-white flex items-center gap-2">
               <i className="fa-solid fa-bullhorn text-purple-400"></i>{" "}
               快來看看有哪些招募！
             </h2>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-[10px] sm:text-sm">
               正在尋找夥伴的企劃，或許你就是他們在找的人！
             </p>
           </div>
           <button
             onClick={goToBulletin}
-            className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 flex items-center justify-center gap-2"
+            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-bold text-xs sm:text-base transition-all flex items-center justify-center gap-2"
           >
-            <i className="fa-solid fa-bullhorn"></i> 你也想招募嗎？點這裡！
+            <i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？
           </button>
         </div>
-
-        {topBulletins.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-            {topBulletins.map((b) => (
-              <BulletinCard
-                key={b.id}
-                b={b}
-                user={user}
-                isVerifiedUser={isVerifiedUser}
-                onNavigateProfile={(vt) => {
-                  setSelectedVTuber(vt);
-                  navigate(`profile/${vt.id}`);
-                }}
-                onApply={onApplyBulletin}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 bg-gray-800/20 rounded-3xl border border-gray-700">
-            <p className="text-gray-500 font-bold">目前暫無招募訊息</p>
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-left">
+          {topBulletins.map((b) => (
+            <BulletinCard
+              key={b.id}
+              b={b}
+              user={user}
+              isVerifiedUser={isVerifiedUser}
+              onNavigateProfile={(vt) => {
+                setSelectedVTuber(vt);
+                navigate(`profile/${vt.id}`);
+              }}
+              onApply={onApplyBulletin}
+            />
+          ))}
+        </div>
       </div>
 
-      {newestVtubers.length > 0 && (
-        <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-            <div className="text-left">
-              <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-                <i className="fa-solid fa-sparkles text-yellow-400"></i>{" "}
-                歡迎新Vtuber朋朋的加入！
-              </h2>
-              <p className="text-gray-400 text-sm">
-                最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
-            {newestVtubers.map((v) => (
-              <VTuberCard
-                key={v.id}
-                v={v}
-                user={null}
-                isVerifiedUser={false}
-                onSelect={() => {
-                  setSelectedVTuber(v);
-                  navigate(`profile/${v.id}`);
-                }}
-                onDislike={() => {}}
-              />
-            ))}
-          </div>
+      {/* 區塊二：新進 Vtuber (手機版 2 欄) */}
+      <div className="mt-8 mb-10 sm:mb-16 pt-8 sm:pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="text-left mb-6 sm:mb-8">
+          <h2 className="text-lg sm:text-2xl font-extrabold text-white flex items-center gap-2">
+            <i className="fa-solid fa-sparkles text-yellow-400"></i>{" "}
+            歡迎新夥伴加入！
+          </h2>
         </div>
-      )}
-
-      <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
-          <div className="text-left">
-            <h2 className="text-3xl font-extrabold text-white mb-2">
-              <i className="fa-solid fa-fire text-red-500 mr-2"></i>
-              為您隨機推薦聯動
-            </h2>
-            <p className="text-gray-400">
-              快來看看有哪些 VTuber 即將展開精彩合作！
-            </p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 text-left">
+          {newestVtubers.map((v) => (
+            <VTuberCard
+              key={v.id}
+              v={v}
+              user={null}
+              isVerifiedUser={false}
+              onSelect={() => {
+                setSelectedVTuber(v);
+                navigate(`profile/${v.id}`);
+              }}
+              onDislike={() => {}}
+            />
+          ))}
         </div>
+      </div>
 
-        {randomCollabs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
-            {randomCollabs.map((c) => (
-              <CollabCard
-                key={c.id}
-                c={c}
-                isLive={
-                  c.startTimestamp &&
-                  currentTime >= c.startTimestamp &&
-                  currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
-                }
-                vtuber={realVtubers.find((v) => v.id === c.userId)}
-                realVtubers={realVtubers}
-                onNavigateProfile={(vt) => {
-                  setSelectedVTuber(vt);
-                  navigate(`profile/${vt.id}`);
-                }}
-                onShowParticipants={onShowParticipants}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700 max-w-4xl mx-auto">
-            <p className="text-gray-500 font-bold text-lg">
-              <i className="fa-solid fa-ghost mb-4 text-3xl block"></i>
-              目前沒有即將到來的聯動行程
-            </p>
-          </div>
-        )}
-
+      {/* 區塊三：隨機推薦聯動 */}
+      <div className="mt-8 pt-8 sm:pt-16 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="text-left mb-6 sm:mb-10">
+          <h2 className="text-lg sm:text-3xl font-extrabold text-white">
+            <i className="fa-solid fa-fire text-red-500 mr-2"></i>
+            為您隨機推薦聯動
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-8 text-left">
+          {randomCollabs.map((c) => (
+            <CollabCard
+              key={c.id}
+              c={c}
+              isLive={
+                c.startTimestamp &&
+                currentTime >= c.startTimestamp &&
+                currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
+              }
+              vtuber={realVtubers.find((v) => v.id === c.userId)}
+              realVtubers={realVtubers}
+              onNavigateProfile={(vt) => {
+                setSelectedVTuber(vt);
+                navigate(`profile/${vt.id}`);
+              }}
+              onShowParticipants={onShowParticipants}
+            />
+          ))}
+        </div>
         <button
           onClick={() => navigate("collabs")}
-          className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1"
+          className="mt-8 sm:mt-10 bg-gray-800 hover:bg-gray-700 text-white px-6 py-2 sm:px-8 sm:py-3 rounded-xl font-bold text-xs sm:text-base transition-all"
         >
-          查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i>
+          查看完整聯動表 <i className="fa-solid fa-arrow-right ml-2"></i>
         </button>
       </div>
     </section>
