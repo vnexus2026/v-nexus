@@ -2970,7 +2970,7 @@ function App() {
     setRealCollabs(newList);
     localStorage.setItem(COLLABS_CACHE_KEY, JSON.stringify(newList));
     localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
-  }
+  };
 
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault();
@@ -3392,14 +3392,25 @@ function App() {
       const docRef = await addDoc(collection(db, getPath('collabs')), {
         ...collabData,
         userId: user?.uid || 'admin',
-        reminderSent: false, // <--- 補上這一行
+        reminderSent: false,
         createdAt: Date.now()
       });
-      setRealCollabs(prev => [...prev, { id: docRef.id, ...collabData, userId: user?.uid || 'admin', reminderSent: false, createdAt: Date.now() }]);
-      showToast("已發布聯動行程");
-      sessionStorage.removeItem('othersDataTime');
-    } catch (err) { showToast("新增失敗"); }
+
+      const newItem = { id: docRef.id, ...collabData, userId: user?.uid || 'admin', reminderSent: false, createdAt: Date.now() };
+
+      setRealCollabs(prev => {
+        const newList = [...prev, newItem];
+        syncCollabCache(newList); // ✨ 關鍵：同步更新快取
+        return newList;
+      });
+
+      showToast("✅ 已發布聯動行程");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 新增失敗");
+    }
   };
+
   const handleDeleteCollab = async (id) => { if (!confirm("確定要刪除這個聯動行程嗎？")) return; try { await deleteDoc(doc(db, getPath('collabs'), id)); setRealCollabs(prev => prev.filter(c => c.id !== id)); showToast("已刪除聯動行程"); } catch (err) { showToast("刪除失敗"); } };
   const handleSaveSettings = async (tipsContent, rulesContent) => { try { if (tipsContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'tips'), { content: tipsContent }, { merge: true }); setRealTips(tipsContent); } if (rulesContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'rules'), { content: rulesContent }, { merge: true }); setRealRules(rulesContent); } showToast("系統設定已更新！"); } catch (err) { showToast("更新失敗"); } };
   const handleAdminResetAllCollabTypes = async () => { if (!confirm("⚠️ 確定要清除所有人的聯動類型嗎？")) return; try { if (prompt("請輸入 'CONFIRM'") !== 'CONFIRM') return showToast("已取消操作。"); for (const v of realVtubers) { if (!v.id.startsWith('mock')) { await setDoc(doc(db, getPath('vtubers'), v.id), { collabTypes: [] }, { merge: true }); } } setRealVtubers(prev => prev.map(v => ({ ...v, collabTypes: [] }))); showToast("✅ 已清除所有人聯動類型！"); } catch (err) { showToast("清除失敗"); } };
@@ -4165,12 +4176,24 @@ function App() {
                     if (!publicCollabForm.dateTime || !publicCollabForm.streamUrl || !publicCollabForm.title) return showToast("請完整填寫必填欄位！");
                     const dt = new Date(publicCollabForm.dateTime);
                     if (dt.getTime() < Date.now()) return showToast("聯動時間不能在過去哦！");
-                    const newCollabData = { ...publicCollabForm, date: `${dt.getMonth() + 1}/${dt.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][dt.getDay()]})`, time: `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`, startTimestamp: dt.getTime(), reminderSent: false };
+
+                    const newCollabData = {
+                      ...publicCollabForm,
+                      date: `${dt.getMonth() + 1}/${dt.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][dt.getDay()]})`,
+                      time: `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`,
+                      startTimestamp: dt.getTime(),
+                      reminderSent: false
+                    };
 
                     try {
-                      const docRef = await addDoc(collection(db, getPath('collabs')), { ...newCollabData, userId: user.uid, createdAt: Date.now() });
+                      showToast("⏳ 正在發布...");
+                      const docRef = await addDoc(collection(db, getPath('collabs')), {
+                        ...newCollabData,
+                        userId: user.uid,
+                        createdAt: Date.now()
+                      });
 
-                      // 發送通知給參與者
+                      // 發送通知給參與者 (保持原樣)
                       publicCollabForm.participants.forEach(async (pId) => {
                         const target = realVtubers.find(v => v.id === pId);
                         if (!target) return;
@@ -4186,12 +4209,21 @@ function App() {
                         }
                       });
 
-                      setRealCollabs(prev => [...prev, { id: docRef.id, ...newCollabData, userId: user.uid }]);
-                      showToast("✅ 已發布聯動行程！");
+                      // ✨ 修正重點：同時更新狀態與快取
+                      const finalizedItem = { id: docRef.id, ...newCollabData, userId: user.uid };
+                      setRealCollabs(prev => {
+                        const newList = [...prev, finalizedItem];
+                        syncCollabCache(newList); // ✨ 確保存入 localStorage
+                        return newList;
+                      });
+
+                      showToast("✅ 已成功發布聯動行程！");
                       setPublicCollabForm({ dateTime: '', title: '', streamUrl: '', coverUrl: '', category: '遊戲', participants: [] });
                       document.getElementById('public-collab-form').classList.add('hidden');
-                      sessionStorage.removeItem('othersDataTime');
-                    } catch (err) { showToast("發布失敗"); }
+                    } catch (err) {
+                      console.error(err);
+                      showToast("❌ 發布失敗");
+                    }
                   }} className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105">送出發布</button>
                 </div>
               </div>
