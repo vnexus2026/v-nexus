@@ -1423,61 +1423,109 @@ const maskEmail = (email) => {
   return name.substring(0, 3) + "********@" + domain;
 };
 
-const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = false, showSearch = false }) => {
+const AdminVtuberList = ({ title, list, onEdit, onDelete, onVerify, onReject, isBlacklist, privateDocs, paginate = true, showSearch = true }) => {
   const [page, setPage] = useState(1);
   const [searchQ, setSearchQ] = useState('');
   const itemsPerPage = 10;
 
-  const filteredList = showSearch && searchQ ? list.filter(v => (v.name || '').toLowerCase().includes(searchQ.toLowerCase()) || (v.agency || '').toLowerCase().includes(searchQ.toLowerCase())) : list;
-  const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-  const displayList = paginate ? filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage) : filteredList;
+  // 1. 搜尋過濾邏輯 (支援名稱、勢力、UID 搜尋)
+  const filteredList = list.filter(v =>
+    (v.name || '').toLowerCase().includes(searchQ.toLowerCase()) ||
+    (v.agency || '').toLowerCase().includes(searchQ.toLowerCase()) ||
+    (v.id || '').toLowerCase().includes(searchQ.toLowerCase())
+  );
 
-  useEffect(() => { if (paginate && page > totalPages && totalPages > 0) setPage(totalPages); }, [filteredList.length, totalPages, page, paginate]);
+  // 2. 分頁計算
+  const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+  const displayList = paginate
+    ? filteredList.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+    : filteredList;
+
+  // 當搜尋字串改變時，自動跳回第一頁
+  useEffect(() => { setPage(1); }, [searchQ]);
 
   return (
     <div className="mb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-gray-700 pb-2 gap-3">
-        <h3 className={`text-xl font-bold ${isBlacklist ? 'text-red-500' : title.includes('待') ? 'text-yellow-400' : 'text-white'}`}>{title} ({filteredList.length})</h3>
+        <h3 className={`text-xl font-bold ${isBlacklist ? 'text-red-500' : title.includes('待') ? 'text-yellow-400' : 'text-white'}`}>
+          {title} ({filteredList.length})
+        </h3>
         {showSearch && (
           <div className="relative w-full sm:w-64">
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
-            <input type="text" placeholder="搜尋名稱或勢力..." value={searchQ} onChange={e => { setSearchQ(e.target.value); setPage(1); }} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-1.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-purple-500" />
+            <input
+              type="text"
+              placeholder="搜尋名稱、勢力或UID..."
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg py-1.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-purple-500"
+            />
           </div>
         )}
       </div>
-      {filteredList.length === 0 && <p className="text-gray-500 text-sm">目前無資料</p>}
-      <div className="space-y-3">
-        {displayList.map(v => (
-          <div key={v.id} className={`flex items-center justify-between p-4 rounded-xl border ${isBlacklist ? 'bg-red-950/20 border-red-900/50' : title.includes('待') ? 'bg-gray-900 border-yellow-500/30' : 'bg-gray-900 border-gray-700'} gap-4`}>
-            <div className="flex items-center gap-4">
-              <img src={sanitizeUrl(v.avatar)} className={`w-12 h-12 rounded-lg object-cover flex-shrink-0 ${isBlacklist ? 'opacity-50 grayscale' : ''}`} />
-              <div>
-                <p className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? 'text-gray-400 line-through' : 'text-white'}`}>{v.name || '（空白名片）'}</p>
-                {!isBlacklist && <p className="text-xs text-gray-400 mt-1">{v.agency} | {v.activityStatus === 'sleep' ? '休眠' : v.activityStatus === 'graduated' ? '畢業' : '活躍'} | 倒讚: <span className="text-red-400">{v.dislikes || 0}</span></p>}
 
-                {/* 僅保留驗證備註供審核使用，已移除信箱顯示 */}
-                {privateDocs[v.id]?.verificationNote && <p className="text-xs text-yellow-400 mt-1.5 bg-yellow-500/10 p-1.5 rounded border border-yellow-500/20 inline-block"><i className="fa-solid fa-key mr-1"></i> 驗證備註: {privateDocs[v.id].verificationNote}</p>}
+      {filteredList.length === 0 ? (
+        <p className="text-gray-500 text-sm py-4 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-800">目前無符合條件的資料</p>
+      ) : (
+        <div className="space-y-3">
+          {displayList.map(v => (
+            <div key={v.id} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border ${isBlacklist ? 'bg-red-950/20 border-red-900/50' : title.includes('待') ? 'bg-gray-900 border-yellow-500/30' : 'bg-gray-900 border-gray-700'} gap-4`}>
+              <div className="flex items-center gap-4">
+                <img src={sanitizeUrl(v.avatar)} className={`w-12 h-12 rounded-lg object-cover flex-shrink-0 ${isBlacklist ? 'opacity-50 grayscale' : ''}`} />
+                <div className="min-w-0">
+                  <p className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? 'text-gray-400 line-through' : 'text-white'}`}>
+                    {v.name || '（空白名片）'}
+                    {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs"></i>}
+                  </p>
+                  {!isBlacklist && <p className="text-[10px] text-gray-400 mt-1">{v.agency} | {v.activityStatus === 'sleep' ? '休眠' : v.activityStatus === 'graduated' ? '畢業' : '活躍'} | 推薦: <span className="text-green-400">{v.likes || 0}</span> | 倒讚: <span className="text-red-400">{v.dislikes || 0}</span></p>}
 
-                <div className="flex gap-3 mt-1.5">
-                  {(v.youtubeUrl || v.channelUrl) && <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 transition-colors"><i className="fa-brands fa-youtube"></i> 檢查</a>}
-                  {v.twitchUrl && <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 transition-colors"><i className="fa-brands fa-twitch"></i> 檢查</a>}
-                  {v.xUrl && <a href={sanitizeUrl(v.xUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors"><i className="fa-brands fa-x-twitter"></i> 檢查</a>}
+                  {/* 顯示驗證備註 */}
+                  {privateDocs[v.id]?.verificationNote && (
+                    <p className="text-[10px] text-yellow-400 mt-1.5 bg-yellow-500/10 p-1 rounded border border-yellow-500/20 inline-block">
+                      <i className="fa-solid fa-key mr-1"></i> 驗證: {privateDocs[v.id].verificationNote}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 mt-1.5">
+                    {(v.youtubeUrl || v.channelUrl) && <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-red-400 hover:underline"><i className="fa-brands fa-youtube"></i> YT</a>}
+                    {v.twitchUrl && <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-400 hover:underline"><i className="fa-brands fa-twitch"></i> Twitch</a>}
+                    {v.xUrl && <a href={sanitizeUrl(v.xUrl)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:underline"><i className="fa-brands fa-x-twitter"></i> X</a>}
+                  </div>
                 </div>
               </div>
+              <div className="flex gap-2 flex-shrink-0 self-end sm:self-center">
+                {onVerify && <button onClick={() => onVerify(v.id)} className="text-green-400 bg-green-500/10 hover:bg-green-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">審核</button>}
+                {onReject && <button onClick={() => onReject(v.id)} className="text-orange-400 bg-orange-500/10 hover:bg-orange-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">退回</button>}
+                <button onClick={() => onEdit(v)} className="text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">編輯</button>
+                <button onClick={() => onDelete(v.id)} className="text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">刪除</button>
+              </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              {onVerify && <button onClick={() => onVerify(v.id)} className="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg text-sm font-bold">審核</button>}
-              {onReject && <button onClick={() => onReject(v.id)} className="text-orange-400 bg-orange-500/10 px-4 py-2 rounded-lg text-sm font-bold">拒絕</button>}
-              <button onClick={() => onEdit(v)} className="text-blue-400 bg-blue-500/10 px-3 py-2 rounded-lg text-sm font-bold">編輯</button>
-              <button onClick={() => onDelete(v.id)} className={`text-red-400 px-3 py-2 rounded-lg text-sm font-bold ${isBlacklist ? 'bg-red-900/50 hover:bg-red-600 hover:text-white' : 'bg-red-500/10'}`}>刪除</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      {/* ...分頁邏輯... */}
+          ))}
+        </div>
+      )}
+
+      {/* 分頁按鈕 UI */}
+      {paginate && totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-6">
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === 1 ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+          >
+            上一頁
+          </button>
+          <span className="text-gray-400 text-xs font-bold">第 {page} / {totalPages} 頁</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === totalPages ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+          >
+            下一頁
+          </button>
+        </div>
+      )}
     </div>
   );
-
 };
 
 // 在參數大括號的最後面加上 , onTestReminder
@@ -1632,8 +1680,20 @@ const AdminPage = ({
         <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
           {activeTab === 'vtubers' && (
             <div className="space-y-8">
-              <AdminVtuberList title="待審核名單" list={pendingVtubers} privateDocs={privateDocs} onVerify={onVerifyVtuber} onReject={onRejectVtuber} onEdit={handleEditClick} onDelete={onDeleteVtuber} />
-              {/* 已退回名單 - 加入摺疊與搜尋功能 */}
+              {/* 1. 待審核名單 */}
+              <AdminVtuberList
+                title="待審核名單"
+                list={pendingVtubers}
+                privateDocs={privateDocs}
+                onVerify={onVerifyVtuber}
+                onReject={onRejectVtuber}
+                onEdit={handleEditClick}
+                onDelete={onDeleteVtuber}
+                paginate={true}
+                showSearch={true}
+              />
+
+              {/* 2. 已退回名單 */}
               {rejectedVtubers.length > 0 && (
                 <div className="mb-8 border border-orange-500/20 rounded-2xl overflow-hidden">
                   <button
@@ -1653,7 +1713,7 @@ const AdminPage = ({
                         title="搜尋退回名單"
                         list={rejectedVtubers}
                         privateDocs={privateDocs}
-                        onVerify={onVerifyVtuber}
+                        onVerify={onVerifyVtuber} // 退回名單也可以直接審核通過
                         onEdit={handleEditClick}
                         onDelete={onDeleteVtuber}
                         paginate={true}
@@ -1663,8 +1723,29 @@ const AdminPage = ({
                   )}
                 </div>
               )}
-              <AdminVtuberList title="已上架名片" list={verifiedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} paginate={true} showSearch={true} />
-              <AdminVtuberList title="黑單避雷區" list={blacklistedVtubers} privateDocs={privateDocs} onEdit={handleEditClick} onDelete={onDeleteVtuber} isBlacklist />
+
+              {/* 3. 已上架名片 */}
+              <AdminVtuberList
+                title="已上架名片"
+                list={verifiedVtubers}
+                privateDocs={privateDocs}
+                onEdit={handleEditClick}
+                onDelete={onDeleteVtuber}
+                paginate={true}
+                showSearch={true}
+              />
+
+              {/* 黑單避雷區 (通常數量較少，可不分頁或也加上) */}
+              <AdminVtuberList
+                title="黑單避雷區"
+                list={blacklistedVtubers}
+                privateDocs={privateDocs}
+                onEdit={handleEditClick}
+                onDelete={onDeleteVtuber}
+                isBlacklist
+                paginate={true}
+                showSearch={true}
+              />
               <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
                 <button onClick={onResetAllCollabTypes} className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"><i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型</button>
                 <button
