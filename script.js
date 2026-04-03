@@ -1162,24 +1162,8 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
             required
             type="text"
             value={form.verificationNote || ''}
-            placeholder="請輸入 X 或 YT"
-            onChange={(e) => {
-              // 自動將輸入轉為大寫，方便比對
-              const val = e.target.value.toUpperCase();
-              const targets = ["X", "YT"];
-
-              // 檢查輸入是否為空，或是 "X" 或 "YT" 的開頭一部分
-              // 例如：輸入 "Y" (是 YT 的開頭)，輸入 "YT" (符合)
-              const isPrefix = targets.some(t => t.startsWith(val));
-
-              if (val === "" || isPrefix) {
-                // 如果符合 X 或 YT 的輸入過程，更新資料
-                updateForm({ verificationNote: val });
-              } else {
-                // 只要輸入的字不符合目標字串，就跳警告並維持原本內容
-                alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可，請不要輸入其他訊息。");
-              }
-            }}
+            placeholder="請說明您在哪個平台的簡介放入了驗證文字（例如：已放至 X 簡介）"
+            onChange={(e) => updateForm({ verificationNote: e.target.value })}
             className={inputCls}
           />
         </div>
@@ -2991,12 +2975,9 @@ function App() {
     if (!user) return showToast("請先登入！");
 
     // 1. 驗證身分說明 (非管理員必須填寫 X 或 YT)
-    if (!isAdmin) {
-      const note = (customForm.verificationNote || "").toUpperCase();
-      if (note !== "X" && note !== "YT") {
-        alert("請將「V-Nexus審核中」暫時加入你的X或YT簡介，並告知管理員你放在X還是YT即可。");
-        return;
-      }
+    if (!isAdmin && !customForm.verificationNote?.trim()) {
+      alert("請填寫身分驗證說明，告知管理員您在哪個平台放入了驗證文字。");
+      return;
     }
 
     // 2. 驗證信箱
