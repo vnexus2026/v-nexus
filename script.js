@@ -56,16 +56,14 @@ const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
 const getRoomPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}`;
 const getMsgPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
 
-const LazyImage = ({ src, containerCls = '', imgCls = '', alt = '' }) => {
+const LazyImage = ({ src, containerCls = '', imgCls = '', alt = '', onClick }) => {
   const [loaded, setLoaded] = useState(false);
-  // 💡 修正：把內建的 relative 拔掉，完全交由外層傳入的 containerCls 決定定位
   return (
-    <div className={`overflow-hidden ${containerCls} ${loaded ? '' : 'bg-gray-700 animate-pulse'}`}>
+    <div onClick={onClick} className={`overflow-hidden ${containerCls} ${loaded ? '' : 'bg-gray-700 animate-pulse'}`}>
       {src && (
         <img
           src={src}
           alt={alt}
-          // 💡 修正：強制綁定 w-full h-full object-cover，保證圖片絕對不會撐破外框
           className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${loaded ? '' : '!opacity-0'} ${imgCls}`}
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(true)}
@@ -486,14 +484,30 @@ const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onI
 
   return (
     <div className="bg-gray-800/60 border border-gray-700 rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
+
+      {/* ▼▼▼ 招募大圖修改處 ▼▼▼ */}
       {b.image && (
-        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700">
-          <img src={sanitizeUrl(b.image)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="招募附圖" />
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700 bg-gray-900">
+          <LazyImage
+            src={sanitizeUrl(b.image)}
+            containerCls="absolute inset-0 w-full h-full"
+            imgCls="group-hover:scale-105 transition-transform duration-700"
+            alt="招募附圖"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent pointer-events-none z-10"></div>
         </div>
       )}
+
       <div className="bg-gray-900/80 p-5 border-b border-gray-700 flex items-start gap-4">
-        <img src={sanitizeUrl(b.vtuber.avatar)} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onNavigateProfile(b.vtuber, false); }} className="w-14 h-14 rounded-full border-2 border-purple-500/50 object-cover flex-shrink-0 cursor-pointer hover:scale-105 transition-transform" />
+
+        {/* ▼▼▼ 發起人頭像修改處 ▼▼▼ */}
+        <LazyImage
+          src={sanitizeUrl(b.vtuber.avatar)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onNavigateProfile(b.vtuber, false); }}
+          containerCls="w-14 h-14 rounded-full border-2 border-purple-500/50 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform z-10"
+          imgCls="rounded-full"
+        />
+
         <div className="flex-1 flex justify-between items-start gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1">
