@@ -44,6 +44,12 @@ const VTUBER_CACHE_TS = 'vnexus_vtubers_ts';
 const STATS_CACHE_KEY = 'vnexus_stats_data'; // ⚠️ 新增這行
 const STATS_CACHE_TS = 'vnexus_stats_ts';     // ⚠️ 新增這行
 const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
+const BULLETINS_CACHE_KEY = 'vnexus_bulletins_data';
+const BULLETINS_CACHE_TS = 'vnexus_bulletins_ts';
+const COLLABS_CACHE_KEY = 'vnexus_collabs_data';
+const COLLABS_CACHE_TS = 'vnexus_collabs_ts';
+const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
+
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 
 const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
@@ -1324,7 +1330,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
               <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
                 <i className="fa-solid fa-sparkles text-yellow-400"></i> 歡迎新Vtuber朋朋的加入！
               </h2>
-              <p className="text-gray-400 text-sm">最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！</p>
+              <p className="text-gray-400 text-sm">最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！偷偷說：更新自己資料也會跑到最前面哦！</p>
             </div>
           </div>
           {/* 電腦版顯示 5 欄，平板 3 欄，手機 1~2 欄，讓版面看起來整齊不擁擠 */}
@@ -2499,6 +2505,7 @@ function App() {
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
+
       // 1. 名片資料：增加 'bulletin' 和 'collabs'，確保這兩個頁面也能抓到 VTuber 資訊來顯示頭像名字
       const needsVtuberList = ['home', 'grid', 'profile', 'match', 'blacklist', 'dashboard', 'admin', 'bulletin', 'collabs'].includes(currentView);
 
@@ -2532,23 +2539,46 @@ function App() {
       // 2. 佈告欄與行程資料
       const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
-        try {
-          const [bSnap, cSnap, uSnap] = await Promise.all([
-            getDocs(collection(db, getPath('bulletins'))),
-            getDocs(collection(db, getPath('collabs'))),
-            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-          ]);
-          setRealBulletins(bSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealCollabs(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-          setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) {
-          console.error("抓取活動資料失敗:", e);
+        const now = Date.now();
+        const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
+        const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
+        const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
+        const cTs = localStorage.getItem(COLLABS_CACHE_TS);
+
+        const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
+        const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
+        const forceRefresh = (currentView === 'admin');
+
+        if (isBCacheValid && isCCacheValid && !forceRefresh) {
+          setRealBulletins(JSON.parse(bCache));
+          setRealCollabs(JSON.parse(cCache));
+          // Updates 較小，維持每次抓取
+          getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+            .then(uSnap => setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
+        } else {
+          try {
+            const [bSnap, cSnap, uSnap] = await Promise.all([
+              getDocs(collection(db, getPath('bulletins'))),
+              getDocs(collection(db, getPath('collabs'))),
+              getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+            ]);
+            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+            syncBulletinCache(bData);
+            syncCollabCache(cData);
+            setRealUpdates(uData);
+          } catch (e) { console.error("抓取活動資料失敗:", e); }
         }
       }
     };
 
     fetchLargeData();
+
   }, [currentView]);
+
+
 
   useEffect(() => {
     if (user && user.uid && realVtubers.length > 0) {
@@ -2893,10 +2923,22 @@ function App() {
   };
 
   const syncVtuberCache = (newList) => {
+
     setRealVtubers(newList);
     localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
     localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
   };
+  const syncBulletinCache = (newList) => {
+    setRealBulletins(newList);
+    localStorage.setItem(BULLETINS_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(BULLETINS_CACHE_TS, Date.now().toString());
+  };
+
+  const syncCollabCache = (newList) => {
+    setRealCollabs(newList);
+    localStorage.setItem(COLLABS_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
+  }
 
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault();
