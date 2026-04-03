@@ -23,3 +23,22 @@ messaging.onBackgroundMessage((payload) => {
     };
     self.registration.showNotification(notificationTitle, notificationOptions);
 });
+
+const IMAGE_CACHE_NAME = 'vnexus-image-cache-v1';
+
+// 攔截圖片請求
+self.addEventListener('fetch', (event) => {
+    if (event.request.destination === 'image') {
+        event.respondWith(
+            caches.open(IMAGE_CACHE_NAME).then((cache) => {
+                return cache.match(event.request).then((response) => {
+                    // 如果快取有，直接回傳；沒有就去下載並存入快取
+                    return response || fetch(event.request).then((networkResponse) => {
+                        cache.put(event.request, networkResponse.clone());
+                        return networkResponse;
+                    });
+                });
+            })
+        );
+    }
+});

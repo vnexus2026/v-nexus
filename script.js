@@ -406,9 +406,9 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
       {v.activityStatus === 'sleep' && <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">休眠中</div>}
       <div className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${v.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> {v.mainPlatform || 'YouTube'}</div>
     </div>
-    <div className="h-24 relative overflow-hidden flex-shrink-0"><img src={sanitizeUrl(v.banner)} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform" /><span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{v.agency}</span></div>
+    <div className="h-24 relative overflow-hidden flex-shrink-0"><img src={sanitizeUrl(v.banner)} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform" loading="lazy" decoding="async" /><span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{v.agency}</span></div>
     <div className="p-4 relative flex-1 flex flex-col">
-      <img src={sanitizeUrl(v.avatar)} className="absolute -top-8 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" />
+      <img src={sanitizeUrl(v.avatar)} className="absolute -top-8 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" loading="lazy" decoding="async" />
       <div className="ml-20 mb-3">
         <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
         <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
