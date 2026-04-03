@@ -56,6 +56,27 @@ const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join('_');
 const getRoomPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}`;
 const getMsgPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
 
+const LazyImage = ({ src, containerCls = '', imgCls = '', alt = '' }) => {
+  const [loaded, setLoaded] = useState(false);
+  // 💡 修正：把內建的 relative 拔掉，完全交由外層傳入的 containerCls 決定定位
+  return (
+    <div className={`overflow-hidden ${containerCls} ${loaded ? '' : 'bg-gray-700 animate-pulse'}`}>
+      {src && (
+        <img
+          src={src}
+          alt={alt}
+          // 💡 修正：強制綁定 w-full h-full object-cover，保證圖片絕對不會撐破外框
+          className={`w-full h-full object-cover transition-opacity duration-500 ease-in-out ${loaded ? '' : '!opacity-0'} ${imgCls}`}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(true)}
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+    </div>
+  );
+};
+
 const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -406,9 +427,25 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
       {v.activityStatus === 'sleep' && <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">休眠中</div>}
       <div className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === 'Twitch' ? 'bg-purple-600' : 'bg-red-600'}`}><i className={`fa-brands fa-${v.mainPlatform === 'Twitch' ? 'twitch' : 'youtube'}`}></i> {v.mainPlatform || 'YouTube'}</div>
     </div>
-    <div className="h-24 relative overflow-hidden flex-shrink-0"><img src={sanitizeUrl(v.banner)} className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform" loading="lazy" decoding="async" /><span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white">{v.agency}</span></div>
+
+    {/* ▼ 橫幅圖片區塊：使用 absolute inset-0 完美服貼 h-24 ▼ */}
+    <div className="h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
+      <LazyImage
+        src={sanitizeUrl(v.banner)}
+        containerCls="absolute inset-0 w-full h-full"
+        imgCls="opacity-60 group-hover:scale-105 transition-transform"
+      />
+      <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white z-10">{v.agency}</span>
+    </div>
+
     <div className="p-4 relative flex-1 flex flex-col">
-      <img src={sanitizeUrl(v.avatar)} className="absolute -top-8 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 object-cover" loading="lazy" decoding="async" />
+      {/* ▼ 頭像圖片區塊：固定 w-16 h-16 不變形 ▼ */}
+      <LazyImage
+        src={sanitizeUrl(v.avatar)}
+        containerCls="absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10"
+        imgCls="rounded-xl"
+      />
+
       <div className="ml-20 mb-3">
         <h3 className="font-bold text-white truncate flex items-center gap-1">{v.name} {v.isVerified && <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>}</h3>
         <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
@@ -3884,11 +3921,21 @@ function App() {
                           previousView === 'match' ? '返回配對' : '返回探索'}
             </button>
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden shadow-2xl">
-              <div className="h-48 sm:h-64 relative"><img src={sanitizeUrl(selectedVTuber.banner)} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div></div>
+              <div className="h-48 sm:h-64 relative">
+                <LazyImage
+                  src={sanitizeUrl(selectedVTuber.banner)}
+                  containerCls="absolute inset-0 w-full h-full"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent pointer-events-none z-10"></div>
+              </div>
               <div className="px-6 sm:px-10 pb-10 relative">
                 <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end -mt-16 sm:-mt-20 mb-8 z-10 relative">
                   <div className="flex flex-col gap-3 items-center sm:items-start flex-shrink-0">
-                    <img src={sanitizeUrl(selectedVTuber.avatar)} className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-gray-900 bg-gray-800 object-cover" />
+                    {/* ▼ 詳細名片大頭像 ▼ */}
+                    <LazyImage
+                      src={sanitizeUrl(selectedVTuber.avatar)}
+                      containerCls="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-gray-900 bg-gray-800 flex-shrink-0"
+                    />
                     {isVerifiedUser && selectedVTuber.id !== user?.uid && <button onClick={() => handleBraveInvite(selectedVTuber)} className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white px-4 py-2 w-full rounded-xl text-sm font-bold shadow-[0_0_15px_rgba(244,63,94,0.4)] flex items-center justify-center transition-transform hover:scale-105"><i className="fa-solid fa-heart mr-1.5"></i>勇敢邀請</button>}
                   </div>
                   <div className="flex-1 w-full">
