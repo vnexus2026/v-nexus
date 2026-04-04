@@ -757,7 +757,7 @@ const CollabTypesEditor = ({ formState, setFormState, showToast }) => {
   );
 };
 
-const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast, user }) => {
+const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, showToast, user, onDeleteSelf }) => {
   const [otpStatus, setOtpStatus] = useState('idle');
   const [otpInput, setOtpInput] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState(null);
@@ -1204,6 +1204,15 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
       </div>
       <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
         {onCancel && <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">取消</button>}
+        {!isAdmin && onDeleteSelf && (
+          <button
+            type="button"
+            onClick={onDeleteSelf}
+            className="px-6 py-3 rounded-xl font-bold text-red-400 border border-red-500/30 hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+          >
+            <i className="fa-solid fa-trash-can"></i> 刪除名片
+          </button>
+        )}
         <button type="submit" className={btnCls}><i className="fa-solid fa-floppy-disk mr-2"></i>{isAdmin ? '強制儲存更新' : '儲存名片'}</button>
       </div>
     </form>
@@ -3051,6 +3060,7 @@ function App() {
     localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
   };
 
+
   const handleSaveProfile = async (e, customForm = profileForm) => {
     if (e) e.preventDefault();
     if (!user) return showToast("請先登入！");
@@ -3158,6 +3168,42 @@ function App() {
       console.error("儲存失敗詳細錯誤:", err);
       // 這裡會噴出具體的錯誤原因，請打開 F12 查看
       showToast(`❌ 儲存失敗: ${err.message.slice(0, 20)}...`);
+    }
+  };
+
+  const handleUserDeleteSelf = async () => {
+    if (!user) return;
+
+    // 顯示自訂確認視窗
+    const confirmDelete = window.confirm("你確認要刪除V-NEXUS名片?\n提醒您: 刪除後需要重新審核");
+
+    if (!confirmDelete) return;
+
+    try {
+      showToast("⏳ 正在刪除您的名片...");
+
+      // 1. 刪除 Firestore 中的公開與私密資料
+      await deleteDoc(doc(db, getPath('vtubers'), user.uid));
+      await deleteDoc(doc(db, getPath('vtubers_private'), user.uid));
+
+      // 2. 更新本地狀態與快取
+      setRealVtubers(prev => {
+        const newList = prev.filter(v => v.id !== user.uid);
+        syncVtuberCache(newList);
+        return newList;
+      });
+
+      // 3. 重置表單狀態
+      setProfileForm(getEmptyProfile(user.uid));
+
+      showToast("✅ 名片已成功刪除");
+
+      // 4. 導向首頁或探索頁
+      navigate('home');
+
+    } catch (err) {
+      console.error("刪除失敗:", err);
+      showToast("❌ 刪除失敗，請稍後再試");
     }
   };
 
@@ -3898,7 +3944,7 @@ function App() {
             </div> {/* <-- 注意：這裡才是原本 text-center mb-8 關閉的地方 */}
 
             <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl">
-              <ProfileEditorForm form={profileForm} updateForm={(updates) => setProfileForm(prev => ({ ...prev, ...updates }))} onSubmit={(e) => handleSaveProfile(e)} showToast={showToast} isAdmin={false} user={user} />
+              <ProfileEditorForm form={profileForm} updateForm={(updates) => setProfileForm(prev => ({ ...prev, ...updates }))} onSubmit={(e) => handleSaveProfile(e)} showToast={showToast} isAdmin={false} user={user} onDeleteSelf={realVtubers.find(v => v.id === user?.uid) ? handleUserDeleteSelf : null} />
             </div>
 
             {user && myProfile && displayBulletins.filter(b => b.userId === user.uid).length > 0 && (
