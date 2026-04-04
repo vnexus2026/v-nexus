@@ -3576,8 +3576,32 @@ function App() {
     }
   };
 
-  const handleDeleteVtuber = async (id) => { if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return; try { await deleteDoc(doc(db, getPath('vtubers'), id)); await deleteDoc(doc(db, getPath('vtubers_private'), id)); setRealVtubers(prev => prev.filter(v => v.id !== id)); showToast("已刪除名片"); } catch (err) { showToast("刪除失敗"); } };
-  const handleDeleteBulletin = async (id) => { if (!confirm("確定要刪除這則招募文嗎？")) return; try { await deleteDoc(doc(db, getPath('bulletins'), id)); setRealBulletins(prev => prev.filter(b => b.id !== id)); showToast("已刪除招募文"); } catch (err) { showToast("刪除失敗"); } };
+  const handleDeleteVtuber = async (id) => {
+    if (!confirm("確定要刪除這張名片嗎？(此動作無法復原)")) return;
+    try {
+      await deleteDoc(doc(db, getPath('vtubers'), id));
+      await deleteDoc(doc(db, getPath('vtubers_private'), id));
+      setRealVtubers(prev => {
+        const newList = prev.filter(v => v.id !== id);
+        syncVtuberCache(newList); // ✅ 同步快取，防止幽靈復活
+        return newList;
+      });
+      showToast("已刪除名片");
+    } catch (err) { showToast("刪除失敗"); }
+  };
+
+  const handleDeleteBulletin = async (id) => {
+    if (!confirm("確定要刪除這則招募文嗎？")) return;
+    try {
+      await deleteDoc(doc(db, getPath('bulletins'), id));
+      setRealBulletins(prev => {
+        const newList = prev.filter(b => b.id !== id);
+        syncBulletinCache(newList); // ✅ 同步快取，刪除後即時消失
+        return newList;
+      });
+      showToast("已刪除招募文");
+    } catch (err) { showToast("刪除失敗"); }
+  };
   // 找到 handleAddCollab 並修改
   const handleAddCollab = async (collabData) => {
     try {
@@ -3603,7 +3627,18 @@ function App() {
     }
   };
 
-  const handleDeleteCollab = async (id) => { if (!confirm("確定要刪除這個聯動行程嗎？")) return; try { await deleteDoc(doc(db, getPath('collabs'), id)); setRealCollabs(prev => prev.filter(c => c.id !== id)); showToast("已刪除聯動行程"); } catch (err) { showToast("刪除失敗"); } };
+  const handleDeleteCollab = async (id) => {
+    if (!confirm("確定要刪除這個聯動行程嗎？")) return;
+    try {
+      await deleteDoc(doc(db, getPath('collabs'), id));
+      setRealCollabs(prev => {
+        const newList = prev.filter(c => c.id !== id);
+        syncCollabCache(newList); // ✅ 同步快取
+        return newList;
+      });
+      showToast("已刪除聯動行程");
+    } catch (err) { showToast("刪除失敗"); }
+  };
   const handleSaveSettings = async (tipsContent, rulesContent) => { try { if (tipsContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'tips'), { content: tipsContent }, { merge: true }); setRealTips(tipsContent); } if (rulesContent !== undefined) { await setDoc(doc(db, getPath('settings'), 'rules'), { content: rulesContent }, { merge: true }); setRealRules(rulesContent); } showToast("系統設定已更新！"); } catch (err) { showToast("更新失敗"); } };
   const handleAdminResetAllCollabTypes = async () => { if (!confirm("⚠️ 確定要清除所有人的聯動類型嗎？")) return; try { if (prompt("請輸入 'CONFIRM'") !== 'CONFIRM') return showToast("已取消操作。"); for (const v of realVtubers) { if (!v.id.startsWith('mock')) { await setDoc(doc(db, getPath('vtubers'), v.id), { collabTypes: [] }, { merge: true }); } } setRealVtubers(prev => prev.map(v => ({ ...v, collabTypes: [] }))); showToast("✅ 已清除所有人聯動類型！"); } catch (err) { showToast("清除失敗"); } };
   const handleAdminMassUpdateVerification = async () => {
@@ -4874,7 +4909,8 @@ function App() {
                 currentUser={user}
                 vtubers={typeof realVtubers !== 'undefined' ? realVtubers : []}
                 onOpenChat={handleOpenChat}
-                onDeleteChat={handleDeleteChat} // 傳入剛寫好的刪除函數
+                onDeleteChat={handleDeleteChat}
+                allChatRooms={allChatRooms} // ✅ 補上這行，聊天室就不會崩潰了！
               />
             </div>
           )}
