@@ -7,7 +7,6 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-const YOUTUBE_API_KEY = "請填入您的YouTube_API_KEY";
 // --------------------------------------------------
 
 const { useState, useEffect, useMemo, useRef } = React;
@@ -38,7 +37,7 @@ try {
 
 const provider = new GoogleAuthProvider();
 const APP_ID = 'v-nexus-official';
-const ONE_DAY = 1 * 60 * 60 * 1000; // 12小時的毫秒數
+const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
 const VTUBER_CACHE_KEY = 'vnexus_vtubers_data';
 const VTUBER_CACHE_TS = 'vnexus_vtubers_ts';
 const STATS_CACHE_KEY = 'vnexus_stats_data'; // ⚠️ 新增這行
@@ -2082,27 +2081,10 @@ const getStableRandom = (id) => {
   return stableRandomCache[id];
 };
 
-const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat }) => {
-  const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
+// 直接接收 allChatRooms，不建立新的連線
+const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allChatRooms }) => {
+  const rooms = [...allChatRooms].sort((a, b) => b.lastTimestamp - a.lastTimestamp);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    const q = query(
-      collection(db, getPath('chat_rooms')),
-      where('participants', 'array-contains', currentUser.uid)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      let loadedRooms = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // 依照最後訊息時間排序
-      loadedRooms.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
-      setRooms(loadedRooms);
-      setLoading(false);
-    });
-    return unsub;
-  }, [currentUser]);
-
-  if (loading) return <div className="p-4 text-center text-gray-500"><i className="fa-solid fa-spinner fa-spin"></i></div>;
   if (rooms.length === 0) return <div className="p-4 text-center text-gray-500 text-sm">目前沒有任何私訊紀錄</div>;
 
   return (
@@ -2124,7 +2106,6 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat }) => 
               <p className={`text-xs truncate ${isUnread ? 'text-purple-400 font-bold' : 'text-gray-400'}`}>{room.lastMessage}</p>
             </div>
 
-            {/* 右側按鈕區 */}
             <div className="flex items-center gap-2">
               {isUnread && <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>}
               <button
@@ -2636,12 +2617,9 @@ function App() {
         const cachedStats = localStorage.getItem(STATS_CACHE_KEY);
         const cachedStatsTs = localStorage.getItem(STATS_CACHE_TS);
 
-        // 1. 處理「網站統計數字」的快取邏輯
         if (cachedStats && cachedStatsTs && (now - parseInt(cachedStatsTs) < STATS_CACHE_LIMIT)) {
-          // 🚀 0 次讀取：從本地讀取統計數字
           setSiteStats(JSON.parse(cachedStats));
         } else {
-          // 📡 超過一小時，才去抓一次最新的統計數字
           const statsSnap = await getDoc(doc(db, getPath('settings'), 'stats'));
           if (statsSnap.exists()) {
             const statsData = statsSnap.data();
@@ -2651,7 +2629,6 @@ function App() {
           }
         }
 
-        // 2. 抓取其他必要設定 (Tips, Rules, Images) - 這些變動極少，也可以考慮快取，但目前先維持原樣
         const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
           getDoc(doc(db, getPath('settings'), 'tips')),
           getDoc(doc(db, getPath('settings'), 'rules')),
@@ -2662,8 +2639,6 @@ function App() {
         if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
         if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
 
-        // 3. 瀏覽量增加邏輯 (寫入次數優化)
-        // 雖然我們「讀取」是吃快取，但「增加人次」的寫入動作依然要在首頁執行
         if (currentView === 'home' && !sessionStorage.getItem('hasCountedView')) {
           updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => { });
           sessionStorage.setItem('hasCountedView', 'true');
@@ -2671,29 +2646,38 @@ function App() {
       } catch (err) { console.error("基礎設定載入失敗:", err); }
     };
     fetchBaseSettings();
+  }, [currentView]);
 
-    let unsubN = () => { };
-    if (user?.uid) {
-      unsubN = onSnapshot(query(collection(db, getPath('notifications')), where("userId", "==", user.uid)), async (snap) => {
-        const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const latestChatNotif = newNotifs.find(n => !n.read && n.type === 'chat_notification' && (Date.now() - n.createdAt < 5000));
+  // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
+  const vtubersRef = useRef(realVtubers);
+  const chatTargetRef = useRef(chatTarget);
+  useEffect(() => { vtubersRef.current = realVtubers; }, [realVtubers]);
+  useEffect(() => { chatTargetRef.current = chatTarget; }, [chatTarget]);
 
-        if (latestChatNotif) {
-          let sender = realVtubers.find(v => v.id === latestChatNotif.fromUserId);
-          if (!sender) {
-            const sSnap = await getDoc(doc(db, getPath('vtubers'), latestChatNotif.fromUserId));
-            if (sSnap.exists()) sender = { id: sSnap.id, ...sSnap.data() };
-          }
-          if (sender && chatTarget?.id !== sender.id) {
-            setChatTarget(sender);
-            updateDoc(doc(db, getPath('notifications'), latestChatNotif.id), { read: true });
-          }
+  // 3. 處理通知監聽 (只依賴 user.uid，無論怎麼切換頁面都不會重建連線！)
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubN = onSnapshot(query(collection(db, getPath('notifications')), where("userId", "==", user.uid), orderBy('createdAt', 'desc'), limit(100)), async (snap) => {
+      const newNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const latestChatNotif = newNotifs.find(n => !n.read && n.type === 'chat_notification' && (Date.now() - n.createdAt < 5000));
+
+      if (latestChatNotif) {
+        let sender = vtubersRef.current.find(v => v.id === latestChatNotif.fromUserId);
+        if (!sender) {
+          const sSnap = await getDoc(doc(db, getPath('vtubers'), latestChatNotif.fromUserId));
+          if (sSnap.exists()) sender = { id: sSnap.id, ...sSnap.data() };
         }
-        setRealNotifications(newNotifs);
-      });
-    }
+        if (sender && chatTargetRef.current?.id !== sender.id) {
+          setChatTarget(sender);
+          updateDoc(doc(db, getPath('notifications'), latestChatNotif.id), { read: true });
+        }
+      }
+      setRealNotifications(newNotifs);
+    });
+
     return () => unsubN();
-  }, [user, currentView, realVtubers.length]);
+  }, [user?.uid]);
 
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
@@ -2706,9 +2690,12 @@ function App() {
 
         // 如果快取過期或是管理員頁面，才去抓新的
         const isExpired = !cachedTs || (now - parseInt(cachedTs) > ONE_DAY);
-        const forceRefresh = (currentView === 'admin');
+        // 🚀 終極優化 2：管理員只在該次登入「首次」進入後台時強制更新全站 VTuber 資料
+        const forceRefresh = (currentView === 'admin' && !sessionStorage.getItem('adminFetched'));
 
         if (isExpired || forceRefresh) {
+          // 標記管理員已抓取過，本次登入期間不再反覆重抓
+          if (currentView === 'admin') sessionStorage.setItem('adminFetched', 'true');
           try {
             const vSnap = await getDocs(collection(db, getPath('vtubers')));
             const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2735,9 +2722,12 @@ function App() {
         if (isBCacheValid && isCCacheValid && !forceRefresh) {
           setRealBulletins(JSON.parse(bCache));
           setRealCollabs(JSON.parse(cCache));
-          // Updates 較小，維持每次抓取
-          getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-            .then(uSnap => setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
+
+          // 🚀 優化 5：避免頻繁重新抓取 Updates 公告
+          if (realUpdates.length === 0) {
+            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+              .then(uSnap => setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
+          }
         } else {
           try {
             const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -2763,70 +2753,67 @@ function App() {
 
 
 
+  const hasFetchedPrivate = useRef(false);
   useEffect(() => {
-    if (user && user.uid && realVtubers.length > 0) {
-      // 1. 先從已載入的清單中找到自己的公開資料
+    // 登出時重置
+    if (!user) hasFetchedPrivate.current = false;
+  }, [user]);
+
+  useEffect(() => {
+    if (user && user.uid && realVtubers.length > 0 && !hasFetchedPrivate.current) {
       const myPublicData = realVtubers.find(v => v.id === user.uid);
 
       if (myPublicData) {
-        // 2. 再從私密庫抓取 Email 與 驗證備註
+        hasFetchedPrivate.current = true; // 上鎖，防止重複讀取
         getDoc(doc(db, getPath('vtubers_private'), user.uid)).then(docSnap => {
           const pData = docSnap.exists() ? docSnap.data() : {};
 
-          // --- 補完轉換邏輯：將資料庫格式轉回表單 UI 格式 ---
-
-          // A. 處理連動類型 (區分預設與其他)
           const rawCollabs = Array.isArray(myPublicData.collabTypes) ? myPublicData.collabTypes : [];
           const stdCollabs = rawCollabs.filter(t => PREDEFINED_COLLABS.includes(t));
           const otherCollab = rawCollabs.find(t => !PREDEFINED_COLLABS.includes(t)) || '';
 
-          // B. 處理國籍 (區分預設與其他)
           const PREDEFINED_NATS = ['台灣', '日本', '香港', '馬來西亞'];
           const rawNats = Array.isArray(myPublicData.nationalities) ? myPublicData.nationalities : [];
           const stdNats = rawNats.filter(n => PREDEFINED_NATS.includes(n));
           const otherNat = rawNats.find(n => !PREDEFINED_NATS.includes(n)) || '';
 
-          // C. 處理人格類型 (MBTI/個性)
           const PREDEFINED_PERSONALITIES = ['我是I人', '時I時E', '我大E人', '看心情'];
           const pType = myPublicData.personalityType || '';
           const isOtherP = pType && !PREDEFINED_PERSONALITIES.includes(pType);
 
-          // 3. 合併所有資料到表單狀態
           setProfileForm(prev => ({
-            ...getEmptyProfile(user.uid), // 基礎結構
-            ...myPublicData,              // 公開資料
-            ...pData,                     // 私密資料 (Email, 驗證備註)
+            ...getEmptyProfile(user.uid),
+            ...myPublicData,
+            ...pData,
 
-            // 覆蓋需要特殊處理的欄位
             tags: Array.isArray(myPublicData.tags) ? myPublicData.tags.join(', ') : (myPublicData.tags || ''),
 
-            // 連動類型 UI 狀態
             collabTypes: stdCollabs,
             isOtherCollab: !!otherCollab,
             otherCollabText: otherCollab,
 
-            // 國籍 UI 狀態
             nationalities: stdNats,
             isOtherNationality: !!otherNat,
             otherNationalityText: otherNat,
 
-            // 人格 UI 狀態
             personalityType: isOtherP ? '其他' : pType,
             personalityTypeOther: isOtherP ? pType : '',
 
-            // 確保布林值與陣列正確
             publicEmailVerified: pData.publicEmailVerified || false,
             scheduleSlots: Array.isArray(myPublicData.scheduleSlots) ? myPublicData.scheduleSlots : [],
             colorSchemes: Array.isArray(myPublicData.colorSchemes) ? myPublicData.colorSchemes : []
           }));
-        }).catch(err => console.error("抓取私密資料失敗:", err));
+        }).catch(err => {
+          console.error("抓取私密資料失敗:", err);
+          hasFetchedPrivate.current = false; // 如果失敗，允許重試
+        });
       }
     }
   }, [user?.uid, realVtubers]);
 
   useEffect(() => {
     // 只有當前頁面是 admin 且 user 確定是管理員時才抓取
-    if (isAdmin && currentView === 'admin') {
+    if (isAdmin && currentView === 'admin' && Object.keys(privateDocs).length === 0) {
       getDocs(collection(db, getPath('vtubers_private')))
         .then(snap => {
           const pDocs = {};
