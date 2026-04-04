@@ -1314,28 +1314,17 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
 
   const newestVtubers = useMemo(() => {
     return [...realVtubers]
-      .filter(v =>
-        v.isVerified &&
-        !v.isBlacklisted &&
-        v.activityStatus !== 'sleep' &&
-        v.activityStatus !== 'graduated' &&
-        !String(v.id || '').startsWith('mock')
-      )
+      .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
       .sort((a, b) => {
-        // 輔助函式：取得該名片最後一次變動的時間戳（註冊或更新）
-        const getLatestTime = (v) => {
-          const getTime = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp
-            return 0;
-          };
-          // 取「建立時間」與「更新時間」中較大（較新）的那一個
-          return Math.max(getTime(v.createdAt), getTime(v.updatedAt));
+        const getTimestamp = (v) => {
+          const val = v.createdAt || v.updatedAt || 0;
+          if (typeof val === 'number') return val;
+          if (val.toMillis) return val.toMillis();
+          return 0;
         };
-        return getLatestTime(b) - getLatestTime(a); // 由新到舊排序
+        return getTimestamp(b) - getTimestamp(a);
       })
-      .slice(0, 5); // 只取前五名
+      .slice(0, 5);
   }, [realVtubers]);
 
   // 輔助組件：手機版最後一個按鈕卡片
@@ -2721,13 +2710,9 @@ function App() {
 
         if (isExpired || forceRefresh) {
           try {
-            const aggRef = doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_vtubers_light');
-            const aggSnap = await getDoc(aggRef);
-
-            if (aggSnap.exists()) {
-              const data = aggSnap.data().list; // 拿出剛剛在後端整理好的 lightList
-              syncVtuberCache(data);
-            }
+            const vSnap = await getDocs(collection(db, getPath('vtubers')));
+            const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data); // 這會更新 state 並存入快取
           } catch (e) { console.error(e); }
         }
         // 關鍵：無論如何都關閉 Loading，因為我們在 useState 已經確保有快取資料了
@@ -2756,11 +2741,10 @@ function App() {
         } else {
           try {
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDoc(doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_bulletins_light')),
-              getDoc(doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_collabs_light')),
-              // Updates 網站動態通常需要最新狀態且資料量不大，保留原本的 limit 查詢即可
+              getDocs(collection(db, getPath('bulletins'))),
+              getDocs(collection(db, getPath('collabs'))),
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-            ])
+            ]);
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
