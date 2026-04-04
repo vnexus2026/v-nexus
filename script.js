@@ -2898,7 +2898,22 @@ function App() {
     try {
       await updateDoc(doc(db, getPath('notifications'), notifId), { handled: true });
       const replyMsg = accept ? "可以試試看！我們站內信聯絡！" : "對不起，對方覺得暫時不適合聯動，謝謝你的邀約。";
+
+      // 1. 寫入站內通知
       await addDoc(collection(db, getPath('notifications')), { userId: senderId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: replyMsg, createdAt: Date.now(), read: false });
+
+      // 2. 寫入 Email 觸發資料庫 (✅ 補上這段)
+      const targetVtuber = realVtubers.find(v => v.id === senderId);
+      if (targetVtuber && targetVtuber.publicEmail) {
+        await addDoc(collection(db, getPath('mail')), {
+          to: targetVtuber.publicEmail,
+          message: {
+            subject: `[V-Nexus] 您送出的「勇敢邀請」有回覆了！`,
+            text: `您好 ${targetVtuber.name}！\n\n「${myProfile?.name || user.displayName || '某位創作者'}」回覆了您的勇敢邀請：\n"${replyMsg}"\n\n請登入 V-Nexus 站內信箱查看詳情：\nhttps://www.vnexus2026.com/#inbox`
+          }
+        }).catch(err => console.error("Mail Error:", err));
+      }
+
       setRealNotifications(prev => prev.map(n => n.id === notifId ? { ...n, handled: true } : n));
       showToast(accept ? "已回覆：可以試試" : "已回覆：委婉拒絕");
     } catch (err) { showToast("回覆失敗"); }
@@ -3409,16 +3424,31 @@ function App() {
 
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
-        // 僅保留站內通知，並更新通知訊息內容
+
+        // 1. 寫入站內通知
         addDoc(collection(db, getPath('notifications')), {
           userId: bulletinAuthorId,
           fromUserId: user.uid,
           fromUserName: myProfile?.name || user.displayName || '某位創作者',
           fromUserAvatar: myProfile?.avatar || user.photoURL,
-          message: '有人有意願！快去招募佈告欄看看！快回V-NEXUS看看！https://www.vnexus2026.com/',
+          message: '對您的招募企劃表達了意願！快去招募佈告欄看看！',
+          type: 'bulletin_apply',
           createdAt: Date.now(),
           read: false
         }).catch(() => { });
+
+        // 2. 寫入 Email 觸發資料庫 (✅ 補上這段，就能順利發信了)
+        const targetVtuber = realVtubers.find(v => v.id === bulletinAuthorId);
+        if (targetVtuber && targetVtuber.publicEmail) {
+          addDoc(collection(db, getPath('mail')), {
+            to: targetVtuber.publicEmail,
+            message: {
+              subject: `[V-Nexus] 您的招募企劃有新的創作者表達意願了！`,
+              text: `您好 ${targetVtuber.name}！\n\n「${myProfile?.name || user.displayName || '某位創作者'}」對您的招募企劃表達了意願！\n快登入 V-Nexus 前往「招募佈告欄」查看名單，並發送正式邀約吧！\nhttps://www.vnexus2026.com/#bulletin`
+            }
+          }).catch(err => console.error("Mail Error:", err));
+        }
+
       }
     } catch (err) { showToast("操作失敗"); }
   };
