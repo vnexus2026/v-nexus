@@ -2610,6 +2610,8 @@ function App() {
   }, [isLoading, isAdmin]);
   // --- 提醒邏輯結束 ---
 
+  const hasFetchedSettings = useRef(false);
+
   useEffect(() => {
     const fetchBaseSettings = async () => {
       try {
@@ -2629,15 +2631,19 @@ function App() {
           }
         }
 
-        const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
-          getDoc(doc(db, getPath('settings'), 'tips')),
-          getDoc(doc(db, getPath('settings'), 'rules')),
-          getDoc(doc(db, getPath('settings'), 'bulletinImages'))
-        ]);
+        // 加上鎖，整個連線生命週期內，站規與圖片庫只抓取一次！
+        if (!hasFetchedSettings.current) {
+          hasFetchedSettings.current = true;
+          const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
+            getDoc(doc(db, getPath('settings'), 'tips')),
+            getDoc(doc(db, getPath('settings'), 'rules')),
+            getDoc(doc(db, getPath('settings'), 'bulletinImages'))
+          ]);
 
-        if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
-        if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
-        if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
+          if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
+          if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
+          if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
+        }
 
         if (currentView === 'home' && !sessionStorage.getItem('hasCountedView')) {
           updateDoc(doc(db, getPath('settings'), 'stats'), { pageViews: increment(1) }).catch(() => { });
