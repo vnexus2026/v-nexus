@@ -365,7 +365,7 @@ const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNaviga
   if (!c) return null;
   const displayImg = sanitizeUrl(c.coverUrl || getYouTubeThumbnail(c.streamUrl) || 'https://duk.tw/bs1Moc.jpg');
   return (
-    <div className={`group ${isLive ? 'bg-red-950/40 border-2 border-red-500 shadow-[0_0_30px_rgba(220,38,38,0.4)] transform scale-[1.02] z-10' : 'bg-gray-800/60 border border-gray-700 hover:border-red-500/50 hover:shadow-red-500/20'} rounded-3xl overflow-hidden flex flex-col transition-all relative w-full`}>
+    <div className={`group h-full ${isLive ? 'bg-red-950/40 border-2 border-red-500 shadow-[0_0_30px_rgba(220,38,38,0.4)] transform scale-[1.02] z-10' : 'bg-gray-800/60 border border-gray-700 hover:border-red-500/50 hover:shadow-red-500/20'} rounded-3xl overflow-hidden flex flex-col transition-all relative w-full`}>
       {isLive && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center py-1.5 font-bold text-xs tracking-widest z-30 animate-pulse"><i className="fa-solid fa-satellite-dish mr-2"></i> 正在進行聯動中</div>}
       {onDeleteCollab && (isAdmin || (user && c.userId === user.uid)) && <button onClick={() => onDeleteCollab(c.id)} className={`absolute ${isLive ? 'top-10' : 'top-4'} right-4 z-20 bg-black/60 backdrop-blur-md text-gray-300 hover:text-red-400 hover:bg-black/80 p-2 rounded-lg transition-colors`} title="刪除此行程"><i className="fa-solid fa-trash"></i></button>}
       <div className={`h-48 relative overflow-hidden flex-shrink-0 ${isLive ? 'mt-8' : ''}`}>
@@ -419,7 +419,7 @@ const CollabCard = ({ c, isLive, isAdmin, user, onDeleteCollab, vtuber, onNaviga
 };
 
 const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
-  <div onClick={onSelect} className={`group bg-gray-800/40 border ${!v.isVerified ? 'border-yellow-500/50' : 'border-gray-700/50'} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}>
+  <div onClick={onSelect} className={`group h-full bg-gray-800/40 border ${!v.isVerified ? 'border-yellow-500/50' : 'border-gray-700/50'} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}>
     <div className="absolute top-2 left-2 z-10 flex gap-1">
       {!v.isVerified && <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>}
       {v.activityStatus === 'sleep' && <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">休眠中</div>}
@@ -472,7 +472,6 @@ const BulletinCard = ({ b, user, isVerifiedUser, onNavigateProfile, onApply, onI
   const [isExpanded, setIsExpanded] = useState(false);
   const [showApplicants, setShowApplicants] = useState(false);
   const isAuthor = user?.uid === b.userId;
-  // 👇 加上防呆，確保 b.applicants 是陣列
   const hasApplied = Array.isArray(b.applicants) ? b.applicants.includes(user?.uid) : false;
 
   useEffect(() => {
@@ -1398,18 +1397,15 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
           </div>
 
           {/* 手機版橫移，電腦版網格 */}
-          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar">
+          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar">
             {newestVtubers.map(v => (
-              <div key={v.id} className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left">
+              <div key={v.id} className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto">
                 <VTuberCard v={v} user={null} isVerifiedUser={false} onSelect={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }} onDislike={() => { }} />
               </div>
             ))}
-            <MobileMoreCard
-              onClick={() => navigate('grid')}
-              icon="fa-magnifying-glass"
-              text="來這裡找更多夥伴"
-              subText="查看完整 VTuber 名單"
-            />
+            <div className="flex-shrink-0 w-[60vw] sm:hidden">
+              <MobileMoreCard onClick={() => navigate('grid')} icon="fa-magnifying-glass" text="來這裡找更多夥伴" subText="查看完整 VTuber 名單" />
+            </div>
           </div>
 
           <div className="hidden sm:flex mt-10 justify-center">
@@ -1441,8 +1437,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 onClick={goToBulletin}
                 icon="fa-bullhorn"
                 text="查看更多招募"
-                subText="尋找適合你的聯動企劃"
-              />
+                subText="尋找適合你的聯動企劃" />
             </div>
             <div className="hidden sm:flex justify-center">
               <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2">
