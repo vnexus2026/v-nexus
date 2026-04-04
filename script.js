@@ -2721,9 +2721,13 @@ function App() {
 
         if (isExpired || forceRefresh) {
           try {
-            const vSnap = await getDocs(collection(db, getPath('vtubers')));
-            const data = vSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data); // 這會更新 state 並存入快取
+            const aggRef = doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_vtubers_light');
+            const aggSnap = await getDoc(aggRef);
+
+            if (aggSnap.exists()) {
+              const data = aggSnap.data().list; // 拿出剛剛在後端整理好的 lightList
+              syncVtuberCache(data);
+            }
           } catch (e) { console.error(e); }
         }
         // 關鍵：無論如何都關閉 Loading，因為我們在 useState 已經確保有快取資料了
@@ -2752,12 +2756,13 @@ function App() {
         } else {
           try {
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDocs(collection(db, getPath('bulletins'))),
-              getDocs(collection(db, getPath('collabs'))),
+              getDoc(doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_bulletins_light')),
+              getDoc(doc(db, 'artifacts/v-nexus-official/public/data/aggregate', 'all_collabs_light')),
+              // Updates 網站動態通常需要最新狀態且資料量不大，保留原本的 limit 查詢即可
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-            ]);
-            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            ])
+            const bData = bSnap.exists() ? bSnap.data().list : [];
+            const cData = cSnap.exists() ? cSnap.data().list : [];
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             syncBulletinCache(bData);
