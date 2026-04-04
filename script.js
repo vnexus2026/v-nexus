@@ -2761,8 +2761,8 @@ function App() {
               // Updates 網站動態通常需要最新狀態且資料量不大，保留原本的 limit 查詢即可
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ])
-            const bData = bSnap.exists() ? bSnap.data().list : [];
-            const cData = cSnap.exists() ? cSnap.data().list : [];
+            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             syncBulletinCache(bData);
