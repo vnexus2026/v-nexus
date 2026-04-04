@@ -1314,17 +1314,28 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
 
   const newestVtubers = useMemo(() => {
     return [...realVtubers]
-      .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
+      .filter(v =>
+        v.isVerified &&
+        !v.isBlacklisted &&
+        v.activityStatus !== 'sleep' &&
+        v.activityStatus !== 'graduated' &&
+        !String(v.id || '').startsWith('mock')
+      )
       .sort((a, b) => {
-        const getTimestamp = (v) => {
-          const val = v.createdAt || v.updatedAt || 0;
-          if (typeof val === 'number') return val;
-          if (val.toMillis) return val.toMillis();
-          return 0;
+        // 輔助函式：取得該名片最後一次變動的時間戳（註冊或更新）
+        const getLatestTime = (v) => {
+          const getTime = (val) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp
+            return 0;
+          };
+          // 取「建立時間」與「更新時間」中較大（較新）的那一個
+          return Math.max(getTime(v.createdAt), getTime(v.updatedAt));
         };
-        return getTimestamp(b) - getTimestamp(a);
+        return getLatestTime(b) - getLatestTime(a); // 由新到舊排序
       })
-      .slice(0, 5);
+      .slice(0, 5); // 只取前五名
   }, [realVtubers]);
 
   // 輔助組件：手機版最後一個按鈕卡片
