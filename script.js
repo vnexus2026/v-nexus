@@ -1278,8 +1278,9 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDelet
   );
 };
 
-const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants }) => {
+const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants, user, isVerifiedUser, onApply, onNavigateProfile }) => {
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
+
   const completedCollabsCount = useMemo(() => {
     return safeBulletins.filter(b => {
       if (!b) return false;
@@ -1290,33 +1291,55 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
     }).length;
   }, [safeBulletins, currentTime]);
 
+  const randomBulletins = useMemo(() => {
+    const active = safeBulletins.filter(b => !b.recruitEndTime || currentTime < b.recruitEndTime);
+    return [...active]
+      .sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id))
+      .slice(0, 3)
+      .map(b => {
+        const vt = realVtubers.find(v => v.id === b.userId) || { name: "匿名", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon" };
+        const safeApplicants = Array.isArray(b.applicants) ? b.applicants : [];
+        const applicantsData = safeApplicants.map(uid => realVtubers.find(v => v.id === uid)).filter(Boolean);
+        return { ...b, vtuber: vt, postedAt: formatTime(b.createdAt), applicantsData };
+      });
+  }, [safeBulletins, currentTime, realVtubers]);
+
   const safeDisplayCollabs = Array.isArray(displayCollabs) ? displayCollabs : [];
   const randomCollabs = useMemo(() => {
     if (!safeDisplayCollabs.length) return [];
     return [...safeDisplayCollabs]
-      .filter(c => c && c.id) // 過濾掉可能存在的無效資料
+      .filter(c => c && c.id)
       .sort((a, b) => getStableRandom(a.id) - getStableRandom(b.id))
       .slice(0, 4);
-  }, [safeDisplayCollabs.length]); // 簡化依賴項，避免在依賴項中使用 map 導致崩潰
+  }, [safeDisplayCollabs.length]);
 
   const newestVtubers = useMemo(() => {
     return [...realVtubers]
       .filter(v => v.isVerified && !v.isBlacklisted && v.activityStatus !== 'sleep' && v.activityStatus !== 'graduated' && !String(v.id || '').startsWith('mock'))
       .sort((a, b) => {
-        // ✅ 強化的時間抓取函式
         const getTimestamp = (v) => {
-          const val = v.createdAt || v.updatedAt || 0; // 如果沒有註冊時間，就用更新時間
-          if (!val) return 0;
+          const val = v.createdAt || v.updatedAt || 0;
           if (typeof val === 'number') return val;
-          if (val.toMillis) return val.toMillis(); // 處理 Firebase Timestamp 物件
+          if (val.toMillis) return val.toMillis();
           return 0;
         };
-
-        // 依照時間降冪排序 (最新的在前面)
         return getTimestamp(b) - getTimestamp(a);
       })
-      .slice(0, 5); // 只取前 5 名
+      .slice(0, 5);
   }, [realVtubers]);
+
+  // 輔助組件：手機版最後一個按鈕卡片
+  const MobileMoreCard = ({ onClick, icon, text, subText }) => (
+    <div className="flex-shrink-0 w-[60vw] sm:hidden flex flex-col items-center justify-center snap-center bg-gray-800/40 border-2 border-dashed border-gray-700 rounded-3xl p-6 text-center gap-3 active:scale-95 transition-transform" onClick={onClick}>
+      <div className="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center text-purple-400 text-xl">
+        <i className={`fa-solid ${icon}`}></i>
+      </div>
+      <div>
+        <p className="text-white font-bold">{text}</p>
+        <p className="text-[10px] text-gray-500 mt-1">{subText}</p>
+      </div>
+    </div>
+  );
 
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
@@ -1324,6 +1347,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
       <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-12 leading-tight">V-NEXUS <br /><br />讓是I人的你 <br className="my-2" />也可以找到<span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-red-400">最佳聯動夥伴</span></h1>
       <p className="text-gray-400 mb-4 max-w-2xl mx-auto text-lg leading-relaxed">大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？<br className="hidden md:block" />註冊你的名片，找尋你的夥伴吧！</p>
       <p className="text-red-400 text-sm font-bold mb-10 max-w-2xl mx-auto">目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。</p>
+
       <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
         <button onClick={() => navigate('grid')} className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white px-8 rounded-xl font-bold shadow-[0_0_25px_rgba(168,85,247,0.5)] transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center">
           <i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴
@@ -1337,16 +1361,14 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
         </div>
         <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0"><button onClick={onOpenRules} className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"><i className="fa-solid fa-triangle-exclamation mr-2"></i>V-NEXUS聯動規範</button></div>
       </div>
+
       <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-        {/* 瀏覽人次 */}
         <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
           <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">網站總瀏覽人次</p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             {siteStats?.pageViews !== null ? <AnimatedCounter value={siteStats.pageViews} /> : <i className="fa-solid fa-spinner fa-spin text-2xl"></i>}
           </p>
         </div>
-
-        {/* 成功聯動次數 */}
         <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
           <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">V-NEXUS已成功讓VTUBER聯動</p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
@@ -1354,8 +1376,6 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
             <span className="text-xl text-gray-500 font-bold ml-1">次</span>
           </p>
         </div>
-
-        {/* 註冊人數 */}
         <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
           <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">目前VTUBER註冊人數</p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
@@ -1367,59 +1387,107 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
 
       <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
 
+      {/* 歡迎新 VTuber */}
       {newestVtubers.length > 0 && (
         <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-            <div className="text-left">
-              <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-                <i className="fa-solid fa-sparkles text-yellow-400"></i> 歡迎新Vtuber朋朋的加入！
-              </h2>
-              <p className="text-gray-400 text-sm">最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！偷偷說：更新自己資料也會跑到最前面哦！</p>
-            </div>
+          <div className="text-left mb-8">
+            <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
+              <i className="fa-solid fa-sparkles text-yellow-400"></i> 歡迎新Vtuber朋朋的加入！
+            </h2>
+            <p className="text-gray-400 text-sm">最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！</p>
           </div>
-          {/* 電腦版顯示 5 欄，平板 3 欄，手機 1~2 欄，讓版面看起來整齊不擁擠 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-left">
+
+          {/* 手機版橫移，電腦版網格 */}
+          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar">
             {newestVtubers.map(v => (
-              <VTuberCard
-                key={v.id}
-                v={v}
-                user={null}
-                isVerifiedUser={false}
-                onSelect={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                onDislike={() => { }}
-              />
+              <div key={v.id} className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left">
+                <VTuberCard v={v} user={null} isVerifiedUser={false} onSelect={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }} onDislike={() => { }} />
+              </div>
             ))}
+            <MobileMoreCard
+              onClick={() => navigate('grid')}
+              icon="fa-magnifying-glass"
+              text="來這裡找更多夥伴"
+              subText="查看完整 VTuber 名單"
+            />
+          </div>
+
+          <div className="hidden sm:flex mt-10 justify-center">
+            <button onClick={() => navigate('grid')} className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:-translate-y-1 flex items-center gap-2 border border-gray-700">
+              <i className="fa-solid fa-magnifying-glass text-purple-400"></i> 來這裡找更多Vtuber夥伴
+            </button>
           </div>
         </div>
       )}
 
+      {/* 隨機招募區塊 */}
+      <div className="mt-16 pt-16 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="text-left mb-10">
+          <h2 className="text-3xl font-extrabold text-white mb-2">
+            <i className="fa-solid fa-bullhorn text-purple-400 mr-2"></i>來看看有哪些招募！
+          </h2>
+          <p className="text-gray-400">正在尋找夥伴的企劃，或許就有你感興趣的！</p>
+        </div>
+
+        {randomBulletins.length > 0 ? (
+          <div className="flex flex-col gap-10">
+            <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
+              {randomBulletins.map(b => (
+                <div key={b.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+                  <BulletinCard b={b} user={user} isVerifiedUser={isVerifiedUser} onNavigateProfile={onNavigateProfile} onApply={onApply} currentView="home" />
+                </div>
+              ))}
+              <MobileMoreCard
+                onClick={goToBulletin}
+                icon="fa-bullhorn"
+                text="查看更多招募"
+                subText="尋找適合你的聯動企劃"
+              />
+            </div>
+            <div className="hidden sm:flex justify-center">
+              <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2">
+                <i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700">
+            <p className="text-gray-500 font-bold text-lg">目前暫無招募中的企劃</p>
+          </div>
+        )}
+      </div>
+
+      {/* 為您隨機推薦聯動 */}
       <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
-          <div className="text-left"><h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2><p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p></div>
-          <button onClick={goToBulletin} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2"><i className="fa-solid fa-bullhorn"></i> 想找夥伴聯動嗎？看這裡！</button>
+        <div className="text-left mb-10">
+          <h2 className="text-3xl font-extrabold text-white mb-2"><i className="fa-solid fa-fire text-red-500 mr-2"></i>為您隨機推薦聯動</h2>
+          <p className="text-gray-400">快來看看有哪些 VTuber 即將展開精彩合作！</p>
         </div>
 
         {randomCollabs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto w-full">
-            {randomCollabs.map(c => (
-              <CollabCard
-                key={c.id}
-                c={c}
-                isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)}
-                vtuber={realVtubers.find(v => v.id === c.userId)}
-                realVtubers={realVtubers}
-                onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }}
-                onShowParticipants={onShowParticipants}
+          <div className="flex flex-col gap-10">
+            <div className="flex overflow-x-auto pb-6 gap-6 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-4xl mx-auto w-full">
+              {randomCollabs.map(c => (
+                <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+                  <CollabCard c={c} isLive={c.startTimestamp && currentTime >= c.startTimestamp && currentTime <= c.startTimestamp + (2 * 60 * 60 * 1000)} vtuber={realVtubers.find(v => v.id === c.userId)} realVtubers={realVtubers} onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }} onShowParticipants={onShowParticipants} />
+                </div>
+              ))}
+              <MobileMoreCard
+                onClick={() => navigate('collabs')}
+                icon="fa-broadcast-tower"
+                text="查看完整聯動表"
+                subText="掌握所有即將到來的直播"
               />
-            ))}
+            </div>
+            <div className="hidden sm:flex justify-center">
+              <button onClick={() => navigate('collabs')} className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
+            </div>
           </div>
         ) : (
           <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700 max-w-4xl mx-auto">
             <p className="text-gray-500 font-bold text-lg"><i className="fa-solid fa-ghost mb-4 text-3xl block"></i>目前沒有即將到來的聯動行程</p>
           </div>
         )}
-
-        <button onClick={() => navigate('collabs')} className="mt-10 bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1">查看完整確定聯動表 <i className="fa-solid fa-arrow-right ml-2"></i></button>
       </div>
     </section>
   );
@@ -3910,6 +3978,10 @@ function App() {
           setSelectedVTuber={setSelectedVTuber}
           realBulletins={realBulletins}
           onShowParticipants={(collab) => setViewParticipantsCollab(collab)}
+          user={user}
+          isVerifiedUser={isVerifiedUser}
+          onApply={(id, isApplying) => handleApplyBulletin(id, isApplying, realBulletins.find(b => b.id === id)?.userId)}
+          onNavigateProfile={(vt) => { setSelectedVTuber(vt); navigate(`profile/${vt.id}`); }}
         />}
 
         {currentView === 'inbox' && user && <InboxPage notifications={myNotifications} markAllAsRead={markAllAsRead} onMarkRead={handleMarkNotifRead} onDelete={handleDeleteNotif} onDeleteAll={handleDeleteAllNotifs} onNavigateProfile={handleNotifProfileNav} onBraveResponse={handleBraveInviteResponse} />}
