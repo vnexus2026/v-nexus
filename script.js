@@ -144,18 +144,27 @@ const FloatingChat = ({ targetVtuber, currentUser, myProfile, onClose, showToast
       };
 
       // A. 寄送 Email (10 分鐘一次)
-      if (now - lastEmailTime > 10 * 60 * 1000) {
-        roomUpdate.lastEmailSentAt = now;
-        if (targetVtuber.publicEmail) {
-          await addDoc(collection(db, getPath('mail')), {
-            to: targetVtuber.publicEmail,
-            message: {
-              subject: `[V-Nexus] 您有來自 ${myProfile?.name || '創作者'} 的新私訊`,
-              text: `您好 ${targetVtuber.name}，\n\n「${myProfile?.name || '某位創作者'}」傳送了新私訊給您。\n請至網站查看：https://www.vnexus2026.com/`
-            }
-          });
-        }
+      let shouldSendEmail = false;
+      if (now - lastNotifTime > 1 * 60 * 1000) {
+        roomUpdate.lastNotifSentAt = now;
+        shouldSendEmail = (now - lastEmailTime > 10 * 60 * 1000);
+        if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
+
+        await addDoc(collection(db, getPath('notifications')), {
+          userId: targetVtuber.id,
+          fromUserId: currentUser.uid,
+          fromUserName: myProfile?.name || "創作者",
+          fromUserAvatar: myProfile?.avatar || "",
+          message: "傳送了一則私訊，請查看右下角聊天室。",
+          createdAt: now,
+          read: false,
+          type: 'chat_notification',
+          sendEmail: shouldSendEmail // 🔒 交給後端決定是否寄信
+        });
       }
+
+      // 執行房間更新
+      await setDoc(roomRef, roomUpdate, { merge: true });
 
       // B. 站內通知 (1 分鐘一次)
       if (now - lastNotifTime > 1 * 60 * 1000) {
@@ -936,19 +945,16 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
       if (user && user.uid && !isAdmin) {
         await setDoc(doc(db, getPath('vtubers_private'), user.uid), { emailOtp: otp }, { merge: true });
       }
-      await addDoc(collection(db, getPath('mail')), {
-        to: email,
-        message: {
-          subject: "[V-Nexus] 公開工商信箱驗證碼",
-          text: `您的驗證碼為：${otp}\n\n請回到 V-Nexus 網站輸入此 6 位數驗證碼，以完成信箱綁定認證。\n(此驗證碼僅供本次驗證使用，請勿外流)`
-        }
-      });
+      // 🔒 改呼叫後端 API，前端徹底無權存取 mail 資料庫
+      const sendSystemEmail = httpsCallable(functionsInstance, 'sendSystemEmail');
+      await sendSystemEmail({ to: email, otp: otp });
+
       setGeneratedOtp(otp);
       setOtpStatus('sent');
       showToast("✅ 驗證碼已寄出！請至信箱收取");
     } catch (err) {
       setOtpStatus('idle');
-      showToast("發送失敗，請稍後再試或檢查資料庫權限");
+      showToast("發送失敗，請稍後再試或檢查網路");
     }
   };
 
@@ -1722,17 +1728,16 @@ const AdminPage = ({
 
   const handleTestMail = async () => {
     try {
-      await addDoc(collection(db, getPath('mail')), {
+      const sendSystemEmail = httpsCallable(functionsInstance, 'sendSystemEmail');
+      await sendSystemEmail({
         to: user?.email || 'apex.dasa@gmail.com',
-        message: {
-          subject: "[V-Nexus] 系統測試信件",
-          text: "如果您收到這封信，代表 V-Nexus 的 Trigger Email 擴充功能已經成功運作，且 mail 資料庫路徑已自動生成！"
-        }
+        subject: "[V-Nexus] 系統測試信件",
+        text: "如果您收到這封信，代表 V-Nexus 的 Cloud Functions 寄信 API 已經成功運作！"
       });
-      showToast("✅ 測試信件任務已寫入！請去 Firebase 後台查看 mail 路徑是否出現。");
+      showToast("✅ 測試信件任務已發送！");
     } catch (err) {
       console.error("Test Mail Error:", err);
-      showToast("❌ 寫入失敗，請按 F12 查看錯誤 (可能是 Firestore 規則阻擋)。");
+      showToast("❌ 寫入失敗，請按 F12 查看錯誤。");
     }
   };
 
@@ -2592,15 +2597,15 @@ function App() {
         await updateDoc(collabDoc.ref, { reminderSent: true });
 
         const allMemberIds = [collab.userId, ...(collab.participants || [])];
+        const sendSystemEmail = httpsCallable(functionsInstance, 'sendSystemEmail'); // 宣告安全 API
+
         allMemberIds.forEach(async (uid) => {
           const target = realVtubers.find(v => v.id === uid);
           if (target?.publicEmail) {
-            addDoc(collection(db, getPath('mail')), {
+            sendSystemEmail({
               to: target.publicEmail,
-              message: {
-                subject: `[V-Nexus 聯動提醒] 行程即將開始！`,
-                text: `您好 ${target.name}！您的聯動行程【${collab.title}】即將在 24 小時內開始！`
-              }
+              subject: `[V-Nexus 聯動提醒] 行程即將開始！`,
+              text: `您好 ${target.name}！您的聯動行程【${collab.title}】即將在 24 小時內開始！`
             }).catch(() => { });
           }
         });
@@ -2876,17 +2881,19 @@ function App() {
     }
 
     try {
-      await addDoc(collection(db, getPath('notifications')), { userId: target.id, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: '鼓起勇氣向您發送了「勇敢邀請」！請問您是否有意願聯動呢？', createdAt: Date.now(), read: false, type: 'brave_invite', handled: false });
-
-      if (target.publicEmail) {
-        await addDoc(collection(db, getPath('mail')), {
-          to: target.publicEmail,
-          message: {
-            subject: `[V-Nexus] 您收到了一個「勇敢邀請」！`,
-            text: `您好，${target.name}！\n\n「${myProfile?.name || user.displayName || '某位創作者'}」在 V-Nexus 上鼓起勇氣向您發送了「勇敢邀請」！\n\n請問您是否有意願聯動呢？\n\n請登入 V-Nexus https://www.vnexus2026.com/ 站內信箱查看對方的名片並回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
-          }
-        }).catch(err => console.error("Mail Error:", err));
-      }
+      // 🔒 只寫通知，交給後端處理信件
+      await addDoc(collection(db, getPath('notifications')), {
+        userId: target.id,
+        fromUserId: user.uid,
+        fromUserName: myProfile?.name || user.displayName || '某位創作者',
+        fromUserAvatar: myProfile?.avatar || user.photoURL,
+        message: '鼓起勇氣向您發送了「勇敢邀請」！請問您是否有意願聯動呢？',
+        type: 'brave_invite',
+        sendEmail: true,
+        createdAt: Date.now(),
+        read: false,
+        handled: false
+      });
 
       localStorage.setItem(lastInviteKey, Date.now().toString());
       showToast("✅ 勇敢邀請已發送！靜待佳音");
@@ -2899,20 +2906,18 @@ function App() {
       await updateDoc(doc(db, getPath('notifications'), notifId), { handled: true });
       const replyMsg = accept ? "可以試試看！我們站內信聯絡！" : "對不起，對方覺得暫時不適合聯動，謝謝你的邀約。";
 
-      // 1. 寫入站內通知
-      await addDoc(collection(db, getPath('notifications')), { userId: senderId, fromUserId: user.uid, fromUserName: myProfile?.name || user.displayName || '某位創作者', fromUserAvatar: myProfile?.avatar || user.photoURL, message: replyMsg, createdAt: Date.now(), read: false });
-
-      // 2. 寫入 Email 觸發資料庫 (✅ 補上這段)
-      const targetVtuber = realVtubers.find(v => v.id === senderId);
-      if (targetVtuber && targetVtuber.publicEmail) {
-        await addDoc(collection(db, getPath('mail')), {
-          to: targetVtuber.publicEmail,
-          message: {
-            subject: `[V-Nexus] 您送出的「勇敢邀請」有回覆了！`,
-            text: `您好 ${targetVtuber.name}！\n\n「${myProfile?.name || user.displayName || '某位創作者'}」回覆了您的勇敢邀請：\n"${replyMsg}"\n\n請登入 V-Nexus 站內信箱查看詳情：\nhttps://www.vnexus2026.com/#inbox`
-          }
-        }).catch(err => console.error("Mail Error:", err));
-      }
+      // 🔒 寫入通知並標記 sendEmail 觸發後端
+      await addDoc(collection(db, getPath('notifications')), {
+        userId: senderId,
+        fromUserId: user.uid,
+        fromUserName: myProfile?.name || user.displayName || '某位創作者',
+        fromUserAvatar: myProfile?.avatar || user.photoURL,
+        message: replyMsg,
+        type: 'brave_response',
+        sendEmail: true,
+        createdAt: Date.now(),
+        read: false
+      });
 
       setRealNotifications(prev => prev.map(n => n.id === notifId ? { ...n, handled: true } : n));
       showToast(accept ? "已回覆：可以試試" : "已回覆：委婉拒絕");
@@ -3418,14 +3423,13 @@ function App() {
 
       setRealBulletins(prev => {
         const newList = prev.map(b => b.id === bulletinId ? { ...b, applicants: isApplying ? [...(b.applicants || []), user.uid] : (b.applicants || []).filter(id => id !== user.uid) } : b);
-        syncBulletinCache(newList); // ✨ 同步快取
+        syncBulletinCache(newList);
         return newList;
       });
 
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
-
-        // 1. 寫入站內通知
+        // 🔒 統一寫入通知，並標記 sendEmail: true 觸發後端寄信
         addDoc(collection(db, getPath('notifications')), {
           userId: bulletinAuthorId,
           fromUserId: user.uid,
@@ -3433,22 +3437,10 @@ function App() {
           fromUserAvatar: myProfile?.avatar || user.photoURL,
           message: '對您的招募企劃表達了意願！快去招募佈告欄看看！',
           type: 'bulletin_apply',
+          sendEmail: true,
           createdAt: Date.now(),
           read: false
         }).catch(() => { });
-
-        // 2. 寫入 Email 觸發資料庫 (✅ 補上這段，就能順利發信了)
-        const targetVtuber = realVtubers.find(v => v.id === bulletinAuthorId);
-        if (targetVtuber && targetVtuber.publicEmail) {
-          addDoc(collection(db, getPath('mail')), {
-            to: targetVtuber.publicEmail,
-            message: {
-              subject: `[V-Nexus] 您的招募企劃有新的創作者表達意願了！`,
-              text: `您好 ${targetVtuber.name}！\n\n「${myProfile?.name || user.displayName || '某位創作者'}」對您的招募企劃表達了意願！\n快登入 V-Nexus 前往「招募佈告欄」查看名單，並發送正式邀約吧！\nhttps://www.vnexus2026.com/#bulletin`
-            }
-          }).catch(err => console.error("Mail Error:", err));
-        }
-
       }
     } catch (err) { showToast("操作失敗"); }
   };
@@ -3500,12 +3492,11 @@ function App() {
       const targetPrivate = privateDocs[id];
       const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
       if (emailToSend && targetVtuber) {
-        await addDoc(collection(db, getPath('mail')), {
+        const sendSystemEmail = httpsCallable(functionsInstance, 'sendSystemEmail');
+        sendSystemEmail({
           to: emailToSend,
-          message: {
-            subject: `[V-Nexus] 恭喜！您的創作者名片已審核通過 🎉`,
-            text: `您好，${targetVtuber.name}！\n\n恭喜您！您的名片已經正式上架。`
-          }
+          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
+          text: `您好，${targetVtuber.name}！很抱歉，您的名片未能通過審核，請查看原因並修改。`
         }).catch(e => console.error("Mail Error:", e));
       }
     } catch (err) {
@@ -3907,15 +3898,14 @@ function App() {
 
   const handleSendMassEmail = async (subject, content) => {
     let count = 0;
+    const sendSystemEmail = httpsCallable(functionsInstance, 'sendSystemEmail');
     for (const v of realVtubers) {
       const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
       if (email && email.includes('@')) {
-        addDoc(collection(db, getPath('mail')), {
+        sendSystemEmail({
           to: email,
-          message: {
-            subject: `[V-Nexus 官方公告] ${subject}`,
-            text: `您好，${v.name}！\n\n${content}\n\n祝 聯動順利！\nV-Nexus 團隊`
-          }
+          subject: `[V-Nexus 官方公告] ${subject}`,
+          text: `您好，${v.name}！\n\n${content}\n\n祝 聯動順利！\nV-Nexus 團隊`
         }).catch(console.error);
         count++;
       }
@@ -4459,15 +4449,16 @@ function App() {
                         const target = realVtubers.find(v => v.id === pId);
                         if (!target) return;
                         await addDoc(collection(db, getPath('notifications')), {
-                          userId: pId, fromUserId: user.uid, fromUserName: myProfile?.name || "系統", fromUserAvatar: myProfile?.avatar,
-                          message: `您已被加入聯動行程：【${publicCollabForm.title}】！`, createdAt: Date.now(), read: false
+                          userId: pId,
+                          fromUserId: user.uid,
+                          fromUserName: myProfile?.name || "系統",
+                          fromUserAvatar: myProfile?.avatar,
+                          message: `您已被加入聯動行程：【${publicCollabForm.title}】！`,
+                          type: 'collab_added',
+                          sendEmail: true,
+                          createdAt: Date.now(),
+                          read: false
                         });
-                        if (target.publicEmail) {
-                          await addDoc(collection(db, getPath('mail')), {
-                            to: target.publicEmail,
-                            message: { subject: `[V-Nexus] 聯動行程通知`, text: `您好 ${target.name}！\n\n「${myProfile?.name}」已將您加入聯動行程：${publicCollabForm.title}` }
-                          });
-                        }
                       });
 
                       // ✨ 修正重點：同時更新狀態與快取
@@ -4604,16 +4595,19 @@ function App() {
                   const lastMsg = localStorage.getItem(lastMsgKey);
                   if (lastMsg && Date.now() - parseInt(lastMsg) < 60000) return showToast("發送太頻繁，請稍後再試。");
                   try {
-                    await addDoc(collection(db, getPath('notifications')), { userId: selectedVTuber.id, fromUserId: user.uid, fromUserName: myProfile.name, fromUserAvatar: myProfile.avatar, message: inviteMessage, createdAt: Date.now(), read: false, type: 'collab_invite' });
-                    if (selectedVTuber.publicEmail) {
-                      await addDoc(collection(db, getPath('mail')), {
-                        to: selectedVTuber.publicEmail,
-                        message: {
-                          subject: `[V-Nexus] 您收到來自 ${myProfile.name} 的站內信聯動邀約！`,
-                          text: `您好，${selectedVTuber.name}！\n\n「${myProfile.name}」在 V-Nexus 上傳送了一封聯動邀約信件給您：\n\n"${inviteMessage}"\n\n請登入 V-Nexus https://www.vnexus2026.com/ 站內信箱查看並回覆對方吧！\n\n祝 聯動順利！\nV-Nexus 團隊`
-                        }
-                      }).catch(err => console.error("Mail Error:", err));
-                    }
+                    // 🔒 只寫通知，交給後端處理
+                    await addDoc(collection(db, getPath('notifications')), {
+                      userId: selectedVTuber.id,
+                      fromUserId: user.uid,
+                      fromUserName: myProfile.name,
+                      fromUserAvatar: myProfile.avatar,
+                      message: inviteMessage,
+                      type: 'collab_invite',
+                      sendEmail: true,
+                      createdAt: Date.now(),
+                      read: false
+                    });
+
                     localStorage.setItem(lastMsgKey, Date.now().toString());
                     showToast("✅ 邀請已發送！");
                     setIsCollabModalOpen(false); setInviteMessage('');
