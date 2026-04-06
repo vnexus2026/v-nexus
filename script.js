@@ -5510,6 +5510,36 @@ function App() {
     fetchLargeData();
   }, [currentView]);
 
+  useEffect(() => {
+    const needsArticleData = ['articles', 'admin'].includes(currentView);
+    if (!needsArticleData) return;
+
+    const fetchArticles = async () => {
+      const now = Date.now();
+      const aCache = localStorage.getItem(ARTICLES_CACHE_KEY);
+      const aTs = localStorage.getItem(ARTICLES_CACHE_TS);
+      const isACacheValid = aCache && aTs && now - parseInt(aTs) < ARTICLES_CACHE_LIMIT;
+      const forceRefresh = currentView === "admin";
+
+      if (isACacheValid && !forceRefresh) {
+        setRealArticles(JSON.parse(aCache));
+        return;
+      }
+
+      try {
+        const aSnap = await getDocs(collection(db, getPath("articles")));
+        const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setRealArticles(aData);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(aData));
+        localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
+      } catch (e) {
+        console.error("抓取文章失敗:", e);
+      }
+    };
+
+    fetchArticles();
+  }, [currentView]);
+
   const hasFetchedPrivate = useRef(false);
   useEffect(() => {
     // 登出時重置
@@ -7532,7 +7562,7 @@ function App() {
               <i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對
               {!isVerifiedUser && " 🔒"}
             </button>
-            <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-blue-400' : 'text-blue-400/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
+            <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-blue-400/70 hover:text-blue-400'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
             {user && (
               <button
                 onClick={() => navigate("inbox")}
@@ -7595,7 +7625,7 @@ function App() {
             >
               <i className="fa-solid fa-dice w-5"></i> 聯動隨機配對
             </button>
-            <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-blue-400/70 hover:text-blue-400'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
+            <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-blue-400' : 'text-blue-400/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
             {user && (
               <button
                 onClick={() => navigate("inbox")}
@@ -9719,37 +9749,7 @@ function App() {
                 const vt = realVtubers.find((v) => v.id === pId);
                 if (!vt) return null;
 
-                useEffect(() => {
-    // 只有當前頁面是「寶典」或「管理員後台」時，才觸發抓取
-    const needsArticleData = ['articles', 'admin'].includes(currentView);
-    if (!needsArticleData) return;
-
-    const fetchArticles = async () => {
-      const now = Date.now();
-      const aCache = localStorage.getItem(ARTICLES_CACHE_KEY);
-      const aTs = localStorage.getItem(ARTICLES_CACHE_TS);
-      const isACacheValid = aCache && aTs && now - parseInt(aTs) < ARTICLES_CACHE_LIMIT;
-      const forceRefresh = currentView === "admin"; // 管理員強制拿最新以利審核
-
-      if (isACacheValid && !forceRefresh) {
-        // 本地有有效快取，直接使用，消耗 0 資料庫讀取！
-        setRealArticles(JSON.parse(aCache));
-        return;
-      }
-
-      try {
-        const aSnap = await getDocs(collection(db, getPath("articles")));
-        const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setRealArticles(aData);
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(aData));
-        localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
-      } catch (e) {
-        console.error("抓取文章失敗:", e);
-      }
-    };
-
-    fetchArticles();
-  }, [currentView]);
+                
 
                 return (
                   <div
