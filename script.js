@@ -3624,8 +3624,13 @@ const AdminPage = ({
   onMassMigrateImages,
   articles,          // 👈 補上這三個
   onVerifyArticle,
-  onDeleteArticle
+  onDeleteArticle,
+  onEditArticle
 }) => {
+  const [editingArticleId, setEditingArticleId] = useState(null);
+  const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
+  // --- 👆 狀態宣告結束 ---
+
   const getAdminSortTime = (v) => {
     const getTime = (val) => {
       if (!val) return 0;
@@ -3715,6 +3720,8 @@ const AdminPage = ({
     const PREDEFINED_NATIONALITIES = ["台灣", "日本", "香港", "馬來西亞"];
     const PREDEFINED_LANGUAGES = ["國", "日", "英", "粵", "台語"];
     const PREDEFINED_PERSONALITIES = ["我是I人", "時I時E", "我大E人", "看心情"];
+
+
 
     const safeNats = Array.isArray(v.nationalities)
       ? v.nationalities
@@ -4260,6 +4267,7 @@ const AdminPage = ({
                     </div>
                     <div className="flex gap-2 flex-shrink-0 self-start sm:self-center">
                       <button onClick={() => onVerifyArticle(a.id)} className="bg-green-600/80 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-check mr-1"></i>核准張貼</button>
+                      <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="bg-blue-600/80 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-pen mr-1"></i>編輯</button>
                       <button onClick={() => onDeleteArticle(a.id)} className="bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-xmark mr-1"></i>拒絕/刪除</button>
                     </div>
                   </div>
@@ -4272,9 +4280,47 @@ const AdminPage = ({
                     <div className="min-w-0 flex-1">
                       <span className="font-bold text-white truncate block">{a.title} <span className="text-xs text-blue-400 font-normal ml-2 bg-blue-500/10 px-2 py-0.5 rounded">({a.category})</span></span>
                     </div>
+                    <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">編輯</button>
                     <button onClick={() => onDeleteArticle(a.id)} className="text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">強制刪除</button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {editingArticleId && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
+                <div className="bg-gray-800 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+                  <h3 className="font-bold text-white"><i className="fa-solid fa-pen text-blue-400 mr-2"></i>編輯文章</h3>
+                  <button onClick={() => setEditingArticleId(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-300 mb-1">標題</label>
+                    <input type="text" value={articleEditForm.title} onChange={e => setArticleEditForm({ ...articleEditForm, title: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-1">分類</label>
+                      <select value={articleEditForm.category} onChange={e => setArticleEditForm({ ...articleEditForm, category: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500">
+                        {ARTICLE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-300 mb-1">封面網址 (不改請留空)</label>
+                      <input type="text" value={articleEditForm.coverUrl} onChange={e => setArticleEditForm({ ...articleEditForm, coverUrl: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-300 mb-1">內文</label>
+                    <textarea rows="10" value={articleEditForm.content} onChange={e => setArticleEditForm({ ...articleEditForm, content: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500 font-mono text-sm" />
+                  </div>
+                </div>
+                <div className="bg-gray-800 px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
+                  <button onClick={() => setEditingArticleId(null)} className="px-4 py-2 text-gray-400 hover:text-white font-bold transition-colors">取消</button>
+                  <button onClick={() => { onEditArticle(editingArticleId, articleEditForm); setEditingArticleId(null); }} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow transition-transform hover:scale-105">儲存修改</button>
+                </div>
               </div>
             </div>
           )}
@@ -4967,31 +5013,54 @@ function App() {
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
   const handleIncrementArticleView = async (id) => {
-    console.log("👉 [測試] 準備增加閱讀數，文章 ID:", id);
+    if (!user) return;
 
-    // 防呆：如果這個使用者在此次瀏覽已經點過這篇文章，就不重複 +1
-    if (viewedArticles.current.has(id)) {
-      console.log("⚠️ [防呆] 這篇文章剛剛已經點過了，不再重複計算！");
+    // 使用 LocalStorage 紀錄該使用者的觀看時間戳記
+    const storageKey = `vnexus_views_${user.uid}`;
+    let viewHistory = {};
+    try {
+      viewHistory = JSON.parse(localStorage.getItem(storageKey)) || {};
+    } catch (e) { }
+
+    const lastViewed = viewHistory[id] || 0;
+    const now = Date.now();
+
+    // 防呆：如果 24 小時內 (24 * 60 * 60 * 1000 毫秒) 已經點過，就不重複 +1
+    if (now - lastViewed < 24 * 60 * 60 * 1000) {
+      console.log("⚠️ 24小時內已觀看過，不再重複計算閱讀數！");
       return;
     }
-    viewedArticles.current.add(id);
 
-    // 1. 先更新本地狀態與快取
+    // 更新最新觀看時間
+    viewHistory[id] = now;
+    localStorage.setItem(storageKey, JSON.stringify(viewHistory));
+
+    // 1. 畫面數字瞬間 +1
     setRealArticles(prev => {
       const list = prev.map(a => a.id === id ? { ...a, views: (a.views || 0) + 1 } : a);
       localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
-      console.log("✅ [本地] 畫面數字已強制 +1 更新完成！");
       return list;
     });
 
-    // 2. 背景發送給 Firebase 執行精準的 +1 動作
+    // 2. 背景發送給 Firebase 執行精準的 +1
     try {
-      await updateDoc(doc(db, getPath('articles'), id), {
-        views: increment(1)
+      await updateDoc(doc(db, getPath('articles'), id), { views: increment(1) });
+    } catch (e) { console.error("更新閱讀數失敗", e); }
+  };
+
+  // --- 👇 補上：管理員專用的文章編輯方法 ---
+  const handleAdminEditArticle = async (id, updatedForm) => {
+    try {
+      await updateDoc(doc(db, getPath('articles'), id), updatedForm);
+      setRealArticles(prev => {
+        const list = prev.map(a => a.id === id ? { ...a, ...updatedForm } : a);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+        return list;
       });
-      console.log("✅ [雲端] Firebase 資料庫閱讀數 +1 成功！");
+      showToast("✅ 文章修改成功！");
     } catch (e) {
-      console.error("❌ [雲端錯誤] Firebase 更新失敗 (可能被權限擋住):", e);
+      showToast("❌ 修改失敗");
+      console.error(e);
     }
   };
 
@@ -9393,6 +9462,7 @@ function App() {
             articles={realArticles}
             onVerifyArticle={handleVerifyArticle}
             onDeleteArticle={handleDeleteArticle}
+            onEditArticle={handleAdminEditArticle}
           />
         )}
       </main>
