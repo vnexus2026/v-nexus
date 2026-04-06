@@ -5446,7 +5446,7 @@ function App() {
         collection(db, getPath("notifications")),
         where("userId", "==", user.uid),
         orderBy("createdAt", "desc"),
-        limit(100),
+        limit(30),
       ),
       async (snap) => {
         const newNotifs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -5546,9 +5546,18 @@ function App() {
           }
         } else {
           try {
+            const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDocs(collection(db, getPath('bulletins'))),
-              getDocs(collection(db, getPath('collabs'))),
+              // 👇 加上 where 條件，只抓取「還沒過期」的招募
+              getDocs(query(
+                collection(db, getPath('bulletins')), 
+                where("recruitEndTime", ">", nowTime)
+              )),
+              // 👇 加上 where 條件，只抓取「聯動時間 + 2小時內」的行程
+              getDocs(query(
+                collection(db, getPath('collabs')),
+                where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000)
+              )),
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ]);
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
