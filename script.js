@@ -119,7 +119,7 @@ const LazyImage = ({
   onClick,
 }) => {
   const [loaded, setLoaded] = useState(false);
-  
+
   return (
     <div
       onClick={onClick}
@@ -305,11 +305,10 @@ const FloatingChat = ({
             className={`flex ${m.senderId === currentUser.uid ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
-                m.senderId === currentUser.uid
-                  ? "bg-purple-600 text-white rounded-tr-none"
-                  : "bg-gray-800 text-gray-200 rounded-tl-none border border-gray-700"
-              }`}
+              className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${m.senderId === currentUser.uid
+                ? "bg-purple-600 text-white rounded-tr-none"
+                : "bg-gray-800 text-gray-200 rounded-tl-none border border-gray-700"
+                }`}
             >
               {m.text}
             </div>
@@ -372,7 +371,7 @@ const sanitizeUrl = (url) => {
       prevDecoded = decoded;
       decoded = decodeURIComponent(decoded);
     } while (prevDecoded !== decoded && decoded.length < 2000);
-  } catch (e) {}
+  } catch (e) { }
   const normalized = decoded
     .replace(/[\s\x00-\x1f\x7f-\x9f]/g, "")
     .toLowerCase();
@@ -399,15 +398,26 @@ const PREDEFINED_COLLABS = [
 ];
 const COLLAB_CATEGORIES = ["遊戲", "雜談歌回", "特別企劃"];
 const ARTICLE_CATEGORIES = ['新手教學', '企劃分享', '心路歷程', '設備推薦', '綜合討論']; // 
-const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDelete, showToast, realVtubers }) => {
-  const [activeTab, setActiveTab] = useState('list'); // list, create, mine, read
+const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDelete, onIncrementView, showToast, realVtubers }) => {
+  const [activeTab, setActiveTab] = useState('list');
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [filterCategory, setFilterCategory] = useState('All');
   const [form, setForm] = useState({ title: '', category: ARTICLE_CATEGORIES[0], content: '', coverUrl: '' });
 
-  const publishedArticles = (articles || []).filter(a => a.status === 'published').sort((a, b) => b.createdAt - a.createdAt);
+  const [sortOrder, setSortOrder] = useState('latest'); // 👈 新增：排序狀態
+
+  // 👇 修改：根據目前的排序狀態，決定文章要怎麼排
+  const publishedArticles = (articles || [])
+    .filter(a => a.status === 'published')
+    .sort((a, b) => {
+      if (sortOrder === 'popular') {
+        return (b.views || 0) - (a.views || 0); // 最受歡迎：閱讀數由高到低
+      }
+      return b.createdAt - a.createdAt; // 最新發布：時間由新到舊 (預設)
+    });
   const myArticles = (articles || []).filter(a => user && a.userId === user.uid).sort((a, b) => b.createdAt - a.createdAt);
   const displayList = filterCategory === 'All' ? publishedArticles : publishedArticles.filter(a => a.category === filterCategory);
+  const currentArticle = selectedArticle ? (articles || []).find(a => a.id === selectedArticle.id) || selectedArticle : null;
 
   const handlePublish = async (e) => {
     e.preventDefault();
@@ -460,17 +470,36 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
 
       {activeTab === 'list' && (
         <div className="space-y-6">
-          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-            <button onClick={() => setFilterCategory('All')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === 'All' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>全部</button>
-            {ARTICLE_CATEGORIES.map(c => (
-              <button key={c} onClick={() => setFilterCategory(c)} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === c ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{c}</button>
-            ))}
+          {/* 👇 將原本單純的列表改成 flex 排版，左邊分類、右邊排序 */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+
+            {/* 左側：文章分類 */}
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar flex-1 w-full sm:w-auto">
+              <button onClick={() => setFilterCategory('All')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === 'All' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>全部</button>
+              {ARTICLE_CATEGORIES.map(c => (
+                <button key={c} onClick={() => setFilterCategory(c)} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === c ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{c}</button>
+              ))}
+            </div>
+
+            {/* 右側：排序下拉選單 */}
+            <div className="flex items-center gap-2 flex-shrink-0 bg-gray-800/80 p-1.5 rounded-xl border border-gray-700">
+              <span className="text-sm text-gray-400 font-bold ml-2"><i className="fa-solid fa-sort"></i> 排序</span>
+              <select
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value)}
+                className="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              >
+                <option value="latest">最新發布</option>
+                <option value="popular">最受歡迎 (最多閱讀)</option>
+              </select>
+            </div>
+
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayList.length === 0 ? <p className="text-gray-500 col-span-3 text-center py-10">目前尚無分類文章</p> : displayList.map(a => {
               const author = realVtubers.find(v => v.id === a.userId);
               return (
-                <div key={a.id} onClick={() => { setSelectedArticle(a); setActiveTab('read'); }} className="bg-gray-800/60 border border-gray-700 rounded-2xl overflow-hidden hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all flex flex-col h-full group">
+                <div key={a.id} onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="bg-gray-800/60 border border-gray-700 rounded-2xl overflow-hidden hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all flex flex-col h-full group">
                   {a.coverUrl && (
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -482,11 +511,16 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
                     {!a.coverUrl && <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow w-fit mb-2">{a.category}</span>}
                     <h3 className="font-bold text-white text-lg mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">{a.title}</h3>
                     <p className="text-sm text-gray-400 line-clamp-3 mb-4">{a.content.replace(/[#*]/g, '')}</p>
-                    <div className="mt-auto pt-4 border-t border-gray-700 flex items-center gap-3">
-                      <img src={sanitizeUrl(author?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-8 h-8 rounded-full border border-gray-600 object-cover flex-shrink-0" />
-                      <div className="text-xs min-w-0">
-                        <p className="text-gray-300 font-bold truncate">{author?.name || '匿名創作者'}</p>
-                        <p className="text-gray-500">{formatTime(a.createdAt)}</p>
+                    <div className="mt-auto pt-4 border-t border-gray-700 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <img src={sanitizeUrl(author?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-8 h-8 rounded-full border border-gray-600 object-cover flex-shrink-0" />
+                        <div className="text-xs min-w-0">
+                          <p className="text-gray-300 font-bold truncate">{author?.name || '匿名創作者'}</p>
+                          <p className="text-gray-500">{formatTime(a.createdAt)}</p>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 font-bold flex items-center gap-1.5 flex-shrink-0">
+                        <i className="fa-solid fa-eye"></i> {a.views || 0}
                       </div>
                     </div>
                   </div>
@@ -497,26 +531,30 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
         </div>
       )}
 
-      {activeTab === 'read' && selectedArticle && (
+      {activeTab === 'read' && currentArticle && (
         <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl relative">
           <button onClick={() => setActiveTab('list')} className="text-blue-400 hover:text-white mb-6 font-bold text-sm flex items-center gap-2 transition-colors"><i className="fa-solid fa-arrow-left"></i> 返回列表</button>
-          {selectedArticle.coverUrl && <img src={sanitizeUrl(selectedArticle.coverUrl)} className="w-full h-64 sm:h-96 object-cover rounded-2xl mb-8 border border-gray-700" />}
-          <div className="flex items-center gap-2 mb-4">
-            <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">{selectedArticle.category}</span>
-            <span className="text-gray-400 text-sm"><i className="fa-regular fa-clock mr-1"></i>{formatTime(selectedArticle.createdAt)}</span>
+          {currentArticle.coverUrl && <img src={sanitizeUrl(currentArticle.coverUrl)} className="w-full h-64 sm:h-96 object-cover rounded-2xl mb-8 border border-gray-700" />}
+
+          <div className="flex items-center gap-3 mb-4">
+            <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">{currentArticle.category}</span>
+            <span className="text-gray-400 text-sm flex items-center gap-1"><i className="fa-regular fa-clock"></i>{formatTime(currentArticle.createdAt)}</span>
+            {/* 👇 觀看數直接讀取最新同步的真實資料，不再使用強制 +1 的假象 */}
+            <span className="text-gray-400 text-sm flex items-center gap-1"><i className="fa-solid fa-eye"></i>{currentArticle.views || 0}</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-8 leading-tight">{selectedArticle.title}</h1>
-          
+
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-8 leading-tight">{currentArticle.title}</h1>
+
           <div className="flex items-center gap-4 mb-8 pb-8 border-b border-gray-700">
-            <img src={sanitizeUrl(realVtubers.find(v => v.id === selectedArticle.userId)?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-12 h-12 rounded-full border-2 border-blue-500/50 object-cover" />
+            <img src={sanitizeUrl(realVtubers.find(v => v.id === currentArticle.userId)?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-12 h-12 rounded-full border-2 border-blue-500/50 object-cover" />
             <div>
-              <p className="text-gray-200 font-bold">{realVtubers.find(v => v.id === selectedArticle.userId)?.name || '匿名創作者'}</p>
+              <p className="text-gray-200 font-bold">{realVtubers.find(v => v.id === currentArticle.userId)?.name || '匿名創作者'}</p>
               <p className="text-xs text-gray-500">文章作者</p>
             </div>
           </div>
 
           <article className="prose prose-invert prose-blue max-w-none text-gray-300">
-            {renderContent(selectedArticle.content)}
+            {renderContent(currentArticle.content)}
           </article>
         </div>
       )}
@@ -531,10 +569,13 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
                   <span className="text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">{a.category}</span>
                 </div>
                 <h3 className="font-bold text-white text-lg truncate">{a.title}</h3>
-                <p className="text-xs text-gray-500 mt-1">發布時間: {formatTime(a.createdAt)}</p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-xs text-gray-500">發布時間: {formatTime(a.createdAt)}</p>
+                  <p className="text-xs text-gray-500 font-bold flex items-center gap-1"><i className="fa-solid fa-eye"></i> {a.views || 0}</p>
+                </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                {a.status === 'published' && <button onClick={() => { setSelectedArticle(a); setActiveTab('read'); }} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">閱讀</button>}
+                {a.status === 'published' && <button onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">閱讀</button>}
                 <button onClick={() => onDelete(a.id)} className="flex-1 sm:flex-none bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-white border border-red-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors">刪除文章</button>
               </div>
             </div>
@@ -566,14 +607,14 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
                 {form.coverUrl && form.coverUrl.startsWith('data:image') && (
                   <div className="relative h-12 w-20 rounded-lg overflow-hidden border border-gray-600 flex-shrink-0">
                     <img src={form.coverUrl} className="w-full h-full object-cover" alt="封面預覽" />
-                    <button type="button" onClick={() => setForm({...form, coverUrl: ''})} className="absolute top-0 right-0 bg-red-600/80 hover:bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] backdrop-blur-sm"><i className="fa-solid fa-xmark"></i></button>
+                    <button type="button" onClick={() => setForm({ ...form, coverUrl: '' })} className="absolute top-0 right-0 bg-red-600/80 hover:bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] backdrop-blur-sm"><i className="fa-solid fa-xmark"></i></button>
                   </div>
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleCoverUpload} 
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-gray-400 focus:ring-purple-500 outline-none file:cursor-pointer file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 transition-colors" 
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverUpload}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-gray-400 focus:ring-purple-500 outline-none file:cursor-pointer file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 transition-colors"
                 />
               </div>
               {/* 👆 替換結束 */}
@@ -761,8 +802,8 @@ const CollabCard = ({
   if (!c) return null;
   const displayImg = sanitizeUrl(
     c.coverUrl ||
-      getYouTubeThumbnail(c.streamUrl) ||
-      "https://duk.tw/bs1Moc.jpg",
+    getYouTubeThumbnail(c.streamUrl) ||
+    "https://duk.tw/bs1Moc.jpg",
   );
   return (
     <div
@@ -956,11 +997,11 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
             v.subscribers ||
             v.youtubeUrl ||
             v.channelUrl) && (
-            <span className="flex items-center gap-1">
-              <i className="fa-brands fa-youtube text-red-400"></i>{" "}
-              {v.youtubeSubscribers || v.subscribers || "未公開"}
-            </span>
-          )}
+              <span className="flex items-center gap-1">
+                <i className="fa-brands fa-youtube text-red-400"></i>{" "}
+                {v.youtubeSubscribers || v.subscribers || "未公開"}
+              </span>
+            )}
           {(v.twitchFollowers || v.twitchUrl) && (
             <span className="flex items-center gap-1">
               <i className="fa-brands fa-twitch text-purple-400"></i>{" "}
@@ -1006,7 +1047,7 @@ const VTuberCard = ({ v, user, isVerifiedUser, onSelect, onDislike }) => (
       </div>
       <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
         {(v.youtubeUrl || v.channelUrl) &&
-        (v.youtubeUrl || v.channelUrl) !== "#" ? (
+          (v.youtubeUrl || v.channelUrl) !== "#" ? (
           <a
             href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
             target="_blank"
@@ -1429,10 +1470,10 @@ const MatchPage = ({
       }
       let filtered = desiredType
         ? candidates.filter(
-            (v) =>
-              Array.isArray(v.collabTypes) &&
-              v.collabTypes.includes(desiredType),
-          )
+          (v) =>
+            Array.isArray(v.collabTypes) &&
+            v.collabTypes.includes(desiredType),
+        )
         : candidates;
       if (filtered.length === 0) {
         showToast("找不到完全符合類型的對象，為您隨機推薦一位命定夥伴！");
@@ -1944,7 +1985,7 @@ const ProfileEditorForm = ({
           updateDoc(doc(db, getPath("vtubers"), form.id || user.uid), {
             twitchFollowers: formattedCount,
             lastTwitchFetchTime: now,
-          }).catch(() => {});
+          }).catch(() => { });
         }
         if (typeof autoUrl !== "string")
           showToast("✅ 成功抓取 Twitch 追隨數！");
@@ -2012,7 +2053,7 @@ const ProfileEditorForm = ({
           updateDoc(doc(db, getPath("vtubers"), form.id || user.uid), {
             youtubeSubscribers: formattedCount,
             lastYoutubeFetchTime: now,
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
         if (typeof autoUrl !== "string")
@@ -2840,7 +2881,7 @@ const InboxPage = ({
                 <img
                   src={sanitizeUrl(
                     n.fromUserAvatar ||
-                      "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
+                    "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                   )}
                   onClick={() => onNavigateProfile(n.fromUserId)}
                   className="w-14 h-14 rounded-full border-2 border-gray-700 bg-gray-900 object-cover cursor-pointer hover:border-purple-400"
@@ -3186,7 +3227,7 @@ const HomePage = ({
                     setSelectedVTuber(v);
                     navigate(`profile/${v.id}`);
                   }}
-                  onDislike={() => {}}
+                  onDislike={() => { }}
                 />
               </div>
             ))}
@@ -4203,7 +4244,7 @@ const AdminPage = ({
             </div>
           )}
 
-{activeTab === 'articles' && (
+          {activeTab === 'articles' && (
             <div className="space-y-6">
               <h3 className="text-xl font-bold text-white mb-4">寶典文章審核系統</h3>
               <div className="space-y-4">
@@ -4696,6 +4737,7 @@ function App() {
       return cached ? JSON.parse(cached) : [];
     } catch { return []; }
   });
+  const viewedArticles = useRef(new Set());
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
@@ -4924,6 +4966,36 @@ function App() {
   });
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
+  const handleIncrementArticleView = async (id) => {
+    console.log("👉 [測試] 準備增加閱讀數，文章 ID:", id);
+
+    // 防呆：如果這個使用者在此次瀏覽已經點過這篇文章，就不重複 +1
+    if (viewedArticles.current.has(id)) {
+      console.log("⚠️ [防呆] 這篇文章剛剛已經點過了，不再重複計算！");
+      return;
+    }
+    viewedArticles.current.add(id);
+
+    // 1. 先更新本地狀態與快取
+    setRealArticles(prev => {
+      const list = prev.map(a => a.id === id ? { ...a, views: (a.views || 0) + 1 } : a);
+      localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+      console.log("✅ [本地] 畫面數字已強制 +1 更新完成！");
+      return list;
+    });
+
+    // 2. 背景發送給 Firebase 執行精準的 +1 動作
+    try {
+      await updateDoc(doc(db, getPath('articles'), id), {
+        views: increment(1)
+      });
+      console.log("✅ [雲端] Firebase 資料庫閱讀數 +1 成功！");
+    } catch (e) {
+      console.error("❌ [雲端錯誤] Firebase 更新失敗 (可能被權限擋住):", e);
+    }
+  };
+
+
   const handlePublishArticle = async (form) => {
     if (!user) return;
     const status = isAdmin ? 'published' : 'pending';
@@ -4946,12 +5018,12 @@ function App() {
       };
 
       const docRef = await addDoc(collection(db, getPath('articles')), {
-        ...safeForm, 
-        userId: user.uid, 
-        status: status, 
+        ...safeForm,
+        userId: user.uid,
+        status: status,
         createdAt: Date.now()
       });
-      
+
       const newArticle = { id: docRef.id, ...safeForm, userId: user.uid, status, createdAt: Date.now() };
       setRealArticles(prev => {
         const list = [newArticle, ...prev];
@@ -4959,9 +5031,9 @@ function App() {
         return list;
       });
       showToast(isAdmin ? "✅ 文章已直接發布！" : "✅ 文章已送出，等待管理員審核！");
-    } catch (e) { 
+    } catch (e) {
       console.error("發布文章詳細錯誤:", e);
-      showToast("❌ 發布失敗：" + e.message); 
+      showToast("❌ 發布失敗：" + e.message);
     }
   };
 
@@ -5363,7 +5435,7 @@ function App() {
               to: target.publicEmail,
               subject: `[V-Nexus 聯動提醒] 行程即將開始！`,
               text: `您好 ${target.name}！您的聯動行程【${collab.title}】即將在 24 小時內開始！`,
-            }).catch(() => {});
+            }).catch(() => { });
           }
         });
       });
@@ -5417,7 +5489,7 @@ function App() {
         ) {
           updateDoc(doc(db, getPath("settings"), "stats"), {
             pageViews: increment(1),
-          }).catch(() => {});
+          }).catch(() => { });
           sessionStorage.setItem("hasCountedView", "true");
         }
       } catch (err) {
@@ -5550,7 +5622,7 @@ function App() {
             const [bSnap, cSnap, uSnap] = await Promise.all([
               // 👇 加上 where 條件，只抓取「還沒過期」的招募
               getDocs(query(
-                collection(db, getPath('bulletins')), 
+                collection(db, getPath('bulletins')),
                 where("recruitEndTime", ">", nowTime)
               )),
               // 👇 加上 where 條件，只抓取「聯動時間 + 2小時內」的行程
@@ -5710,8 +5782,8 @@ function App() {
     () =>
       user
         ? realNotifications
-            .filter((n) => n.userId === user.uid)
-            .sort((a, b) => b.createdAt - a.createdAt)
+          .filter((n) => n.userId === user.uid)
+          .sort((a, b) => b.createdAt - a.createdAt)
         : [],
     [realNotifications, user],
   );
@@ -5734,7 +5806,7 @@ function App() {
     }
     if (!n.read)
       updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(
-        () => {},
+        () => { },
       );
     setIsNotifOpen(false);
   };
@@ -5748,7 +5820,7 @@ function App() {
   const handleMarkNotifRead = async (id) => {
     try {
       await updateDoc(doc(db, getPath("notifications"), id), { read: true });
-    } catch (err) {}
+    } catch (err) { }
   };
   const handleDeleteNotif = async (id) => {
     if (!confirm("確定要刪除這則通知嗎？")) return;
@@ -6093,7 +6165,7 @@ function App() {
       const matchColor =
         selectedColor === "All" || vColors.includes(selectedColor);
 
-        
+
 
       return (
         matchSearch &&
@@ -6514,14 +6586,14 @@ function App() {
           const newList = prev.map((b) =>
             b.id === newBulletin.id
               ? {
-                  ...b,
-                  content: newBulletin.content,
-                  collabType: ft,
-                  collabSize: newBulletin.collabSize,
-                  collabTime: newBulletin.collabTime,
-                  recruitEndTime: rEnd,
-                  image: finalImage,
-                }
+                ...b,
+                content: newBulletin.content,
+                collabType: ft,
+                collabSize: newBulletin.collabSize,
+                collabTime: newBulletin.collabTime,
+                recruitEndTime: rEnd,
+                image: finalImage,
+              }
               : b,
           );
           syncBulletinCache(newList);
@@ -6610,11 +6682,11 @@ function App() {
         const newList = prev.map((b) =>
           b.id === bulletinId
             ? {
-                ...b,
-                applicants: isApplying
-                  ? [...(b.applicants || []), user.uid]
-                  : (b.applicants || []).filter((id) => id !== user.uid),
-              }
+              ...b,
+              applicants: isApplying
+                ? [...(b.applicants || []), user.uid]
+                : (b.applicants || []).filter((id) => id !== user.uid),
+            }
             : b,
         );
         syncBulletinCache(newList);
@@ -6634,7 +6706,7 @@ function App() {
           sendEmail: true,
           createdAt: Date.now(),
           read: false,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (err) {
       showToast("操作失敗");
@@ -6655,10 +6727,10 @@ function App() {
         prev.map((v) =>
           v.id === target.id
             ? {
-                ...v,
-                likes: (v.likes || 0) + 1,
-                likedBy: [...(v.likedBy || []), user.uid],
-              }
+              ...v,
+              likes: (v.likes || 0) + 1,
+              likedBy: [...(v.likedBy || []), user.uid],
+            }
             : v,
         ),
       );
@@ -6707,12 +6779,12 @@ function App() {
         prev.map((v) =>
           v.id === tId
             ? {
-                ...v,
-                dislikes: newD,
-                dislikedBy: [...(v.dislikedBy || []), user.uid],
-                isVerified: updates.isVerified ?? v.isVerified,
-                isBlacklisted: updates.isBlacklisted ?? v.isBlacklisted,
-              }
+              ...v,
+              dislikes: newD,
+              dislikedBy: [...(v.dislikedBy || []), user.uid],
+              isVerified: updates.isVerified ?? v.isVerified,
+              isBlacklisted: updates.isBlacklisted ?? v.isBlacklisted,
+            }
             : v,
         ),
       );
@@ -6836,9 +6908,9 @@ function App() {
       const tagsArray =
         typeof updatedData.tags === "string"
           ? updatedData.tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter((t) => t)
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t)
           : Array.isArray(updatedData.tags)
             ? updatedData.tags
             : [];
@@ -7215,7 +7287,7 @@ function App() {
             updates.youtubeSubscribers = fmt;
           }
           updates.lastYoutubeFetchTime = Date.now();
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (Object.keys(updates).length > 0) {
@@ -7318,7 +7390,7 @@ function App() {
             prev.map((rv) => (rv.id === v.id ? { ...rv, ...updates } : rv)),
           );
           successCount++;
-        } catch (e) {}
+        } catch (e) { }
       }
       await new Promise((r) => setTimeout(r, 1500));
     }
@@ -7457,7 +7529,7 @@ function App() {
                                 <img
                                   src={sanitizeUrl(
                                     n.fromUserAvatar ||
-                                      "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
+                                    "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                                   )}
                                   className="w-10 h-10 rounded-full bg-gray-800 object-cover flex-shrink-0"
                                 />
@@ -7531,7 +7603,7 @@ function App() {
                     <img
                       src={sanitizeUrl(
                         user.photoURL ||
-                          "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
+                        "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                       )}
                       className="w-5 h-5 rounded-full"
                     />
@@ -7541,11 +7613,11 @@ function App() {
                     {realVtubers.find(
                       (v) => v.id === user.uid && !v.isVerified,
                     ) && (
-                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                      </span>
-                    )}
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                      )}
                   </button>
                   <button
                     onClick={handleLogout}
@@ -7557,15 +7629,15 @@ function App() {
                 </div>
               )}
               {isAdmin && (
-              <button onClick={() => navigate('admin')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap flex items-center ${currentView === 'admin' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}>
-                <i className="fa-solid fa-shield-halved mr-1"></i> 管理員
-                {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
-                  <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                    {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
-                  </span>
-                )}
-              </button>
-            )}
+                <button onClick={() => navigate('admin')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap flex items-center ${currentView === 'admin' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}>
+                  <i className="fa-solid fa-shield-halved mr-1"></i> 管理員
+                  {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                      {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden text-gray-300 p-2 text-2xl ml-1"
@@ -7585,11 +7657,10 @@ function App() {
             </button>
             <button
               onClick={() => navigate("grid")}
-              className={`flex items-center gap-1.5 px-5 py-2 rounded-full font-bold transition-all text-sm whitespace-nowrap animate-glow-pulse ${
-                currentView === "grid" || currentView === "profile"
-                  ? "bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-[0_0_25px_rgba(168,85,247,0.8)] scale-105 border border-white/30"
-                  : "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:scale-105 hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]"
-              }`}
+              className={`flex items-center gap-1.5 px-5 py-2 rounded-full font-bold transition-all text-sm whitespace-nowrap animate-glow-pulse ${currentView === "grid" || currentView === "profile"
+                ? "bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-[0_0_25px_rgba(168,85,247,0.8)] scale-105 border border-white/30"
+                : "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:scale-105 hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]"
+                }`}
             >
               <i className="fa-solid fa-magnifying-glass"></i> 尋找 VTuber 夥伴
             </button>
@@ -7649,11 +7720,10 @@ function App() {
             </button>
             <button
               onClick={() => navigate("grid")}
-              className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition-all ${
-                currentView === "grid" || currentView === "profile"
-                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]"
-                  : "bg-gradient-to-r from-purple-600/90 to-pink-600/90 text-white shadow-[0_0_10px_rgba(168,85,247,0.3)]"
-              }`}
+              className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition-all ${currentView === "grid" || currentView === "profile"
+                ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]"
+                : "bg-gradient-to-r from-purple-600/90 to-pink-600/90 text-white shadow-[0_0_10px_rgba(168,85,247,0.3)]"
+                }`}
             >
               <i className="fa-solid fa-magnifying-glass w-5"></i> 尋找 VTuber
               夥伴
@@ -7705,7 +7775,7 @@ function App() {
             )}
             {isAdmin && (
               <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}>
-                <div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div> 
+                <div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div>
                 {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
                   <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
                     {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
@@ -7840,7 +7910,7 @@ function App() {
             {user &&
               myProfile &&
               displayBulletins.filter((b) => b.userId === user.uid).length >
-                0 && (
+              0 && (
                 <div className="mt-16 animate-fade-in-up">
                   <h3 className="text-2xl font-extrabold text-white mb-6 border-b border-gray-700 pb-3 flex items-center">
                     <i className="fa-solid fa-bullhorn text-purple-400 mr-3"></i>
@@ -8064,8 +8134,8 @@ function App() {
                     <i className="fa-solid fa-shuffle mr-1"></i> 重新洗牌
                   </button>
                   <button onClick={() => navigate('blacklist')} className="bg-red-900/50 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-red-500/50">
-  <i className="fa-solid fa-ban mr-1"></i> 黑單避雷區
-</button>
+                    <i className="fa-solid fa-ban mr-1"></i> 黑單避雷區
+                  </button>
                   <button
                     onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
                     className="lg:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
@@ -8251,24 +8321,24 @@ function App() {
                           </span>
                           {(selectedVTuber.nationalities?.length > 0 ||
                             selectedVTuber.nationality) && (
-                            <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
-                              <i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>
-                              {(selectedVTuber.nationalities?.length > 0
-                                ? selectedVTuber.nationalities
-                                : [selectedVTuber.nationality]
-                              ).join(", ")}
-                            </span>
-                          )}
+                              <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
+                                <i className="fa-solid fa-earth-asia mr-1 text-blue-300"></i>
+                                {(selectedVTuber.nationalities?.length > 0
+                                  ? selectedVTuber.nationalities
+                                  : [selectedVTuber.nationality]
+                                ).join(", ")}
+                              </span>
+                            )}
                           {(selectedVTuber.languages?.length > 0 ||
                             selectedVTuber.language) && (
-                            <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
-                              <i className="fa-solid fa-language mr-1 text-yellow-300"></i>
-                              {(selectedVTuber.languages?.length > 0
-                                ? selectedVTuber.languages
-                                : [selectedVTuber.language]
-                              ).join(", ")}
-                            </span>
-                          )}
+                              <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
+                                <i className="fa-solid fa-language mr-1 text-yellow-300"></i>
+                                {(selectedVTuber.languages?.length > 0
+                                  ? selectedVTuber.languages
+                                  : [selectedVTuber.language]
+                                ).join(", ")}
+                              </span>
+                            )}
                           {selectedVTuber.personalityType && (
                             <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
                               <i className="fa-solid fa-user-tag mr-1 text-pink-300"></i>
@@ -8321,11 +8391,11 @@ function App() {
                             )}
 
                           {selectedVTuber.youtubeUrl ||
-                          selectedVTuber.channelUrl ? (
+                            selectedVTuber.channelUrl ? (
                             <a
                               href={sanitizeUrl(
                                 selectedVTuber.youtubeUrl ||
-                                  selectedVTuber.channelUrl,
+                                selectedVTuber.channelUrl,
                               )}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -8334,11 +8404,11 @@ function App() {
                               <i className="fa-brands fa-youtube"></i> YouTube
                               {(selectedVTuber.youtubeSubscribers ||
                                 selectedVTuber.subscribers) && (
-                                <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">
-                                  {selectedVTuber.youtubeSubscribers ||
-                                    selectedVTuber.subscribers}
-                                </span>
-                              )}
+                                  <span className="ml-1 px-2 py-0.5 bg-red-500/20 rounded text-xs">
+                                    {selectedVTuber.youtubeSubscribers ||
+                                      selectedVTuber.subscribers}
+                                  </span>
+                                )}
                             </a>
                           ) : selectedVTuber.youtubeSubscribers ||
                             selectedVTuber.subscribers ? (
@@ -9269,13 +9339,14 @@ function App() {
         )}
 
         {currentView === 'articles' && (
-          <ArticlesPage 
-            articles={realArticles} 
-            user={user} 
-            isVerifiedUser={isVerifiedUser} 
+          <ArticlesPage
+            articles={realArticles}
+            user={user}
+            isVerifiedUser={isVerifiedUser}
             isAdmin={isAdmin}
             onPublish={handlePublishArticle}
             onDelete={handleDeleteArticle}
+            onIncrementView={handleIncrementArticleView}
             showToast={showToast}
             realVtubers={realVtubers}
           />
@@ -9644,11 +9715,10 @@ function App() {
                     );
                   }
                 }}
-                className={`${
-                  myProfile.showVerificationModal === "approved"
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500"
-                    : "bg-gray-800 hover:bg-gray-700 border border-gray-600"
-                } text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full transition-all`}
+                className={`${myProfile.showVerificationModal === "approved"
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500"
+                  : "bg-gray-800 hover:bg-gray-700 border border-gray-600"
+                  } text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full transition-all`}
               >
                 {myProfile.showVerificationModal === "approved"
                   ? "開始找夥伴"
@@ -9805,7 +9875,7 @@ function App() {
                 const vt = realVtubers.find((v) => v.id === pId);
                 if (!vt) return null;
 
-                
+
 
                 return (
                   <div
