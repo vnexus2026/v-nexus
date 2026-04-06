@@ -418,6 +418,23 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
     setActiveTab('mine');
   };
 
+  const handleCoverUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      e.target.value = '';
+      return showToast("❌ 檔案太大！請選擇 3MB 以下的圖片。");
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      // 存入 base64 供預覽，發布時 App 會負責上傳
+      setForm({ ...form, coverUrl: event.target.result });
+      showToast("✅ 封面圖已選擇");
+    };
+    reader.readAsDataURL(file);
+  };
+
   const renderContent = (text) => {
     return text.split('\n').map((line, idx) => {
       if (line.startsWith('## ')) return <h2 key={idx} className="text-2xl font-bold text-white mt-6 mb-3">{line.replace('## ', '')}</h2>;
@@ -544,7 +561,22 @@ const ArticlesPage = ({ articles, user, isVerifiedUser, isAdmin, onPublish, onDe
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-300 mb-2">封面圖網址 (選填)</label>
-              <input type="url" value={form.coverUrl} onChange={e => setForm({ ...form, coverUrl: e.target.value })} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-purple-500 outline-none" placeholder="https://..." />
+              {/* 👇 替換成上傳檔案與預覽介面 */}
+              <div className="flex items-center gap-4">
+                {form.coverUrl && form.coverUrl.startsWith('data:image') && (
+                  <div className="relative h-12 w-20 rounded-lg overflow-hidden border border-gray-600 flex-shrink-0">
+                    <img src={form.coverUrl} className="w-full h-full object-cover" alt="封面預覽" />
+                    <button type="button" onClick={() => setForm({...form, coverUrl: ''})} className="absolute top-0 right-0 bg-red-600/80 hover:bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] backdrop-blur-sm"><i className="fa-solid fa-xmark"></i></button>
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleCoverUpload} 
+                  className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-gray-400 focus:ring-purple-500 outline-none file:cursor-pointer file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 transition-colors" 
+                />
+              </div>
+              {/* 👆 替換結束 */}
             </div>
           </div>
           <div>
@@ -4896,17 +4928,41 @@ function App() {
     if (!user) return;
     const status = isAdmin ? 'published' : 'pending';
     try {
+      let finalCoverUrl = form.coverUrl || "";
+
+      // 👇 新增：如果封面圖是新上傳的圖片 (以 data:image 開頭)，則先上傳到 Storage
+      if (finalCoverUrl.startsWith('data:image')) {
+        showToast("⏳ 正在上傳封面圖...");
+        const fileName = `article_cover_${Date.now()}.jpg`;
+        // 呼叫原本寫好的上傳函式
+        finalCoverUrl = await uploadImageToStorage(user.uid, finalCoverUrl, fileName);
+      }
+
+      const safeForm = {
+        title: form.title || "",
+        category: form.category || "新手教學",
+        content: form.content || "",
+        coverUrl: finalCoverUrl // 👈 存入剛取得的真實 Storage 網址
+      };
+
       const docRef = await addDoc(collection(db, getPath('articles')), {
-        ...form, userId: user.uid, status, createdAt: Date.now()
+        ...safeForm, 
+        userId: user.uid, 
+        status: status, 
+        createdAt: Date.now()
       });
-      const newArticle = { id: docRef.id, ...form, userId: user.uid, status, createdAt: Date.now() };
+      
+      const newArticle = { id: docRef.id, ...safeForm, userId: user.uid, status, createdAt: Date.now() };
       setRealArticles(prev => {
         const list = [newArticle, ...prev];
         localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
         return list;
       });
       showToast(isAdmin ? "✅ 文章已直接發布！" : "✅ 文章已送出，等待管理員審核！");
-    } catch (e) { showToast("❌ 發布失敗"); }
+    } catch (e) { 
+      console.error("發布文章詳細錯誤:", e);
+      showToast("❌ 發布失敗：" + e.message); 
+    }
   };
 
   const handleVerifyArticle = async (id) => {
