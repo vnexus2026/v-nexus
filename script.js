@@ -7548,19 +7548,15 @@ function App() {
                 </div>
               )}
               {isAdmin && (
-                <button
-                  onClick={() => navigate("admin")}
-                  className="hidden sm:flex items-center gap-1.5 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap relative"
-                >
-                  <i className="fa-solid fa-shield-halved"></i> 管理員
-                  {pendingVtubersCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white flex items-center justify-center"></span>
-                    </span>
-                  )}
-                </button>
-              )}
+              <button onClick={() => navigate('admin')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap flex items-center ${currentView === 'admin' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}>
+                <i className="fa-solid fa-shield-halved mr-1"></i> 管理員
+                {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
+                  <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                    {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
+                  </span>
+                )}
+              </button>
+            )}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="lg:hidden text-gray-300 p-2 text-2xl ml-1"
@@ -7699,16 +7695,11 @@ function App() {
               </button>
             )}
             {isAdmin && (
-              <button
-                onClick={() => navigate("admin")}
-                className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}
-              >
-                <div className="flex items-center gap-3">
-                  <i className="fa-solid fa-shield-halved w-5"></i> 系統管理員
-                </div>{" "}
-                {pendingVtubersCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
-                    {pendingVtubersCount}
+              <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}>
+                <div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div> 
+                {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
+                  <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                    {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
                   </span>
                 )}
               </button>
