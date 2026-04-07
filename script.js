@@ -5689,11 +5689,8 @@ function App() {
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              // 👇 加上 where 條件，只抓取「還沒過期」的招募
-              getDocs(query(
-                collection(db, getPath('bulletins')),
-                where("recruitEndTime", ">", nowTime)
-              )),
+              // ✅ 改回抓取全部招募，讓排行榜可以正確計算歷史達標紀錄
+              getDocs(collection(db, getPath('bulletins'))),
               // 👇 加上 where 條件，只抓取「聯動時間 + 2小時內」的行程
               getDocs(query(
                 collection(db, getPath('collabs')),
