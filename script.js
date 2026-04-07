@@ -1350,14 +1350,16 @@ const BulletinCard = ({
                   點擊展開
                 </span>
               </div>
-              {isVerifiedUser && (
-                <button
-                  onClick={() => onApply(b.id, !hasApplied)}
-                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
-                >
-                  {hasApplied ? "收回意願" : "✋ 我有意願"}
-                </button>
-              )}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onApply(b.id, !hasApplied, b.userId);
+                }}
+                className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
+              >
+                {hasApplied ? "收回意願" : "✋ 我有意願"}
+              </button>
             </div>
           )}
         </div>
@@ -5339,10 +5341,8 @@ function App() {
   };
 
   const goToBulletin = () => {
-    if (!isVerifiedUser) {
-      showToast("請先認證名片解鎖功能");
-      navigate("dashboard");
-    } else navigate("bulletin");
+    // 移除 isVerifiedUser 的判斷，讓所有人都能進入
+    navigate("bulletin");
   };
 
   const pendingVtubersCount = useMemo(
@@ -6757,8 +6757,21 @@ function App() {
     isApplying,
     bulletinAuthorId,
   ) => {
-    if (!user) return showToast("請先登入！");
-    if (!isVerifiedUser) return showToast("需通過官方認證才能報名！");
+    if (!user) {
+      showToast("❌ 請先登入並建立名片！正在前往認證頁面...");
+      setTimeout(() => {
+        navigate("dashboard");
+      }, 1500);
+      return;
+    }
+    if (!isVerifiedUser) {
+      showToast("❌ 需通過名片認證才能報名！正在前往認證頁面...");
+      // 延遲一下讓使用者看清楚 Toast，然後跳轉到註冊頁面
+      setTimeout(() => {
+        navigate("dashboard");
+      }, 1500);
+      return;
+    }
     try {
       await updateDoc(doc(db, getPath("bulletins"), bulletinId), {
         applicants: isApplying ? arrayUnion(user.uid) : arrayRemove(user.uid),
@@ -7792,16 +7805,12 @@ function App() {
               <i className="fa-solid fa-magnifying-glass"></i> 尋找 VTuber 夥伴
             </button>
             <button
-              onClick={() => {
-                if (!isVerifiedUser) {
-                  showToast("請先認證名片解鎖功能");
-                  navigate("dashboard");
-                } else navigate("bulletin");
-              }}
+              onClick={() => navigate("bulletin")} // 直接跳轉
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
             >
               <i className="fa-solid fa-bullhorn"></i> 招募佈告欄
-              {!isVerifiedUser && " 🔒"}
+              {/* 移除原本的鎖頭圖示或保留作為提示 */}
+              {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
             </button>
             <button
               onClick={() => navigate("collabs")}
