@@ -3625,7 +3625,8 @@ const AdminPage = ({
   articles,          // 👈 補上這三個
   onVerifyArticle,
   onDeleteArticle,
-  onEditArticle
+  onEditArticle,
+  onMigrateBulletinImages
 }) => {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
@@ -4616,11 +4617,30 @@ const AdminPage = ({
                     </>
                   )}
                 </button>
+
+                <button
+                  onClick={onMigrateBulletinImages}
+                  disabled={isSyncingSubs}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-teal-900/50 cursor-not-allowed text-gray-400" : "bg-teal-700 hover:bg-teal-600 text-white"}`}
+                >
+                  {isSyncingSubs ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin mr-2"></i>{" "}
+                      {syncProgress}
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-bullhorn mr-2"></i>遷移佈告欄 Base64 圖片
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+
 
       {editingVtuber && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
@@ -7370,6 +7390,47 @@ function App() {
     showToast(`✅ YT 同步完成！成功更新/修復 ${successCount} 筆資料。`);
   };
 
+  const handleMigrateBulletinImages = async () => {
+    if (!confirm("確定要將「佈告欄」的 Base64 圖片全部轉移到 Storage 嗎？\n這可能會花一點時間喔！")) return;
+
+    try {
+      // 抓取所有佈告欄資料
+      const bulletinsSnapshot = await getDocs(collection(db, getPath('bulletins')));
+      let successCount = 0;
+
+      for (const docSnap of bulletinsSnapshot.docs) {
+        const data = docSnap.data();
+
+        // 檢查圖片欄位 (假設你的佈告欄圖片欄位叫做 coverImage，如果是 image 請自行更改)
+        // 並確認它是不是以 "data:image" 開頭 (代表它是肥大的 Base64 字串)
+        if (data.coverImage && data.coverImage.startsWith('data:image')) {
+          console.log(`正在轉換企劃：${data.title || docSnap.id} ...`);
+
+          // 1. 在 Storage 建立專屬路徑 (放進 bulletin_covers 資料夾)
+          const imageRef = ref(storage, `bulletin_covers/${docSnap.id}_${Date.now()}.jpg`);
+
+          // 2. 將 Base64 字串上傳到 Storage ('data_url' 格式)
+          await uploadString(imageRef, data.coverImage, 'data_url');
+
+          // 3. 取得上傳後的真實圖片網址 (https://...)
+          const downloadURL = await getDownloadURL(imageRef);
+
+          // 4. 更新 Firestore，把原本的 Base64 替換成短短的網址
+          await updateDoc(doc(db, getPath('bulletins'), docSnap.id), {
+            coverImage: downloadURL
+          });
+
+          successCount++;
+        }
+      }
+
+      alert(`🎉 轉換完成！成功把 ${successCount} 個佈告欄企劃的圖片瘦身完畢囉！`);
+    } catch (error) {
+      console.error("轉換佈告欄圖片失敗：", error);
+      alert("發生錯誤，請按 F12 去 Console 看一下詳細狀況。");
+    }
+  };
+
   const handleMassSyncTwitch = async () => {
     if (
       !confirm(
@@ -9460,6 +9521,7 @@ function App() {
             onVerifyArticle={handleVerifyArticle}
             onDeleteArticle={handleDeleteArticle}
             onEditArticle={handleAdminEditArticle}
+            onMigrateBulletinImages={handleMigrateBulletinImages}
           />
         )}
       </main>
