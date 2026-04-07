@@ -2079,9 +2079,12 @@ const ProfileEditorForm = ({
     const email = form.publicEmail;
     if (!email || !email.includes("@"))
       return showToast("請輸入有效的信箱格式！");
+
     setOtpStatus("sending");
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
     try {
+      // 1. 儲存 OTP 到私密資料庫供驗證
       if (user && user.uid && !isAdmin) {
         await setDoc(
           doc(db, getPath("vtubers_private"), user.uid),
@@ -2089,23 +2092,28 @@ const ProfileEditorForm = ({
           { merge: true },
         );
       }
-      // 🔒 改呼叫後端 API，前端徹底無權存取 mail 資料庫
-      const sendSystemEmail = httpsCallable(
-        functionsInstance,
-        "sendSystemEmail",
-      );
-      await sendSystemEmail({
+
+      // 2. 呼叫後端 API
+      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+      const result = await sendSystemEmail({
         to: email,
-        subject: "[V-Nexus] 公開工商信箱驗證碼",
-        text: `您好，您的驗證碼是：${otp}\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`
+        otp: otp,
+        type: 'public'
       });
 
-      setGeneratedOtp(otp);
-      setOtpStatus("sent");
-      showToast("✅ 驗證碼已寄出！請至信箱收取");
+      // 💡 注意：Firebase 函數的回傳值在 result.data 裡面
+      if (result.data && result.data.success) {
+        setGeneratedOtp(otp);
+        setOtpStatus("sent");
+        showToast("✅ 驗證碼已寄出！請至信箱收取");
+      } else {
+        const errorMsg = result.data ? result.data.message : "發送失敗";
+        throw new Error(errorMsg);
+      }
     } catch (err) {
+      console.error("發送驗證碼出錯:", err);
       setOtpStatus("idle");
-      showToast("發送失敗，請稍後再試或檢查網路");
+      showToast("發送失敗：" + err.message);
     }
   };
 
@@ -3824,10 +3832,13 @@ const AdminPage = ({
         functionsInstance,
         "sendSystemEmail",
       );
+
       await sendSystemEmail({
-        to: user?.email || "apex.dasa@gmail.com",
-        subject: "[V-Nexus] 系統測試信件",
-        text: "如果您收到這封信，代表 V-Nexus 的 Cloud Functions 寄信 API 已經成功運作！",
+        to: email,
+        subject: "[V-Nexus] 公開工商信箱驗證碼", // 👈 把主旨加回來
+        text: `您好，您的驗證碼是：${otp}\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`, // 👈 把內文加回來
+        otp: otp,  // 👈 這是關鍵！傳遞給後端，滿足「必須有驗證碼才能寄信」的安全檢查
+        type: 'verify'
       });
       showToast("✅ 測試信件任務已發送！");
     } catch (err) {
@@ -6918,29 +6929,24 @@ function App() {
       await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
       setRealVtubers((prev) => {
-        const newList = prev.map((v) =>
-          v.id === id ? { ...v, ...updates } : v,
-        );
-        syncVtuberCache(newList); // 👈 同步快取
+        const newList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
+        syncVtuberCache(newList);
         return newList;
       });
       showToast("已通過審核！");
 
-      // 寄送 Email 邏輯保持不變...
       const targetVtuber = realVtubers.find((v) => v.id === id);
       const targetPrivate = privateDocs[id];
-      const emailToSend =
-        targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+      const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+
       if (emailToSend && targetVtuber) {
-        const sendSystemEmail = httpsCallable(
-          functionsInstance,
-          "sendSystemEmail",
-        );
-        sendSystemEmail({
+        // 修正：使用 await 確保後端函數執行完成
+        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+        await sendSystemEmail({
           to: emailToSend,
-          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
-          text: `您好，${targetVtuber.name}！很抱歉，您的名片未能通過審核，請查看原因並修改。`,
-        }).catch((e) => console.error("Mail Error:", e));
+          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
+          text: `您好，${targetVtuber.name}！恭喜您的名片已通過審核並正式上架。`,
+        });
       }
     } catch (err) {
       console.error(err);
@@ -6957,33 +6963,28 @@ function App() {
         showVerificationModal: "rejected",
       };
 
-      // 1. 更新 Firestore
       await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
-      // 2. 更新本地狀態並同步快取
       setRealVtubers((prev) => {
-        const newList = prev.map((v) =>
-          v.id === id ? { ...v, ...updates } : v,
-        );
-        syncVtuberCache(newList); // 關鍵：同步 localStorage
+        const newList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
+        syncVtuberCache(newList);
         return newList;
       });
 
       showToast("🟠 已退回該名片至退回名單。");
 
-      // 寄送 Email 邏輯保持不變...
       const targetVtuber = realVtubers.find((v) => v.id === id);
       const targetPrivate = privateDocs[id];
-      const emailToSend =
-        targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+      const emailToSend = targetPrivate?.contactEmail || targetVtuber?.publicEmail;
+
       if (emailToSend && targetVtuber) {
-        await addDoc(collection(db, getPath("mail")), {
+        // 修正：不再直接寫入資料庫(會被擋)，改為呼叫後端 sendSystemEmail 函數
+        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+        await sendSystemEmail({
           to: emailToSend,
-          message: {
-            subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
-            text: `您好，${targetVtuber.name}！很抱歉，您的名片未能通過審核，請查看原因並修改。`,
-          },
-        }).catch((e) => console.error("Mail Error:", e));
+          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
+          text: `您好，${targetVtuber.name}！很抱歉，您的名片未能通過審核，請查看原因並修改。`,
+        });
       }
     } catch (err) {
       console.error(err);
