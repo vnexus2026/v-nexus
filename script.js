@@ -5507,13 +5507,14 @@ function App() {
 
   // --- 自動提醒檢查邏輯 (Lazy Cron) ---
   useEffect(() => {
-    // 只有管理員登入時才負責掃描提醒，避免每個使用者開啟網頁都去掃描資料庫
+    // 只有管理員在線上時才會執行掃描
     if (isLoading || !isAdmin) return;
 
     const checkAndSendReminders = async () => {
       const now = Date.now();
       const twentyFourHours = 24 * 60 * 60 * 1000;
 
+      // 搜尋 24 小時內即將開始，且尚未發送提醒的行程
       const q = query(
         collection(db, getPath("collabs")),
         where("reminderSent", "==", false),
@@ -5522,30 +5523,42 @@ function App() {
       );
 
       const snap = await getDocs(q);
-      snap.forEach(async (collabDoc) => {
+
+      for (const collabDoc of snap.docs) {
         const collab = { id: collabDoc.id, ...collabDoc.data() };
+
+        // 立即標記為已發送，防止重複觸發
         await updateDoc(collabDoc.ref, { reminderSent: true });
 
+        // 整理所有需要通知的人 (發起人 + 參與者)
         const allMemberIds = [collab.userId, ...(collab.participants || [])];
-        const sendSystemEmail = httpsCallable(
-          functionsInstance,
-          "sendSystemEmail",
-        ); // 宣告安全 API
+        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
 
-        allMemberIds.forEach(async (uid) => {
-          const target = realVtubers.find((v) => v.id === uid);
-          if (target?.publicEmail) {
+        for (const uid of allMemberIds) {
+          // 抓取該成員的 Email (優先從資料庫抓取最新私密資料)
+          const privSnap = await getDoc(doc(db, getPath("vtubers_private"), uid));
+          const pubSnap = await getDoc(doc(db, getPath("vtubers"), uid));
+
+          let targetEmail = "";
+          if (privSnap.exists()) targetEmail = privSnap.data().contactEmail || privSnap.data().publicEmail;
+          if (!targetEmail && pubSnap.exists()) targetEmail = pubSnap.data().publicEmail;
+
+          if (targetEmail && targetEmail.includes('@')) {
             sendSystemEmail({
-              to: target.publicEmail,
-              subject: `[V-Nexus 聯動提醒] 行程即將開始！`,
-              text: `您好 ${target.name}！您的聯動行程【${collab.title}】即將在 24 小時內開始！`,
-            }).catch(() => { });
+              to: targetEmail,
+              subject: `[V-Nexus 聯動提醒] 行程即將開始！⏰`,
+              text: `您好！提醒您，您參與的聯動行程【${collab.title}】即將在 24 小時內開始！\n\n預計時間：${collab.date} ${collab.time}\n直播連結：${collab.streamUrl}\n\n祝聯動順利！\nV-Nexus 團隊`,
+            }).catch(e => console.error("提醒信發送失敗:", e));
           }
-        });
-      });
+        }
+      }
     };
+
+    // 每 5 分鐘自動檢查一次
     checkAndSendReminders();
-  }, [isLoading, isAdmin]);
+    const reminderTimer = setInterval(checkAndSendReminders, 5 * 60 * 1000);
+    return () => clearInterval(reminderTimer);
+  }, [isLoading, isAdmin, realCollabs]);
   // --- 提醒邏輯結束 ---
 
   const hasFetchedSettings = useRef(false);
