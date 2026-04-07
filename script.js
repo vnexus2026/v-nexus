@@ -9247,7 +9247,7 @@ function App() {
                 <div className="bg-gray-900/80 p-4 rounded-2xl border border-purple-500/30 mb-6">
                   <label className="block text-sm font-bold text-purple-400 mb-3">
                     <i className="fa-solid fa-users-plus mr-2"></i> 加入聯動成員
-                    (搜尋站內名片)
+                    (搜尋站內名片)※加入後成員即可在聯動前24小時收到通知信件。
                   </label>
 
                   {/* 已選中的成員 */}
