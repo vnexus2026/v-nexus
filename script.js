@@ -5690,25 +5690,41 @@ function App() {
         const now = Date.now();
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
-        // 如果快取過期或是管理員頁面，才去抓新的
-        const isExpired = !cachedTs || now - parseInt(cachedTs) > ONE_DAY;
-        // 🚀 終極優化 2：管理員只在該次登入「首次」進入後台時強制更新全站 VTuber 資料
-        const forceRefresh =
-          currentView === "admin" && !sessionStorage.getItem("adminFetched");
+        const lastCheckTime = sessionStorage.getItem("vnexus_last_stats_check") || 0;
+        const isCoolingDown = (now - lastCheckTime) < (2 * 60 * 1000); // 2分鐘冷卻
+
+        let shouldForceRefresh = false;
+
+        if (!isCoolingDown) {
+          try {
+            // 超過2分鐘了，才讀取這 1 筆 stats 文件
+            const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
+            const lastGlobalUpdate = statsSnap.exists() ? statsSnap.data().lastGlobalUpdate || 0 : 0;
+
+            // 標記本次檢查時間
+            sessionStorage.setItem("vnexus_last_stats_check", now.toString());
+
+            // 如果資料庫的更新時間晚於我們快取的建立時間，就標記需要刷新
+            if (cachedTs && lastGlobalUpdate > parseInt(cachedTs)) {
+              shouldForceRefresh = true;
+            }
+          } catch (e) { console.error("檢查更新失敗", e); }
+        }
+
+        // 判定是否過期：(超過1小時) OR (管理員剛審核通過)
+        const isExpired = !cachedTs || (now - parseInt(cachedTs) > ONE_DAY) || shouldForceRefresh;
+
+        const forceRefresh = currentView === "admin" && !sessionStorage.getItem("adminFetched");
 
         if (isExpired || forceRefresh) {
-          // 標記管理員已抓取過，本次登入期間不再反覆重抓
-          if (currentView === "admin")
-            sessionStorage.setItem("adminFetched", "true");
+          if (currentView === "admin") sessionStorage.setItem("adminFetched", "true");
           try {
+            // 只有在必要時，才執行這項最耗費讀取量（讀取幾百筆）的操作
             const vSnap = await getDocs(collection(db, getPath("vtubers")));
             const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data); // 這會更新 state 並存入快取
-          } catch (e) {
-            console.error(e);
-          }
+            syncVtuberCache(data);
+          } catch (e) { console.error(e); }
         }
-        // 關鍵：無論如何都關閉 Loading，因為我們在 useState 已經確保有快取資料了
         setIsLoading(false);
       }
 
