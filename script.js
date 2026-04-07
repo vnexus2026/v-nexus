@@ -1928,10 +1928,10 @@ const ProfileEditorForm = ({
     if (typeof url !== "string" || url.length < 15) return;
     const timer = setTimeout(() => {
       const now = Date.now();
-      const SIX_HOURS = 6 * 60 * 60 * 1000;
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 👈 變數改名為 24 小時
       if (
         url.includes("twitch.tv") &&
-        (now - lastTwitchFetchTime > SIX_HOURS || isAdmin)
+        (now - lastTwitchFetchTime > TWENTY_FOUR_HOURS || isAdmin) // 👈 這裡也要改
       ) {
         handleAutoFetchTwitch(url);
       }
@@ -1945,16 +1945,16 @@ const ProfileEditorForm = ({
       return showToast("請先在下方填妥 Twitch 連結！");
 
     const now = Date.now();
-    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 👈 改為 24 小時
 
     if (!isAdmin) {
-      if (now - lastTwitchFetchTime < SIX_HOURS) {
+      if (now - lastTwitchFetchTime < TWENTY_FOUR_HOURS) { // 👈 這裡也要改
         if (typeof autoUrl !== "string") {
           const remainHours = Math.ceil(
-            (SIX_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000),
+            (TWENTY_FOUR_HOURS - (now - lastTwitchFetchTime)) / (60 * 60 * 1000), // 👈 計算方式也要改
           );
           showToast(
-            `⏳ 為了保護額度，6小時內只能抓取一次。請 ${remainHours} 小時後再試！`,
+            `⏳ 為了保護額度，24小時內只能抓取一次。請 ${remainHours} 小時後再試！`, // 👈 提示文字改 24 小時
           );
         }
         return;
@@ -2487,14 +2487,14 @@ const ProfileEditorForm = ({
               onClick={handleAutoFetchTwitch}
               disabled={
                 isFetchingTwitch ||
-                (Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 &&
+                (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 &&
                   !isAdmin)
               }
               className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin ? "bg-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
             >
               {isFetchingTwitch ? (
                 <i className="fa-solid fa-spinner fa-spin"></i>
-              ) : Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 &&
+              ) : Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 &&
                 !isAdmin ? (
                 <>
                   <i className="fa-solid fa-clock mr-1"></i>冷卻中
@@ -2508,7 +2508,7 @@ const ProfileEditorForm = ({
             </button>
           </div>
           <p className="text-[10px] text-purple-400/80 mt-1">
-            （填妥下方 Twitch 連結後會自動抓取，每6小時限抓一次）
+            （填妥下方 Twitch 連結後會自動抓取，每24小時限抓一次）
           </p>
         </div>
       </div>
@@ -7379,7 +7379,7 @@ function App() {
       return;
     setIsSyncingSubs(true);
     let successCount = 0;
-    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    const SIX_HOURS = 24 * 60 * 60 * 1000;
     const now = Date.now();
 
     const targets = realVtubers.filter((v) => {
