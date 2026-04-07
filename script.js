@@ -2094,7 +2094,11 @@ const ProfileEditorForm = ({
         functionsInstance,
         "sendSystemEmail",
       );
-      await sendSystemEmail({ to: email, otp: otp });
+      await sendSystemEmail({
+        to: email,
+        subject: "[V-Nexus] 公開工商信箱驗證碼",
+        text: `您好，您的驗證碼是：${otp}\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`
+      });
 
       setGeneratedOtp(otp);
       setOtpStatus("sent");
