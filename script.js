@@ -48,6 +48,11 @@ import {
   uploadString,
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+import {
+  getAnalytics,
+  logEvent
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 // --------------------------------------------------
 
 const { useState, useEffect, useMemo, useRef } = React;
@@ -59,10 +64,19 @@ const firebaseConfig = {
   storageBucket: "v-nexus.firebasestorage.app",
   messagingSenderId: "824125737901",
   appId: "1:824125737901:web:93a4f21b56ab00dfaaaf24",
+  measurementId: "G-80P1WEWY5Y" // 🌟 新增：請換成你在後台拿到的真實 ID
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+// 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (error) {
+  console.warn("Analytics 初始化被阻擋:", error);
+}
 
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
@@ -4792,6 +4806,28 @@ function App() {
   const [currentView, setCurrentView] = useState(getInitialView());
   const [previousView, setPreviousView] = useState("grid");
   const [selectedVTuber, setSelectedVTuber] = useState(null);
+
+  // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
+  useEffect(() => {
+    if (analytics) {
+      logEvent(analytics, 'page_view', {
+        page_title: currentView,
+        page_location: window.location.href,
+        page_path: `/${currentView}`
+      });
+    }
+  }, [currentView]);
+
+  // 🌟 新增 GA4 監控 2：追蹤使用者具體查看了「誰」的名片 (view_item)
+  useEffect(() => {
+    if (analytics && currentView === 'profile' && selectedVTuber) {
+      logEvent(analytics, 'view_item', {
+        item_id: selectedVTuber.id,
+        item_name: selectedVTuber.name,
+        item_category: 'vtuber_profile'
+      });
+    }
+  }, [currentView, selectedVTuber]);
   const [profileIdFromHash, setProfileIdFromHash] = useState(() => {
     const hash = window.location.hash.replace("#", "");
     return hash.startsWith("profile/") ? hash.split("/")[1] : null;
@@ -6054,10 +6090,16 @@ function App() {
     try {
       await signInWithPopup(auth, provider);
       showToast("🎉 登入成功！");
+
+      // 🌟 新增 GA4 監控 3：記錄使用者成功登入
+      if (analytics) {
+        logEvent(analytics, 'login', { method: 'Google' });
+      }
     } catch (e) {
       showToast("登入失敗");
     }
   };
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate("home");
@@ -9247,7 +9289,7 @@ function App() {
                 <div className="bg-gray-900/80 p-4 rounded-2xl border border-purple-500/30 mb-6">
                   <label className="block text-sm font-bold text-purple-400 mb-3">
                     <i className="fa-solid fa-users-plus mr-2"></i> 加入聯動成員
-                    (搜尋站內名片)※加入後成員即可在聯動前24小時收到通知信件。
+                    (搜尋站內名片)
                   </label>
 
                   {/* 已選中的成員 */}
