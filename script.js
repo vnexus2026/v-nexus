@@ -53,8 +53,6 @@ import {
   getAnalytics,
   logEvent
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-
-
 // --------------------------------------------------
 
 const { useState, useEffect, useMemo, useRef } = React;
@@ -88,7 +86,7 @@ const db = initializeFirestore(app, {
 
 const storage = getStorage(app);
 
-const functionsInstance = getFunctions(app, "us-central1");
+const functionsInstance = getFunctions(app);
 
 try {
   initializeAppCheck(app, {
@@ -117,7 +115,6 @@ const ARTICLES_CACHE_KEY = "vnexus_articles_data";
 const ARTICLES_CACHE_TS = "vnexus_articles_ts";
 const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
 const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
-
 
 const getPath = (collectionName) =>
   `artifacts/${APP_ID}/public/data/${collectionName}`;
@@ -1872,6 +1869,7 @@ const ProfileEditorForm = ({
 }) => {
   const [otpStatus, setOtpStatus] = useState("idle");
   const [otpInput, setOtpInput] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState(null);
   const [isFetchingSubscribers, setIsFetchingSubscribers] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(
     form.lastYoutubeFetchTime || 0,
@@ -2092,85 +2090,55 @@ const ProfileEditorForm = ({
   };
 
   const handleSendOtp = async () => {
-    // 1. 直接從 auth 實例獲取最新的使用者狀態
-    const currentUser = getAuth().currentUser;
+    const email = form.publicEmail;
+    if (!email || !email.includes("@"))
+      return showToast("請輸入有效的信箱格式！");
 
-    if (!currentUser) {
-      console.error("前端檢查：無登入使用者");
-      showToast("❌ 偵測不到登入狀態，請重新登入 Google 帳號");
-      return;
-    }
+    setOtpStatus("sending");
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     try {
-      const email = form.publicEmail;
-      if (!email || !email.includes("@")) {
-        return showToast("請輸入有效的信箱格式！");
+      // 1. 儲存 OTP 到私密資料庫供驗證
+      if (user && user.uid && !isAdmin) {
+        await setDoc(
+          doc(db, getPath("vtubers_private"), user.uid),
+          { emailOtp: otp },
+          { merge: true },
+        );
       }
 
-      setOtpStatus("sending");
+      // 2. 呼叫後端 API
+      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+      const result = await sendSystemEmail({
+        to: email,
+        otp: otp,
+        type: 'public'
+      });
 
-      // 2. 【最重要】強制獲取並刷新 Token
-      // 這會確保當前的請求 Header 包含有效的 Authorization: Bearer <ID_TOKEN>
-      const idToken = await currentUser.getIdToken(true);
-      console.log("Token 已刷新，準備發送請求");
-
-      // 3. 呼叫後端
-      // 確保這裡使用的是指定了 us-central1 的 functionsInstance
-      const sendCodeFunc = httpsCallable(functionsInstance, "sendVerificationCode");
-
-      const result = await sendCodeFunc({ email: email });
-
+      // 💡 注意：Firebase 函數的回傳值在 result.data 裡面
       if (result.data && result.data.success) {
+        setGeneratedOtp(otp);
         setOtpStatus("sent");
         showToast("✅ 驗證碼已寄出！請至信箱收取");
       } else {
-        throw new Error(result.data.message || "發送失敗");
+        const errorMsg = result.data ? result.data.message : "發送失敗";
+        throw new Error(errorMsg);
       }
     } catch (err) {
-      console.error("發送驗證碼詳細錯誤:", err);
+      console.error("發送驗證碼出錯:", err);
       setOtpStatus("idle");
-
-      // 如果後端丟回 unauthenticated，代表 Token 傳遞依然失敗
-      if (err.code === 'functions/unauthenticated') {
-        showToast("❌ 伺服器無法辨識您的身分，請嘗試「重新登入」後再試一次");
-      } else {
-        showToast("❌ " + (err.message || "發送失敗"));
-      }
+      showToast("發送失敗：" + err.message);
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (!auth.currentUser) {
-      showToast("❌ 登入已失效，請重新整理頁面");
-      return;
-    }
-
-    if (!otpInput || otpInput.length !== 6) {
-      return showToast("請輸入 6 位數驗證碼");
-    }
-
-    showToast("⏳ 正在驗證...");
-    try {
-      // 強制刷新 Token
-      await auth.currentUser.getIdToken(true);
-
-      const verifyCodeFunc = httpsCallable(functionsInstance, "verifyCode");
-      const result = await verifyCodeFunc({
-        email: form.publicEmail,
-        code: otpInput
-      });
-
-      if (result.data && result.data.success) {
-        updateForm({ publicEmailVerified: true });
-        setOtpStatus("verified");
-        setOtpInput("");
-        showToast("✅ 信箱驗證成功！");
-      } else {
-        showToast("❌ " + (result.data.message || "驗證失敗"));
-      }
-    } catch (err) {
-      console.error("驗證發生錯誤:", err);
-      showToast("❌ " + (err.message || "驗證失敗"));
+  const handleVerifyOtp = () => {
+    if (otpInput === generatedOtp) {
+      updateForm({ publicEmailVerified: true });
+      setOtpStatus("verified");
+      setOtpInput("");
+      showToast("✅ 信箱驗證成功！(請記得點擊最下方儲存名片)");
+    } else {
+      showToast("❌ 驗證碼錯誤！");
     }
   };
 
