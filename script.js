@@ -3326,7 +3326,7 @@ const HomePage = ({
         <div className="text-left mb-10">
           <h2 className="text-3xl font-extrabold text-white mb-2">
             <i className="fa-solid fa-bullhorn text-purple-400 mr-2"></i>
-            來看看有哪些招募！
+            來看看有哪些揪團！
           </h2>
           <p className="text-gray-400">
             正在尋找夥伴的企劃，或許就有你感興趣的！
@@ -7981,7 +7981,7 @@ function App() {
                 onClick={() => navigate("bulletin")} // 直接跳轉
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
               >
-                <i className="fa-solid fa-bullhorn"></i> 招募佈告欄
+                <i className="fa-solid fa-bullhorn"></i> 揪團佈告欄
                 {/* 移除原本的鎖頭圖示或保留作為提示 */}
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
               </button>
@@ -8046,7 +8046,7 @@ function App() {
                 }}
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-lg" : "bg-rose-600 text-white hover:bg-rose-500"}`}
               >
-                <i className="fa-solid fa-bullhorn w-5"></i> 招募佈告欄
+                <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
               </button>
               <button
                 onClick={() => navigate("collabs")}
@@ -8901,12 +8901,12 @@ function App() {
                 <div>
                   <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
                     <i className="fa-solid fa-bullhorn text-purple-400"></i>
-                    招募佈告欄
+                    揪團佈告欄
                   </h2>
                   <p className="text-gray-400 mt-2 text-sm">
                     在這裡發布您的聯動企劃，或是尋找有興趣的邀請吧！
                     <span className="text-yellow-400 font-bold ml-2">
-                      (注意：招募時間截止前，發起人必須進入信箱發送正式邀請才算成功)
+                      (注意：揪團時間截止前，發起人必須進入信箱發送正式邀請才算成功)
                     </span>
                   </p>
                 </div>
@@ -8915,7 +8915,7 @@ function App() {
                     onClick={() => setIsLeaderboardModalOpen(true)}
                     className="bg-yellow-600 hover:bg-yellow-500 text-white px-5 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(202,138,4,0.4)] flex items-center justify-center transition-transform hover:-translate-y-1"
                   >
-                    <i className="fa-solid fa-trophy mr-2"></i>招募成功排行榜
+                    <i className="fa-solid fa-trophy mr-2"></i>揪團成功排行榜
                   </button>
                   <button
                     onClick={() => {
@@ -8938,7 +8938,7 @@ function App() {
                     <i
                       className={`fa-solid ${isBulletinFormOpen ? "fa-chevron-up" : "fa-pen-nib"} mr-2`}
                     ></i>
-                    {isBulletinFormOpen ? "收起發布方框" : "我要發布招募"}
+                    {isBulletinFormOpen ? "收起揪團" : "我要揪團"}
                   </button>
                 </div>
               </div>
@@ -8950,7 +8950,7 @@ function App() {
                 >
                   <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
                     <h3 className="text-xl font-bold text-white">
-                      {newBulletin.id ? "編輯招募文" : "發布新招募"}
+                      {newBulletin.id ? "編輯揪團文" : "發布新揪團"}
                     </h3>
                     <button
                       onClick={() => setIsBulletinFormOpen(false)}
@@ -8962,7 +8962,7 @@ function App() {
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-300 mb-2">
-                        招募內容說明 <span className="text-red-400">*</span>
+                        揪團內容說明 <span className="text-red-400">*</span>
                       </label>
                       <textarea
                         required
@@ -9060,7 +9060,7 @@ function App() {
                       </div>
                       <div>
                         <label className="block text-sm font-bold text-gray-300 mb-2">
-                          招募截止時間 <span className="text-red-400">*</span>
+                          揪團截止時間 <span className="text-red-400">*</span>
                         </label>
                         <input
                           type="datetime-local"
@@ -9160,7 +9160,7 @@ function App() {
                           onClick={handlePostBulletin}
                           className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 h-fit whitespace-nowrap"
                         >
-                          {newBulletin.id ? "儲存修改" : "發布招募"}
+                          {newBulletin.id ? "儲存修改" : "發布揪團"}
                         </button>
                       </div>
                     </div>
@@ -9173,7 +9173,7 @@ function App() {
                   onClick={() => setBulletinFilter("All")}
                   className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === "All" ? "bg-purple-600 text-white shadow-lg" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
                 >
-                  全部招募
+                  全部揪團
                 </button>
                 {activeBulletinTypes.map((t) => (
                   <button
@@ -10068,7 +10068,7 @@ function App() {
             >
               <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
                 <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
-                  <i className="fa-solid fa-trophy"></i> 招募成功排行榜
+                  <i className="fa-solid fa-trophy"></i> 揪團成功排行榜
                 </h3>
                 <button
                   onClick={() => setIsLeaderboardModalOpen(false)}
