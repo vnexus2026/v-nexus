@@ -5744,62 +5744,27 @@ function App() {
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
-      const needsVtuberList = [
-        "home",
-        "grid",
-        "profile",
-        "match",
-        "blacklist",
-        "dashboard",
-        "admin",
-        "bulletin",
-        "collabs",
-        "articles",
-      ].includes(currentView);
+      const needsVtuberList = ["home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles"].includes(currentView);
 
       if (needsVtuberList) {
-        const now = Date.now();
-        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+        try {
+          // 1. 優先向 Storage 的公開網址拿靜態 JSON (請換成你真實的 Storage 下載網址或自訂網域)
+          // 加上 ?t= 參數避免瀏覽器死快取，但 CDN 依然會生效
+          const timestamp = Math.floor(Date.now() / (5 * 60 * 1000)); // 每 5 分鐘變換一次參數
+          const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media&t=${timestamp}`);
 
-        const lastCheckTime = sessionStorage.getItem("vnexus_last_stats_check") || 0;
-        const isCoolingDown = (now - lastCheckTime) < (2 * 60 * 1000); // 2分鐘冷卻
-
-        let shouldForceRefresh = false;
-
-        if (!isCoolingDown) {
-          try {
-            // 超過2分鐘了，才讀取這 1 筆 stats 文件
-            const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
-            const lastGlobalUpdate = statsSnap.exists() ? statsSnap.data().lastGlobalUpdate || 0 : 0;
-
-            // 標記本次檢查時間
-            sessionStorage.setItem("vnexus_last_stats_check", now.toString());
-
-            // 如果資料庫的更新時間晚於我們快取的建立時間，就標記需要刷新
-            if (cachedTs && lastGlobalUpdate > parseInt(cachedTs)) {
-              shouldForceRefresh = true;
-            }
-          } catch (e) { console.error("檢查更新失敗", e); }
-        }
-
-        // 判定是否過期：(超過1小時) OR (管理員剛審核通過)
-        const isExpired = !cachedTs || (now - parseInt(cachedTs) > ONE_DAY) || shouldForceRefresh;
-
-        const forceRefresh = currentView === "admin" && !sessionStorage.getItem("adminFetched");
-
-        if (isExpired || forceRefresh) {
-          if (currentView === "admin") sessionStorage.setItem("adminFetched", "true");
-          try {
-            const vtubersQuery = query(
-              collection(db, getPath("vtubers")),
-              orderBy("updatedAt", "desc"),
-              limit(1000)
-            );
-            // 🌟 恢復成原本最單純的抓取方式，確保不會遺漏任何舊資料！
-            const vSnap = await getDocs(collection(db, getPath("vtubers")));
-            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          if (response.ok) {
+            const data = await response.json();
             syncVtuberCache(data);
-          } catch (e) { console.error("抓取 VTuber 資料失敗:", e); }
+          } else {
+            throw new Error("JSON 讀取失敗，退回 Firestore 讀取");
+          }
+        } catch (e) {
+          console.warn("靜態 JSON 讀取失敗，使用 Firestore 備用方案:", e);
+          // 備用方案：如果 JSON 壞了，才去讀 Firestore (保護機制)
+          const vSnap = await getDocs(collection(db, getPath("vtubers")));
+          const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          syncVtuberCache(data);
         }
         setIsLoading(false);
       }
@@ -6343,6 +6308,15 @@ function App() {
       (c) => (c.category || "遊戲") === collabCategoryTab,
     );
   }, [displayCollabs, collabCategoryTab]);
+
+  const [searchInput, setSearchInput] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300); // 使用者停止打字 300 毫秒後才執行過濾
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const filteredVTubers = useMemo(() => {
     return displayVtubers.filter((v) => {
