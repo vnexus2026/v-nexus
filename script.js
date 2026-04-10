@@ -1869,7 +1869,6 @@ const ProfileEditorForm = ({
 }) => {
   const [otpStatus, setOtpStatus] = useState("idle");
   const [otpInput, setOtpInput] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState(null);
   const [isFetchingSubscribers, setIsFetchingSubscribers] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(
     form.lastYoutubeFetchTime || 0,
@@ -2090,55 +2089,61 @@ const ProfileEditorForm = ({
   };
 
   const handleSendOtp = async () => {
+    // ✅ 新增這行：確保有登入才能發送
+    if (!user) return showToast("❌ 請先登入後再進行信箱驗證！");
+
     const email = form.publicEmail;
     if (!email || !email.includes("@"))
       return showToast("請輸入有效的信箱格式！");
 
     setOtpStatus("sending");
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     try {
-      // 1. 儲存 OTP 到私密資料庫供驗證
-      if (user && user.uid && !isAdmin) {
-        await setDoc(
-          doc(db, getPath("vtubers_private"), user.uid),
-          { emailOtp: otp },
-          { merge: true },
-        );
-      }
+      const sendVerificationCode = httpsCallable(functionsInstance, "sendVerificationCode");
+      const result = await sendVerificationCode({ email: email });
 
-      // 2. 呼叫後端 API
-      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-      const result = await sendSystemEmail({
-        to: email,
-        otp: otp,
-        type: 'public'
-      });
-
-      // 💡 注意：Firebase 函數的回傳值在 result.data 裡面
       if (result.data && result.data.success) {
-        setGeneratedOtp(otp);
         setOtpStatus("sent");
-        showToast("✅ 驗證碼已寄出！請至信箱收取");
+        showToast("✅ 驗證碼已寄出！請至信箱收取 (10分鐘內有效)");
       } else {
-        const errorMsg = result.data ? result.data.message : "發送失敗";
-        throw new Error(errorMsg);
+        throw new Error(result.data ? result.data.message : "發送失敗");
       }
     } catch (err) {
       console.error("發送驗證碼出錯:", err);
       setOtpStatus("idle");
-      showToast("發送失敗：" + err.message);
+      const errorMsg = err.message || "發送失敗，請稍後再試";
+      showToast("❌ " + errorMsg);
     }
   };
 
-  const handleVerifyOtp = () => {
-    if (otpInput === generatedOtp) {
-      updateForm({ publicEmailVerified: true });
-      setOtpStatus("verified");
-      setOtpInput("");
-      showToast("✅ 信箱驗證成功！(請記得點擊最下方儲存名片)");
-    } else {
-      showToast("❌ 驗證碼錯誤！");
+  const handleVerifyOtp = async () => {
+    // ✅ 新增這行：確保有登入才能驗證
+    if (!user) return showToast("❌ 請先登入後再進行信箱驗證！");
+
+    if (!otpInput || otpInput.length !== 6) {
+      return showToast("請輸入 6 位數驗證碼！");
+    }
+
+    try {
+      showToast("⏳ 驗證中...");
+      const verifyCode = httpsCallable(functionsInstance, "verifyCode");
+      const result = await verifyCode({
+        email: form.publicEmail,
+        code: otpInput
+      });
+
+      if (result.data && result.data.success) {
+        updateForm({ publicEmailVerified: true });
+        setOtpStatus("verified");
+        setOtpInput("");
+        showToast("✅ 信箱驗證成功！(請記得點擊最下方儲存名片)");
+      } else {
+        throw new Error(result.data ? result.data.message : "驗證失敗");
+      }
+    } catch (err) {
+      console.error("驗證失敗:", err);
+      const errorMsg = err.message || "驗證碼錯誤或已失效";
+      showToast("❌ " + errorMsg);
     }
   };
 
