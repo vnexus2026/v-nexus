@@ -2916,7 +2916,7 @@ const InboxPage = ({
                     n.fromUserAvatar ||
                     "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                   )}
-                  onClick={() => onNavigateProfile(n.fromUserId)}
+                  onClick={() => onNavigateProfile(n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId)}
                   className="w-14 h-14 rounded-full border-2 border-gray-700 bg-gray-900 object-cover cursor-pointer hover:border-purple-400"
                 />
                 <div className="flex-1 min-w-0">
@@ -5966,7 +5966,10 @@ function App() {
     });
 
   const handleNotifClick = (n) => {
-    const sender = realVtubers.find((v) => v.id === n.fromUserId);
+    // 👈 修正：判斷要抓取誰的名片資料
+    const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
+    const sender = realVtubers.find((v) => v.id === targetId);
+
     if (sender) {
       if (n.type === "chat_notification" || n.type === "collab_invite") {
         setChatTarget(sender); // 開啟聊天室
@@ -5981,6 +5984,7 @@ function App() {
       );
     setIsNotifOpen(false);
   };
+
   const handleNotifProfileNav = (userId) => {
     const vt = realVtubers.find((v) => v.id === userId);
     if (vt) {
@@ -9678,26 +9682,43 @@ function App() {
                     const lastMsg = localStorage.getItem(lastMsgKey);
                     if (lastMsg && Date.now() - parseInt(lastMsg) < 60000)
                       return showToast("發送太頻繁，請稍後再試。");
+
                     try {
-                      // 🔒 只寫通知，交給後端處理
+                      const now = Date.now();
+
+                      // 1. 發送給對方的通知 (原本的邏輯)
                       await addDoc(collection(db, getPath("notifications")), {
                         userId: selectedVTuber.id,
                         fromUserId: user.uid,
-                        fromUserName: myProfile.name,
-                        fromUserAvatar: myProfile.avatar,
+                        fromUserName: myProfile.name || "創作者",
+                        fromUserAvatar: myProfile.avatar || "",
                         message: inviteMessage,
                         type: "collab_invite",
-                        sendEmail: true,
-                        createdAt: Date.now(),
+                        sendEmail: true, // 觸發後端寄信給對方
+                        createdAt: now,
+                        read: false,
+                      });
+
+                      // 2. 🌟 新增：發送給自己的「寄件備份」通知 (完全符合安全規則的寫法)
+                      await addDoc(collection(db, getPath("notifications")), {
+                        userId: user.uid, // 存到自己的信箱
+                        fromUserId: user.uid, // 必須是自己的 ID，符合安全規則
+                        fromUserName: myProfile.name || "創作者", // 必須是自己的名字
+                        fromUserAvatar: myProfile.avatar || "", // 必須是自己的頭像
+                        message: `【寄件備份 - 寄給 ${selectedVTuber.name}】\n\n${inviteMessage}`, // 將對方資訊直接寫在內文最前面
+                        type: "collab_invite", // 使用原本就合法的 type
+                        sendEmail: false, // ⚠️ 絕對不要寄實體 Email 給自己
+                        createdAt: now + 1, // 稍微加 1 毫秒避免時間重疊
                         read: false,
                       });
 
                       localStorage.setItem(lastMsgKey, Date.now().toString());
-                      showToast("✅ 邀請已發送！");
+                      showToast("✅ 邀請已發送！並已儲存至寄件備份");
                       setIsCollabModalOpen(false);
                       setInviteMessage("");
                     } catch (err) {
-                      showToast("發送失敗");
+                      console.error("發送邀約或備份時發生錯誤:", err);
+                      showToast("❌ 發送過程中發生部分錯誤，請按 F12 查看");
                     }
                   }}
                   className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
