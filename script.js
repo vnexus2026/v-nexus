@@ -3084,17 +3084,8 @@ const HomePage = ({
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
 
   const completedCollabsCount = useMemo(() => {
-    return safeBulletins.filter((b) => {
-      if (!b) return false;
-      let targetSize =
-        parseInt(String(b.collabSize || "0").replace(/[^0-9]/g, ""), 10) || 0;
-      const isEnded = b.recruitEndTime && currentTime > b.recruitEndTime;
-      const applicantsCount = Array.isArray(b.applicants)
-        ? b.applicants.length
-        : 0;
-      return isEnded && targetSize > 0 && applicantsCount >= targetSize;
-    }).length;
-  }, [safeBulletins, currentTime]);
+    return siteStats?.totalCompletedCollabs || 0;
+  }, [siteStats]);
 
   const randomBulletins = useMemo(() => {
     const active = safeBulletins.filter(
@@ -3699,15 +3690,15 @@ const AdminPage = ({
   onTestPush,
   onMassUpdateVerification,
   onMassMigrateImages,
-  articles,          // 👈 補上這三個
+  articles,
   onVerifyArticle,
   onDeleteArticle,
   onEditArticle,
-  onMigrateBulletinImages
+  onMigrateBulletinImages,
+  handleAdminCleanBulletins // 👈 1. 補上這個缺失的 Prop
 }) => {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
-  // --- 👆 狀態宣告結束 ---
 
   const getAdminSortTime = (v) => {
     const getTime = (val) => {
@@ -3716,7 +3707,6 @@ const AdminPage = ({
       if (val.toMillis) return val.toMillis();
       return 0;
     };
-    // 優先取註冊時間，沒有就取更新時間
     return getTime(v.createdAt) || getTime(v.updatedAt) || 0;
   };
 
@@ -3727,19 +3717,19 @@ const AdminPage = ({
         !v.isBlacklisted &&
         v.verificationStatus !== "rejected",
     )
-    .sort((a, b) => getAdminSortTime(a) - getAdminSortTime(b)); // 待審核：舊到新(先來的先審)
+    .sort((a, b) => getAdminSortTime(a) - getAdminSortTime(b));
 
   const rejectedVtubers = vtubers
     .filter((v) => !v.isVerified && v.verificationStatus === "rejected")
-    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 退回：新到舊
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a));
 
   const verifiedVtubers = vtubers
     .filter((v) => v.isVerified === true && !v.isBlacklisted)
-    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // ✅ 已上架：最新註冊/更新排前面
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a));
 
   const blacklistedVtubers = vtubers
     .filter((v) => v.isBlacklisted)
-    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a)); // 黑單：新到舊
+    .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a));
 
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
 
@@ -3755,7 +3745,6 @@ const AdminPage = ({
   const [editTips, setEditTips] = useState(tips);
   const [editingVtuber, setEditingVtuber] = useState(null);
 
-  // 修正：將此函數移出 handleEditClick 之外
   const handleMassCleanupChat = async () => {
     if (!confirm("確定要刪除全站所有 7 天前的對話紀錄嗎？")) return;
     setIsSyncingSubs(true);
@@ -3798,8 +3787,6 @@ const AdminPage = ({
     const PREDEFINED_NATIONALITIES = ["台灣", "日本", "香港", "馬來西亞"];
     const PREDEFINED_LANGUAGES = ["國", "日", "英", "粵", "台語"];
     const PREDEFINED_PERSONALITIES = ["我是I人", "時I時E", "我大E人", "看心情"];
-
-
 
     const safeNats = Array.isArray(v.nationalities)
       ? v.nationalities
@@ -3889,7 +3876,11 @@ const AdminPage = ({
     });
   };
 
+  // 👈 3. 修復 handleTestMail 變數未定義的問題
   const handleTestMail = async () => {
+    const testEmail = prompt("請輸入要接收測試信的 Email：");
+    if (!testEmail || !testEmail.includes("@")) return showToast("請輸入有效的 Email");
+
     try {
       const sendSystemEmail = httpsCallable(
         functionsInstance,
@@ -3897,10 +3888,10 @@ const AdminPage = ({
       );
 
       await sendSystemEmail({
-        to: email,
-        subject: "[V-Nexus] 公開工商信箱驗證碼", // 👈 把主旨加回來
-        text: `您好，您的驗證碼是：${otp}\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`, // 👈 把內文加回來
-        otp: otp,  // 👈 這是關鍵！傳遞給後端，滿足「必須有驗證碼才能寄信」的安全檢查
+        to: testEmail,
+        subject: "[V-Nexus] 公開工商信箱驗證碼測試",
+        text: `您好，您的驗證碼是：123456\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`,
+        otp: "123456",
         type: 'verify'
       });
       showToast("✅ 測試信件任務已發送！");
@@ -4005,7 +3996,7 @@ const AdminPage = ({
                 showSearch={true}
               />
 
-              {/* 黑單避雷區 (通常數量較少，可不分頁或也加上) */}
+              {/* 黑單避雷區 */}
               <AdminVtuberList
                 title="黑單避雷區"
                 list={blacklistedVtubers}
@@ -4076,26 +4067,43 @@ const AdminPage = ({
           )}
           {activeTab === "bulletins" && (
             <div className="space-y-4">
-              <h3 className="text-xl font-bold text-white mb-4">招募文管理</h3>
-              {(bulletins || []).map((b) => (
-                <div
-                  key={b.id}
-                  className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">招募文管理</h3>
+                <button
+                  onClick={handleAdminCleanBulletins}
+                  disabled={isSyncingSubs}
+                  className="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2"
                 >
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-300 mb-1">{b.content}</p>
-                    <p className="text-xs text-gray-500">
-                      {b.vtuber?.name} | {b.postedAt}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => onDeleteBulletin(b.id)}
-                    className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg font-bold"
+                  {isSyncingSubs ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-broom"></i>}
+                  結算並清理過期招募
+                </button>
+              </div>
+              {(bulletins || []).map((b) => {
+                // 👈 2. 補上發布者名稱與時間的計算，避免 undefined 報錯
+                const author = vtubers.find(v => v.id === b.userId);
+                const authorName = author ? author.name : "未知創作者";
+                const postedAt = formatTime(b.createdAt);
+
+                return (
+                  <div
+                    key={b.id}
+                    className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"
                   >
-                    刪除
-                  </button>
-                </div>
-              ))}
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-300 mb-1">{b.content}</p>
+                      <p className="text-xs text-gray-500">
+                        {authorName} | {postedAt}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onDeleteBulletin(b.id)}
+                      className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg font-bold"
+                    >
+                      刪除
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
           {activeTab === "collabs" && (
@@ -4621,7 +4629,6 @@ const AdminPage = ({
                   </button>
                 </div>
               </div>
-              {/* 安插在 AdminPage 的 settings 頁籤內 */}
               <div className="mt-8 border-t border-gray-700 pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
                   <i className="fa-solid fa-mobile-screen-button text-blue-400 mr-2"></i>
@@ -4660,7 +4667,7 @@ const AdminPage = ({
                     }
                     showToast("✅ 清理完畢");
                   }}
-                  className="bg-red-900 text-white px-4 py-2 rounded-lg"
+                  className="bg-red-900 text-white px-4 py-2 rounded-lg ml-4"
                 >
                   清理過期訊息
                 </button>
@@ -4683,7 +4690,7 @@ const AdminPage = ({
                 <button
                   onClick={onMassMigrateImages}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-emerald-900/50 cursor-not-allowed text-gray-400" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-emerald-900/50 cursor-not-allowed text-gray-400" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -4701,7 +4708,7 @@ const AdminPage = ({
                 <button
                   onClick={onMigrateBulletinImages}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-teal-900/50 cursor-not-allowed text-gray-400" : "bg-teal-700 hover:bg-teal-600 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-teal-900/50 cursor-not-allowed text-gray-400" : "bg-teal-700 hover:bg-teal-600 text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -4719,8 +4726,6 @@ const AdminPage = ({
           )}
         </div>
       </div>
-
-
 
       {editingVtuber && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
@@ -5457,29 +5462,10 @@ function App() {
   );
 
   const leaderboardData = useMemo(() => {
-    const counts = {};
-    realBulletins.forEach((b) => {
-      let targetSize =
-        parseInt((b.collabSize || "0").replace("人", ""), 10) || 0;
-      const isEnded = b.recruitEndTime && currentTime > b.recruitEndTime;
-      const applicantsCount = Array.isArray(b.applicants)
-        ? b.applicants.length
-        : 0;
-      if (isEnded && targetSize > 0 && applicantsCount >= targetSize) {
-        counts[b.userId] = (counts[b.userId] || 0) + 1;
-      }
-    });
-    return Object.keys(counts)
-      .map((uid) => {
-        const vt = realVtubers.find((v) => v.id === uid) || {
-          id: uid,
-          name: "匿名",
-          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
-        };
-        return { ...vt, successCount: counts[uid] };
-      })
+    return realVtubers
+      .filter((v) => v.successCount && v.successCount > 0)
       .sort((a, b) => b.successCount - a.successCount);
-  }, [realBulletins, realVtubers, currentTime]);
+  }, [realVtubers]);
 
   useEffect(() => {
     const loader = document.getElementById("loading-screen");
@@ -5843,9 +5829,13 @@ function App() {
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              // ✅ 改回抓取全部招募，讓排行榜可以正確計算歷史達標紀錄
-              getDocs(collection(db, getPath('bulletins'))),
-              // 👇 加上 where 條件，只抓取「聯動時間 + 2小時內」的行程
+              // 🌟 終極優化：只抓取「招募截止時間」大於現在的招募文！
+              // 過期的歷史招募文將永遠留在資料庫裡當備份，但絕對不會再消耗前端的讀取費與網路流量。
+              getDocs(query(
+                collection(db, getPath('bulletins')),
+                where("recruitEndTime", ">", nowTime)
+              )),
+              // 行程表一樣只抓取未過期 (或剛結束 2 小時內) 的
               getDocs(query(
                 collection(db, getPath('collabs')),
                 where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000)
@@ -7265,6 +7255,62 @@ function App() {
     } catch (err) {
       console.error(err);
       showToast("❌ 新增失敗");
+    }
+  };
+
+  const handleAdminCleanBulletins = async () => {
+    if (!confirm("確定要結算並清理所有過期的招募文嗎？\n(達標的招募將轉換為積分，並刪除過期資料以節省讀取費)")) return;
+
+    setIsSyncingSubs(true);
+    setSyncProgress("正在結算與清理中...");
+
+    try {
+      const now = Date.now();
+      // 這裡必須抓取「全部」招募文來找出過期的
+      const snap = await getDocs(collection(db, getPath('bulletins')));
+      let successCount = 0;
+      let deleteCount = 0;
+
+      for (const docSnap of snap.docs) {
+        const b = { id: docSnap.id, ...docSnap.data() };
+
+        // 判斷是否過期
+        if (b.recruitEndTime && b.recruitEndTime < now) {
+          let targetSize = parseInt(String(b.collabSize || "0").replace(/[^0-9]/g, ""), 10) || 0;
+          const applicantsCount = Array.isArray(b.applicants) ? b.applicants.length : 0;
+
+          // 判斷是否達標 (成功)
+          if (targetSize > 0 && applicantsCount >= targetSize) {
+            // 幫發起人的名片加上 1 點成功積分
+            await updateDoc(doc(db, getPath("vtubers"), b.userId), {
+              successCount: increment(1)
+            });
+            successCount++;
+          }
+
+          // 無論成功或失敗，過期了就從資料庫刪除，節省空間
+          await deleteDoc(docSnap.ref);
+          deleteCount++;
+        }
+      }
+
+      // 如果有成功的聯動，更新全站的總成功次數
+      if (successCount > 0) {
+        await updateDoc(doc(db, getPath("settings"), "stats"), {
+          totalCompletedCollabs: increment(successCount)
+        });
+      }
+
+      showToast(`✅ 清理完畢！共刪除 ${deleteCount} 筆過期招募，其中 ${successCount} 筆達成目標並已轉換為積分。`);
+      // 重新整理網頁以更新所有快取
+      setTimeout(() => window.location.reload(), 2000);
+
+    } catch (e) {
+      console.error(e);
+      showToast("❌ 清理失敗，請看 Console");
+    } finally {
+      setIsSyncingSubs(false);
+      setSyncProgress("");
     }
   };
 
@@ -9682,6 +9728,7 @@ function App() {
               onDeleteArticle={handleDeleteArticle}
               onEditArticle={handleAdminEditArticle}
               onMigrateBulletinImages={handleMigrateBulletinImages}
+              handleAdminCleanBulletins={handleAdminCleanBulletins}
             />
           )}
         </main>
