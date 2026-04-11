@@ -2665,22 +2665,14 @@ const ProfileEditorForm = ({
           <i className="fa-solid fa-envelopes-bulk text-purple-400"></i>{" "}
           聯絡信箱設定
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
-              私人聯絡 Email (選填)
-            </label>
-            <input
-              type="email"
-              value={form.contactEmail}
-              onChange={(e) => updateForm({ contactEmail: e.target.value })}
-              className={inputCls}
-              placeholder="僅供系統驗證使用，不公開"
-            />
-          </div>
+        {/* 🌟 優化：改為單欄排版，完全移除私人信箱 */}
+        <div className="grid grid-cols-1 gap-6">
           <div>
             <label className="block text-sm font-bold text-gray-300 mb-2">
               公開工商信箱 (選填)
+              <span className="text-yellow-400 text-xs font-normal ml-2">
+                (⚠️ 若您不驗證信箱，將無法在信箱收到任何邀約與提醒通知喔！請勿填寫私人信箱。)
+              </span>
             </label>
             <div className="flex gap-2 items-start">
               <div className="flex-1">
@@ -6478,6 +6470,21 @@ function App() {
       return showToast("請先完成公開工商信箱驗證，或清空該欄位！");
     }
 
+    // 🌟 新增：3. 驗證可聯動時段 (強制必填)
+    let hasValidSchedule = false;
+    if (customForm.isScheduleAnytime) {
+      hasValidSchedule = true;
+    } else if (customForm.isScheduleCustom) {
+      hasValidSchedule = customForm.customScheduleText && customForm.customScheduleText.trim() !== "";
+    } else {
+      // 選擇「指定時段」或「除了以下時段」時，陣列裡面必須至少有一個時段
+      hasValidSchedule = customForm.scheduleSlots && customForm.scheduleSlots.length > 0;
+    }
+
+    if (!hasValidSchedule) {
+      return showToast("❌ 請務必填寫「可聯動時段」！(若選擇自訂請輸入內容，若選擇指定時段請新增至少一個時段)");
+    }
+
     try {
       showToast("⏳ 正在處理圖片並儲存名片...");
       const targetUid = customForm.id || user.uid;
@@ -6572,7 +6579,7 @@ function App() {
 
       // --- E. 準備私密資料 ---
       const privateData = {
-        contactEmail: customForm.contactEmail || "",
+        // 🌟 資安優化：徹底移除 contactEmail，不再收集與儲存私人信箱
         verificationNote: customForm.verificationNote || "",
         publicEmail: customForm.publicEmail || "",
         publicEmailVerified: !!customForm.publicEmailVerified,
@@ -7155,7 +7162,7 @@ function App() {
       await setDoc(
         doc(db, getPath("vtubers_private"), id),
         {
-          contactEmail: updatedData.contactEmail || "",
+          // 🌟 資安優化：移除 contactEmail
           verificationNote: updatedData.verificationNote || "",
           publicEmail: updatedData.publicEmail || "",
           publicEmailVerified: updatedData.publicEmailVerified || false,
