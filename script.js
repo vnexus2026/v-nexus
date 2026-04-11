@@ -244,7 +244,7 @@ const FloatingChat = ({
       let shouldSendEmail = false;
       if (now - lastNotifTime > 1 * 60 * 1000) {
         roomUpdate.lastNotifSentAt = now;
-        
+
         // 檢查是否距離上次寄 Email 超過 10 分鐘
         const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
@@ -259,7 +259,7 @@ const FloatingChat = ({
           createdAt: now,
           read: false,
           type: "chat_notification",
-          sendEmail: shouldSendEmail, 
+          sendEmail: shouldSendEmail,
         });
       }
 
@@ -4872,8 +4872,38 @@ const ChatListContent = ({
   onDeleteChat,
   allChatRooms,
 }) => {
+  // 🌟 新增：用來暫存那些「不在快取中」的新使用者真實資料
+  const [missingUsers, setMissingUsers] = useState({});
+
+  useEffect(() => {
+    const fetchMissing = async () => {
+      let changed = false;
+      const newMissing = { ...missingUsers };
+
+      for (const room of allChatRooms) {
+        const targetId = room.participants?.find((id) => id !== currentUser.uid);
+
+        // 如果在快取中找不到，且還沒抓取過，就去資料庫抓真實資料
+        if (targetId && !vtubers.find((v) => v.id === targetId) && !newMissing[targetId]) {
+          try {
+            const snap = await getDoc(doc(db, `artifacts/${APP_ID}/public/data/vtubers`, targetId));
+            if (snap.exists()) {
+              newMissing[targetId] = { id: snap.id, ...snap.data() };
+              changed = true;
+            }
+          } catch (e) {
+            console.error("抓取缺失的使用者失敗:", e);
+          }
+        }
+      }
+      if (changed) setMissingUsers(newMissing);
+    };
+    fetchMissing();
+  }, [allChatRooms, vtubers]);
+
+  // 確保排序不會因為缺少 lastTimestamp 而產生 NaN
   const rooms = [...allChatRooms].sort(
-    (a, b) => b.lastTimestamp - a.lastTimestamp,
+    (a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0),
   );
 
   if (rooms.length === 0)
@@ -4886,14 +4916,17 @@ const ChatListContent = ({
   return (
     <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
       {rooms.map((room) => {
-        const targetId = room.participants.find((id) => id !== currentUser.uid);
-        
-        // 🌟 修正：如果快取中找不到對方，給予一個預設的假名片，絕對不要 return null 導致聊天室消失！
-        const target = vtubers.find((v) => v.id === targetId) || {
-          id: targetId,
-          name: "新創作者 (資料同步中)",
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
-        };
+        const targetId = room.participants?.find((id) => id !== currentUser.uid);
+
+        // 🌟 完美邏輯：優先從快取找，找不到就從剛剛抓取的 missingUsers 找真實資料
+        const target = vtubers.find((v) => v.id === targetId) || missingUsers[targetId];
+
+        // 如果還在抓取中，顯示載入提示
+        if (!target) return (
+          <div key={room.id} className="p-3 text-center text-gray-600 text-xs animate-pulse">
+            載入對話資訊中...
+          </div>
+        );
 
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
 
@@ -4904,7 +4937,7 @@ const ChatListContent = ({
             className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors group relative"
           >
             <img
-              src={sanitizeUrl(target.avatar)}
+              src={sanitizeUrl(target.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')}
               className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 group-hover:border-purple-500 transition-colors"
             />
             <div className="flex-1 min-w-0">
@@ -4912,7 +4945,7 @@ const ChatListContent = ({
                 <span
                   className={`text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-gray-300"}`}
                 >
-                  {target.name}
+                  {target.name || '未知創作者'}
                 </span>
                 <span className="text-[10px] text-gray-500">
                   {formatTime(room.lastTimestamp)}
@@ -5024,7 +5057,7 @@ function App() {
     return unsub;
   }, [user]);
 
-   const prevRoomsRef = useRef([]);
+  const prevRoomsRef = useRef([]);
 
   useEffect(() => {
     if (!user || allChatRooms.length === 0) return;
@@ -5032,32 +5065,32 @@ function App() {
     allChatRooms.forEach((room) => {
       // 找出這間房間上一次的狀態
       const prevRoom = prevRoomsRef.current.find(r => r.id === room.id);
-      
+
       // 判斷條件：這間房間有我的未讀標記 AND (這是一間新房間 OR 它的最後更新時間比上次紀錄的還新)
       if (
         room.unreadBy && room.unreadBy.includes(user.uid) &&
         (!prevRoom || room.lastTimestamp > prevRoom.lastTimestamp)
       ) {
         const senderId = room.participants.find(id => id !== user.uid);
-        
+
         if (senderId) {
           // 異步獲取發送者資料並彈出視窗
           const triggerPopup = async () => {
             // 優先從本地快取找人
             let sender = vtubersRef.current.find(v => v.id === senderId);
-            
+
             // 如果快取沒有 (可能是剛註冊的新人)，才去資料庫抓
             if (!sender) {
               try {
                 const sSnap = await getDoc(doc(db, getPath("vtubers"), senderId));
                 if (sSnap.exists()) sender = { id: sSnap.id, ...sSnap.data() };
-              } catch(e){}
+              } catch (e) { }
             }
 
             // 如果目前沒有打開跟這個人的聊天視窗，就自動跳出並顯示提示
             if (sender && chatTargetRef.current?.id !== sender.id) {
               setChatTarget(sender); // 🚀 核心動作：自動彈出聊天視窗
-              
+
               // 顯示綠色提示框 (直接操作 State 避免依賴問題)
               setToastMsg(`💬 收到來自 ${sender.name} 的新訊息！`);
               setTimeout(() => setToastMsg(""), 3000);
@@ -5070,7 +5103,7 @@ function App() {
 
     // 更新紀錄，供下一次比對使用
     prevRoomsRef.current = allChatRooms;
-  },[allChatRooms, user]);
+  }, [allChatRooms, user]);
 
   // 計算是否有任何未讀訊息
   const hasUnreadChat = useMemo(() => {
@@ -6138,7 +6171,7 @@ function App() {
     }
 
     const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
-    
+
     // 🌟 修正：加上防呆，確保點擊通知時即使快取沒這個人，也能強制打開聊天室
     const sender = realVtubers.find((v) => v.id === targetId) || {
       id: targetId,
@@ -6147,12 +6180,12 @@ function App() {
     };
 
     if (n.type === "chat_notification" || n.type === "collab_invite") {
-      setChatTarget(sender); 
+      setChatTarget(sender);
     } else {
       setSelectedVTuber(sender);
       navigate(`profile/${sender.id}`);
     }
-    
+
     if (!n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
     setIsNotifOpen(false);
   };
