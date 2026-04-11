@@ -244,9 +244,12 @@ const FloatingChat = ({
       let shouldSendEmail = false;
       if (now - lastNotifTime > 1 * 60 * 1000) {
         roomUpdate.lastNotifSentAt = now;
-        shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
+        
+        // 檢查是否距離上次寄 Email 超過 10 分鐘
+        const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
 
+        // 只寫入「一筆」通知，交給後端決定要不要寄 Email
         await addDoc(collection(db, getPath("notifications")), {
           userId: targetVtuber.id,
           fromUserId: currentUser.uid,
@@ -256,11 +259,11 @@ const FloatingChat = ({
           createdAt: now,
           read: false,
           type: "chat_notification",
-          sendEmail: shouldSendEmail, // 🔒 交給後端決定是否寄信
+          sendEmail: shouldSendEmail, 
         });
       }
 
-      // 執行房間更新
+      // 執行房間更新 (移到最後統一執行一次就好，節省資料庫寫入次數)
       await setDoc(roomRef, roomUpdate, { merge: true });
 
       // B. 站內通知 (1 分鐘一次)
@@ -4884,10 +4887,15 @@ const ChatListContent = ({
     <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
       {rooms.map((room) => {
         const targetId = room.participants.find((id) => id !== currentUser.uid);
-        const target = vtubers.find((v) => v.id === targetId);
-        if (!target) return null;
-        const isUnread =
-          room.unreadBy && room.unreadBy.includes(currentUser.uid);
+        
+        // 🌟 修正：如果快取中找不到對方，給予一個預設的假名片，絕對不要 return null 導致聊天室消失！
+        const target = vtubers.find((v) => v.id === targetId) || {
+          id: targetId,
+          name: "新創作者 (資料同步中)",
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
+        };
+
+        const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
 
         return (
           <div
@@ -6074,22 +6082,30 @@ function App() {
     });
 
   const handleNotifClick = (n) => {
-    // 👈 修正：判斷要抓取誰的名片資料
-    const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
-    const sender = realVtubers.find((v) => v.id === targetId);
-
-    if (sender) {
-      if (n.type === "chat_notification" || n.type === "collab_invite") {
-        setChatTarget(sender); // 開啟聊天室
-      } else {
-        setSelectedVTuber(sender);
-        navigate(`profile/${sender.id}`);
-      }
+    const isBackup = n.message && n.message.startsWith("【寄件備份");
+    if (isBackup) {
+      if (!n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
+      setIsNotifOpen(false);
+      return;
     }
-    if (!n.read)
-      updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(
-        () => { },
-      );
+
+    const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
+    
+    // 🌟 修正：加上防呆，確保點擊通知時即使快取沒這個人，也能強制打開聊天室
+    const sender = realVtubers.find((v) => v.id === targetId) || {
+      id: targetId,
+      name: n.fromUserName || "新創作者",
+      avatar: n.fromUserAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
+    };
+
+    if (n.type === "chat_notification" || n.type === "collab_invite") {
+      setChatTarget(sender); 
+    } else {
+      setSelectedVTuber(sender);
+      navigate(`profile/${sender.id}`);
+    }
+    
+    if (!n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
     setIsNotifOpen(false);
   };
 
