@@ -401,6 +401,15 @@ const sanitizeUrl = (url) => {
   ) {
     return "about:blank";
   }
+
+  // 🌟 終極優化：Firebase Token 免疫機制
+  // 因為 Storage 規則已設定為公開 (allow read: if true)，讀取根本不需要 Token。
+  // 我們直接把網址裡的 &token=... 拔掉，徹底解決舊 Token 失效導致的 403 破圖問題！
+  if (u.includes("firebasestorage.googleapis.com") && u.includes("&token=")) {
+    // 使用正規表達式拔除 token 參數
+    return u.replace(/&token=[a-zA-Z0-9-]+/, "");
+  }
+
   return u;
 };
 
