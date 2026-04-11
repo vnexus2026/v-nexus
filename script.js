@@ -1202,6 +1202,10 @@ const BulletinCard = React.memo(({
     ? b.applicants.includes(user?.uid)
     : false;
 
+  const targetSize = parseInt(String(b.collabSize || "0").replace(/[^0-9]/g, ""), 10) || 0;
+  const currentApplicants = b.applicantsData?.length || 0;
+  const isReached = targetSize > 0 && currentApplicants >= targetSize;
+
   useEffect(() => {
     if (openModalId === b.id) {
       setShowApplicants(true);
@@ -1333,6 +1337,12 @@ const BulletinCard = React.memo(({
         <div className="mt-4 pt-4 border-t border-gray-700/50">
           {isAuthor ? (
             <div className="flex flex-col gap-3">
+              {/* 🌟 給發起人看的達標提示 */}
+              {isReached && (
+                <div className="text-xs text-green-400 font-bold flex items-center gap-1.5 bg-green-500/10 px-3 py-1.5 rounded-lg w-fit border border-green-500/20">
+                  <i className="fa-solid fa-circle-check"></i> 意願人數已達標！您可以開始挑選夥伴囉
+                </div>
+              )}
               <div
                 className="flex items-center justify-between bg-gray-800/40 hover:bg-gray-800 p-3 rounded-xl border border-gray-700 cursor-pointer transition-colors"
                 onClick={() => setShowApplicants(true)}
@@ -1379,42 +1389,50 @@ const BulletinCard = React.memo(({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <div
-                className="flex items-center gap-2 cursor-pointer group/apply hover:bg-gray-800/50 p-2 -ml-2 rounded-lg transition-colors"
-                onClick={() => setShowApplicants(true)}
-              >
-                <span className="text-xs text-gray-400 group-hover/apply:text-white transition-colors">
-                  目前 {b.applicantsData?.length || 0} 人有意願
-                </span>
-                <div className="flex -space-x-2">
-                  {b.applicantsData?.slice(0, 3).map((a) => (
-                    <img
-                      key={a.id}
-                      src={sanitizeUrl(a.avatar)}
-                      className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
-                    />
-                  ))}
-                  {b.applicantsData?.length > 3 && (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
-                      +{b.applicantsData.length - 3}
-                    </div>
-                  )}
+            <div className="flex flex-col gap-2">
+              {/* 🌟 給報名者看的達標提示 (用橘色火焰吸引目光，並強調仍可報名) */}
+              {isReached && !hasApplied && (
+                <div className="text-[10px] text-orange-400 font-bold flex items-center gap-1 bg-orange-500/10 px-2 py-1 rounded-lg w-fit border border-orange-500/20">
+                  <i className="fa-solid fa-fire animate-pulse"></i> 意願人數達標！(發起人挑選中，仍可報名)
                 </div>
-                <span className="text-[10px] text-purple-400 opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
-                  點擊展開
-                </span>
+              )}
+              <div className="flex items-center justify-between">
+                <div
+                  className="flex items-center gap-2 cursor-pointer group/apply hover:bg-gray-800/50 p-2 -ml-2 rounded-lg transition-colors"
+                  onClick={() => setShowApplicants(true)}
+                >
+                  <span className="text-xs text-gray-400 group-hover/apply:text-white transition-colors">
+                    目前 {b.applicantsData?.length || 0} 人有意願
+                  </span>
+                  <div className="flex -space-x-2">
+                    {b.applicantsData?.slice(0, 3).map((a) => (
+                      <img
+                        key={a.id}
+                        src={sanitizeUrl(a.avatar)}
+                        className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
+                      />
+                    ))}
+                    {b.applicantsData?.length > 3 && (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
+                        +{b.applicantsData.length - 3}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-purple-400 opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
+                    點擊展開
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onApply(b.id, !hasApplied, b.userId);
+                  }}
+                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
+                >
+                  {hasApplied ? "收回意願" : "✋ 我有意願"}
+                </button>
               </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onApply(b.id, !hasApplied, b.userId);
-                }}
-                className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
-              >
-                {hasApplied ? "收回意願" : "✋ 我有意願"}
-              </button>
             </div>
           )}
         </div>
