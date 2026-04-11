@@ -175,7 +175,7 @@ const FloatingChat = ({
     const q = query(
       collection(db, getMsgPath(roomId)),
       orderBy("createdAt", "desc"),
-      limit(50),
+      limit(30),
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -5744,27 +5744,45 @@ function App() {
   // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
     const fetchLargeData = async () => {
-      const needsVtuberList = ["home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles"].includes(currentView);
+      const needsVtuberList = [
+        "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles"
+      ].includes(currentView);
 
       if (needsVtuberList) {
-        try {
-          // 1. 優先向 Storage 的公開網址拿靜態 JSON (請換成你真實的 Storage 下載網址或自訂網域)
-          // 加上 ?t= 參數避免瀏覽器死快取，但 CDN 依然會生效
-          const timestamp = Math.floor(Date.now() / (5 * 60 * 1000)); // 每 5 分鐘變換一次參數
-          const response = await fetch(`https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media&t=${timestamp}`);
+        const now = Date.now();
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
-          if (response.ok) {
-            const data = await response.json();
-            syncVtuberCache(data);
+        // 🛡️ 核心防護：一般使用者快取 30 分鐘，管理員快取 5 分鐘
+        const cacheLimit = isAdmin ? 5 * 60 * 1000 : 30 * 60 * 1000;
+        const isExpired = !cachedTs || (now - parseInt(cachedTs) > cacheLimit);
+
+        // 只有在「快取過期」時，才允許重新抓取！(防止切換標籤瘋狂讀取)
+        if (isExpired) {
+          if (isAdmin) {
+            try {
+              // 管理員：讀取 Firestore (受 5 分鐘快取保護)
+              const vSnap = await getDocs(collection(db, getPath("vtubers")));
+              const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+              syncVtuberCache(data);
+            } catch (e) { console.error("管理員讀取失敗", e); }
           } else {
-            throw new Error("JSON 讀取失敗，退回 Firestore 讀取");
+            try {
+              // 一般使用者：讀取 JSON (請確保此網址正確)
+              const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+              const timestamp = Math.floor(Date.now() / (30 * 60 * 1000));
+              const response = await fetch(`${jsonUrl}&t=${timestamp}`);
+
+              if (response.ok) {
+                const data = await response.json();
+                syncVtuberCache(data);
+              } else {
+                throw new Error("JSON 讀取失敗");
+              }
+            } catch (e) {
+              console.error("靜態 JSON 讀取失敗:", e);
+              // ⚠️ 絕對不要在這裡放 getDocs！寧可顯示舊的快取資料，保護錢包
+            }
           }
-        } catch (e) {
-          console.warn("靜態 JSON 讀取失敗，使用 Firestore 備用方案:", e);
-          // 備用方案：如果 JSON 壞了，才去讀 Firestore (保護機制)
-          const vSnap = await getDocs(collection(db, getPath("vtubers")));
-          const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          syncVtuberCache(data);
         }
         setIsLoading(false);
       }
@@ -5778,11 +5796,11 @@ function App() {
         const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
         const cTs = localStorage.getItem(COLLABS_CACHE_TS);
 
+        // 🛡️ 移除原本的 forceRefresh = (currentView === 'admin')，防止管理員切換標籤時暴衝
         const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
         const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
-        const forceRefresh = (currentView === 'admin');
 
-        if (isBCacheValid && isCCacheValid && !forceRefresh) {
+        if (isBCacheValid && isCCacheValid) {
           setRealBulletins(JSON.parse(bCache));
           setRealCollabs(JSON.parse(cCache));
 
@@ -5794,17 +5812,8 @@ function App() {
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              // 🌟 終極優化：只抓取「招募截止時間」大於現在的招募文！
-              // 過期的歷史招募文將永遠留在資料庫裡當備份，但絕對不會再消耗前端的讀取費與網路流量。
-              getDocs(query(
-                collection(db, getPath('bulletins')),
-                where("recruitEndTime", ">", nowTime)
-              )),
-              // 行程表一樣只抓取未過期 (或剛結束 2 小時內) 的
-              getDocs(query(
-                collection(db, getPath('collabs')),
-                where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000)
-              )),
+              getDocs(query(collection(db, getPath('bulletins')), where("recruitEndTime", ">", nowTime))),
+              getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ]);
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -5820,7 +5829,7 @@ function App() {
     };
 
     fetchLargeData();
-  }, [currentView]);
+  }, [currentView, isAdmin]);
 
   useEffect(() => {
     const needsArticleData = ['articles', 'admin'].includes(currentView);
