@@ -345,11 +345,12 @@ const FloatingChat = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="說點什麼..."
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-purple-500 transition-all"
+          // 🌟 優化：將 text-sm 改為 text-[16px]，完美阻止 iOS 手機點擊時自動放大畫面！
+          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-[16px] text-white outline-none focus:border-purple-500 transition-all"
         />
         <button
           type="submit"
-          className="bg-purple-600 hover:bg-purple-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform hover:scale-105"
+          className="bg-purple-600 hover:bg-purple-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform hover:scale-105 flex-shrink-0"
         >
           <i className="fa-solid fa-paper-plane"></i>
         </button>
@@ -667,8 +668,7 @@ const COLOR_OPTIONS = [
   "粉",
   "棕",
 ]; // 新增色系選項
-const inputCls =
-  "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-sm";
+const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-[16px]";
 const btnCls =
   "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
 
