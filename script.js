@@ -1728,6 +1728,64 @@ const MatchPage = ({
   );
 };
 
+const TIME_OPTIONS = [];
+for (let i = 0; i < 24; i++) {
+  const h = String(i).padStart(2, "0");
+  TIME_OPTIONS.push(`${h}:00`);
+  TIME_OPTIONS.push(`${h}:30`);
+}
+TIME_OPTIONS.push("23:59");
+
+// 🌟 新增：專屬的日期+時間選擇器 (拆分日期與時間，強制 24 小時制)
+const DateTimePicker = ({ value, onChange, className }) => {
+  // 將 "YYYY-MM-DDTHH:mm" 拆成日期與時間
+  const datePart = value ? value.split('T')[0] : '';
+  const timePart = value && value.includes('T') ? value.split('T')[1].substring(0, 5) : '';
+
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    if (!newDate) {
+      onChange(''); // 如果清空日期，就全部清空
+    } else {
+      onChange(`${newDate}T${timePart || '00:00'}`);
+    }
+  };
+
+  const handleTimeChange = (e) => {
+    const newTime = e.target.value;
+    // 如果還沒選日期就先選時間，預設帶入今天的日期
+    const fallbackDate = new Date().toISOString().split('T')[0];
+    onChange(`${datePart || fallbackDate}T${newTime}`);
+  };
+
+  // 移除 w-full 讓 flex-1 生效
+  const baseCls = className.replace('w-full', '');
+
+  return (
+    <div className="flex gap-2 w-full">
+      <input
+        type="date"
+        value={datePart}
+        onChange={handleDateChange}
+        className={`${baseCls} flex-1 min-w-0`}
+      />
+      <select
+        value={timePart}
+        onChange={handleTimeChange}
+        className={`${baseCls} flex-1 min-w-0 cursor-pointer`}
+      >
+        <option value="" disabled>選擇時間</option>
+        {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+        {/* 防呆：保留舊有的特殊時間 */}
+        {!TIME_OPTIONS.includes(timePart) && timePart && (
+          <option value={timePart}>{timePart}</option>
+        )}
+      </select>
+    </div>
+  );
+};
+
+
 const ScheduleEditor = ({ form, updateForm }) => {
   const mode = form.isScheduleAnytime
     ? "anytime"
@@ -1803,23 +1861,34 @@ const ScheduleEditor = ({ form, updateForm }) => {
                   </option>
                 ))}
               </select>
-              <input
-                type="time"
-                lang="sv-SE"
-                step="60"
+
+              {/* 🌟 修改：將原本的 input type="time" 改成 select 下拉選單 */}
+              <select
                 value={slot.start}
                 onChange={(e) => updateSlot(index, "start", e.target.value)}
-                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0"
-              />
+                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
+              >
+                {/* 防呆：如果原本資料庫存了奇怪的時間(如 14:15)，也能正常顯示出來 */}
+                {!TIME_OPTIONS.includes(slot.start) && slot.start && (
+                  <option value={slot.start}>{slot.start}</option>
+                )}
+                {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+
               <span className="text-gray-400 text-xs">至</span>
-              <input
-                type="time"
-                lang="sv-SE"
-                step="60"
+
+              {/* 🌟 修改：將原本的 input type="time" 改成 select 下拉選單 */}
+              <select
                 value={slot.end}
                 onChange={(e) => updateSlot(index, "end", e.target.value)}
-                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0"
-              />
+                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
+              >
+                {!TIME_OPTIONS.includes(slot.end) && slot.end && (
+                  <option value={slot.end}>{slot.end}</option>
+                )}
+                {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+
               <button
                 type="button"
                 onClick={() =>
@@ -4155,13 +4224,11 @@ const AdminPage = ({
                     <label className="text-xs text-gray-400 mb-1 block">
                       聯動時間 <span className="text-red-400">*</span>
                     </label>
-                    <input
-                      type="datetime-local"
-                      lang="sv-SE"
-                      step="60"
+                    {/* 🌟 替換為 DateTimePicker */}
+                    <DateTimePicker
                       value={newCollab.dateTime}
-                      onChange={(e) =>
-                        setNewCollab({ ...newCollab, dateTime: e.target.value })
+                      onChange={(val) =>
+                        setNewCollab({ ...newCollab, dateTime: val })
                       }
                       className={inputCls}
                     />
@@ -9099,15 +9166,13 @@ function App() {
                         <label className="block text-sm font-bold text-gray-300 mb-2">
                           預計聯動時間 <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="datetime-local"
-                          lang="sv-SE"
-                          step="60"
+                        {/* 🌟 替換為 DateTimePicker */}
+                        <DateTimePicker
                           value={newBulletin.collabTime}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             setNewBulletin({
                               ...newBulletin,
-                              collabTime: e.target.value,
+                              collabTime: val,
                             })
                           }
                           className={inputCls}
@@ -9117,15 +9182,13 @@ function App() {
                         <label className="block text-sm font-bold text-gray-300 mb-2">
                           揪團截止時間 <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="datetime-local"
-                          lang="sv-SE"
-                          step="60"
+                        {/* 🌟 替換為 DateTimePicker */}
+                        <DateTimePicker
                           value={newBulletin.recruitEndTime}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             setNewBulletin({
                               ...newBulletin,
-                              recruitEndTime: e.target.value,
+                              recruitEndTime: val,
                             })
                           }
                           className={inputCls}
@@ -9335,15 +9398,13 @@ function App() {
                       <label className="text-sm font-bold text-gray-300 mb-2 block">
                         聯動時間 <span className="text-red-400">*</span>
                       </label>
-                      <input
-                        type="datetime-local"
-                        lang="sv-SE"
-                        step="60"
+                      {/* 🌟 替換為 DateTimePicker */}
+                      <DateTimePicker
                         value={publicCollabForm.dateTime}
-                        onChange={(e) =>
+                        onChange={(val) =>
                           setPublicCollabForm({
                             ...publicCollabForm,
-                            dateTime: e.target.value,
+                            dateTime: val,
                           })
                         }
                         className={inputCls}
