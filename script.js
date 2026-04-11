@@ -7038,6 +7038,11 @@ function App() {
       // 1. 更新名片狀態
       await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
+      // 🌟 優化：更新全站最後異動時間，通知所有在線使用者的瀏覽器「有新名片了，請重新抓取！」
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: Date.now()
+      }, { merge: true });
+
       setRealVtubers((prev) => {
         const newList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
         syncVtuberCache(newList);
@@ -7159,6 +7164,10 @@ function App() {
         merge: true,
       });
 
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: Date.now()
+      }, { merge: true });
+
       await setDoc(
         doc(db, getPath("vtubers_private"), id),
         {
@@ -7192,6 +7201,9 @@ function App() {
     try {
       await deleteDoc(doc(db, getPath("vtubers"), id));
       await deleteDoc(doc(db, getPath("vtubers_private"), id));
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: Date.now()
+      }, { merge: true });
       setRealVtubers((prev) => {
         const newList = prev.filter((v) => v.id !== id);
         syncVtuberCache(newList); // ✅ 同步快取，防止幽靈復活
