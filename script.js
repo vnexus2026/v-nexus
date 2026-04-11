@@ -5024,6 +5024,54 @@ function App() {
     return unsub;
   }, [user]);
 
+   const prevRoomsRef = useRef([]);
+
+  useEffect(() => {
+    if (!user || allChatRooms.length === 0) return;
+
+    allChatRooms.forEach((room) => {
+      // 找出這間房間上一次的狀態
+      const prevRoom = prevRoomsRef.current.find(r => r.id === room.id);
+      
+      // 判斷條件：這間房間有我的未讀標記 AND (這是一間新房間 OR 它的最後更新時間比上次紀錄的還新)
+      if (
+        room.unreadBy && room.unreadBy.includes(user.uid) &&
+        (!prevRoom || room.lastTimestamp > prevRoom.lastTimestamp)
+      ) {
+        const senderId = room.participants.find(id => id !== user.uid);
+        
+        if (senderId) {
+          // 異步獲取發送者資料並彈出視窗
+          const triggerPopup = async () => {
+            // 優先從本地快取找人
+            let sender = vtubersRef.current.find(v => v.id === senderId);
+            
+            // 如果快取沒有 (可能是剛註冊的新人)，才去資料庫抓
+            if (!sender) {
+              try {
+                const sSnap = await getDoc(doc(db, getPath("vtubers"), senderId));
+                if (sSnap.exists()) sender = { id: sSnap.id, ...sSnap.data() };
+              } catch(e){}
+            }
+
+            // 如果目前沒有打開跟這個人的聊天視窗，就自動跳出並顯示提示
+            if (sender && chatTargetRef.current?.id !== sender.id) {
+              setChatTarget(sender); // 🚀 核心動作：自動彈出聊天視窗
+              
+              // 顯示綠色提示框 (直接操作 State 避免依賴問題)
+              setToastMsg(`💬 收到來自 ${sender.name} 的新訊息！`);
+              setTimeout(() => setToastMsg(""), 3000);
+            }
+          };
+          triggerPopup();
+        }
+      }
+    });
+
+    // 更新紀錄，供下一次比對使用
+    prevRoomsRef.current = allChatRooms;
+  },[allChatRooms, user]);
+
   // 計算是否有任何未讀訊息
   const hasUnreadChat = useMemo(() => {
     return allChatRooms.some(
