@@ -5840,20 +5840,28 @@ function App() {
 
         // 🛡️ 核心防護：一般使用者快取 30 分鐘，管理員快取 5 分鐘
         const cacheLimit = isAdmin ? 5 * 60 * 1000 : 30 * 60 * 1000;
-        const isExpired = !cachedTs || (now - parseInt(cachedTs) > cacheLimit);
+        let isExpired = !cachedTs || (now - parseInt(cachedTs) > cacheLimit);
 
-        // 只有在「快取過期」時，才允許重新抓取！(防止切換標籤瘋狂讀取)
+        // 🌟 關鍵修復：解決「待審核名片消失」的問題
+        // 如果管理員進入後台，但目前的快取是來自「一般使用者的公開 JSON」，則強制過期並重新抓取完整資料庫！
+        const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
+        if (isAdmin && currentView === 'admin' && !hasFullData) {
+          isExpired = true;
+        }
+
+        // 只有在「快取過期」或「需要強制抓取完整資料」時，才允許重新抓取！
         if (isExpired) {
           if (isAdmin) {
             try {
-              // 管理員：讀取 Firestore (受 5 分鐘快取保護)
+              // 管理員：讀取 Firestore (包含待審核、黑名單等所有完整資料)
               const vSnap = await getDocs(collection(db, getPath("vtubers")));
               const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
               syncVtuberCache(data);
+              sessionStorage.setItem("has_full_admin_data", "true"); // 標記已擁有完整資料
             } catch (e) { console.error("管理員讀取失敗", e); }
           } else {
             try {
-              // 一般使用者：讀取 JSON (請確保此網址正確)
+              // 一般使用者：讀取 JSON (只包含已審核的公開資料)
               const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
               const timestamp = Math.floor(Date.now() / (30 * 60 * 1000));
               const response = await fetch(`${jsonUrl}&t=${timestamp}`);
@@ -5861,6 +5869,7 @@ function App() {
               if (response.ok) {
                 const data = await response.json();
                 syncVtuberCache(data);
+                sessionStorage.setItem("has_full_admin_data", "false"); // 標記為非完整資料
               } else {
                 throw new Error("JSON 讀取失敗");
               }
