@@ -4988,18 +4988,20 @@ const ChatListContent = ({
           <div
             key={room.id}
             onClick={() => onOpenChat(target)}
-            className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors group relative"
+            // 🌟 優化 1：加上 active:bg-gray-800，讓手機點擊時有按下去的視覺回饋
+            className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 active:bg-gray-800 cursor-pointer transition-colors group relative"
           >
             <img
-              src={sanitizeUrl(target.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')}
-              className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 group-hover:border-purple-500 transition-colors"
+              src={sanitizeUrl(target.avatar)}
+              // 🌟 優化 2：將 group-hover 改為 md:group-hover，避免手機端觸發 Hover 陷阱
+              className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors"
             />
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center mb-1">
                 <span
                   className={`text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-gray-300"}`}
                 >
-                  {target.name || '未知創作者'}
+                  {target.name}
                 </span>
                 <span className="text-[10px] text-gray-500">
                   {formatTime(room.lastTimestamp)}
@@ -5017,8 +5019,9 @@ const ChatListContent = ({
                 <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
               )}
               <button
-                onClick={(e) => onDeleteChat(e, room.id)}
-                className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
+                onClick={(e) => handleDeleteChat(e, room.id)}
+                // 🌟 關鍵修復：手機版預設顯示 (opacity-100)，電腦版才隱藏 (md:opacity-0)。徹底解決 iOS 需要點兩下的 Bug！
+                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
                 title="移除此對話"
               >
                 <i className="fa-solid fa-trash-can text-xs"></i>
@@ -6021,7 +6024,7 @@ function App() {
       }
 
       // 2. 佈告欄與行程資料
-      const needsActivityData =['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
+      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
         const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
@@ -6057,8 +6060,8 @@ function App() {
             syncBulletinCache(bData);
             syncCollabCache(cData);
             setRealUpdates(uData);
-          } catch (e) { 
-            console.error("抓取活動資料失敗:", e); 
+          } catch (e) {
+            console.error("抓取活動資料失敗:", e);
           } finally {
             setIsLoadingActivities(false); // 👈 無論成功失敗，最後都關閉載入動畫
           }
