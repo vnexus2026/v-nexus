@@ -760,6 +760,36 @@ const parseSubscribers = (v) => {
   );
 };
 
+const calculateCompatibility = (me, target) => {
+  // 如果未登入或沒有名片，給予 60~89% 的隨機分數吸引註冊
+  if (!me) return Math.floor(Math.random() * 30) + 60;
+
+  let score = 50; // 基礎分數 50%
+
+  // 1. 聯動類型相同 (每個加 12 分)
+  const myCollabs = me.collabTypes || [];
+  const targetCollabs = target.collabTypes || [];
+  const sharedCollabs = myCollabs.filter(c => targetCollabs.includes(c));
+  score += sharedCollabs.length * 12;
+
+  // 2. 內容標籤相同 (每個加 6 分)
+  const myTags = me.tags || [];
+  const targetTags = target.tags || [];
+  const sharedTags = myTags.filter(t => targetTags.includes(t));
+  score += sharedTags.length * 6;
+
+  // 3. 個性互補或相同
+  if (me.personalityType && target.personalityType) {
+    if (me.personalityType !== target.personalityType) score += 8; // 互補加分較多
+    else score += 4; // 相同也加分
+  }
+
+  // 4. 演出型態相同
+  if (me.streamingStyle === target.streamingStyle) score += 5;
+
+  return Math.min(99, score); // 最高 99%，保留一點真實感
+};
+
 const isVisible = (v, currentUser) => {
   if (!v || !v.id) return false; // 確保 v 及其 id 存在
   if (currentUser && v.id === currentUser.uid) return true;
@@ -1169,10 +1199,10 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
 
         {/* 🌟 優化：將契合度移到名片最下方，並改為低調柔和的樣式 */}
         {v.compatibilityScore && (
-          <div className="mt-3 pt-2 border-t border-gray-700/50 flex justify-center items-center">
-            <span className="text-xs font-bold text-pink-400/80 flex items-center gap-1.5 bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/20">
-              <i className="fa-solid fa-heart"></i> 你們的契合度高達 {v.compatibilityScore}%
-            </span>
+          <div className="mt-3 pt-3 border-t border-gray-700/50">
+            <div className="w-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-bold py-2.5 rounded-xl flex justify-center items-center gap-2 shadow-inner transition-colors hover:bg-pink-500/20">
+              <i className="fa-solid fa-heart animate-pulse"></i> 系統判定契合度 {v.compatibilityScore}%
+            </div>
           </div>
         )}
 
@@ -3281,36 +3311,7 @@ const HomePage = ({
   const recommendedVtubers = useMemo(() => {
     const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
 
-    // 契合度計算引擎
-    const calculateCompatibility = (me, target) => {
-      // 如果未登入或沒有名片，給予 60~89% 的隨機分數吸引註冊
-      if (!me) return Math.floor(Math.random() * 30) + 60;
 
-      let score = 50; // 基礎分數 50%
-
-      // 1. 聯動類型相同 (每個加 12 分)
-      const myCollabs = me.collabTypes || [];
-      const targetCollabs = target.collabTypes || [];
-      const sharedCollabs = myCollabs.filter(c => targetCollabs.includes(c));
-      score += sharedCollabs.length * 12;
-
-      // 2. 內容標籤相同 (每個加 6 分)
-      const myTags = me.tags || [];
-      const targetTags = target.tags || [];
-      const sharedTags = myTags.filter(t => targetTags.includes(t));
-      score += sharedTags.length * 6;
-
-      // 3. 個性互補或相同
-      if (me.personalityType && target.personalityType) {
-        if (me.personalityType !== target.personalityType) score += 8; // 互補加分較多
-        else score += 4; // 相同也加分
-      }
-
-      // 4. 演出型態相同
-      if (me.streamingStyle === target.streamingStyle) score += 5;
-
-      return Math.min(99, score); // 最高 99%，保留一點真實感
-    };
 
     const candidates = [...realVtubers]
       .filter(
@@ -5133,7 +5134,7 @@ function App() {
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-  const [sortOrder, setSortOrder] = useState("random");
+  const [sortOrder, setSortOrder] = useState("compatibility");
   const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
     return !localStorage.getItem(BULLETINS_CACHE_KEY);
   });
@@ -6473,7 +6474,6 @@ function App() {
         if (val.toMillis) return val.toMillis();
         return 0;
       };
-      // ✅ 同時考慮最後活躍、更新、以及建立時間，確保「有動靜」的人排在前面
       return Math.max(
         getTime(v.lastActiveAt),
         getTime(v.updatedAt),
@@ -6481,23 +6481,44 @@ function App() {
       );
     };
 
-    const list = Array.isArray(realVtubers) ? [...realVtubers] : [];
+    // 🌟 取得自己的名片資料 (用於計算契合度)
+    const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
+    let list = Array.isArray(realVtubers) ? [...realVtubers] : [];
+
+    // 🌟 核心邏輯：只有選擇「契合度」排序時，才把分數算進去並顯示
+    if (sortOrder === "compatibility") {
+      list = list.map(v => ({
+        ...v,
+        compatibilityScore: calculateCompatibility(myProfile, v)
+      }));
+    } else {
+      // 如果選其他排序，強制把分數拔掉，這樣卡片就不會顯示契合度標籤了！
+      list = list.map(v => {
+        const { compatibilityScore, ...rest } = v;
+        return rest;
+      });
+    }
 
     return list.sort((a, b) => {
+      // 🌟 新增：契合度排序邏輯
+      if (sortOrder === "compatibility") {
+        if (b.compatibilityScore !== a.compatibilityScore) {
+          return b.compatibilityScore - a.compatibilityScore;
+        }
+        return getLatestActivityTime(b) - getLatestActivityTime(a); // 分數相同看活躍度
+      }
       if (sortOrder === "random") {
         return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
       }
       if (sortOrder === "likes") return (b.likes || 0) - (a.likes || 0);
       if (sortOrder === "subscribers")
         return parseSubscribers(b) - parseSubscribers(a);
-
-      // --- 這裡就是修改的地方：將「最新加入」改為「最近動態」排序 ---
       if (sortOrder === "newest") {
         return getLatestActivityTime(b) - getLatestActivityTime(a);
       }
       return 0;
     });
-  }, [realVtubers, sortOrder, shuffleSeed]);
+  }, [realVtubers, sortOrder, shuffleSeed, user]);
 
   const dynamicCollabTypes = useMemo(() => {
     const types = new Set(); // 👈 補上這一行宣告
@@ -8829,6 +8850,7 @@ function App() {
                       className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (更新/加入)</option>
+                      <option value="compatibility">💖 最契合夥伴</option> {/* 🌟 新增這行 */}
                       <option value="random">🔀 隨機排列</option>
                       <option value="likes">👍 最推薦</option>
                       <option value="subscribers">📺 最多訂閱</option>
