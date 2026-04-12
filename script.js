@@ -1185,6 +1185,47 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   );
 });
 
+const BulletinSkeleton = () => (
+  <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden flex flex-col shadow-lg">
+    {/* 頂部圖片骨架 */}
+    <div className="w-full h-48 sm:h-56 bg-gray-700/30 animate-pulse"></div>
+
+    {/* 頭部資訊骨架 */}
+    <div className="bg-gray-900/60 p-5 border-b border-gray-700/50 flex items-start gap-4">
+      <div className="w-14 h-14 rounded-full bg-gray-700/50 animate-pulse flex-shrink-0"></div>
+      <div className="flex-1 space-y-3 py-2">
+        <div className="h-4 bg-gray-700/50 rounded-md w-1/3 animate-pulse"></div>
+        <div className="h-3 bg-gray-700/50 rounded-md w-1/4 animate-pulse"></div>
+      </div>
+    </div>
+
+    {/* 內容區骨架 */}
+    <div className="p-6 flex-1 flex flex-col">
+      <div className="space-y-3 mb-6">
+        <div className="h-3 bg-gray-700/50 rounded-md w-full animate-pulse"></div>
+        <div className="h-3 bg-gray-700/50 rounded-md w-5/6 animate-pulse"></div>
+        <div className="h-3 bg-gray-700/50 rounded-md w-4/6 animate-pulse"></div>
+      </div>
+
+      {/* 網格資訊骨架 */}
+      <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
+        <div className="bg-gray-900/50 h-14 rounded-xl animate-pulse"></div>
+        <div className="bg-gray-900/50 h-14 rounded-xl animate-pulse"></div>
+        <div className="bg-gray-900/50 h-14 rounded-xl col-span-2 animate-pulse"></div>
+      </div>
+
+      {/* 底部按鈕骨架 */}
+      <div className="mt-4 pt-4 border-t border-gray-700/50 flex justify-between items-center">
+        <div className="flex gap-2">
+          <div className="w-6 h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
+          <div className="w-6 h-6 rounded-full bg-gray-700/50 animate-pulse -ml-2"></div>
+        </div>
+        <div className="h-9 bg-purple-600/20 rounded-xl w-24 animate-pulse"></div>
+      </div>
+    </div>
+  </div>
+);
+
 const BulletinCard = React.memo(({
   b,
   user,
@@ -5029,6 +5070,9 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState("random");
+  const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
+    return !localStorage.getItem(BULLETINS_CACHE_KEY);
+  });
   const [isLoading, setIsLoading] = useState(() => {
     return !localStorage.getItem(VTUBER_CACHE_KEY);
   });
@@ -5977,7 +6021,7 @@ function App() {
       }
 
       // 2. 佈告欄與行程資料
-      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
+      const needsActivityData =['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
         const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
@@ -5985,19 +6029,20 @@ function App() {
         const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
         const cTs = localStorage.getItem(COLLABS_CACHE_TS);
 
-        // 🛡️ 移除原本的 forceRefresh = (currentView === 'admin')，防止管理員切換標籤時暴衝
         const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
         const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
 
         if (isBCacheValid && isCCacheValid) {
           setRealBulletins(JSON.parse(bCache));
           setRealCollabs(JSON.parse(cCache));
+          setIsLoadingActivities(false); // 👈 快取有效，關閉載入動畫
 
           if (realUpdates.length === 0) {
             getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
               .then(uSnap => setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
           }
         } else {
+          setIsLoadingActivities(true); // 👈 開始向資料庫抓取，開啟載入動畫
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -6012,7 +6057,11 @@ function App() {
             syncBulletinCache(bData);
             syncCollabCache(cData);
             setRealUpdates(uData);
-          } catch (e) { console.error("抓取活動資料失敗:", e); }
+          } catch (e) { 
+            console.error("抓取活動資料失敗:", e); 
+          } finally {
+            setIsLoadingActivities(false); // 👈 無論成功失敗，最後都關閉載入動畫
+          }
         }
       }
     };
@@ -9415,7 +9464,14 @@ function App() {
                 ))}
               </div>
 
-              {filteredDisplayBulletins.length === 0 ? (
+              {isLoadingActivities ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* 顯示 4 個骨架屏作為佔位符 */}
+                  {[1, 2, 3, 4].map((n) => (
+                    <BulletinSkeleton key={n} />
+                  ))}
+                </div>
+              ) : filteredDisplayBulletins.length === 0 ? (
                 <p className="text-center text-gray-500 mt-20">
                   目前沒有相關的招募文喔！
                 </p>
