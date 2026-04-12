@@ -6870,11 +6870,9 @@ function App() {
           ? customForm.personalityTypeOther || "其他"
           : customForm.personalityType || "";
 
-      // 🌟 新增：判斷限時動態是否有修改，若有修改則更新時間戳記
-      let newStatusMessageUpdatedAt = existingProfile?.statusMessageUpdatedAt || 0;
-      if (customForm.statusMessage !== existingProfile?.statusMessage) {
-        newStatusMessageUpdatedAt = Date.now();
-      }
+      // 🌟 關鍵修復：只要輸入框裡面有字，每次按下「儲存名片」就強制刷新 24 小時的計時器！
+      // 這樣使用者隨時可以按儲存來延長動態的顯示時間。
+      const newStatusMessageUpdatedAt = customForm.statusMessage?.trim() ? Date.now() : 0;
 
       // --- D. 準備寫入 Firestore 的公開資料 ---
       const publicData = {
@@ -9154,6 +9152,15 @@ function App() {
                               </a>
                             )}
                           </div>
+
+                          {/* 🌟 新增：在詳細名片頁面也顯示 24 小時限時動態 */}
+                          {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && (Date.now() - selectedVTuber.statusMessageUpdatedAt < 24 * 60 * 60 * 1000) && (
+                            <div className="mt-5 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-xl p-4 text-sm text-pink-200 font-medium flex items-start gap-3 shadow-inner animate-fade-in-up">
+                              <i className="fa-solid fa-comment-dots mt-1 text-pink-400 animate-bounce text-lg"></i>
+                              <span className="leading-relaxed">{selectedVTuber.statusMessage}</span>
+                            </div>
+                          )}
+
                         </div>
                         <div className="flex flex-col gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                           {isVerifiedUser && selectedVTuber.id !== user?.uid && (
