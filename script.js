@@ -4872,36 +4872,47 @@ const ChatListContent = ({
   onDeleteChat,
   allChatRooms,
 }) => {
-  // 🌟 新增：用來暫存那些「不在快取中」的新使用者真實資料
   const [missingUsers, setMissingUsers] = useState({});
+  const fetchedIds = useRef(new Set());
 
   useEffect(() => {
-    const fetchMissing = async () => {
-      let changed = false;
-      const newMissing = { ...missingUsers };
+    allChatRooms.forEach((room) => {
+      // 🌟 核心修復 1：直接從 roomId 切割出雙方的 UID，不再依賴 participants 陣列
+      const uids = room.id.split('_');
+      const targetId = uids.find((id) => id !== currentUser.uid);
 
-      for (const room of allChatRooms) {
-        const targetId = room.participants?.find((id) => id !== currentUser.uid);
+      if (targetId && !vtubers.find((v) => v.id === targetId) && !fetchedIds.current.has(targetId)) {
+        fetchedIds.current.add(targetId);
 
-        // 如果在快取中找不到，且還沒抓取過，就去資料庫抓真實資料
-        if (targetId && !vtubers.find((v) => v.id === targetId) && !newMissing[targetId]) {
-          try {
-            const snap = await getDoc(doc(db, `artifacts/${APP_ID}/public/data/vtubers`, targetId));
+        getDoc(doc(db, `artifacts/v-nexus-official/public/data/vtubers`, targetId))
+          .then((snap) => {
             if (snap.exists()) {
-              newMissing[targetId] = { id: snap.id, ...snap.data() };
-              changed = true;
+              setMissingUsers((prev) => ({ ...prev, [targetId]: { id: snap.id, ...snap.data() } }));
+            } else {
+              setMissingUsers((prev) => ({
+                ...prev, [targetId]: {
+                  id: targetId,
+                  name: "未知/已隱藏創作者",
+                  avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
+                }
+              }));
             }
-          } catch (e) {
+          })
+          .catch((e) => {
             console.error("抓取缺失的使用者失敗:", e);
-          }
-        }
+            setMissingUsers((prev) => ({
+              ...prev,
+              [targetId]: {
+                id: targetId,
+                name: "讀取失敗",
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
+              }
+            }));
+          });
       }
-      if (changed) setMissingUsers(newMissing);
-    };
-    fetchMissing();
-  }, [allChatRooms, vtubers]);
+    });
+  }, [allChatRooms, vtubers, currentUser.uid]);
 
-  // 確保排序不會因為缺少 lastTimestamp 而產生 NaN
   const rooms = [...allChatRooms].sort(
     (a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0),
   );
@@ -4916,12 +4927,14 @@ const ChatListContent = ({
   return (
     <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
       {rooms.map((room) => {
-        const targetId = room.participants?.find((id) => id !== currentUser.uid);
+        // 🌟 核心修復 2：同樣從 roomId 切割出雙方的 UID
+        const uids = room.id.split('_');
+        const targetId = uids.find((id) => id !== currentUser.uid);
 
-        // 🌟 完美邏輯：優先從快取找，找不到就從剛剛抓取的 missingUsers 找真實資料
-        const target = vtubers.find((v) => v.id === targetId) || missingUsers[targetId];
+        if (!targetId) return null;
 
-        // 如果還在抓取中，顯示載入提示
+        let target = vtubers.find((v) => v.id === targetId) || missingUsers[targetId];
+
         if (!target) return (
           <div key={room.id} className="p-3 text-center text-gray-600 text-xs animate-pulse">
             載入對話資訊中...
@@ -5063,23 +5076,19 @@ function App() {
     if (!user || allChatRooms.length === 0) return;
 
     allChatRooms.forEach((room) => {
-      // 找出這間房間上一次的狀態
       const prevRoom = prevRoomsRef.current.find(r => r.id === room.id);
 
-      // 判斷條件：這間房間有我的未讀標記 AND (這是一間新房間 OR 它的最後更新時間比上次紀錄的還新)
       if (
         room.unreadBy && room.unreadBy.includes(user.uid) &&
         (!prevRoom || room.lastTimestamp > prevRoom.lastTimestamp)
       ) {
-        const senderId = room.participants.find(id => id !== user.uid);
+        // 🌟 核心修復 3：這裡也改成從 roomId 切割，確保對方刪除對話後，再傳訊息來依然能彈出視窗！
+        const uids = room.id.split('_');
+        const senderId = uids.find(id => id !== user.uid);
 
         if (senderId) {
-          // 異步獲取發送者資料並彈出視窗
           const triggerPopup = async () => {
-            // 優先從本地快取找人
             let sender = vtubersRef.current.find(v => v.id === senderId);
-
-            // 如果快取沒有 (可能是剛註冊的新人)，才去資料庫抓
             if (!sender) {
               try {
                 const sSnap = await getDoc(doc(db, getPath("vtubers"), senderId));
@@ -5087,11 +5096,8 @@ function App() {
               } catch (e) { }
             }
 
-            // 如果目前沒有打開跟這個人的聊天視窗，就自動跳出並顯示提示
             if (sender && chatTargetRef.current?.id !== sender.id) {
-              setChatTarget(sender); // 🚀 核心動作：自動彈出聊天視窗
-
-              // 顯示綠色提示框 (直接操作 State 避免依賴問題)
+              setChatTarget(sender);
               setToastMsg(`💬 收到來自 ${sender.name} 的新訊息！`);
               setTimeout(() => setToastMsg(""), 3000);
             }
@@ -5101,7 +5107,6 @@ function App() {
       }
     });
 
-    // 更新紀錄，供下一次比對使用
     prevRoomsRef.current = allChatRooms;
   }, [allChatRooms, user]);
 
