@@ -3328,15 +3328,20 @@ const HomePage = ({
         compatibilityScore: calculateCompatibility(myProfile, v)
       }));
 
-    // 依照契合度排序，若契合度相同則以最近活躍時間排序
-    return candidates
-      .sort((a, b) => {
-        if (b.compatibilityScore !== a.compatibilityScore) {
-          return b.compatibilityScore - a.compatibilityScore;
-        }
-        return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
-      })
-      .slice(0, 5);
+    // 🌟 優化 1：先篩選出契合度 >= 60% 的「及格名單」
+    let qualified = candidates.filter(v => v.compatibilityScore >= 60);
+
+    // 🌟 防呆機制：如果連一個 60 分以上的都沒有 (例如剛註冊什麼都沒填)，就抓取分數最高的前 5 名當作備用名單
+    if (qualified.length === 0) {
+      qualified = candidates
+        .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
+        .slice(0, 5);
+    }
+
+    // 🌟 優化 2：將及格名單「隨機打亂 (Shuffle)」，不再死板地只顯示最高分的那幾位
+    return qualified
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 5); // 隨機打亂後，抽出前 5 名顯示
   }, [realVtubers, user]);
 
   // 輔助組件：手機版最後一個按鈕卡片
