@@ -984,48 +984,45 @@ const CollabCard = React.memo(({
 });
 
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
-  // 🌟 2. 從 Context 取得
   const { user, isVerifiedUser } = useContext(AppContext);
+
+  // 🌟 新增：判斷 24 小時限時動態是否有效
+  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000);
 
   return (
     <div onClick={onSelect}
       className={`group h-full bg-gray-800/40 border ${!v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
     >
-      <div className="absolute top-2 left-2 z-10 flex gap-1">
+      <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
         {!v.isVerified && (
-          <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
-            待審核
-          </div>
+          <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>
         )}
         {v.activityStatus === "sleep" && (
-          <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
-            休眠中
-          </div>
+          <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">休眠中</div>
         )}
-        <div
-          className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}
-        >
-          <i
-            className={`fa-brands fa-${v.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}
-          ></i>{" "}
-          {v.mainPlatform || "YouTube"}
+        <div className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}>
+          <i className={`fa-brands fa-${v.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}></i> {v.mainPlatform || "YouTube"}
+        </div>
+        {/* 將勢力標籤移到左上角，把右上角讓給契合度 */}
+        <div className="bg-black/60 border border-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
+          {v.agency}
         </div>
       </div>
 
-      {/* ▼ 橫幅圖片區塊：使用 absolute inset-0 完美服貼 h-24 ▼ */}
+      {/* 🌟 新增：契合度標籤 (顯示在右上角) */}
+
+
+      {/* ▼ 橫幅圖片區塊 ▼ */}
       <div className="h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
         <LazyImage
           src={sanitizeUrl(v.banner)}
           containerCls="absolute inset-0 w-full h-full"
           imgCls="opacity-60 group-hover:scale-105 transition-transform"
         />
-        <span className="absolute top-2 right-2 px-2 py-0.5 text-[10px] font-bold bg-black/50 border border-gray-600 rounded text-white z-10">
-          {v.agency}
-        </span>
       </div>
 
       <div className="p-4 relative flex-1 flex flex-col">
-        {/* ▼ 頭像圖片區塊：固定 w-16 h-16 不變形 ▼ */}
+        {/* ▼ 頭像圖片區塊 ▼ */}
         <LazyImage
           src={sanitizeUrl(v.avatar)}
           containerCls="absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10"
@@ -1036,33 +1033,37 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
           <h3 className="font-bold text-white truncate flex items-center gap-1">
             {v.name}{" "}
             {v.isVerified && (
-              <i
-                className="fa-solid fa-circle-check text-blue-400 text-xs"
-                title="已認證"
-              ></i>
+              <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>
             )}
           </h3>
           <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
-            {(v.youtubeSubscribers ||
-              v.subscribers ||
-              v.youtubeUrl ||
-              v.channelUrl) && (
-                <span className="flex items-center gap-1">
-                  <i className="fa-brands fa-youtube text-red-400"></i>{" "}
-                  {v.youtubeSubscribers || v.subscribers || "未公開"}
-                </span>
-              )}
+            {(v.youtubeSubscribers || v.subscribers || v.youtubeUrl || v.channelUrl) && (
+              <span className="flex items-center gap-1">
+                <i className="fa-brands fa-youtube text-red-400"></i> {v.youtubeSubscribers || v.subscribers || "未公開"}
+              </span>
+            )}
             {(v.twitchFollowers || v.twitchUrl) && (
               <span className="flex items-center gap-1">
-                <i className="fa-brands fa-twitch text-purple-400"></i>{" "}
-                {v.twitchFollowers || "未公開"}
+                <i className="fa-brands fa-twitch text-purple-400"></i> {v.twitchFollowers || "未公開"}
               </span>
             )}
             <span className="flex items-center gap-1 text-green-400">
               <i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}
             </span>
           </div>
+
+          {/* 🌟 優化：將契合度移至數據下方，並放大字體與增加漸層背景，使其更吸睛 */}
+
         </div>
+
+        {/* 🌟 新增：24小時限時動態 (顯示在頭像與名稱下方) */}
+        {isStatusValid && (
+          <div className="mb-3 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-lg px-3 py-2 text-xs text-pink-200 font-medium flex items-start gap-2 shadow-inner relative">
+            <i className="fa-solid fa-comment-dots mt-0.5 text-pink-400 animate-bounce"></i>
+            <span className="line-clamp-2 leading-relaxed">{v.statusMessage}</span>
+          </div>
+        )}
+
         <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
         {v.streamStyleUrl && (
           <div className="mt-1 mb-1">
@@ -1160,18 +1161,21 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
             </a>
           )}
           {v.igUrl && v.igUrl !== "#" && (
-            <a
-              href={sanitizeUrl(v.igUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
-              title="Instagram"
-            >
+            <a href={sanitizeUrl(v.igUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram">
               <i className="fa-brands fa-instagram text-sm"></i>
             </a>
           )}
         </div>
+
+        {/* 🌟 優化：將契合度移到名片最下方，並改為低調柔和的樣式 */}
+        {v.compatibilityScore && (
+          <div className="mt-3 pt-2 border-t border-gray-700/50 flex justify-center items-center">
+            <span className="text-xs font-bold text-pink-400/80 flex items-center gap-1.5 bg-pink-500/10 px-3 py-1 rounded-full border border-pink-500/20">
+              <i className="fa-solid fa-heart"></i> 你們的契合度高達 {v.compatibilityScore}%
+            </span>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -2513,6 +2517,25 @@ const ProfileEditorForm = ({
           </div>
         </div>
       </div>
+
+      {/* 🌟 新增：24小時限時動態區塊 */}
+      <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-6">
+        <h3 className="text-pink-400 font-bold mb-2 flex items-center gap-2">
+          <i className="fa-solid fa-stopwatch"></i> 24小時限時動態 (選填)
+        </h3>
+        <p className="text-xs text-gray-300 mb-3">
+          這段訊息會顯示在您的名片頭像下方，並在 24 小時後自動隱藏。適合用來發布「今晚想打瓦！」或「急徵連動夥伴」等即時訊息。
+        </p>
+        <input
+          type="text"
+          maxLength="40"
+          value={form.statusMessage || ""}
+          onChange={(e) => updateForm({ statusMessage: e.target.value })}
+          className={inputCls}
+          placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+        />
+      </div>
+
       <div>
         <label className="block text-sm font-bold text-gray-300 mb-2">
           介紹一下你自己吧！ <span className="text-red-400">*</span>
@@ -3255,27 +3278,65 @@ const HomePage = ({
       .slice(0, 4);
   }, [safeDisplayCollabs.length]);
 
-  const newestVtubers = useMemo(() => {
-    return [...realVtubers]
+  const recommendedVtubers = useMemo(() => {
+    const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
+
+    // 契合度計算引擎
+    const calculateCompatibility = (me, target) => {
+      // 如果未登入或沒有名片，給予 60~89% 的隨機分數吸引註冊
+      if (!me) return Math.floor(Math.random() * 30) + 60;
+
+      let score = 50; // 基礎分數 50%
+
+      // 1. 聯動類型相同 (每個加 12 分)
+      const myCollabs = me.collabTypes || [];
+      const targetCollabs = target.collabTypes || [];
+      const sharedCollabs = myCollabs.filter(c => targetCollabs.includes(c));
+      score += sharedCollabs.length * 12;
+
+      // 2. 內容標籤相同 (每個加 6 分)
+      const myTags = me.tags || [];
+      const targetTags = target.tags || [];
+      const sharedTags = myTags.filter(t => targetTags.includes(t));
+      score += sharedTags.length * 6;
+
+      // 3. 個性互補或相同
+      if (me.personalityType && target.personalityType) {
+        if (me.personalityType !== target.personalityType) score += 8; // 互補加分較多
+        else score += 4; // 相同也加分
+      }
+
+      // 4. 演出型態相同
+      if (me.streamingStyle === target.streamingStyle) score += 5;
+
+      return Math.min(99, score); // 最高 99%，保留一點真實感
+    };
+
+    const candidates = [...realVtubers]
       .filter(
         (v) =>
           v.isVerified &&
           !v.isBlacklisted &&
           v.activityStatus !== "sleep" &&
           v.activityStatus !== "graduated" &&
-          !String(v.id || "").startsWith("mock"),
+          !String(v.id || "").startsWith("mock") &&
+          v.id !== user?.uid // 排除自己
       )
+      .map(v => ({
+        ...v,
+        compatibilityScore: calculateCompatibility(myProfile, v)
+      }));
+
+    // 依照契合度排序，若契合度相同則以最近活躍時間排序
+    return candidates
       .sort((a, b) => {
-        const getTimestamp = (v) => {
-          const val = v.createdAt || v.updatedAt || 0;
-          if (typeof val === "number") return val;
-          if (val.toMillis) return val.toMillis();
-          return 0;
-        };
-        return getTimestamp(b) - getTimestamp(a);
+        if (b.compatibilityScore !== a.compatibilityScore) {
+          return b.compatibilityScore - a.compatibilityScore;
+        }
+        return (b.lastActiveAt || 0) - (a.lastActiveAt || 0);
       })
       .slice(0, 5);
-  }, [realVtubers]);
+  }, [realVtubers, user]);
 
   // 輔助組件：手機版最後一個按鈕卡片
   const MobileMoreCard = ({ onClick, icon, text, subText }) => (
@@ -3401,21 +3462,21 @@ const HomePage = ({
       </p>
 
       {/* 歡迎新 VTuber */}
-      {newestVtubers.length > 0 && (
+      {recommendedVtubers.length > 0 && (
         <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
           <div className="text-left mb-8">
             <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-sparkles text-yellow-400"></i>{" "}
-              歡迎新Vtuber朋朋的加入！
+              <i className="fa-solid fa-heart-circle-bolt text-pink-500"></i>{" "}
+              為您推薦跟你最契合的V朋朋
             </h2>
             <p className="text-gray-400 text-sm">
-              最新註冊加入 V-NEXUS 的夥伴，快去看看他們的名片並認識一下吧！
+              系統透過 AI 與標籤分析，為您找出最適合聯動的潛在夥伴！快去看看他們的名片吧！
             </p>
           </div>
 
           {/* 手機版橫移，電腦版網格 */}
           <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar">
-            {newestVtubers.map((v) => (
+            {recommendedVtubers.map((v) => (
               <div
                 key={v.id}
                 className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto"
@@ -5363,6 +5424,8 @@ function App() {
     verificationNote: "",
     lastYoutubeFetchTime: 0,
     lastTwitchFetchTime: 0,
+    statusMessage: "",
+    statusMessageUpdatedAt: 0
   });
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
@@ -6786,6 +6849,12 @@ function App() {
           ? customForm.personalityTypeOther || "其他"
           : customForm.personalityType || "";
 
+      // 🌟 新增：判斷限時動態是否有修改，若有修改則更新時間戳記
+      let newStatusMessageUpdatedAt = existingProfile?.statusMessageUpdatedAt || 0;
+      if (customForm.statusMessage !== existingProfile?.statusMessage) {
+        newStatusMessageUpdatedAt = Date.now();
+      }
+
       // --- D. 準備寫入 Firestore 的公開資料 ---
       const publicData = {
         ...customForm,
@@ -6796,9 +6865,12 @@ function App() {
         collabTypes: finalCollabs,
         slug: (customForm.slug || "").trim().toLowerCase(),
         personalityType: finalPersonality,
+        // 🌟 新增：寫入限時動態資料
+        statusMessage: customForm.statusMessage || "",
+        statusMessageUpdatedAt: newStatusMessageUpdatedAt,
         lastActiveAt: Date.now(),
-        updatedAt: Date.now(), // 👈 注意這裡結尾要有逗號
-        createdAt: existingProfile?.createdAt || Date.now(), // ✅ 補上這一行
+        updatedAt: Date.now(),
+        createdAt: existingProfile?.createdAt || Date.now(),
       };
 
       // 💡 關鍵修正：移除 UI 狀態欄位與可能為 undefined 的欄位
