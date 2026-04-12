@@ -8363,26 +8363,22 @@ function App() {
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
               >
                 <i className="fa-solid fa-bullhorn"></i> 揪團佈告欄
-                {/* 移除原本的鎖頭圖示或保留作為提示 */}
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
               </button>
+
+              {/* 🌟 新增：24H火速揪團大廳 (放在佈告欄與確定聯動中間) */}
+              <button
+                onClick={() => navigate("quick_collab")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
+              >
+                <i className="fa-solid fa-bolt"></i> 24H火速揪團大廳
+              </button>
+
               <button
                 onClick={() => navigate("collabs")}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "collabs" ? "bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-red-600 text-white hover:bg-red-500 shadow-md border border-red-500/50"}`}
               >
                 <i className="fa-solid fa-broadcast-tower"></i> 確定聯動
-              </button>
-              <button
-                onClick={() => {
-                  if (!isVerifiedUser) {
-                    showToast("請先認證名片解鎖功能");
-                    navigate("dashboard");
-                  } else navigate("match");
-                }}
-                className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === "match" ? "text-purple-400 border-b-2 border-purple-500" : "text-gray-400 hover:text-white"}`}
-              >
-                <i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對
-                {!isVerifiedUser && " 🔒"}
               </button>
               <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-blue-400/70 hover:text-blue-400'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {user && (
@@ -8429,6 +8425,15 @@ function App() {
               >
                 <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
               </button>
+
+              {/* 🌟 新增：手機版 24H火速揪團大廳 */}
+              <button
+                onClick={() => navigate("quick_collab")}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
+              >
+                <i className="fa-solid fa-bolt w-5"></i> 24H火速揪團大廳
+              </button>
+
               <button
                 onClick={() => navigate("collabs")}
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "collabs" ? "bg-red-500 text-white shadow-lg" : "bg-red-600 text-white hover:bg-red-500"}`}
@@ -8814,11 +8819,8 @@ function App() {
                     </button>
                     <button
                       onClick={() => {
-                        // 1. 強制把排序選單設回隨機，否則洗牌會被推薦數排序覆蓋
                         setSortOrder("random");
-                        // 2. 更新種子觸發重新計算
                         setShuffleSeed(Date.now());
-                        // 3. 回到頁面頂端，讓使用者看到變化
                         window.scrollTo({ top: 0, behavior: "smooth" });
                         showToast("🎲 已重新洗牌名片順序！");
                       }}
@@ -8826,6 +8828,22 @@ function App() {
                     >
                       <i className="fa-solid fa-shuffle mr-1"></i> 重新洗牌
                     </button>
+
+                    {/* 🌟 新增：將聯動隨機配對按鈕移到這裡 */}
+                    <button
+                      onClick={() => {
+                        if (!isVerifiedUser) {
+                          showToast("請先認證名片解鎖功能");
+                          navigate("dashboard");
+                        } else {
+                          navigate("match");
+                        }
+                      }}
+                      className="bg-pink-500/10 text-pink-400 hover:bg-pink-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-pink-500/20"
+                    >
+                      <i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對 {!isVerifiedUser && " 🔒"}
+                    </button>
+
                     <button onClick={() => navigate('blacklist')} className="bg-red-900/50 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-red-500/50">
                       <i className="fa-solid fa-ban mr-1"></i> 黑單避雷區
                     </button>
@@ -9994,6 +10012,40 @@ function App() {
                 </div>
               )}
             </div>
+          )}
+
+          {currentView === "quick_collab" && (
+            <div className="max-w-4xl mx-auto px-4 py-24 text-center animate-fade-in-up">
+              <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-12 shadow-2xl inline-block relative overflow-hidden">
+                {/* 背景裝飾光暈 */}
+                <div className="absolute -top-16 -right-16 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl"></div>
+                <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-yellow-500/20 rounded-full blur-3xl"></div>
+
+                <div className="relative z-10">
+                  <i className="fa-solid fa-person-digging text-6xl text-orange-400 mb-6 animate-bounce"></i>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 tracking-wide">
+                    24H火速揪團大廳
+                  </h2>
+                  <p className="text-gray-400 text-lg font-medium bg-gray-900/50 inline-block px-6 py-2 rounded-full border border-gray-700">
+                    <i className="fa-solid fa-hammer mr-2 text-yellow-500"></i>
+                    功能開發中，敬請期待！
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 這是原本的 MatchPage */}
+          {currentView === "match" && (
+            <MatchPage
+              vtubers={displayVtubers}
+              navigate={navigate}
+              showToast={showToast}
+              currentUser={user}
+              setSelectedVTuber={setSelectedVTuber}
+              onBraveInvite={handleBraveInvite}
+              isVerifiedUser={isVerifiedUser}
+            />
           )}
 
           {currentView === "match" && (
