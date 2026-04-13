@@ -8835,7 +8835,7 @@ function App() {
                     placeholder="搜尋 VTuber..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500"
+                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-purple-500"
                   />
                 </div>
                 <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
@@ -8892,9 +8892,9 @@ function App() {
                     <div>
                       <p className="text-xs text-gray-500 mb-2">國籍</p>
                       <select
-                        value={selectedNationality}
+                        value={selectedNationality} // 語言、時段、色系也一樣
                         onChange={(e) => setSelectedNationality(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                       >
                         {dynamicNationalities.map((n) => (
                           <option key={n} value={n}>
