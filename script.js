@@ -3310,8 +3310,8 @@ const HomePage = ({
 
   const recommendedVtubers = useMemo(() => {
     const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
-
-
+    // 判斷是否為已認證的有效使用者
+    const isVerified = myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active';
 
     const candidates = [...realVtubers]
       .filter(
@@ -3322,27 +3322,34 @@ const HomePage = ({
           v.activityStatus !== "graduated" &&
           !String(v.id || "").startsWith("mock") &&
           v.id !== user?.uid // 排除自己
-      )
-      .map(v => ({
-        ...v,
-        compatibilityScore: calculateCompatibility(myProfile, v)
-      }));
+      );
+
+    // 🌟 修正：如果未登入或未認證，直接隨機洗牌，不計算契合度 (卡片上就不會出現分數)
+    if (!isVerified) {
+      return candidates.sort(() => Math.random() - 0.5).slice(0, 5);
+    }
+
+    // 已認證使用者：計算契合度
+    const scoredCandidates = candidates.map(v => ({
+      ...v,
+      compatibilityScore: calculateCompatibility(myProfile, v)
+    }));
 
     // 🌟 優化 1：先篩選出契合度 >= 60% 的「及格名單」
-    let qualified = candidates.filter(v => v.compatibilityScore >= 60);
+    let qualified = scoredCandidates.filter(v => v.compatibilityScore >= 60);
 
-    // 🌟 防呆機制：如果連一個 60 分以上的都沒有 (例如剛註冊什麼都沒填)，就抓取分數最高的前 5 名當作備用名單
+    // 🌟 防呆機制：如果連一個 60 分以上的都沒有，就抓取分數最高的前 5 名當作備用名單
     if (qualified.length === 0) {
-      qualified = candidates
+      qualified = scoredCandidates
         .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
         .slice(0, 5);
     }
 
-    // 🌟 優化 2：將及格名單「隨機打亂 (Shuffle)」，不再死板地只顯示最高分的那幾位
+    // 🌟 優化 2：將及格名單「隨機打亂 (Shuffle)」
     return qualified
       .sort(() => Math.random() - 0.5)
-      .slice(0, 5); // 隨機打亂後，抽出前 5 名顯示
-  }, [realVtubers, user]);
+      .slice(0, 5);
+  },[realVtubers, user]);
 
   // 輔助組件：手機版最後一個按鈕卡片
   const MobileMoreCard = ({ onClick, icon, text, subText }) => (
@@ -6491,11 +6498,13 @@ function App() {
     let list = Array.isArray(realVtubers) ? [...realVtubers] : [];
 
     // 🌟 核心邏輯：只有選擇「契合度」排序時，才把分數算進去並顯示
-    if (sortOrder === "compatibility") {
-      list = list.map(v => ({
-        ...v,
-        compatibilityScore: calculateCompatibility(myProfile, v)
-      }));
+     if (sortOrder === "compatibility") {
+      list = list
+        .filter(v => v.id !== user?.uid) // 🌟 修正：排除自己的名片
+        .map(v => ({
+          ...v,
+          compatibilityScore: calculateCompatibility(myProfile, v)
+        }));
     } else {
       // 如果選其他排序，強制把分數拔掉，這樣卡片就不會顯示契合度標籤了！
       list = list.map(v => {
@@ -8358,20 +8367,20 @@ function App() {
               >
                 <i className="fa-solid fa-magnifying-glass"></i> 尋找 VTuber 夥伴
               </button>
+              {/* 🌟 互換：24H火速揪團大廳移到前面 */}
+              <button
+                onClick={() => navigate("quick_collab")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
+              >
+                <i className="fa-solid fa-bolt"></i> 24H火速揪團大廳
+              </button>
+
               <button
                 onClick={() => navigate("bulletin")} // 直接跳轉
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
               >
                 <i className="fa-solid fa-bullhorn"></i> 揪團佈告欄
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
-              </button>
-
-              {/* 🌟 新增：24H火速揪團大廳 (放在佈告欄與確定聯動中間) */}
-              <button
-                onClick={() => navigate("quick_collab")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
-              >
-                <i className="fa-solid fa-bolt"></i> 24H火速揪團大廳
               </button>
 
               <button
@@ -8415,6 +8424,13 @@ function App() {
                 夥伴
               </button>
               <button
+                onClick={() => navigate("quick_collab")}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
+              >
+                <i className="fa-solid fa-bolt w-5"></i> 24H火速揪團大廳
+              </button>
+
+              <button
                 onClick={() => {
                   if (!isVerifiedUser) {
                     showToast("請先認證名片解鎖");
@@ -8424,14 +8440,6 @@ function App() {
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-lg" : "bg-rose-600 text-white hover:bg-rose-500"}`}
               >
                 <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
-              </button>
-
-              {/* 🌟 新增：手機版 24H火速揪團大廳 */}
-              <button
-                onClick={() => navigate("quick_collab")}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
-              >
-                <i className="fa-solid fa-bolt w-5"></i> 24H火速揪團大廳
               </button>
 
               <button
