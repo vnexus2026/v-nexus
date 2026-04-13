@@ -165,6 +165,8 @@ const FloatingChat = ({
   onClose,
   showToast,
 }) => {
+  const { onlineUsers } = useContext(AppContext);
+  const isOnline = onlineUsers.has(targetVtuber.id);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const scrollRef = useRef();
@@ -276,10 +278,13 @@ const FloatingChat = ({
       {/* Header */}
       <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-lg">
         <div className="flex items-center gap-2">
-          <img
-            src={sanitizeUrl(targetVtuber.avatar)}
-            className="w-8 h-8 rounded-full border border-white/20 object-cover"
-          />
+          {/* 🌟 修改頭像區塊，加上綠點 */}
+          <div className="relative flex-shrink-0">
+            <img src={sanitizeUrl(targetVtuber.avatar)} className="w-8 h-8 rounded-full border border-white/20 object-cover" />
+            {isOnline && (
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-purple-600 rounded-full"></div>
+            )}
+          </div>
           <span className="font-bold text-sm truncate max-w-[120px]">
             {targetVtuber.name}
           </span>
@@ -996,27 +1001,25 @@ const CollabCard = React.memo(({
 });
 
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
-  const { user, isVerifiedUser } = useContext(AppContext);
+  // 🌟 從 Context 取得 onlineUsers
+  const { user, isVerifiedUser, onlineUsers } = useContext(AppContext);
 
-  // 🌟 新增：判斷限時動態是否有效 (直播 3 小時，一般 24 小時)
+  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000);
   const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
   const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
+  const isLive = isStatusValid && isLiveMsg && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
 
-  // 🌟 判斷是否為直播中
-  const isLive = isStatusValid && isLiveMsg;
+  // 🌟 判斷是否在線上
+  const isOnline = onlineUsers.has(v.id);
 
   return (
     <div onClick={onSelect}
-      // 🌟 修改：基礎外框改為 border-2，如果是直播中，底框變成紅色
       className={`group h-full bg-gray-800/40 border-2 ${isLive ? "border-red-500/80" : !v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
     >
-      {/* 🌟 新增：直播中專屬的「閃爍紅框與陰影」 (獨立一層，避免整個卡片內容跟著閃) */}
       {isLive && (
         <div className="absolute inset-0 border-2 border-red-500 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse pointer-events-none z-20"></div>
       )}
 
-      {/* 🌟 新增：右上角「直播中」紅底白字標籤 */}
       {isLive && (
         <div className="absolute top-3 right-3 z-30 bg-red-600 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse flex items-center gap-1.5">
           <i className="fa-solid fa-satellite-dish"></i> 直播中
@@ -1024,6 +1027,12 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
       )}
 
       <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
+        {/* 🌟 新增：線上狀態綠燈 */}
+        {isOnline && !isLive && (
+          <div className="bg-green-500/20 border border-green-500/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 animate-pulse">
+            <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div> 線上
+          </div>
+        )}
         {!v.isVerified && (
           <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>
         )}
@@ -5169,6 +5178,7 @@ const ChatListContent = ({
   onDeleteChat,
   allChatRooms,
 }) => {
+  const { onlineUsers } = useContext(AppContext);
   const [missingUsers, setMissingUsers] = useState({});
   const fetchedIds = useRef(new Set());
 
@@ -5224,9 +5234,11 @@ const ChatListContent = ({
   return (
     <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
       {rooms.map((room) => {
+
         // 🌟 核心修復 2：同樣從 roomId 切割出雙方的 UID
         const uids = room.id.split('_');
         const targetId = uids.find((id) => id !== currentUser.uid);
+
 
         if (!targetId) return null;
 
@@ -5239,6 +5251,7 @@ const ChatListContent = ({
         );
 
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
+        const isOnline = onlineUsers.has(target.id);
 
         return (
           <div
@@ -5247,11 +5260,12 @@ const ChatListContent = ({
             // 🌟 優化 1：加上 active:bg-gray-800，讓手機點擊時有按下去的視覺回饋
             className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 active:bg-gray-800 cursor-pointer transition-colors group relative"
           >
-            <img
-              src={sanitizeUrl(target.avatar)}
-              // 🌟 優化 2：將 group-hover 改為 md:group-hover，避免手機端觸發 Hover 陷阱
-              className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors"
-            />
+            <div className="relative flex-shrink-0">
+              <img src={sanitizeUrl(target.avatar)} className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors" />
+              {isOnline && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-900 rounded-full"></div>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center mb-1">
                 <span
@@ -5311,6 +5325,55 @@ function App() {
   const [activeStoryGroup, setActiveStoryGroup] = useState(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
 
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+
+  // 🌟 1. 輕量級線上狀態偵測 (心跳機制 Ping)
+  useEffect(() => {
+    if (!user || !isVerifiedUser) return;
+
+    const pingOnlineStatus = async () => {
+      const now = Date.now();
+      const lastPing = parseInt(localStorage.getItem('last_online_ping') || '0');
+
+      // 距離上次 ping 超過 5 分鐘才更新，避免寫入費爆表
+      if (now - lastPing > 5 * 60 * 1000) {
+        try {
+          await updateDoc(doc(db, getPath("vtubers"), user.uid), {
+            lastOnlineAt: now
+          });
+          localStorage.setItem('last_online_ping', now.toString());
+          setOnlineUsers(prev => new Set(prev).add(user.uid)); // 讓自己立刻看到自己上線
+        } catch (e) {
+          console.error("更新線上狀態失敗", e);
+        }
+      }
+    };
+
+    pingOnlineStatus(); // 切換頁面時觸發
+    const interval = setInterval(pingOnlineStatus, 5 * 60 * 1000); // 停留時每 5 分鐘觸發
+    return () => clearInterval(interval);
+  }, [user, isVerifiedUser, currentView]);
+
+  // 🌟 2. 抓取全站線上名單 (獨立於 JSON 快取，確保即時性且極度省錢)
+  useEffect(() => {
+    const fetchOnlineUsers = async () => {
+      try {
+        const tenMinsAgo = Date.now() - 10 * 60 * 1000; // 10 分鐘內有動靜視為在線
+        const q = query(
+          collection(db, getPath("vtubers")),
+          where("lastOnlineAt", ">", tenMinsAgo)
+        );
+        const snap = await getDocs(q);
+        setOnlineUsers(new Set(snap.docs.map(d => d.id)));
+      } catch (e) {
+        console.error("抓取線上名單失敗", e);
+      }
+    };
+
+    fetchOnlineUsers();
+    const interval = setInterval(fetchOnlineUsers, 3 * 60 * 1000); // 每 3 分鐘更新一次畫面上的綠燈
+    return () => clearInterval(interval);
+  }, []);
   // 🌟 新增：抓取限時動態 (只抓取 24 小時內未過期的)
   useEffect(() => {
     const fetchStories = async () => {
@@ -8498,8 +8561,8 @@ function App() {
   };
 
   const contextValue = useMemo(() => {
-    return { user, isVerifiedUser, isAdmin, showToast, realVtubers };
-  }, [user, isVerifiedUser, isAdmin, showToast, realVtubers]);
+    return { user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers };
+  }, [user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers]);
 
 
   return (
@@ -9406,6 +9469,20 @@ function App() {
                         <div>
                           <div className="flex items-center gap-2 mb-2">
                             <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
+                                  {selectedVTuber.name}{" "}
+                                  {selectedVTuber.isVerified && (
+                                    <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>
+                                  )}
+                                </h1>
+                                {/* 🌟 新增：詳細名片的線上狀態 */}
+                                {onlineUsers.has(selectedVTuber.id) && (
+                                  <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-inner ml-2">
+                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div> 目前在線
+                                  </span>
+                                )}
+                              </div>
                               {selectedVTuber.name}{" "}
                               {selectedVTuber.isVerified && (
                                 <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>
