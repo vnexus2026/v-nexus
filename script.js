@@ -9245,7 +9245,7 @@ function App() {
                       }}
                       className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
                     >
-                      <option value="newest">✨ 最近動態 (更新/加入)</option>
+                      <option value="newest">✨ 最近動態 (直播中/更新)</option>
                       <option value="compatibility">💖 最契合夥伴</option> {/* 🌟 新增這行 */}
                       <option value="random">🔀 隨機排列</option>
                       <option value="likes">👍 最推薦</option>
