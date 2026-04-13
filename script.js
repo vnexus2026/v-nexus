@@ -5248,6 +5248,71 @@ function App() {
   const [previousView, setPreviousView] = useState("grid");
   const [selectedVTuber, setSelectedVTuber] = useState(null);
 
+  // 🌟 新增：限時動態 (Stories) 狀態
+  const [realStories, setRealStories] = useState([]);
+  const [storyInput, setStoryInput] = useState("");
+  const [activeStoryGroup, setActiveStoryGroup] = useState(null);
+  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
+
+  // 🌟 新增：抓取限時動態 (只抓取 24 小時內未過期的)
+  useEffect(() => {
+    const fetchStories = async () => {
+      try {
+        const now = Date.now();
+        const q = query(
+          collection(db, getPath('stories')),
+          where('expiresAt', '>', now)
+        );
+        const snap = await getDocs(q);
+        const storiesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRealStories(storiesData);
+      } catch (e) { console.error("抓取動態失敗", e); }
+    };
+    fetchStories();
+    // 每 5 分鐘默默更新一次動態
+    const interval = setInterval(fetchStories, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🌟 新增：發布限時動態
+  const handlePostStory = async (e) => {
+    e.preventDefault();
+    if (!storyInput.trim() || !user || !isVerifiedUser) return;
+
+    try {
+      const now = Date.now();
+      const newStory = {
+        userId: user.uid,
+        content: storyInput.trim(),
+        createdAt: now,
+        expiresAt: now + 24 * 60 * 60 * 1000, // 24 小時後過期
+      };
+
+      const docRef = await addDoc(collection(db, getPath('stories')), newStory);
+      setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
+      setStoryInput("");
+      showToast("✅ 動態已發布！(24小時後自動消失)");
+    } catch (e) {
+      showToast("❌ 發布失敗");
+    }
+  };
+
+  // 🌟 新增：將動態依照使用者分組 (像 IG 一樣，同一個人的動態包在一起)
+  const groupedStories = useMemo(() => {
+    const groups = {};
+    const now = Date.now();
+
+    realStories.filter(s => s.expiresAt > now).forEach(s => {
+      if (!groups[s.userId]) groups[s.userId] = [];
+      groups[s.userId].push(s);
+    });
+
+    // 每個人的動態依時間由舊到新排序 (觀看順序)
+    Object.values(groups).forEach(group => group.sort((a, b) => a.createdAt - b.createdAt));
+
+    // 整個列表依照「最新發布時間」排序 (越新發布的人排越前面)
+    return Object.values(groups).sort((a, b) => b[b.length - 1].createdAt - a[a.length - 1].createdAt);
+  }, [realStories]);
   // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
   useEffect(() => {
     if (analytics) {
