@@ -5219,11 +5219,11 @@ const ChatListContent = ({
               )}
               <button
                 onClick={(e) => {
-                  e.preventDefault(); // 阻擋預設行為
-                  e.stopPropagation(); // 🌟 絕對阻擋事件冒泡，防止觸發底下的開啟聊天室
-                  handleDeleteChat(e, room.id);
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // 🌟 修正：子元件接收的屬性名稱是 onDeleteChat，不是 handleDeleteChat！
+                  onDeleteChat(e, room.id);
                 }}
-                // 🌟 加入 relative z-10 確保按鈕圖層在最上方，並加大觸控範圍 (p-3 -mr-2)
                 className="relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 p-3 -mr-2 text-gray-500 hover:text-red-400 transition-all"
                 title="移除此對話"
               >
@@ -9040,7 +9040,13 @@ function App() {
                     </div>
                     <select
                       value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
+                      onChange={(e) => {
+                        setSortOrder(e.target.value);
+                        // 🌟 修正：當選擇「隨機排列」或「最契合夥伴」時，順便更新種子，確保每次切換都能重新洗牌！
+                        if (e.target.value === "random" || e.target.value === "compatibility") {
+                          setShuffleSeed(Date.now());
+                        }
+                      }}
                       className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (更新/加入)</option>
