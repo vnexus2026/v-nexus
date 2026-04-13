@@ -279,10 +279,18 @@ const FloatingChat = ({
       {/* Header */}
       <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-lg">
 
-        {/* 🌟 2. 修改這裡：加上 cursor-pointer 與 onClick 事件 */}
+        {/* 🌟 修改這裡：加入手機版自動關閉視窗的邏輯 */}
         <div
           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => onNavigateProfile && onNavigateProfile(targetVtuber)}
+          onClick={() => {
+            // 1. 觸發跳轉名片
+            if (onNavigateProfile) onNavigateProfile(targetVtuber);
+
+            // 2. 判斷螢幕寬度，小於 640px (Tailwind 的 sm 斷點) 視為手機版，自動關閉聊天視窗
+            if (window.innerWidth < 640) {
+              onClose();
+            }
+          }}
           title="查看名片"
         >
           <div className="relative flex-shrink-0">
