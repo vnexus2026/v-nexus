@@ -998,11 +998,13 @@ const CollabCard = React.memo(({
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   const { user, isVerifiedUser } = useContext(AppContext);
 
-  // 🌟 判斷 24 小時限時動態是否有效
-  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000);
+  // 🌟 新增：判斷限時動態是否有效 (直播 3 小時，一般 24 小時)
+  const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
+  const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
 
-  // 🌟 判斷是否為直播中 (包含 🔴 符號)
-  const isLive = isStatusValid && v.statusMessage.includes('🔴');
+  // 🌟 判斷是否為直播中
+  const isLive = isStatusValid && isLiveMsg;
 
   return (
     <div onClick={onSelect}
@@ -3399,15 +3401,14 @@ const HomePage = ({
   const activeStatuses = useMemo(() => {
     const now = Date.now();
     const validStatuses = [...realVtubers].filter(
-      (v) =>
-        v.isVerified &&
-        !v.isBlacklisted &&
-        v.activityStatus !== "sleep" &&
-        v.activityStatus !== "graduated" &&
-        !String(v.id || "").startsWith("mock") &&
-        v.statusMessage && // 必須有填寫動態
-        v.statusMessageUpdatedAt &&
-        now - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000 // 必須在 24 小時內
+      (v) => {
+        if (!v.isVerified || v.isBlacklisted || v.activityStatus === "sleep" || v.activityStatus === "graduated" || String(v.id || "").startsWith("mock") || !v.statusMessage || !v.statusMessageUpdatedAt) return false;
+
+        // 🌟 判斷限時動態是否有效 (直播 3 小時，一般 24 小時)
+        const isLiveMsg = v.statusMessage.includes('🔴');
+        const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        return now - v.statusMessageUpdatedAt < expireLimit;
+      }
     );
 
     // 隨機打亂陣列，並只取前 3 名
@@ -5338,8 +5339,8 @@ function App() {
 
     try {
       const now = Date.now();
-      // 🔴 直播動態 6 小時後消失，一般動態 24 小時後消失
-      const expireTime = isLive ? 6 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      // 🔴 直播動態 3 小時後消失，一般動態 24 小時後消失
+      const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
       const newStory = {
         userId: user.uid,
@@ -5368,9 +5369,9 @@ function App() {
       });
 
       setProfileForm(prev => ({ ...prev, statusMessage: content }));
-      if (!overrideContent) setStoryInput(""); // 如果是一鍵報台，不清除原本輸入框的字
+      if (!overrideContent) setStoryInput("");
 
-      showToast(isLive ? "🔴 已火速發布直播通知！(6小時後自動隱藏)" : "✅ 動態已發布！首頁與名片已同步更新");
+      showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 動態已發布！首頁與名片已同步更新");
     } catch (e) {
       console.error(e);
       showToast("❌ 發布失敗，請稍後再試");
@@ -7298,7 +7299,8 @@ function App() {
       showToast("⏳ 發布動態中...");
       const now = Date.now();
       const content = statusMsg || "";
-      const expireTime = isLive ? 6 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      // 🔴 直播動態 3 小時後消失，一般動態 24 小時後消失
+      const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
       await updateDoc(doc(db, getPath("vtubers"), uid), {
         statusMessage: content,
@@ -7325,7 +7327,7 @@ function App() {
         return newList;
       });
 
-      showToast(isLive ? "🔴 已火速發布直播通知！" : "✅ 限時動態已火速發布！全站已同步");
+      showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 限時動態已火速發布！全站已同步");
     } catch (err) {
       console.error(err);
       showToast("❌ 發布失敗，請稍後再試");
@@ -10463,15 +10465,14 @@ function App() {
                   // 抓取所有 24 小時內的動態，並依照時間「由新到舊」排序
                   const allActiveStatuses = [...realVtubers]
                     .filter(
-                      (v) =>
-                        v.isVerified &&
-                        !v.isBlacklisted &&
-                        v.activityStatus !== "sleep" &&
-                        v.activityStatus !== "graduated" &&
-                        !String(v.id || "").startsWith("mock") &&
-                        v.statusMessage &&
-                        v.statusMessageUpdatedAt &&
-                        now - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000
+                      (v) => {
+                        if (!v.isVerified || v.isBlacklisted || v.activityStatus === "sleep" || v.activityStatus === "graduated" || String(v.id || "").startsWith("mock") || !v.statusMessage || !v.statusMessageUpdatedAt) return false;
+
+                        // 🌟 判斷限時動態是否有效 (直播 3 小時，一般 24 小時)
+                        const isLiveMsg = v.statusMessage.includes('🔴');
+                        const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+                        return now - v.statusMessageUpdatedAt < expireLimit;
+                      }
                     )
                     .sort((a, b) => b.statusMessageUpdatedAt - a.statusMessageUpdatedAt);
 
