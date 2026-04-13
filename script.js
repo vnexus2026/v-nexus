@@ -9504,26 +9504,19 @@ function App() {
                         <div>
                           <div className="flex items-center gap-2 mb-2">
                             <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h1 className="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
-                                  {selectedVTuber.name}{" "}
-                                  {selectedVTuber.isVerified && (
-                                    <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>
-                                  )}
-                                </h1>
-                                {/* 🌟 新增：詳細名片的線上狀態 */}
-                                {onlineUsers.has(selectedVTuber.id) && (
-                                  <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-inner ml-2">
-                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div> 目前在線
-                                  </span>
-                                )}
-                              </div>
                               {selectedVTuber.name}{" "}
                               {selectedVTuber.isVerified && (
                                 <i className="fa-solid fa-circle-check text-blue-400 text-2xl"></i>
                               )}
                             </h1>
+                            {/* 🌟 詳細名片的線上狀態 */}
+                            {onlineUsers?.has(selectedVTuber.id) && (
+                              <span className="text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-inner ml-2">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div> 目前在線
+                              </span>
+                            )}
                           </div>
+
                           <div className="flex flex-wrap gap-2 mt-2 items-center">
                             <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
                               {selectedVTuber.agency}
