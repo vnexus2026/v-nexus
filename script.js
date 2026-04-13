@@ -3266,7 +3266,22 @@ const HomePage = ({
   onApply,
   onNavigateProfile,
 }) => {
-  const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
+const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
+  // 🌟 新增：控制洗牌動畫的狀態
+  const [isShuffling, setIsShuffling] = useState(false);
+
+  // 🌟 新增：處理洗牌與微動畫的函式
+  const handleShuffleStatus = () => {
+    if (isShuffling) return; // 防止狂點
+    setIsShuffling(true); // 1. 觸發淡出動畫
+    
+    setTimeout(() => {
+      setStatusShuffleSeed(Date.now()); // 2. 在畫面最暗的時候替換資料
+      setIsShuffling(false); // 3. 觸發淡入動畫顯示新資料
+    }, 300); // 300毫秒的黃金微動畫時間
+  };
+
+  const safeBulletins = Array.isArray(realBulletins) ? realBulletins :[];
 
   const completedCollabsCount = useMemo(() => {
     return siteStats?.totalCompletedCollabs || 0;
@@ -3350,6 +3365,27 @@ const HomePage = ({
       .sort(() => Math.random() - 0.5)
       .slice(0, 5);
   },[realVtubers, user]);
+
+   const activeStatuses = useMemo(() => {
+    const now = Date.now();
+    const validStatuses = [...realVtubers].filter(
+      (v) =>
+        v.isVerified &&
+        !v.isBlacklisted &&
+        v.activityStatus !== "sleep" &&
+        v.activityStatus !== "graduated" &&
+        !String(v.id || "").startsWith("mock") &&
+        v.statusMessage && // 必須有填寫動態
+        v.statusMessageUpdatedAt &&
+        now - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000 // 必須在 24 小時內
+    );
+
+    // 隨機打亂陣列，並只取前 3 名
+    // 這裡依賴 statusShuffleSeed，只要按鈕更新了這個值，就會重新洗牌！
+    return validStatuses
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+  }, [realVtubers, statusShuffleSeed]);
 
   // 輔助組件：手機版最後一個按鈕卡片
   const MobileMoreCard = ({ onClick, icon, text, subText }) => (
@@ -3473,6 +3509,103 @@ const HomePage = ({
       <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">
         本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
       </p>
+
+    {activeStatuses.length > 0 && (
+        <div className="mt-8 mb-8 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+          
+          {/* 標題與按鈕區塊 */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
+            <div className="text-left">
+              <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
+                <i className="fa-solid fa-stopwatch text-pink-500 animate-pulse"></i>{" "}
+                24H 最新動態
+              </h2>
+              <p className="text-gray-400 text-sm">
+                看看大家現在正在做什麼！(至名片編輯即可發布，24小時後自動隱藏)
+              </p>
+            </div>
+            {/* 電腦版按鈕群組 (靠右對齊) */}
+            <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+              <button
+                onClick={handleShuffleStatus}
+                disabled={isShuffling}
+                className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {/* 🌟 加入 animate-spin 讓圖示在洗牌時轉動 */}
+                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
+              </button>
+              <button
+                onClick={() => navigate("dashboard")}
+                className="bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+              >
+                <i className="fa-solid fa-pen-nib"></i> 發布我的動態
+              </button>
+            </div>
+          </div>
+
+          {/* 🌟 Grid 網格排版，加入 Tailwind 轉場動畫 (淡出、縮小、微模糊) */}
+          <div 
+            className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-300 ease-in-out ${
+              isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
+            }`}
+          >
+            {activeStatuses.map((v) => (
+              <div
+                key={v.id}
+                onClick={() => {
+                  setSelectedVTuber(v);
+                  navigate(`profile/${v.id}`);
+                }}
+                className="bg-gray-800/60 border border-pink-500/30 hover:border-pink-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <img
+                      src={sanitizeUrl(v.avatar)}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-pink-500 group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute -bottom-1 -right-1 bg-pink-500 w-4 h-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                      <i className="fa-solid fa-bolt text-[8px] text-white"></i>
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <h4 className="text-white font-bold truncate text-sm group-hover:text-pink-300 transition-colors">
+                      {v.name}
+                    </h4>
+                    <p className="text-[10px] text-gray-400">
+                      {formatTime(v.statusMessageUpdatedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-2xl p-4 border border-pink-500/20 flex-1 text-left relative overflow-hidden">
+                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-pink-500/10"></i>
+                  <p className="text-sm text-pink-100 line-clamp-3 leading-relaxed relative z-10 font-medium">
+                    {v.statusMessage}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 手機版按鈕群組 (顯示在卡片下方，並排顯示) */}
+          <div className="mt-6 sm:hidden flex gap-3 justify-center">
+            <button
+              onClick={handleShuffleStatus}
+              disabled={isShuffling}
+              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
+            </button>
+            <button
+              onClick={() => navigate("dashboard")}
+              className="flex-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <i className="fa-solid fa-pen-nib"></i> 發布動態
+            </button>
+          </div>
+
+        </div>
+      )}
 
       {/* 歡迎新 VTuber */}
       {recommendedVtubers.length > 0 && (
