@@ -225,13 +225,13 @@ const FloatingChat = ({
         createdAt: now,
       });
 
-      // 2. 取得房間資料以檢查 Email 發送頻率
+      // 2. 取得房間資料以檢查發送頻率
       const roomSnap = await getDoc(roomRef);
       const roomData = roomSnap.exists() ? roomSnap.data() : {};
       const lastEmailTime = roomData.lastEmailSentAt || 0;
       const lastNotifTime = roomData.lastNotifSentAt || 0;
 
-      // 3. 更新房間主文件 (這步失敗對方列表就不會更新)
+      // 3. 準備更新房間主文件
       const roomUpdate = {
         lastTimestamp: now,
         lastMessage: text,
@@ -240,12 +240,16 @@ const FloatingChat = ({
         unreadBy: arrayUnion(targetVtuber.id),
       };
 
-      // A. 寄送 Email (10 分鐘一次)
+      // 🌟 核心修復：合併通知邏輯，徹底刪除重複的區塊
+      // 只有距離上次發送站內通知超過 1 分鐘，才發送新通知
       if (now - lastNotifTime > 1 * 60 * 1000) {
         roomUpdate.lastNotifSentAt = now;
+
+        // 檢查是否距離上次寄 Email 超過 10 分鐘
         const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
 
+        // ⚠️ 關鍵：這裡只寫入「一筆」通知！並透過 sendEmail 參數交給後端決定要不要寄信
         await addDoc(collection(db, getPath("notifications")), {
           userId: targetVtuber.id,
           fromUserId: currentUser.uid,
@@ -255,36 +259,18 @@ const FloatingChat = ({
           createdAt: now,
           read: false,
           type: "chat_notification",
-          sendEmail: shouldSendEmail, // 🔒 交給後端決定是否寄信
+          sendEmail: shouldSendEmail,
         });
       }
 
-      // 執行房間更新 (只需執行一次)
+      // 4. 執行房間更新 (移到最後統一執行一次就好，節省資料庫寫入次數)
       await setDoc(roomRef, roomUpdate, { merge: true });
 
-      // B. 站內通知 (1 分鐘一次)
-      if (now - lastNotifTime > 1 * 60 * 1000) {
-        roomUpdate.lastNotifSentAt = now;
-        await addDoc(collection(db, getPath("notifications")), {
-          userId: targetVtuber.id,
-          fromUserId: currentUser.uid,
-          fromUserName: myProfile?.name || "創作者",
-          fromUserAvatar: myProfile?.avatar || "",
-          message: "傳送了一則私訊，請查看右下角聊天室。",
-          createdAt: now,
-          read: false,
-          type: "chat_notification",
-        });
-      }
-
-      // 執行房間更新
-      await setDoc(roomRef, roomUpdate, { merge: true });
     } catch (err) {
       console.error("發送過程出錯詳細資訊:", err);
       showToast("傳送失敗，請確認登入狀態或權限");
     }
   };
-
   return (
     <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up border-purple-500/30">
       {/* Header */}
@@ -3082,6 +3068,7 @@ const InboxPage = ({
   onDeleteAll,
   onNavigateProfile,
   onBraveResponse,
+  onOpenChat,
 }) => {
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
@@ -3189,6 +3176,16 @@ const InboxPage = ({
                     </div>
                   )}
                   <div className="flex flex-wrap justify-end gap-3 mt-5">
+
+                    {/* 🌟 新增：如果是私訊通知或站內信邀約，顯示「查看聊天室」按鈕 */}
+                    {(n.type === "chat_notification" || n.type === "collab_invite") && (
+                      <button
+                        onClick={() => onOpenChat(n)}
+                        className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg flex items-center shadow-md transition-transform hover:scale-105"
+                      >
+                        <i className="fa-solid fa-comments mr-2"></i> 查看聊天室
+                      </button>
+                    )}
                     <button
                       onClick={() => onNavigateProfile(n.fromUserId)}
                       className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center shadow-md"
@@ -6459,6 +6456,20 @@ function App() {
       navigate(`profile/${vt.id}`);
     } else showToast("找不到該名片，可能已被刪除或隱藏");
   };
+
+  const handleNotifOpenChat = (n) => {
+    const vt = realVtubers.find((v) => v.id === n.fromUserId);
+    if (vt) {
+      handleOpenChat(vt); // 呼叫原本右下角開啟聊天室的函式
+    } else {
+      showToast("找不到該創作者，可能已被刪除或隱藏");
+    }
+    // 順便幫使用者把這則通知標記為已讀
+    if (!n.read) {
+      handleMarkNotifRead(n.id);
+    }
+  };
+
   const handleMarkNotifRead = async (id) => {
     try {
       await updateDoc(doc(db, getPath("notifications"), id), { read: true });
@@ -8667,6 +8678,7 @@ function App() {
               onDeleteAll={handleDeleteAllNotifs}
               onNavigateProfile={handleNotifProfileNav}
               onBraveResponse={handleBraveInviteResponse}
+              onOpenChat={handleNotifOpenChat}
             />
           )}
 
