@@ -5261,8 +5261,12 @@ const ChatListContent = ({
             className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 active:bg-gray-800 cursor-pointer transition-colors group relative"
           >
             <div className="relative flex-shrink-0">
-              <img src={sanitizeUrl(target.avatar)} className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors" />
-              {isOnline && (
+              <img
+                src={sanitizeUrl(target.avatar)}
+                className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors"
+              />
+              {/* 🌟 綠點疊加在頭像右下角 */}
+              {onlineUsers?.has(target.id) && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-900 rounded-full"></div>
               )}
             </div>
@@ -5397,24 +5401,30 @@ function App() {
   // 🌟 新增：發布限時動態 (同步更新 IG 圈圈、首頁網格與名片狀態)
   const handlePostStory = async (e, overrideContent = null, isLive = false) => {
     if (e) e.preventDefault();
-    const content = overrideContent || storyInput.trim();
-    if (!content || !user || !isVerifiedUser) return;
+    // 如果 overrideContent 有傳值 (包含空字串)，就優先使用；否則使用輸入框的值
+    const content = overrideContent !== null ? overrideContent : storyInput.trim();
+
+    // 防呆：如果不是清除動作，且內容為空，則阻擋
+    if (overrideContent === null && !content) return;
+    if (!user || !isVerifiedUser) return;
 
     try {
       const now = Date.now();
-      // 🔴 直播動態 3 小時後消失，一般動態 24 小時後消失
       const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-      const newStory = {
-        userId: user.uid,
-        content: content,
-        createdAt: now,
-        expiresAt: now + expireTime,
-      };
+      // 如果有內容，才寫入 stories 集合 (IG 圈圈)
+      if (content) {
+        const newStory = {
+          userId: user.uid,
+          content: content,
+          createdAt: now,
+          expiresAt: now + expireTime,
+        };
+        const docRef = await addDoc(collection(db, getPath('stories')), newStory);
+        setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
+      }
 
-      const docRef = await addDoc(collection(db, getPath('stories')), newStory);
-      setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
-
+      // 更新名片資料庫 (如果是清除，content 就是空字串)
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
@@ -5432,12 +5442,16 @@ function App() {
       });
 
       setProfileForm(prev => ({ ...prev, statusMessage: content }));
-      if (!overrideContent) setStoryInput("");
+      if (overrideContent === null) setStoryInput("");
 
-      showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 動態已發布！首頁與名片已同步更新");
+      if (!content) {
+        showToast("🧹 動態已清除！");
+      } else {
+        showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 動態已發布！首頁與名片已同步更新");
+      }
     } catch (e) {
       console.error(e);
-      showToast("❌ 發布失敗，請稍後再試");
+      showToast("❌ 操作失敗，請稍後再試");
     }
   };
 
@@ -7364,10 +7378,9 @@ function App() {
     }
 
     try {
-      showToast("⏳ 發布動態中...");
+      showToast("⏳ 處理中...");
       const now = Date.now();
       const content = statusMsg || "";
-      // 🔴 直播動態 3 小時後消失，一般動態 24 小時後消失
       const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
       await updateDoc(doc(db, getPath("vtubers"), uid), {
@@ -7395,10 +7408,14 @@ function App() {
         return newList;
       });
 
-      showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 限時動態已火速發布！全站已同步");
+      if (!content) {
+        showToast("🧹 動態已清除！");
+      } else {
+        showToast(isLive ? "🔴 已火速發布直播通知！(3小時後自動隱藏)" : "✅ 限時動態已火速發布！全站已同步");
+      }
     } catch (err) {
       console.error(err);
-      showToast("❌ 發布失敗，請稍後再試");
+      showToast("❌ 操作失敗，請稍後再試");
     }
   };
 
