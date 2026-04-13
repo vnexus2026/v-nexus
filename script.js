@@ -164,6 +164,7 @@ const FloatingChat = ({
   myProfile,
   onClose,
   showToast,
+  onNavigateProfile,
 }) => {
   const { onlineUsers } = useContext(AppContext);
   const isOnline = onlineUsers.has(targetVtuber.id);
@@ -277,11 +278,19 @@ const FloatingChat = ({
     <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up border-purple-500/30">
       {/* Header */}
       <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-lg">
-        <div className="flex items-center gap-2">
-          {/* 🌟 修改頭像區塊，加上綠點 */}
+
+        {/* 🌟 2. 修改這裡：加上 cursor-pointer 與 onClick 事件 */}
+        <div
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => onNavigateProfile && onNavigateProfile(targetVtuber)}
+          title="查看名片"
+        >
           <div className="relative flex-shrink-0">
-            <img src={sanitizeUrl(targetVtuber.avatar)} className="w-8 h-8 rounded-full border border-white/20 object-cover" />
-            {isOnline && (
+            <img
+              src={sanitizeUrl(targetVtuber.avatar)}
+              className="w-8 h-8 rounded-full border border-white/20 object-cover"
+            />
+            {onlineUsers?.has(targetVtuber.id) && (
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-purple-600 rounded-full"></div>
             )}
           </div>
@@ -289,6 +298,7 @@ const FloatingChat = ({
             {targetVtuber.name}
           </span>
         </div>
+
         <button
           onClick={onClose}
           className="hover:bg-purple-700 w-8 h-8 rounded-full transition-colors flex items-center justify-center"
@@ -10591,62 +10601,67 @@ function App() {
                     );
                   }
 
-                  return allActiveStatuses.map((v) => {
-                    const isLive = v.statusMessage && v.statusMessage.includes('🔴');
-                    return (
-                      <div
-                        key={v.id}
-                        onClick={() => {
-                          setSelectedVTuber(v);
-                          navigate(`profile/${v.id}`);
-                        }}
-                        className={`bg-gray-800/60 border ${isLive ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center`}
-                      >
-                        <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
-                          <div className="relative flex-shrink-0">
-                            <img
-                              src={sanitizeUrl(v.avatar)}
-                              className={`w-16 h-16 rounded-full object-cover border-2 ${isLive ? 'border-red-500' : 'border-orange-500'} group-hover:scale-105 transition-transform`}
-                            />
-                            <div className={`absolute -bottom-1 -right-1 ${isLive ? 'bg-red-600 animate-pulse' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                              <i className={`fa-solid ${isLive ? 'fa-satellite-dish' : 'fa-bolt'} text-[10px] text-white`}></i>
-                            </div>
-                          </div>
-                          <div className="min-w-0 flex-1 text-left">
-                            <h4 className={`font-bold truncate text-base transition-colors ${isLive ? 'text-red-400' : 'text-white group-hover:text-orange-400'}`}>
-                              {v.name}
-                            </h4>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {formatTime(v.statusMessageUpdatedAt)}
-                            </p>
+                  return allActiveStatuses.map((v) => (
+                    <div
+                      key={v.id}
+                      onClick={() => {
+                        setSelectedVTuber(v);
+                        navigate(`profile/${v.id}`);
+                      }}
+                      // 🌟 確保外層有 relative 屬性
+                      className="bg-gray-800/60 border border-gray-700 hover:border-orange-500/50 rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative"
+                    >
+                      <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={sanitizeUrl(v.avatar)}
+                            className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute -bottom-1 -right-1 bg-orange-500 w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                            <i className="fa-solid fa-bolt text-[10px] text-white"></i>
                           </div>
                         </div>
-
-                        <div className={`bg-gradient-to-br ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/30' : 'from-orange-500/10 to-red-500/10 border-orange-500/20'} rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full`}>
-                          <i className={`fa-solid fa-quote-left absolute top-2 right-2 text-4xl ${isLive ? 'text-red-500/20' : 'text-orange-500/10'}`}></i>
-                          <p className={`text-sm sm:text-base ${isLive ? 'text-red-100' : 'text-orange-100'} leading-relaxed relative z-10 font-medium whitespace-pre-wrap`}>
-                            {v.statusMessage}
+                        {/* 🌟 加上 pr-16 (padding-right)，避免手機版名字太長被右上角的按鈕蓋住 */}
+                        <div className="min-w-0 flex-1 text-left pr-16 sm:pr-0">
+                          <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
+                            {v.name}
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatTime(v.statusMessageUpdatedAt)}
                           </p>
                         </div>
-
-                        {/* 私訊我按鈕保持不變 */}
-                        <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!user) return showToast("請先登入！");
-                              if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                              if (v.id === user.uid) return showToast("不能私訊自己！");
-                              setChatTarget(v);
-                            }}
-                            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 sm:py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
-                          >
-                            <i className="fa-solid fa-comment-dots"></i> 私訊我
-                          </button>
-                        </div>
                       </div>
-                    );
-                  });
+
+                      <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 sm:p-5 border border-orange-500/20 flex-1 text-left relative overflow-hidden w-full">
+                        <i className="fa-solid fa-quote-left absolute top-2 right-2 text-4xl text-orange-500/10"></i>
+                        <p className="text-sm sm:text-base text-orange-100 leading-relaxed relative z-10 font-medium whitespace-pre-wrap">
+                          {v.statusMessage}
+                        </p>
+                      </div>
+
+                      {/* 🌟 優化：手機版絕對定位在右上角，電腦版維持在右側 */}
+                      <div className="absolute top-5 right-5 sm:static sm:flex-shrink-0 sm:mt-0 z-20">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // 阻止觸發外層的跳轉名片
+                            if (!user) return showToast("請先登入！");
+                            if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                            if (v.id === user.uid) return showToast("不能私訊自己！");
+
+                            // 觸發開啟聊天室
+                            setChatTarget(v);
+                          }}
+                          // 🌟 手機版縮小 padding 與字體 (px-3 py-1.5 text-xs)，電腦版恢復正常大小
+                          className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
+                        >
+                          <i className="fa-solid fa-comment-dots"></i>
+                          {/* 🌟 手機版只顯示「私訊」，電腦版顯示「私訊我」 */}
+                          <span className="sm:hidden">私訊</span>
+                          <span className="hidden sm:inline">私訊我</span>
+                        </button>
+                      </div>
+                    </div>
+                  ));
                 })()}
               </div>
             </div>
@@ -11343,7 +11358,6 @@ function App() {
           <FloatingChat
             targetVtuber={chatTarget}
             currentUser={user}
-            // 加上安全檢查，如果 myProfile 不存在，就從清單中抓取，避免當機
             myProfile={
               typeof myProfile !== "undefined"
                 ? myProfile
@@ -11352,12 +11366,16 @@ function App() {
                   : null
             }
             onClose={() => setChatTarget(null)}
-            // 加上安全檢查，避免 showToast 未定義導致當機
             showToast={
               typeof showToast !== "undefined"
                 ? showToast
                 : (msg) => console.log(msg)
             }
+            // 🌟 新增：傳遞導航函式，讓聊天室可以跳轉名片
+            onNavigateProfile={(vt) => {
+              setSelectedVTuber(vt);
+              navigate(`profile/${vt.id}`);
+            }}
           />
         )}
 
