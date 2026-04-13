@@ -5422,6 +5422,11 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState("compatibility");
+  useEffect(() => {
+    if (!user && sortOrder === "compatibility") {
+      setSortOrder("random");
+    }
+  }, [user, sortOrder]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
     return !localStorage.getItem(BULLETINS_CACHE_KEY);
   });
@@ -9238,7 +9243,7 @@ function App() {
                       value={sortOrder}
                       onChange={(e) => {
                         setSortOrder(e.target.value);
-                        // 🌟 修正：當選擇「隨機排列」或「最契合夥伴」時，順便更新種子，確保每次切換都能重新洗牌！
+                        // 當選擇「隨機排列」或「最契合夥伴」時，順便更新種子，確保每次切換都能重新洗牌！
                         if (e.target.value === "random" || e.target.value === "compatibility") {
                           setShuffleSeed(Date.now());
                         }
@@ -9246,7 +9251,12 @@ function App() {
                       className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (直播中/更新)</option>
-                      <option value="compatibility">💖 最契合夥伴</option> {/* 🌟 新增這行 */}
+
+                      {/* 🌟 修改：只有登入的使用者才看得到「最契合夥伴」選項 */}
+                      {user && (
+                        <option value="compatibility">💖 最契合夥伴</option>
+                      )}
+
                       <option value="random">🔀 隨機排列</option>
                       <option value="likes">👍 最推薦</option>
                       <option value="subscribers">📺 最多訂閱</option>
