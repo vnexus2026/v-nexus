@@ -5218,12 +5218,16 @@ const ChatListContent = ({
                 <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
               )}
               <button
-                onClick={(e) => handleDeleteChat(e, room.id)}
-                // 🌟 關鍵修復：手機版預設顯示 (opacity-100)，電腦版才隱藏 (md:opacity-0)。徹底解決 iOS 需要點兩下的 Bug！
-                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 text-gray-500 hover:text-red-400 transition-all"
+                onClick={(e) => {
+                  e.preventDefault(); // 阻擋預設行為
+                  e.stopPropagation(); // 🌟 絕對阻擋事件冒泡，防止觸發底下的開啟聊天室
+                  handleDeleteChat(e, room.id);
+                }}
+                // 🌟 加入 relative z-10 確保按鈕圖層在最上方，並加大觸控範圍 (p-3 -mr-2)
+                className="relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 p-3 -mr-2 text-gray-500 hover:text-red-400 transition-all"
                 title="移除此對話"
               >
-                <i className="fa-solid fa-trash-can text-xs"></i>
+                <i className="fa-solid fa-trash-can text-sm"></i>
               </button>
             </div>
           </div>
@@ -8343,7 +8347,7 @@ function App() {
                         )}
                       </button>
                       {isNotifOpen && (
-                        <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
+                        <div className="fixed top-16 left-1/2 -translate-x-1/2 sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:translate-x-0 mt-2 w-[95vw] sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
                           <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
                             <span className="font-bold text-white text-sm">
                               站內小鈴鐺
