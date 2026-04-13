@@ -2067,6 +2067,7 @@ const ProfileEditorForm = ({
   showToast,
   user,
   onDeleteSelf,
+  onUpdateStatus,
 }) => {
   const [otpStatus, setOtpStatus] = useState("idle");
   const [otpInput, setOtpInput] = useState("");
@@ -2349,7 +2350,39 @@ const ProfileEditorForm = ({
   };
 
   return (
+
     <form onSubmit={onSubmit} className="space-y-6">
+
+      {/* 🌟 新增：24小時限時動態區塊 */}
+      <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-6">
+        <h3 className="text-pink-400 font-bold mb-2 flex items-center gap-2">
+          <i className="fa-solid fa-stopwatch"></i> 24小時限時動態 (選填)
+        </h3>
+        <p className="text-xs text-gray-300 mb-3">
+          這段訊息會顯示在您的名片頭像下方，並在 24 小時後自動隱藏。適合用來發布「今晚想打瓦！」或「急徵連動夥伴」等即時訊息。
+        </p>
+
+        {/* 🌟 優化：加入 flex 排版與獨立發布按鈕 */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            type="text"
+            maxLength="40"
+            value={form.statusMessage || ""}
+            onChange={(e) => updateForm({ statusMessage: e.target.value })}
+            className={inputCls}
+            placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+          />
+          {onUpdateStatus && (
+            <button
+              type="button"
+              onClick={() => onUpdateStatus(form.id, form.statusMessage)}
+              className="bg-pink-600 hover:bg-pink-500 text-white px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 flex-shrink-0"
+            >
+              <i className="fa-solid fa-paper-plane"></i> 發布限動
+            </button>
+          )}
+        </div>
+      </div>
       <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5">
         <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2">
           <i className="fa-solid fa-power-off"></i> 名片顯示狀態
@@ -2530,23 +2563,6 @@ const ProfileEditorForm = ({
         </div>
       </div>
 
-      {/* 🌟 新增：24小時限時動態區塊 */}
-      <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-6">
-        <h3 className="text-pink-400 font-bold mb-2 flex items-center gap-2">
-          <i className="fa-solid fa-stopwatch"></i> 24小時限時動態 (選填)
-        </h3>
-        <p className="text-xs text-gray-300 mb-3">
-          這段訊息會顯示在您的名片頭像下方，並在 24 小時後自動隱藏。適合用來發布「今晚想打瓦！」或「急徵連動夥伴」等即時訊息。
-        </p>
-        <input
-          type="text"
-          maxLength="40"
-          value={form.statusMessage || ""}
-          onChange={(e) => updateForm({ statusMessage: e.target.value })}
-          className={inputCls}
-          placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
-        />
-      </div>
 
       <div>
         <label className="block text-sm font-bold text-gray-300 mb-2">
@@ -3377,7 +3393,7 @@ const HomePage = ({
     // 這裡依賴 statusShuffleSeed，只要按鈕更新了這個值，就會重新洗牌！
     return validStatuses
       .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+      .slice(0, 5);
   }, [realVtubers, statusShuffleSeed]);
 
   // 輔助組件：手機版最後一個按鈕卡片
@@ -3524,7 +3540,6 @@ const HomePage = ({
                 disabled={isShuffling}
                 className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {/* 🌟 加入 animate-spin 讓圖示在洗牌時轉動 */}
                 <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
               </button>
               <button
@@ -3536,9 +3551,9 @@ const HomePage = ({
             </div>
           </div>
 
-          {/* 🌟 Grid 網格排版，加入 Tailwind 轉場動畫 (淡出、縮小、微模糊) */}
+          {/* 🌟 手機版橫向滑動 (flex overflow-x-auto)，電腦版 5 欄網格 (lg:grid-cols-5) */}
           <div
-            className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-300 ease-in-out ${isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
+            className={`flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar transition-all duration-300 ease-in-out ${isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
               }`}
           >
             {activeStatuses.map((v) => (
@@ -3548,7 +3563,7 @@ const HomePage = ({
                   setSelectedVTuber(v);
                   navigate(`profile/${v.id}`);
                 }}
-                className="bg-gray-800/60 border border-pink-500/30 hover:border-pink-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
+                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-gray-800/60 border border-pink-500/30 hover:border-pink-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -3577,10 +3592,20 @@ const HomePage = ({
                 </div>
               </div>
             ))}
+
+            {/* 🌟 手機版最後的「觀看更多」卡片 */}
+            <div className="flex-shrink-0 w-[60vw] sm:hidden">
+              <MobileMoreCard
+                onClick={() => navigate("status_wall")}
+                icon="fa-bolt"
+                text="觀看更多動態"
+                subText="前往 24H 動態牆"
+              />
+            </div>
           </div>
 
           {/* 手機版按鈕群組 (顯示在卡片下方，並排顯示) */}
-          <div className="mt-6 sm:hidden flex gap-3 justify-center">
+          <div className="mt-2 sm:hidden flex gap-3 justify-center">
             <button
               onClick={handleShuffleStatus}
               disabled={isShuffling}
@@ -3593,6 +3618,16 @@ const HomePage = ({
               className="flex-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-pen-nib"></i> 發布動態
+            </button>
+          </div>
+
+          {/* 🌟 電腦版下方的「觀看更多」按鈕 */}
+          <div className="hidden sm:flex mt-8 justify-center">
+            <button
+              onClick={() => navigate("status_wall")}
+              className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:-translate-y-1 flex items-center gap-2 border border-gray-700"
+            >
+              <i className="fa-solid fa-bolt text-orange-400"></i> 觀看更多 24H 最新動態
             </button>
           </div>
 
@@ -5274,26 +5309,52 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🌟 新增：發布限時動態
+  // 🌟 新增：發布限時動態 (同步更新 IG 圈圈、首頁網格與名片狀態)
   const handlePostStory = async (e) => {
     e.preventDefault();
     if (!storyInput.trim() || !user || !isVerifiedUser) return;
 
     try {
       const now = Date.now();
+      const content = storyInput.trim();
+
       const newStory = {
         userId: user.uid,
-        content: storyInput.trim(),
+        content: content,
         createdAt: now,
         expiresAt: now + 24 * 60 * 60 * 1000, // 24 小時後過期
       };
 
+      // 1. 寫入 stories 集合 (給導覽列的 IG 圈圈用)
       const docRef = await addDoc(collection(db, getPath('stories')), newStory);
       setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
+
+      // 2. 同步寫入 vtubers 集合 (給首頁網格與名片卡片用)
+      await updateDoc(doc(db, getPath('vtubers'), user.uid), {
+        statusMessage: content,
+        statusMessageUpdatedAt: now,
+        updatedAt: now // 順便更新名片的最後活躍時間
+      });
+
+      // 3. 同步更新本地快取，讓畫面瞬間變化
+      setRealVtubers(prev => {
+        const newList = prev.map(v =>
+          v.id === user.uid
+            ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, updatedAt: now }
+            : v
+        );
+        syncVtuberCache(newList);
+        return newList;
+      });
+
+      // 🌟 4. 完美同步：將文字塞入「名片編輯」的表單中！
+      setProfileForm(prev => ({ ...prev, statusMessage: content }));
+
       setStoryInput("");
-      showToast("✅ 動態已發布！(24小時後自動消失)");
+      showToast("✅ 動態已發布！首頁與名片已同步更新");
     } catch (e) {
-      showToast("❌ 發布失敗");
+      console.error(e);
+      showToast("❌ 發布失敗，請稍後再試");
     }
   };
 
@@ -7205,6 +7266,56 @@ function App() {
     }
   };
 
+  // 🌟 獨立發布動態 (從名片編輯器發布)
+  const handleQuickStatusUpdate = async (targetId, statusMsg) => {
+    if (!user) return showToast("請先登入！");
+    const uid = targetId || user.uid;
+    const existingProfile = realVtubers.find((v) => v.id === uid);
+
+    if (!existingProfile) {
+      return showToast("⚠️ 請先填寫下方必填欄位並「儲存名片」後，才能獨立發布動態喔！");
+    }
+
+    try {
+      showToast("⏳ 發布動態中...");
+      const now = Date.now();
+      const content = statusMsg || "";
+
+      // 1. 更新名片資料庫
+      await updateDoc(doc(db, getPath("vtubers"), uid), {
+        statusMessage: content,
+        statusMessageUpdatedAt: now,
+        updatedAt: now
+      });
+
+      // 🌟 2. 完美同步：同時寫入 stories 集合，讓 IG 圈圈也能立刻顯示！
+      if (content.trim()) {
+        const newStory = {
+          userId: uid,
+          content: content.trim(),
+          createdAt: now,
+          expiresAt: now + 24 * 60 * 60 * 1000,
+        };
+        const docRef = await addDoc(collection(db, getPath('stories')), newStory);
+        setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
+      }
+
+      // 3. 即時更新本地畫面與快取
+      setRealVtubers((prev) => {
+        const newList = prev.map((v) =>
+          v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, updatedAt: now } : v
+        );
+        syncVtuberCache(newList);
+        return newList;
+      });
+
+      showToast("✅ 限時動態已火速發布！全站已同步");
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 發布失敗，請稍後再試");
+    }
+  };
+
   const handleUserDeleteSelf = async () => {
     if (!user) return;
 
@@ -8595,10 +8706,10 @@ function App() {
               </button>
               {/* 🌟 互換：24H火速揪團大廳移到前面 */}
               <button
-                onClick={() => navigate("quick_collab")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
+                onClick={() => navigate("status_wall")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "status_wall" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
               >
-                <i className="fa-solid fa-bolt"></i> 24H火速揪團大廳
+                <i className="fa-solid fa-bolt"></i> 24H動態牆火速揪團
               </button>
 
               <button
@@ -8650,10 +8761,10 @@ function App() {
                 夥伴
               </button>
               <button
-                onClick={() => navigate("quick_collab")}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "quick_collab" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
+                onClick={() => navigate("status_wall")}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "status_wall" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
               >
-                <i className="fa-solid fa-bolt w-5"></i> 24H火速揪團大廳
+                <i className="fa-solid fa-bolt w-5"></i> 24H動態牆火速揪團
               </button>
 
               <button
@@ -8838,6 +8949,7 @@ function App() {
                       ? handleUserDeleteSelf
                       : null
                   }
+                  onUpdateStatus={handleQuickStatusUpdate} // 🌟 新增：綁定獨立發布函式
                 />
               </div>
               {user &&
@@ -10260,23 +10372,154 @@ function App() {
             </div>
           )}
 
-          {currentView === "quick_collab" && (
-            <div className="max-w-4xl mx-auto px-4 py-24 text-center animate-fade-in-up">
-              <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-12 shadow-2xl inline-block relative overflow-hidden">
-                {/* 背景裝飾光暈 */}
-                <div className="absolute -top-16 -right-16 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl"></div>
-                <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-yellow-500/20 rounded-full blur-3xl"></div>
-
-                <div className="relative z-10">
-                  <i className="fa-solid fa-person-digging text-6xl text-orange-400 mb-6 animate-bounce"></i>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 tracking-wide">
-                    24H火速揪團大廳
+          {/* 🌟 全新：24H 動態牆頁面 */}
+          {currentView === "status_wall" && (
+            <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
+              {/* 頂部標題與按鈕 */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-700 pb-4">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
+                    <i className="fa-solid fa-bolt text-orange-400"></i> 24H 動態牆
                   </h2>
-                  <p className="text-gray-400 text-lg font-medium bg-gray-900/50 inline-block px-6 py-2 rounded-full border border-gray-700">
-                    <i className="fa-solid fa-hammer mr-2 text-yellow-500"></i>
-                    功能開發中，敬請期待！
+                  <p className="text-gray-400 mt-2 text-sm">
+                    掌握 V 圈最新脈動！這裡顯示所有人 24 小時內的最新動態。
                   </p>
                 </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      setShuffleSeed(Date.now()); // 借用 shuffleSeed 來觸發重新渲染
+                      showToast("🔄 已重新整理動態牆！");
+                    }}
+                    className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 border border-gray-600"
+                  >
+                    <i className="fa-solid fa-rotate-right"></i> 重新整理
+                  </button>
+                </div>
+              </div>
+
+              {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
+              {isVerifiedUser && myProfile ? (
+                <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-8 shadow-inner">
+                  <h3 className="text-pink-400 font-bold mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
+                  </h3>
+                  <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      maxLength="40"
+                      value={storyInput}
+                      onChange={(e) => setStoryInput(e.target.value)}
+                      className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-[16px] flex-1"
+                      placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!storyInput.trim()}
+                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-shrink-0 ${storyInput.trim() ? 'bg-pink-600 hover:bg-pink-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                    >
+                      <i className="fa-solid fa-paper-plane"></i> 發布限動
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 mb-8 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <p className="text-gray-400 text-sm">
+                    <i className="fa-solid fa-lock mr-2"></i>
+                    需通過名片認證才能發布限時動態喔！
+                  </p>
+                  <button onClick={() => navigate("dashboard")} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                    前往認證名片
+                  </button>
+                </div>
+              )}
+
+              {/* 動態列表 (垂直排列，依時間排序) */}
+              <div className="flex flex-col gap-6">
+                {(() => {
+                  const now = Date.now();
+                  // 抓取所有 24 小時內的動態，並依照時間「由新到舊」排序
+                  const allActiveStatuses = [...realVtubers]
+                    .filter(
+                      (v) =>
+                        v.isVerified &&
+                        !v.isBlacklisted &&
+                        v.activityStatus !== "sleep" &&
+                        v.activityStatus !== "graduated" &&
+                        !String(v.id || "").startsWith("mock") &&
+                        v.statusMessage &&
+                        v.statusMessageUpdatedAt &&
+                        now - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000
+                    )
+                    .sort((a, b) => b.statusMessageUpdatedAt - a.statusMessageUpdatedAt);
+
+                  if (allActiveStatuses.length === 0) {
+                    return (
+                      <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-700">
+                        <p className="text-gray-500 font-bold text-lg">
+                          <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
+                          目前沒有任何限時動態喔！
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return allActiveStatuses.map((v) => (
+                    <div
+                      key={v.id}
+                      onClick={() => {
+                        setSelectedVTuber(v);
+                        navigate(`profile/${v.id}`);
+                      }}
+                      className="bg-gray-800/60 border border-gray-700 hover:border-orange-500/50 rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center"
+                    >
+                      <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={sanitizeUrl(v.avatar)}
+                            className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute -bottom-1 -right-1 bg-orange-500 w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                            <i className="fa-solid fa-bolt text-[10px] text-white"></i>
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1 text-left">
+                          <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
+                            {v.name}
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {formatTime(v.statusMessageUpdatedAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 sm:p-5 border border-orange-500/20 flex-1 text-left relative overflow-hidden w-full">
+                        <i className="fa-solid fa-quote-left absolute top-2 right-2 text-4xl text-orange-500/10"></i>
+                        <p className="text-sm sm:text-base text-orange-100 leading-relaxed relative z-10 font-medium whitespace-pre-wrap">
+                          {v.statusMessage}
+                        </p>
+                      </div>
+
+                      {/* 🌟 新增：私訊我按鈕 */}
+                      <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // 阻止觸發外層的跳轉名片
+                            if (!user) return showToast("請先登入！");
+                            if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                            if (v.id === user.uid) return showToast("不能私訊自己！");
+
+                            // 觸發開啟聊天室
+                            setChatTarget(v);
+                          }}
+                          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 sm:py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+                        >
+                          <i className="fa-solid fa-comment-dots"></i> 私訊我
+                        </button>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           )}
