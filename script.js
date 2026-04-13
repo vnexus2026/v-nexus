@@ -6644,7 +6644,7 @@ function App() {
     // 🌟 核心邏輯：只有選擇「契合度」排序時，才把分數算進去並顯示
     if (sortOrder === "compatibility") {
       list = list
-        .filter(v => v.id !== user?.uid) // 🌟 修正：排除自己的名片
+        .filter(v => v.id !== user?.uid) // 排除自己的名片
         .map(v => ({
           ...v,
           compatibilityScore: calculateCompatibility(myProfile, v)
@@ -6658,13 +6658,28 @@ function App() {
     }
 
     return list.sort((a, b) => {
-      // 🌟 新增：契合度排序邏輯
+      // 🌟 新增：契合度排序邏輯 (>=60% 隨機洗牌，<60% 依分數排序)
       if (sortOrder === "compatibility") {
-        if (b.compatibilityScore !== a.compatibilityScore) {
-          return b.compatibilityScore - a.compatibilityScore;
+        const aHigh = a.compatibilityScore >= 60;
+        const bHigh = b.compatibilityScore >= 60;
+
+        if (aHigh && bHigh) {
+          // 兩者都 >= 60%，使用 shuffleSeed 進行隨機洗牌
+          return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
+        } else if (aHigh && !bHigh) {
+          return -1; // a 及格，排前面
+        } else if (!aHigh && bHigh) {
+          return 1;  // b 及格，排前面
+        } else {
+          // 兩者都 < 60%，乖乖依分數高低排序
+          if (b.compatibilityScore !== a.compatibilityScore) {
+            return b.compatibilityScore - a.compatibilityScore;
+          }
+          // 分數相同看活躍度
+          return getLatestActivityTime(b) - getLatestActivityTime(a);
         }
-        return getLatestActivityTime(b) - getLatestActivityTime(a); // 分數相同看活躍度
       }
+
       if (sortOrder === "random") {
         return getDeterministicOrder(a.id) - getDeterministicOrder(b.id);
       }
@@ -8972,8 +8987,13 @@ function App() {
                     </button>
                     <button
                       onClick={() => {
-                        setSortOrder("random");
+                        // 🌟 修正：如果目前是「最契合夥伴」，就維持原樣只洗牌；否則才切換到「隨機排列」
+                        if (sortOrder !== "compatibility" && sortOrder !== "random") {
+                          setSortOrder("random");
+                        }
+                        // 更新種子觸發重新計算
                         setShuffleSeed(Date.now());
+                        // 回到頁面頂端，讓使用者看到變化
                         window.scrollTo({ top: 0, behavior: "smooth" });
                         showToast("🎲 已重新洗牌名片順序！");
                       }}
@@ -10189,18 +10209,6 @@ function App() {
           )}
 
           {/* 這是原本的 MatchPage */}
-          {currentView === "match" && (
-            <MatchPage
-              vtubers={displayVtubers}
-              navigate={navigate}
-              showToast={showToast}
-              currentUser={user}
-              setSelectedVTuber={setSelectedVTuber}
-              onBraveInvite={handleBraveInvite}
-              isVerifiedUser={isVerifiedUser}
-            />
-          )}
-
           {currentView === "match" && (
             <MatchPage
               vtubers={displayVtubers}
