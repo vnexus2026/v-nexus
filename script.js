@@ -241,15 +241,11 @@ const FloatingChat = ({
       };
 
       // A. 寄送 Email (10 分鐘一次)
-      let shouldSendEmail = false;
       if (now - lastNotifTime > 1 * 60 * 1000) {
         roomUpdate.lastNotifSentAt = now;
-
-        // 檢查是否距離上次寄 Email 超過 10 分鐘
         const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
 
-        // 只寫入「一筆」通知，交給後端決定要不要寄 Email
         await addDoc(collection(db, getPath("notifications")), {
           userId: targetVtuber.id,
           fromUserId: currentUser.uid,
@@ -259,11 +255,11 @@ const FloatingChat = ({
           createdAt: now,
           read: false,
           type: "chat_notification",
-          sendEmail: shouldSendEmail,
+          sendEmail: shouldSendEmail, // 🔒 交給後端決定是否寄信
         });
       }
 
-      // 執行房間更新 (移到最後統一執行一次就好，節省資料庫寫入次數)
+      // 執行房間更新 (只需執行一次)
       await setDoc(roomRef, roomUpdate, { merge: true });
 
       // B. 站內通知 (1 分鐘一次)
@@ -3266,7 +3262,7 @@ const HomePage = ({
   onApply,
   onNavigateProfile,
 }) => {
-const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
+  const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
   // 🌟 新增：控制洗牌動畫的狀態
   const [isShuffling, setIsShuffling] = useState(false);
 
@@ -3274,14 +3270,14 @@ const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
   const handleShuffleStatus = () => {
     if (isShuffling) return; // 防止狂點
     setIsShuffling(true); // 1. 觸發淡出動畫
-    
+
     setTimeout(() => {
       setStatusShuffleSeed(Date.now()); // 2. 在畫面最暗的時候替換資料
       setIsShuffling(false); // 3. 觸發淡入動畫顯示新資料
     }, 300); // 300毫秒的黃金微動畫時間
   };
 
-  const safeBulletins = Array.isArray(realBulletins) ? realBulletins :[];
+  const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
 
   const completedCollabsCount = useMemo(() => {
     return siteStats?.totalCompletedCollabs || 0;
@@ -3351,7 +3347,7 @@ const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
     }));
 
     // 🌟 優化 1：先篩選出契合度 >= 60% 的「及格名單」
-    let qualified = scoredCandidates.filter(v => v.compatibilityScore >= 60);
+    let qualified = scoredCandidates.filter(v => v.compatibilityScore >= 80);
 
     // 🌟 防呆機制：如果連一個 60 分以上的都沒有，就抓取分數最高的前 5 名當作備用名單
     if (qualified.length === 0) {
@@ -3364,9 +3360,9 @@ const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
     return qualified
       .sort(() => Math.random() - 0.5)
       .slice(0, 5);
-  },[realVtubers, user]);
+  }, [realVtubers, user]);
 
-   const activeStatuses = useMemo(() => {
+  const activeStatuses = useMemo(() => {
     const now = Date.now();
     const validStatuses = [...realVtubers].filter(
       (v) =>
@@ -3510,9 +3506,9 @@ const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
         本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
       </p>
 
-    {activeStatuses.length > 0 && (
+      {activeStatuses.length > 0 && (
         <div className="mt-8 mb-8 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
-          
+
           {/* 標題與按鈕區塊 */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
             <div className="text-left">
@@ -3544,10 +3540,9 @@ const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
           </div>
 
           {/* 🌟 Grid 網格排版，加入 Tailwind 轉場動畫 (淡出、縮小、微模糊) */}
-          <div 
-            className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-300 ease-in-out ${
-              isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
-            }`}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-3 gap-6 transition-all duration-300 ease-in-out ${isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
+              }`}
           >
             {activeStatuses.map((v) => (
               <div
@@ -5397,6 +5392,7 @@ function App() {
   const [confirmDislikeData, setConfirmDislikeData] = useState(null);
   const [copiedTemplate, setCopiedTemplate] = useState(false);
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -6631,7 +6627,7 @@ function App() {
     let list = Array.isArray(realVtubers) ? [...realVtubers] : [];
 
     // 🌟 核心邏輯：只有選擇「契合度」排序時，才把分數算進去並顯示
-     if (sortOrder === "compatibility") {
+    if (sortOrder === "compatibility") {
       list = list
         .filter(v => v.id !== user?.uid) // 🌟 修正：排除自己的名片
         .map(v => ({
@@ -10330,7 +10326,9 @@ function App() {
                     取消
                   </button>
                   <button
+                    disabled={isSendingInvite} // 🌟 鎖定按鈕
                     onClick={async () => {
+                      if (isSendingInvite) return; // 防呆：如果正在發送就阻擋
                       if (!inviteMessage.trim())
                         return showToast("請輸入邀請內容！");
                       if (!myProfile)
@@ -10343,9 +10341,10 @@ function App() {
                         return showToast("發送太頻繁，請稍後再試。");
 
                       try {
+                        setIsSendingInvite(true); // 🌟 開始發送，鎖定按鈕
                         const now = Date.now();
 
-                        // 1. 發送給對方的通知 (原本的邏輯)
+                        // 1. 發送給對方的通知
                         await addDoc(collection(db, getPath("notifications")), {
                           userId: selectedVTuber.id,
                           fromUserId: user.uid,
@@ -10353,21 +10352,21 @@ function App() {
                           fromUserAvatar: myProfile.avatar || "",
                           message: inviteMessage,
                           type: "collab_invite",
-                          sendEmail: true, // 觸發後端寄信給對方
+                          sendEmail: true,
                           createdAt: now,
                           read: false,
                         });
 
-                        // 2. 🌟 新增：發送給自己的「寄件備份」通知 (完全符合安全規則的寫法)
+                        // 2. 發送給自己的「寄件備份」
                         await addDoc(collection(db, getPath("notifications")), {
-                          userId: user.uid, // 存到自己的信箱
-                          fromUserId: user.uid, // 必須是自己的 ID，符合安全規則
-                          fromUserName: myProfile.name || "創作者", // 必須是自己的名字
-                          fromUserAvatar: myProfile.avatar || "", // 必須是自己的頭像
-                          message: `【寄件備份 - 寄給 ${selectedVTuber.name}】\n\n${inviteMessage}`, // 將對方資訊直接寫在內文最前面
-                          type: "collab_invite", // 使用原本就合法的 type
-                          sendEmail: false, // ⚠️ 絕對不要寄實體 Email 給自己
-                          createdAt: now + 1, // 稍微加 1 毫秒避免時間重疊
+                          userId: user.uid,
+                          fromUserId: user.uid,
+                          fromUserName: myProfile.name || "創作者",
+                          fromUserAvatar: myProfile.avatar || "",
+                          message: `【寄件備份 - 寄給 ${selectedVTuber.name}】\n\n${inviteMessage}`,
+                          type: "collab_invite",
+                          sendEmail: false,
+                          createdAt: now + 1,
                           read: false,
                         });
 
@@ -10378,11 +10377,17 @@ function App() {
                       } catch (err) {
                         console.error("發送邀約或備份時發生錯誤:", err);
                         showToast("❌ 發送過程中發生部分錯誤，請按 F12 查看");
+                      } finally {
+                        setIsSendingInvite(false); // 🌟 發送結束，解除鎖定
                       }
                     }}
-                    className="flex-[2] bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                    className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-lg transition-all ${isSendingInvite ? "bg-purple-800 cursor-not-allowed opacity-70" : "bg-purple-600 hover:bg-purple-500 hover:scale-105"}`}
                   >
-                    送出邀約
+                    {isSendingInvite ? (
+                      <><i className="fa-solid fa-spinner fa-spin mr-2"></i>發送中...</>
+                    ) : (
+                      "送出邀約"
+                    )}
                   </button>
                 </div>
               </div>
