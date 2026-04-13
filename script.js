@@ -8538,9 +8538,8 @@ function App() {
                         )}
                       </button>
                       {isNotifOpen && (
-                        // 🌟 優化：手機版使用 fixed + left-1/2 + -translate-x-1/2 完美置中，寬度佔螢幕 90% (w-[90vw])
-                        // 電腦版 (sm:) 恢復成 absolute 靠右對齊 (sm:absolute sm:right-0 sm:left-auto sm:translate-x-0)
-                        <div className="fixed left-1/2 -translate-x-1/2 top-16 mt-2 w-[90vw] sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:translate-x-0 sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
+                        // 🌟 完美置中修復：改用 left-0 right-0 mx-auto，徹底避免與 animate-fade-in-up 的 transform 動畫衝突！
+                        <div className="fixed left-0 right-0 mx-auto top-16 mt-2 w-[90vw] sm:absolute sm:left-auto sm:right-0 sm:mx-0 sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
                           <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
                             <span className="font-bold text-white text-sm">
                               站內小鈴鐺
