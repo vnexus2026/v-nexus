@@ -998,13 +998,29 @@ const CollabCard = React.memo(({
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   const { user, isVerifiedUser } = useContext(AppContext);
 
-  // 🌟 新增：判斷 24 小時限時動態是否有效
+  // 🌟 判斷 24 小時限時動態是否有效
   const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000);
+
+  // 🌟 判斷是否為直播中 (包含 🔴 符號)
+  const isLive = isStatusValid && v.statusMessage.includes('🔴');
 
   return (
     <div onClick={onSelect}
-      className={`group h-full bg-gray-800/40 border ${!v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
+      // 🌟 修改：基礎外框改為 border-2，如果是直播中，底框變成紅色
+      className={`group h-full bg-gray-800/40 border-2 ${isLive ? "border-red-500/80" : !v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
     >
+      {/* 🌟 新增：直播中專屬的「閃爍紅框與陰影」 (獨立一層，避免整個卡片內容跟著閃) */}
+      {isLive && (
+        <div className="absolute inset-0 border-2 border-red-500 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse pointer-events-none z-20"></div>
+      )}
+
+      {/* 🌟 新增：右上角「直播中」紅底白字標籤 */}
+      {isLive && (
+        <div className="absolute top-3 right-3 z-30 bg-red-600 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse flex items-center gap-1.5">
+          <i className="fa-solid fa-satellite-dish"></i> 直播中
+        </div>
+      )}
+
       <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
         {!v.isVerified && (
           <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>
@@ -1015,14 +1031,10 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         <div className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}>
           <i className={`fa-brands fa-${v.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}></i> {v.mainPlatform || "YouTube"}
         </div>
-        {/* 將勢力標籤移到左上角，把右上角讓給契合度 */}
         <div className="bg-black/60 border border-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
           {v.agency}
         </div>
       </div>
-
-      {/* 🌟 新增：契合度標籤 (顯示在右上角) */}
-
 
       {/* ▼ 橫幅圖片區塊 ▼ */}
       <div className="h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
@@ -1033,7 +1045,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         />
       </div>
 
-      <div className="p-4 relative flex-1 flex flex-col">
+      <div className="p-4 relative flex-1 flex flex-col z-30">
         {/* ▼ 頭像圖片區塊 ▼ */}
         <LazyImage
           src={sanitizeUrl(v.avatar)}
@@ -1063,15 +1075,12 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
               <i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}
             </span>
           </div>
-
-          {/* 🌟 優化：將契合度移至數據下方，並放大字體與增加漸層背景，使其更吸睛 */}
-
         </div>
 
-        {/* 🌟 新增：24小時限時動態 (顯示在頭像與名稱下方) */}
-        {isStatusValid && (
-          <div className="mb-3 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-lg px-3 py-2 text-xs text-pink-200 font-medium flex items-start gap-2 shadow-inner relative">
-            <i className="fa-solid fa-comment-dots mt-0.5 text-pink-400 animate-bounce"></i>
+        {/* 🌟 優化：如果是預設的直播文字，就隱藏起來讓名片更乾淨；如果有自訂文字才顯示 */}
+        {isStatusValid && (!isLive || v.statusMessage !== "🔴 正在直播中！快來找我玩！") && (
+          <div className={`mb-3 bg-gradient-to-r ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'from-pink-500/10 to-purple-500/10 border-pink-500/30'} rounded-lg px-3 py-2 text-xs ${isLive ? 'text-red-200' : 'text-pink-200'} font-medium flex items-start gap-2 shadow-inner relative`}>
+            <i className={`fa-solid ${isLive ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-pink-400 animate-bounce'} mt-0.5 text-lg`}></i>
             <span className="line-clamp-2 leading-relaxed">{v.statusMessage}</span>
           </div>
         )}
@@ -1192,7 +1201,6 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // 🌟 優化：自訂比對邏輯。只有當以下關鍵資料改變時，這張卡片才需要重新渲染
   return (
     prevProps.v.updatedAt === nextProps.v.updatedAt &&
     prevProps.v.likes === nextProps.v.likes &&
@@ -2373,13 +2381,26 @@ const ProfileEditorForm = ({
             placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
           />
           {onUpdateStatus && (
-            <button
-              type="button"
-              onClick={() => onUpdateStatus(form.id, form.statusMessage)}
-              className="bg-pink-600 hover:bg-pink-500 text-white px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 flex-shrink-0"
-            >
-              <i className="fa-solid fa-paper-plane"></i> 發布限動
-            </button>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => onUpdateStatus(form.id, form.statusMessage, false)}
+                className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none"
+              >
+                <i className="fa-solid fa-paper-plane"></i> 發布限動
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const liveMsg = "🔴 正在直播中！快來找我玩！";
+                  updateForm({ statusMessage: liveMsg });
+                  onUpdateStatus(form.id, liveMsg, true);
+                }}
+                className="bg-red-600 hover:bg-red-500 text-white px-4 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 animate-pulse flex-1 sm:flex-none"
+              >
+                <i className="fa-solid fa-satellite-dish"></i> 一鍵報台
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -5310,33 +5331,32 @@ function App() {
   }, []);
 
   // 🌟 新增：發布限時動態 (同步更新 IG 圈圈、首頁網格與名片狀態)
-  const handlePostStory = async (e) => {
-    e.preventDefault();
-    if (!storyInput.trim() || !user || !isVerifiedUser) return;
+  const handlePostStory = async (e, overrideContent = null, isLive = false) => {
+    if (e) e.preventDefault();
+    const content = overrideContent || storyInput.trim();
+    if (!content || !user || !isVerifiedUser) return;
 
     try {
       const now = Date.now();
-      const content = storyInput.trim();
+      // 🔴 直播動態 6 小時後消失，一般動態 24 小時後消失
+      const expireTime = isLive ? 6 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
       const newStory = {
         userId: user.uid,
         content: content,
         createdAt: now,
-        expiresAt: now + 24 * 60 * 60 * 1000, // 24 小時後過期
+        expiresAt: now + expireTime,
       };
 
-      // 1. 寫入 stories 集合 (給導覽列的 IG 圈圈用)
       const docRef = await addDoc(collection(db, getPath('stories')), newStory);
       setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
 
-      // 2. 同步寫入 vtubers 集合 (給首頁網格與名片卡片用)
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
-        updatedAt: now // 順便更新名片的最後活躍時間
+        updatedAt: now
       });
 
-      // 3. 同步更新本地快取，讓畫面瞬間變化
       setRealVtubers(prev => {
         const newList = prev.map(v =>
           v.id === user.uid
@@ -5347,11 +5367,10 @@ function App() {
         return newList;
       });
 
-      // 🌟 4. 完美同步：將文字塞入「名片編輯」的表單中！
       setProfileForm(prev => ({ ...prev, statusMessage: content }));
+      if (!overrideContent) setStoryInput(""); // 如果是一鍵報台，不清除原本輸入框的字
 
-      setStoryInput("");
-      showToast("✅ 動態已發布！首頁與名片已同步更新");
+      showToast(isLive ? "🔴 已火速發布直播通知！(6小時後自動隱藏)" : "✅ 動態已發布！首頁與名片已同步更新");
     } catch (e) {
       console.error(e);
       showToast("❌ 發布失敗，請稍後再試");
@@ -7266,8 +7285,7 @@ function App() {
     }
   };
 
-  // 🌟 獨立發布動態 (從名片編輯器發布)
-  const handleQuickStatusUpdate = async (targetId, statusMsg) => {
+  const handleQuickStatusUpdate = async (targetId, statusMsg, isLive = false) => {
     if (!user) return showToast("請先登入！");
     const uid = targetId || user.uid;
     const existingProfile = realVtubers.find((v) => v.id === uid);
@@ -7280,27 +7298,25 @@ function App() {
       showToast("⏳ 發布動態中...");
       const now = Date.now();
       const content = statusMsg || "";
+      const expireTime = isLive ? 6 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-      // 1. 更新名片資料庫
       await updateDoc(doc(db, getPath("vtubers"), uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
         updatedAt: now
       });
 
-      // 🌟 2. 完美同步：同時寫入 stories 集合，讓 IG 圈圈也能立刻顯示！
       if (content.trim()) {
         const newStory = {
           userId: uid,
           content: content.trim(),
           createdAt: now,
-          expiresAt: now + 24 * 60 * 60 * 1000,
+          expiresAt: now + expireTime,
         };
         const docRef = await addDoc(collection(db, getPath('stories')), newStory);
         setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
       }
 
-      // 3. 即時更新本地畫面與快取
       setRealVtubers((prev) => {
         const newList = prev.map((v) =>
           v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, updatedAt: now } : v
@@ -7309,7 +7325,7 @@ function App() {
         return newList;
       });
 
-      showToast("✅ 限時動態已火速發布！全站已同步");
+      showToast(isLive ? "🔴 已火速發布直播通知！" : "✅ 限時動態已火速發布！全站已同步");
     } catch (err) {
       console.error(err);
       showToast("❌ 發布失敗，請稍後再試");
@@ -9535,8 +9551,8 @@ function App() {
 
                           {/* 🌟 新增：在詳細名片頁面也顯示 24 小時限時動態 */}
                           {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && (Date.now() - selectedVTuber.statusMessageUpdatedAt < 24 * 60 * 60 * 1000) && (
-                            <div className="mt-5 bg-gradient-to-r from-pink-500/10 to-purple-500/10 border border-pink-500/30 rounded-xl p-4 text-sm text-pink-200 font-medium flex items-start gap-3 shadow-inner animate-fade-in-up">
-                              <i className="fa-solid fa-comment-dots mt-1 text-pink-400 animate-bounce text-lg"></i>
+                            <div className={`mt-5 bg-gradient-to-r ${selectedVTuber.statusMessage.includes('🔴') ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'from-pink-500/10 to-purple-500/10 border-pink-500/30'} rounded-xl p-4 text-sm ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-pink-200'} font-medium flex items-start gap-3 shadow-inner animate-fade-in-up`}>
+                              <i className={`fa-solid ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-pink-400 animate-bounce'} mt-1 text-xl`}></i>
                               <span className="leading-relaxed">{selectedVTuber.statusMessage}</span>
                             </div>
                           )}
@@ -10415,9 +10431,16 @@ function App() {
                     <button
                       type="submit"
                       disabled={!storyInput.trim()}
-                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-shrink-0 ${storyInput.trim() ? 'bg-pink-600 hover:bg-pink-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-pink-600 hover:bg-pink-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                     >
                       <i className="fa-solid fa-paper-plane"></i> 發布限動
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handlePostStory(e, "🔴 正在直播中！快來找我玩！", true)}
+                      className="px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse flex-1 sm:flex-none"
+                    >
+                      <i className="fa-solid fa-satellite-dish"></i> 一鍵報台
                     </button>
                   </form>
                 </div>
@@ -10463,61 +10486,62 @@ function App() {
                     );
                   }
 
-                  return allActiveStatuses.map((v) => (
-                    <div
-                      key={v.id}
-                      onClick={() => {
-                        setSelectedVTuber(v);
-                        navigate(`profile/${v.id}`);
-                      }}
-                      className="bg-gray-800/60 border border-gray-700 hover:border-orange-500/50 rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center"
-                    >
-                      <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={sanitizeUrl(v.avatar)}
-                            className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute -bottom-1 -right-1 bg-orange-500 w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center">
-                            <i className="fa-solid fa-bolt text-[10px] text-white"></i>
+                  return allActiveStatuses.map((v) => {
+                    const isLive = v.statusMessage && v.statusMessage.includes('🔴');
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => {
+                          setSelectedVTuber(v);
+                          navigate(`profile/${v.id}`);
+                        }}
+                        className={`bg-gray-800/60 border ${isLive ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center`}
+                      >
+                        <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={sanitizeUrl(v.avatar)}
+                              className={`w-16 h-16 rounded-full object-cover border-2 ${isLive ? 'border-red-500' : 'border-orange-500'} group-hover:scale-105 transition-transform`}
+                            />
+                            <div className={`absolute -bottom-1 -right-1 ${isLive ? 'bg-red-600 animate-pulse' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                              <i className={`fa-solid ${isLive ? 'fa-satellite-dish' : 'fa-bolt'} text-[10px] text-white`}></i>
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1 text-left">
+                            <h4 className={`font-bold truncate text-base transition-colors ${isLive ? 'text-red-400' : 'text-white group-hover:text-orange-400'}`}>
+                              {v.name}
+                            </h4>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {formatTime(v.statusMessageUpdatedAt)}
+                            </p>
                           </div>
                         </div>
-                        <div className="min-w-0 flex-1 text-left">
-                          <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
-                            {v.name}
-                          </h4>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {formatTime(v.statusMessageUpdatedAt)}
+
+                        <div className={`bg-gradient-to-br ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/30' : 'from-orange-500/10 to-red-500/10 border-orange-500/20'} rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full`}>
+                          <i className={`fa-solid fa-quote-left absolute top-2 right-2 text-4xl ${isLive ? 'text-red-500/20' : 'text-orange-500/10'}`}></i>
+                          <p className={`text-sm sm:text-base ${isLive ? 'text-red-100' : 'text-orange-100'} leading-relaxed relative z-10 font-medium whitespace-pre-wrap`}>
+                            {v.statusMessage}
                           </p>
                         </div>
-                      </div>
 
-                      <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 sm:p-5 border border-orange-500/20 flex-1 text-left relative overflow-hidden w-full">
-                        <i className="fa-solid fa-quote-left absolute top-2 right-2 text-4xl text-orange-500/10"></i>
-                        <p className="text-sm sm:text-base text-orange-100 leading-relaxed relative z-10 font-medium whitespace-pre-wrap">
-                          {v.statusMessage}
-                        </p>
+                        {/* 私訊我按鈕保持不變 */}
+                        <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!user) return showToast("請先登入！");
+                              if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                              if (v.id === user.uid) return showToast("不能私訊自己！");
+                              setChatTarget(v);
+                            }}
+                            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 sm:py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+                          >
+                            <i className="fa-solid fa-comment-dots"></i> 私訊我
+                          </button>
+                        </div>
                       </div>
-
-                      {/* 🌟 新增：私訊我按鈕 */}
-                      <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // 阻止觸發外層的跳轉名片
-                            if (!user) return showToast("請先登入！");
-                            if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                            if (v.id === user.uid) return showToast("不能私訊自己！");
-
-                            // 觸發開啟聊天室
-                            setChatTarget(v);
-                          }}
-                          className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 sm:py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
-                        >
-                          <i className="fa-solid fa-comment-dots"></i> 私訊我
-                        </button>
-                      </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
             </div>
