@@ -10448,9 +10448,9 @@ function App() {
 
               {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
               {isVerifiedUser && myProfile ? (
-                // 🌟 優化：背景改為與「尋找夥伴」按鈕同色系，但加深為 900/80，邊框改為 purple-500/40
-                <div className="bg-gradient-to-r from-purple-900/80 to-pink-900/80 border border-purple-500/40 rounded-xl p-5 mb-8 shadow-inner">
-                  <h3 className="text-purple-300 font-bold mb-3 flex items-center gap-2">
+                // 🌟 優化：背景改為深橘到深紅漸層，邊框改為 orange-500/40
+                <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border border-orange-500/40 rounded-xl p-5 mb-8 shadow-inner">
+                  <h3 className="text-orange-300 font-bold mb-3 flex items-center gap-2">
                     <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
                   </h3>
                   <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
@@ -10459,14 +10459,15 @@ function App() {
                       maxLength="40"
                       value={storyInput}
                       onChange={(e) => setStoryInput(e.target.value)}
-                      className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-[16px] flex-1"
+                      // 🌟 優化：輸入框 focus 時的光暈改為 orange-500
+                      className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px] flex-1"
                       placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
                     />
                     <button
                       type="submit"
                       disabled={!storyInput.trim()}
-                      // 🌟 優化：發布按鈕也改為 purple-600 呼應主題色
-                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-purple-600 hover:bg-purple-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                      // 🌟 優化：發布按鈕改為 orange-600 呼應主題色
+                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                     >
                       <i className="fa-solid fa-paper-plane"></i> 發布限動
                     </button>
