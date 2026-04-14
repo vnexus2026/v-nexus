@@ -10424,8 +10424,9 @@ function App() {
 
               {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
               {isVerifiedUser && myProfile ? (
-                <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-8 shadow-inner">
-                  <h3 className="text-pink-400 font-bold mb-3 flex items-center gap-2">
+                // 🌟 優化：背景改為與「尋找夥伴」按鈕同色系，但加深為 900/80，邊框改為 purple-500/40
+                <div className="bg-gradient-to-r from-purple-900/80 to-pink-900/80 border border-purple-500/40 rounded-xl p-5 mb-8 shadow-inner">
+                  <h3 className="text-purple-300 font-bold mb-3 flex items-center gap-2">
                     <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
                   </h3>
                   <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
@@ -10440,7 +10441,8 @@ function App() {
                     <button
                       type="submit"
                       disabled={!storyInput.trim()}
-                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-pink-600 hover:bg-pink-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                      // 🌟 優化：發布按鈕也改為 purple-600 呼應主題色
+                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-purple-600 hover:bg-purple-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                     >
                       <i className="fa-solid fa-paper-plane"></i> 發布限動
                     </button>
