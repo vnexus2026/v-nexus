@@ -3592,7 +3592,7 @@ const HomePage = ({
                 <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
               </button>
               <button
-                onClick={() => navigate("dashboard")}
+                onClick={() => navigate("status_wall")} // 🌟 修改：直接導向動態牆
                 className="bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
               >
                 <i className="fa-solid fa-pen-nib"></i> 發布我的動態
@@ -3663,7 +3663,7 @@ const HomePage = ({
               <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
             </button>
             <button
-              onClick={() => navigate("dashboard")}
+              onClick={() => navigate("status_wall")} // 🌟 修改：直接導向動態牆
               className="flex-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-pen-nib"></i> 發布動態
