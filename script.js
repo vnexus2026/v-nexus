@@ -694,6 +694,19 @@ const formatTime = (ts) => {
   const d = new Date(ts);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
+
+// 🌟 新增：將時間戳記轉換為「發布了 X 分鐘/小時」的相對時間格式
+const formatRelativeTime = (ts) => {
+  if (!ts) return "剛剛發布";
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+
+  if (mins < 1) return "剛剛發布";
+  if (mins < 60) return ` ${mins} 分鐘前發布`;
+  return ` ${hours} 小時前發布`;
+};
+
 const formatDateTimeLocalStr = (dtStr) => {
   if (!dtStr) return "未指定";
   const d = new Date(dtStr);
@@ -10522,7 +10535,8 @@ function App() {
                             {v.name}
                           </h4>
                           <p className="text-xs text-gray-400 mt-1">
-                            {formatTime(v.statusMessageUpdatedAt)}
+                            {/* 🌟 優化：改用相對時間顯示，讓動態更有即時感！ */}
+                            {formatRelativeTime(v.statusMessageUpdatedAt)}
                           </p>
                         </div>
                       </div>
