@@ -5344,8 +5344,6 @@ function App() {
   // 🌟 新增：限時動態 (Stories) 狀態
   const [realStories, setRealStories] = useState([]);
   const [storyInput, setStoryInput] = useState("");
-  const [activeStoryGroup, setActiveStoryGroup] = useState(null);
-  const [activeStoryIndex, setActiveStoryIndex] = useState(0);
 
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -5396,59 +5394,26 @@ function App() {
     const interval = setInterval(fetchOnlineUsers, 3 * 60 * 1000); // 每 3 分鐘更新一次畫面上的綠燈
     return () => clearInterval(interval);
   }, []);
-  // 🌟 新增：抓取限時動態 (只抓取 24 小時內未過期的)
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        const now = Date.now();
-        const q = query(
-          collection(db, getPath('stories')),
-          where('expiresAt', '>', now)
-        );
-        const snap = await getDocs(q);
-        const storiesData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setRealStories(storiesData);
-      } catch (e) { console.error("抓取動態失敗", e); }
-    };
-    fetchStories();
-    // 每 5 分鐘默默更新一次動態
-    const interval = setInterval(fetchStories, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // 🌟 新增：發布限時動態 (同步更新 IG 圈圈、首頁網格與名片狀態)
   const handlePostStory = async (e, overrideContent = null, isLive = false) => {
     if (e) e.preventDefault();
-    // 如果 overrideContent 有傳值 (包含空字串)，就優先使用；否則使用輸入框的值
     const content = overrideContent !== null ? overrideContent : storyInput.trim();
 
-    // 防呆：如果不是清除動作，且內容為空，則阻擋
     if (overrideContent === null && !content) return;
     if (!user || !isVerifiedUser) return;
 
     try {
       const now = Date.now();
-      const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-      // 如果有內容，才寫入 stories 集合 (IG 圈圈)
-      if (content) {
-        const newStory = {
-          userId: user.uid,
-          content: content,
-          createdAt: now,
-          expiresAt: now + expireTime,
-        };
-        const docRef = await addDoc(collection(db, getPath('stories')), newStory);
-        setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
-      }
-
-      // 更新名片資料庫 (如果是清除，content 就是空字串)
+      // 直接更新名片資料庫 (如果是清除，content 就是空字串)
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
         updatedAt: now
       });
 
+      // 同步更新本地快取
       setRealVtubers(prev => {
         const newList = prev.map(v =>
           v.id === user.uid
@@ -5473,22 +5438,6 @@ function App() {
     }
   };
 
-  // 🌟 新增：將動態依照使用者分組 (像 IG 一樣，同一個人的動態包在一起)
-  const groupedStories = useMemo(() => {
-    const groups = {};
-    const now = Date.now();
-
-    realStories.filter(s => s.expiresAt > now).forEach(s => {
-      if (!groups[s.userId]) groups[s.userId] = [];
-      groups[s.userId].push(s);
-    });
-
-    // 每個人的動態依時間由舊到新排序 (觀看順序)
-    Object.values(groups).forEach(group => group.sort((a, b) => a.createdAt - b.createdAt));
-
-    // 整個列表依照「最新發布時間」排序 (越新發布的人排越前面)
-    return Object.values(groups).sort((a, b) => b[b.length - 1].createdAt - a[a.length - 1].createdAt);
-  }, [realStories]);
   // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
   useEffect(() => {
     if (analytics) {
@@ -7399,24 +7348,12 @@ function App() {
       showToast("⏳ 處理中...");
       const now = Date.now();
       const content = statusMsg || "";
-      const expireTime = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
       await updateDoc(doc(db, getPath("vtubers"), uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
         updatedAt: now
       });
-
-      if (content.trim()) {
-        const newStory = {
-          userId: uid,
-          content: content.trim(),
-          createdAt: now,
-          expiresAt: now + expireTime,
-        };
-        const docRef = await addDoc(collection(db, getPath('stories')), newStory);
-        setRealStories(prev => [...prev, { id: docRef.id, ...newStory }]);
-      }
 
       setRealVtubers((prev) => {
         const newList = prev.map((v) =>
