@@ -9136,10 +9136,11 @@ function App() {
                     <select
                       value={selectedSchedule}
                       onChange={(e) => setSelectedSchedule(e.target.value)}
-                      cclassName="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
                       {dynamicSchedules.map((d) => (
-                        <option key={d} value={d}>
+                        // 🌟 優化：加上 bg-gray-900 text-white
+                        <option key={d} value={d} className="bg-gray-900 text-white">
                           {d === "All" ? "全部" : d}
                         </option>
                       ))}
@@ -9153,9 +9154,10 @@ function App() {
                       onChange={(e) => setSelectedColor(e.target.value)}
                       className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
-                      <option value="All">全部色系</option>
+                      {/* 🌟 優化：加上 bg-gray-900 text-white */}
+                      <option value="All" className="bg-gray-900 text-white">全部色系</option>
                       {COLOR_OPTIONS.map((c) => (
-                        <option key={c} value={c}>
+                        <option key={c} value={c} className="bg-gray-900 text-white">
                           {c}
                         </option>
                       ))}
