@@ -3544,7 +3544,8 @@ const HomePage = ({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
             <div className="text-left">
               <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-                <i className="fa-solid fa-stopwatch text-pink-500 animate-pulse"></i>{" "}
+                {/* 🌟 改為橘色 */}
+                <i className="fa-solid fa-stopwatch text-orange-500 animate-pulse"></i>{" "}
                 24H 最新動態
               </h2>
               <p className="text-gray-400 text-sm">
@@ -3558,11 +3559,13 @@ const HomePage = ({
                 disabled={isShuffling}
                 className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
+                {/* 🌟 改為橘色 */}
+                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-orange-400" : ""}`}></i> 換一批
               </button>
               <button
-                onClick={() => navigate("status_wall")} // 🌟 修改：直接導向動態牆
-                className="bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                onClick={() => navigate("status_wall")}
+                // 🌟 改為橘色
+                className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
               >
                 <i className="fa-solid fa-pen-nib"></i> 發布我的動態
               </button>
@@ -3581,30 +3584,36 @@ const HomePage = ({
                   setSelectedVTuber(v);
                   navigate(`profile/${v.id}`);
                 }}
-                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-gray-800/60 border border-pink-500/30 hover:border-pink-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
+                // 🌟 改為橘色
+                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-gray-800/60 border border-orange-500/30 hover:border-orange-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
                       src={sanitizeUrl(v.avatar)}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-pink-500 group-hover:scale-105 transition-transform"
+                      // 🌟 改為橘色
+                      className="w-12 h-12 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
                     />
-                    <div className="absolute -bottom-1 -right-1 bg-pink-500 w-4 h-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                    {/* 🌟 改為橘色 */}
+                    <div className="absolute -bottom-1 -right-1 bg-orange-500 w-4 h-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
                       <i className="fa-solid fa-bolt text-[8px] text-white"></i>
                     </div>
                   </div>
                   <div className="min-w-0 flex-1 text-left">
-                    <h4 className="text-white font-bold truncate text-sm group-hover:text-pink-300 transition-colors">
+                    {/* 🌟 改為橘色 */}
+                    <h4 className="text-white font-bold truncate text-sm group-hover:text-orange-300 transition-colors">
                       {v.name}
                     </h4>
                     <p className="text-[10px] text-gray-400">
-                      {formatTime(v.statusMessageUpdatedAt)}
+                      {/* 🌟 優化：套用相對時間 (發布了 X 分鐘) */}
+                      {formatRelativeTime(v.statusMessageUpdatedAt)}
                     </p>
                   </div>
                 </div>
-                <div className="bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-2xl p-4 border border-pink-500/20 flex-1 text-left relative overflow-hidden">
-                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-pink-500/10"></i>
-                  <p className="text-sm text-pink-100 line-clamp-3 leading-relaxed relative z-10 font-medium">
+                {/* 🌟 改為橘色漸層 */}
+                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 border border-orange-500/20 flex-1 text-left relative overflow-hidden">
+                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-orange-500/10"></i>
+                  <p className="text-sm text-orange-100 line-clamp-3 leading-relaxed relative z-10 font-medium">
                     {v.statusMessage}
                   </p>
                 </div>
@@ -3629,11 +3638,13 @@ const HomePage = ({
               disabled={isShuffling}
               className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-pink-400" : ""}`}></i> 換一批
+              {/* 🌟 改為橘色 */}
+              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-orange-400" : ""}`}></i> 換一批
             </button>
             <button
-              onClick={() => navigate("status_wall")} // 🌟 修改：直接導向動態牆
-              className="flex-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+              onClick={() => navigate("status_wall")}
+              // 🌟 改為橘色
+              className="flex-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-pen-nib"></i> 發布動態
             </button>
