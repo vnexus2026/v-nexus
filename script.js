@@ -2104,7 +2104,6 @@ const ProfileEditorForm = ({
   showToast,
   user,
   onDeleteSelf,
-  onUpdateStatus,
 }) => {
   const [otpStatus, setOtpStatus] = useState("idle");
   const [otpInput, setOtpInput] = useState("");
@@ -2390,49 +2389,6 @@ const ProfileEditorForm = ({
 
     <form onSubmit={onSubmit} className="space-y-6">
 
-      {/* 🌟 新增：24小時限時動態區塊 */}
-      <div className="bg-gradient-to-r from-pink-900/20 to-purple-900/20 border border-pink-500/30 rounded-xl p-5 mb-6">
-        <h3 className="text-pink-400 font-bold mb-2 flex items-center gap-2">
-          <i className="fa-solid fa-stopwatch"></i> 24小時限時動態 (選填)
-        </h3>
-        <p className="text-xs text-gray-300 mb-3">
-          這段訊息會顯示在您的名片頭像下方，並在 24 小時後自動隱藏。適合用來發布「今晚想打瓦！」或「急徵連動夥伴」等即時訊息。
-        </p>
-
-        {/* 🌟 優化：加入 flex 排版與獨立發布按鈕 */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            maxLength="40"
-            value={form.statusMessage || ""}
-            onChange={(e) => updateForm({ statusMessage: e.target.value })}
-            className={inputCls}
-            placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
-          />
-          {onUpdateStatus && (
-            <div className="flex gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => onUpdateStatus(form.id, form.statusMessage, false)}
-                className="bg-pink-600 hover:bg-pink-500 text-white px-4 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none"
-              >
-                <i className="fa-solid fa-paper-plane"></i> 發布限動
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const liveMsg = "🔴 正在直播中！快來找我玩！";
-                  updateForm({ statusMessage: liveMsg });
-                  onUpdateStatus(form.id, liveMsg, true);
-                }}
-                className="bg-red-600 hover:bg-red-500 text-white px-4 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 whitespace-nowrap flex items-center justify-center gap-2 animate-pulse flex-1 sm:flex-none"
-              >
-                <i className="fa-solid fa-satellite-dish"></i> 一鍵報台
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
       <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5">
         <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2">
           <i className="fa-solid fa-power-off"></i> 名片顯示狀態
@@ -9006,7 +8962,6 @@ function App() {
                       ? handleUserDeleteSelf
                       : null
                   }
-                  onUpdateStatus={handleQuickStatusUpdate} // 🌟 新增：綁定獨立發布函式
                 />
               </div>
               {user &&
@@ -9088,7 +9043,7 @@ function App() {
                         placeholder="搜尋名片內任何文字..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500 shadow-inner"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-purple-500 shadow-inner"
                       />
                     </div>
                   </div>
@@ -9142,7 +9097,7 @@ function App() {
                       <select
                         value={selectedLanguage}
                         onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                       >
                         {dynamicLanguages.map((l) => (
                           <option key={l} value={l}>
@@ -9157,7 +9112,7 @@ function App() {
                     <select
                       value={selectedSchedule}
                       onChange={(e) => setSelectedSchedule(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal"
+                      cclassName="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
                       {dynamicSchedules.map((d) => (
                         <option key={d} value={d}>
@@ -9172,7 +9127,7 @@ function App() {
                     <select
                       value={selectedColor}
                       onChange={(e) => setSelectedColor(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs outline-none font-normal"
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
                       <option value="All">全部色系</option>
                       {COLOR_OPTIONS.map((c) => (
@@ -9283,7 +9238,7 @@ function App() {
                           setShuffleSeed(Date.now());
                         }
                       }}
-                      className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
+                      className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (直播中/更新)</option>
 
