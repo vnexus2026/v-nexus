@@ -10594,113 +10594,115 @@ function App() {
                     );
                   }
 
-                  return allActiveStatuses.map((v) => (
-                    <div
-                      key={v.id}
-                      onClick={() => {
-                        setSelectedVTuber(v);
-                        navigate(`profile/${v.id}`);
-                      }}
-                      // 🌟 確保外層有 relative 屬性
-                      className="bg-gray-800/60 border border-gray-700 hover:border-orange-500/50 rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative"
-                    >
-                      <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={sanitizeUrl(v.avatar)}
-                            className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute -bottom-1 -right-1 bg-orange-500 w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center">
-                            <i className="fa-solid fa-bolt text-[10px] text-white"></i>
-                          </div>
-                        </div>
-                        {/* 🌟 加上 pr-16 (padding-right)，避免手機版名字太長被右上角的按鈕蓋住 */}
-                        <div className="min-w-0 flex-1 text-left pr-16 sm:pr-0">
+                  return allActiveStatuses.map((v) => {
+                    // 🌟 新增：判斷這則動態是否為直播通知
+                    const isLiveMsg = v.statusMessage.includes('🔴');
 
-                          {/* 🌟 優化：將名字與社群按鈕放在同一排 (flex) */}
-                          <div className="flex items-center gap-2 min-w-0">
-                            <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
-                              {v.name}
-                            </h4>
-
-                            {/* 🌟 新增：小巧的 YouTube 與 Twitch 連結按鈕 */}
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
-                                <a
-                                  href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()} // ⚠️ 關鍵：阻止點擊事件往上傳遞，避免觸發進入名片
-                                  className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
-                                  title="前往 YouTube"
-                                >
-                                  <i className="fa-brands fa-youtube text-[10px]"></i>
-                                </a>
-                              )}
-                              {v.twitchUrl && v.twitchUrl !== "#" && (
-                                <a
-                                  href={sanitizeUrl(v.twitchUrl)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()} // ⚠️ 關鍵：阻止點擊事件往上傳遞
-                                  className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
-                                  title="前往 Twitch"
-                                >
-                                  <i className="fa-brands fa-twitch text-[10px]"></i>
-                                </a>
-                              )}
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => {
+                          setSelectedVTuber(v);
+                          navigate(`profile/${v.id}`);
+                        }}
+                        // 🌟 優化：如果是直播，外框加上紅色發光效果
+                        className={`bg-gray-800/60 border ${isLiveMsg ? 'border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative`}
+                      >
+                        <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={sanitizeUrl(v.avatar)}
+                              // 🌟 優化：直播時頭像框變紅色
+                              className={`w-16 h-16 rounded-full object-cover border-2 ${isLiveMsg ? 'border-red-500' : 'border-orange-500'} group-hover:scale-105 transition-transform`}
+                            />
+                            {/* 🌟 優化：直播時右下角圖示變紅色，並換成閃爍的直播天線 */}
+                            <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-red-600' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center`}>
+                              <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse' : 'fa-bolt'} text-[10px] text-white`}></i>
                             </div>
                           </div>
+                          <div className="min-w-0 flex-1 text-left pr-16 sm:pr-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {/* 🌟 優化：Hover 時的名字顏色跟著變 */}
+                              <h4 className={`text-white font-bold truncate text-base transition-colors ${isLiveMsg ? 'group-hover:text-red-400' : 'group-hover:text-orange-400'}`}>
+                                {v.name}
+                              </h4>
 
-                          <p className="text-xs text-gray-400 mt-1">
-                            {formatRelativeTime(v.statusMessageUpdatedAt)}
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
+                                  <a
+                                    href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
+                                    title="前往 YouTube"
+                                  >
+                                    <i className="fa-brands fa-youtube text-[10px]"></i>
+                                  </a>
+                                )}
+                                {v.twitchUrl && v.twitchUrl !== "#" && (
+                                  <a
+                                    href={sanitizeUrl(v.twitchUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
+                                    title="前往 Twitch"
+                                  >
+                                    <i className="fa-brands fa-twitch text-[10px]"></i>
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-gray-400 mt-1">
+                              {formatRelativeTime(v.statusMessageUpdatedAt)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 🌟 終極優化：直播時，訊息框變成強烈的紅底漸層白字！ */}
+                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-red-500/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20'}`}>
+                          <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse text-red-400/20' : 'fa-quote-left text-orange-500/10'} absolute top-2 right-2 text-4xl`}></i>
+                          <p className={`text-sm sm:text-base leading-relaxed relative z-10 whitespace-pre-wrap ${isLiveMsg ? 'text-white font-bold tracking-wide' : 'text-orange-100 font-medium'}`}>
+                            {v.statusMessage}
                           </p>
                         </div>
-                      </div>
 
-                      <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 sm:p-5 border border-orange-500/20 flex-1 text-left relative overflow-hidden w-full">
-                        <i className="fa-solid fa-quote-left absolute top-2 right-2 text-4xl text-orange-500/10"></i>
-                        <p className="text-sm sm:text-base text-orange-100 leading-relaxed relative z-10 font-medium whitespace-pre-wrap">
-                          {v.statusMessage}
-                        </p>
+                        <div className="absolute top-5 right-5 sm:static sm:flex-shrink-0 sm:mt-0 z-20">
+                          {user && v.id === user.uid ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("確定要清除這則動態嗎？")) {
+                                  handlePostStory(e, "", false);
+                                }
+                              }}
+                              className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
+                            >
+                              <i className="fa-solid fa-eraser"></i>
+                              <span className="sm:hidden">清除</span>
+                              <span className="hidden sm:inline">清除動態</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!user) return showToast("請先登入！");
+                                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                                setChatTarget(v);
+                              }}
+                              className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
+                            >
+                              <i className="fa-solid fa-comment-dots"></i>
+                              <span className="sm:hidden">私訊</span>
+                              <span className="hidden sm:inline">私訊我</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-
-                      {/* 🌟 優化：手機版絕對定位在右上角，電腦版維持在右側 */}
-                      <div className="absolute top-5 right-5 sm:static sm:flex-shrink-0 sm:mt-0 z-20">
-                        {user && v.id === user.uid ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // 阻止觸發外層的跳轉名片
-                              if (confirm("確定要清除這則動態嗎？")) {
-                                // 傳入空字串 "" 代表清除動態
-                                handlePostStory(e, "", false);
-                              }
-                            }}
-                            className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
-                          >
-                            <i className="fa-solid fa-eraser"></i>
-                            <span className="sm:hidden">清除</span>
-                            <span className="hidden sm:inline">清除動態</span>
-                          </button>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!user) return showToast("請先登入！");
-                              if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-
-                              setChatTarget(v);
-                            }}
-                            className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
-                          >
-                            <i className="fa-solid fa-comment-dots"></i>
-                            <span className="sm:hidden">私訊</span>
-                            <span className="hidden sm:inline">私訊我</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
             </div>
