@@ -10589,11 +10589,43 @@ function App() {
                         </div>
                         {/* 🌟 加上 pr-16 (padding-right)，避免手機版名字太長被右上角的按鈕蓋住 */}
                         <div className="min-w-0 flex-1 text-left pr-16 sm:pr-0">
-                          <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
-                            {v.name}
-                          </h4>
+
+                          {/* 🌟 優化：將名字與社群按鈕放在同一排 (flex) */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h4 className="text-white font-bold truncate text-base group-hover:text-orange-400 transition-colors">
+                              {v.name}
+                            </h4>
+
+                            {/* 🌟 新增：小巧的 YouTube 與 Twitch 連結按鈕 */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
+                                <a
+                                  href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()} // ⚠️ 關鍵：阻止點擊事件往上傳遞，避免觸發進入名片
+                                  className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
+                                  title="前往 YouTube"
+                                >
+                                  <i className="fa-brands fa-youtube text-[10px]"></i>
+                                </a>
+                              )}
+                              {v.twitchUrl && v.twitchUrl !== "#" && (
+                                <a
+                                  href={sanitizeUrl(v.twitchUrl)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()} // ⚠️ 關鍵：阻止點擊事件往上傳遞
+                                  className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
+                                  title="前往 Twitch"
+                                >
+                                  <i className="fa-brands fa-twitch text-[10px]"></i>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
                           <p className="text-xs text-gray-400 mt-1">
-                            {/* 🌟 優化：改用相對時間顯示，讓動態更有即時感！ */}
                             {formatRelativeTime(v.statusMessageUpdatedAt)}
                           </p>
                         </div>
