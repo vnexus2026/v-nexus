@@ -1041,11 +1041,20 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   const isLive = isStatusValid && isLiveMsg && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
 
   // 🌟 判斷是否在線上
-  const isOnline = onlineUsers.has(v.id);
+  const isOnline = onlineUsers?.has(v.id);
 
   return (
     <div onClick={onSelect}
-      className={`group h-full bg-gray-800/40 border-2 ${isLive ? "border-red-500/80" : !v.isVerified ? "border-yellow-500/50" : "border-gray-700/50"} rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/50 transition-all hover:-translate-y-1 flex flex-col relative`}
+      // 🌟 優化：加入 isStatusValid 的判斷，給予橘色邊框與發光陰影！
+      // 優先級：直播中(紅) > 有發限動(橘+發光) > 待審核(黃) > 一般狀態(灰)
+      className={`group h-full bg-gray-800/40 border-2 ${isLive
+        ? "border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+        : isStatusValid
+          ? "border-orange-500/60 hover:border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+          : !v.isVerified
+            ? "border-yellow-500/50 hover:border-yellow-400"
+            : "border-gray-700/50 hover:border-purple-500/50"
+        } rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 flex flex-col relative`}
     >
       {isLive && (
         <div className="absolute inset-0 border-2 border-red-500 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse pointer-events-none z-20"></div>
@@ -1121,8 +1130,9 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
 
         {/* 🌟 優化：如果是預設的直播文字，就隱藏起來讓名片更乾淨；如果有自訂文字才顯示 */}
         {isStatusValid && (!isLive || v.statusMessage !== "🔴 正在直播中！快來找我玩！") && (
-          <div className={`mb-3 bg-gradient-to-r ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'from-pink-500/10 to-purple-500/10 border-pink-500/30'} rounded-lg px-3 py-2 text-xs ${isLive ? 'text-red-200' : 'text-pink-200'} font-medium flex items-start gap-2 shadow-inner relative`}>
-            <i className={`fa-solid ${isLive ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-pink-400 animate-bounce'} mt-0.5 text-lg`}></i>
+          // 🌟 將原本的 pink/purple 替換為 orange/red
+          <div className={`mb-3 bg-gradient-to-r ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'from-orange-500/10 to-red-500/10 border-orange-500/30'} rounded-lg px-3 py-2 text-xs ${isLive ? 'text-red-200' : 'text-orange-200'} font-medium flex items-start gap-2 shadow-inner relative`}>
+            <i className={`fa-solid ${isLive ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-orange-400 animate-bounce'} mt-0.5 text-lg`}></i>
             <span className="line-clamp-2 leading-relaxed">{v.statusMessage}</span>
           </div>
         )}
@@ -9619,8 +9629,9 @@ function App() {
 
                           {/* 🌟 新增：在詳細名片頁面也顯示 24 小時限時動態 */}
                           {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && (Date.now() - selectedVTuber.statusMessageUpdatedAt < 24 * 60 * 60 * 1000) && (
-                            <div className={`mt-5 bg-gradient-to-r ${selectedVTuber.statusMessage.includes('🔴') ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'from-pink-500/10 to-purple-500/10 border-pink-500/30'} rounded-xl p-4 text-sm ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-pink-200'} font-medium flex items-start gap-3 shadow-inner animate-fade-in-up`}>
-                              <i className={`fa-solid ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-pink-400 animate-bounce'} mt-1 text-xl`}></i>
+                            // 🌟 將原本的 pink/purple 替換為 orange/red
+                            <div className={`mt-5 bg-gradient-to-r ${selectedVTuber.statusMessage.includes('🔴') ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'from-orange-500/10 to-red-500/10 border-orange-500/30'} rounded-xl p-4 text-sm ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-orange-200'} font-medium flex items-start gap-3 shadow-inner animate-fade-in-up`}>
+                              <i className={`fa-solid ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-orange-400 animate-bounce'} mt-1 text-xl`}></i>
                               <span className="leading-relaxed">{selectedVTuber.statusMessage}</span>
                             </div>
                           )}
