@@ -6890,6 +6890,7 @@ function App() {
   }, [displayVtubers, user]);
 
   const dynamicNationalities = useMemo(() => {
+    const PREDEFINED_NATS = ["台灣", "日本", "香港", "馬來西亞"]; // 🌟 預設選項
     const nats = new Set();
     displayVtubers
       .filter((v) => isVisible(v, user))
@@ -6900,9 +6901,27 @@ function App() {
           nats.add(v.nationality);
         }
       });
-    return ["All", ...Array.from(nats).sort()];
+
+    // 🌟 優化：自訂排序邏輯
+    const sortedNats = Array.from(nats).sort((a, b) => {
+      const idxA = PREDEFINED_NATS.indexOf(a);
+      const idxB = PREDEFINED_NATS.indexOf(b);
+
+      // 如果兩個都是預設選項，依照預設陣列的順序排
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      // 如果 A 是預設選項，A 排前面
+      if (idxA !== -1) return -1;
+      // 如果 B 是預設選項，B 排前面
+      if (idxB !== -1) return 1;
+      // 如果兩個都是自訂選項，依照中文筆畫/字母排序
+      return a.localeCompare(b, 'zh-TW');
+    });
+
+    return ["All", ...sortedNats];
   }, [displayVtubers, user]);
+
   const dynamicLanguages = useMemo(() => {
+    const PREDEFINED_LANGS = ["國", "日", "英", "粵", "台語"]; // 🌟 預設選項
     const langs = new Set();
     displayVtubers
       .filter((v) => isVisible(v, user))
@@ -6913,8 +6932,22 @@ function App() {
           langs.add(v.language);
         }
       });
-    return ["All", ...Array.from(langs).sort()];
+
+    // 🌟 優化：自訂排序邏輯
+    const sortedLangs = Array.from(langs).sort((a, b) => {
+      const idxA = PREDEFINED_LANGS.indexOf(a);
+      const idxB = PREDEFINED_LANGS.indexOf(b);
+
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b, 'zh-TW');
+    });
+
+    return ["All", ...sortedLangs];
   }, [displayVtubers, user]);
+
+
   const dynamicSchedules = useMemo(() => {
     const days = new Set();
     displayVtubers
