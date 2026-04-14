@@ -10579,24 +10579,37 @@ function App() {
 
                       {/* 🌟 優化：手機版絕對定位在右上角，電腦版維持在右側 */}
                       <div className="absolute top-5 right-5 sm:static sm:flex-shrink-0 sm:mt-0 z-20">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // 阻止觸發外層的跳轉名片
-                            if (!user) return showToast("請先登入！");
-                            if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                            if (v.id === user.uid) return showToast("不能私訊自己！");
+                        {user && v.id === user.uid ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // 阻止觸發外層的跳轉名片
+                              if (confirm("確定要清除這則動態嗎？")) {
+                                // 傳入空字串 "" 代表清除動態
+                                handlePostStory(e, "", false);
+                              }
+                            }}
+                            className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-eraser"></i>
+                            <span className="sm:hidden">清除</span>
+                            <span className="hidden sm:inline">清除動態</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!user) return showToast("請先登入！");
+                              if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
 
-                            // 觸發開啟聊天室
-                            setChatTarget(v);
-                          }}
-                          // 🌟 手機版縮小 padding 與字體 (px-3 py-1.5 text-xs)，電腦版恢復正常大小
-                          className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
-                        >
-                          <i className="fa-solid fa-comment-dots"></i>
-                          {/* 🌟 手機版只顯示「私訊」，電腦版顯示「私訊我」 */}
-                          <span className="sm:hidden">私訊</span>
-                          <span className="hidden sm:inline">私訊我</span>
-                        </button>
+                              setChatTarget(v);
+                            }}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
+                          >
+                            <i className="fa-solid fa-comment-dots"></i>
+                            <span className="sm:hidden">私訊</span>
+                            <span className="hidden sm:inline">私訊我</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ));
