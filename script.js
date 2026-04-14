@@ -10519,10 +10519,10 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={(e) => handlePostStory(e, "🔴 正在直播中！快來找我玩！", true)}
+                      onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
                       className="px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse flex-1 sm:flex-none"
                     >
-                      <i className="fa-solid fa-satellite-dish"></i> 一鍵報台
+                      <i className="fa-solid fa-satellite-dish"></i> 我在直播！
                     </button>
                   </form>
                 </div>
