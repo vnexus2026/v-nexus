@@ -5753,7 +5753,9 @@ function App() {
     lastYoutubeFetchTime: 0,
     lastTwitchFetchTime: 0,
     statusMessage: "",
-    statusMessageUpdatedAt: 0
+    statusMessageUpdatedAt: 0,
+    rejectionCount: 0,
+    lastRejectedAt: 0
   });
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
@@ -7187,6 +7189,21 @@ function App() {
     if (e) e.preventDefault();
     if (!user) return showToast("請先登入！");
 
+    const targetUid = customForm.id || user.uid;
+    const existingProfile = realVtubers.find((v) => v.id === targetUid);
+
+    // 🌟 新增：檢查是否被限制提交 (退回 >= 3 次且在 24 小時內)
+    if (!isAdmin && existingProfile && existingProfile.rejectionCount >= 3) {
+      const now = Date.now();
+      const blockDuration = 24 * 60 * 60 * 1000; // 24 小時
+      const timeSinceLastRejection = now - (existingProfile.lastRejectedAt || 0);
+
+      if (timeSinceLastRejection < blockDuration) {
+        const remainHours = Math.ceil((blockDuration - timeSinceLastRejection) / (60 * 60 * 1000));
+        return showToast(`❌ 您的名片已被退回 3 次以上。為維護審核品質，請於 ${remainHours} 小時後再重新提交！`);
+      }
+    }
+
     // 1. 驗證身分說明 (非管理員必須填寫 X 或 YT)
     if (!isAdmin && !customForm.verificationNote?.trim()) {
       alert("請填寫身分驗證說明，告知管理員您在哪個平台放入了驗證文字。");
@@ -7296,6 +7313,8 @@ function App() {
         "personalityTypeOther",
         "lastEmailSentAt",
         "lastNotifSentAt",
+        "rejectionCount",
+        "lastRejectedAt"
       ];
       uiFields.forEach((f) => delete publicData[f]);
 
@@ -7812,6 +7831,8 @@ function App() {
         isVerified: true,
         verificationStatus: "approved",
         showVerificationModal: "approved",
+        // 🌟 新增：審核通過後，將退回次數歸零，重新計算
+        rejectionCount: 0,
       };
       // 1. 更新名片狀態
       await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
@@ -7856,10 +7877,17 @@ function App() {
   const handleRejectVtuber = async (id) => {
     if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
     try {
+      // 🌟 新增：取得目前的退回次數，並 +1
+      const targetVtuber = realVtubers.find((v) => v.id === id);
+      const currentRejectionCount = targetVtuber?.rejectionCount || 0;
+
       const updates = {
         isVerified: false,
         verificationStatus: "rejected",
         showVerificationModal: "rejected",
+        // 🌟 新增：寫入新的退回次數與退回時間
+        rejectionCount: currentRejectionCount + 1,
+        lastRejectedAt: Date.now(),
       };
 
       // 1. 更新名片狀態
@@ -7874,7 +7902,6 @@ function App() {
       showToast("🟠 已退回該名片至退回名單。");
 
       // 2. 取得 Email
-      const targetVtuber = realVtubers.find((v) => v.id === id);
       let emailToSend = targetVtuber?.publicEmail;
 
       const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
