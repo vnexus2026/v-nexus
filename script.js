@@ -6286,6 +6286,10 @@ function App() {
           statsData.lastGlobalUpdate > parseInt(cachedTs) &&
           statsData.lastGlobalUpdate.toString() !== processedUpdate
         ) {
+          // 🌟 關鍵修復：如果已經在抓取中了，就直接擋掉，防止無限迴圈！
+          if (isFetchingJson.current) return;
+          isFetchingJson.current = true;
+
           console.log("🔔 偵測到全站更新，等待後端打包資料...");
 
           // 立刻記錄已處理，防止重複觸發
@@ -6309,6 +6313,8 @@ function App() {
                 }
               } catch (e) { console.error("背景更新 JSON 失敗", e); }
             }
+            // 🌟 抓取完畢，解開鎖
+            isFetchingJson.current = false;
           }, 4000);
         }
       }
