@@ -1032,13 +1032,15 @@ const CollabCard = React.memo(({
 });
 
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
-  // 🌟 從 Context 取得 onlineUsers
   const { user, isVerifiedUser, onlineUsers } = useContext(AppContext);
 
-  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < 24 * 60 * 60 * 1000);
+  // 🌟 關鍵修復：先判斷是不是直播訊息，取得對應的過期時間 (3小時或24小時)
   const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
   const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-  const isLive = isStatusValid && isLiveMsg && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
+
+  // 🌟 然後再用這個 expireLimit 來判斷動態是否有效！
+  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
+  const isLive = isStatusValid && isLiveMsg;
 
   // 🌟 判斷是否在線上
   const isOnline = onlineUsers?.has(v.id);
@@ -9655,9 +9657,8 @@ function App() {
                           </div>
 
                           {/* 🌟 新增：在詳細名片頁面也顯示 24 小時限時動態 */}
-                          {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && (Date.now() - selectedVTuber.statusMessageUpdatedAt < 24 * 60 * 60 * 1000) && (
-                            // 🌟 將原本的 pink/purple 替換為 orange/red
-                            <div className={`mt-5 bg-gradient-to-r ${selectedVTuber.statusMessage.includes('🔴') ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'from-orange-500/10 to-red-500/10 border-orange-500/30'} rounded-xl p-4 text-sm ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-orange-200'} font-medium flex items-start gap-3 shadow-inner animate-fade-in-up`}>
+                          {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && (Date.now() - selectedVTuber.statusMessageUpdatedAt < (selectedVTuber.statusMessage.includes('🔴') ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)) && (
+                            <div className={`mt-5 bg-gradient-to-r ${selectedVTuber.statusMessage.includes('🔴') ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'from-orange-500/10 to-red-500/10 border-orange-500/30'} rounded-xl p-4 text-sm ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-orange-300'} font-medium flex items-start gap-3 shadow-inner animate-fade-in-up`}>
                               <i className={`fa-solid ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-orange-400 animate-bounce'} mt-1 text-xl`}></i>
                               <span className="leading-relaxed">{selectedVTuber.statusMessage}</span>
                             </div>
