@@ -5372,10 +5372,11 @@ function App() {
   useEffect(() => {
     const fetchOnlineUsers = async () => {
       try {
-        const tenMinsAgo = Date.now() - 10 * 60 * 1000; // 10 分鐘內有動靜視為在線
+        const tenMinsAgo = Date.now() - 10 * 60 * 1000;
         const q = query(
           collection(db, getPath("vtubers")),
-          where("lastOnlineAt", ">", tenMinsAgo)
+          where("lastOnlineAt", ">", tenMinsAgo),
+          limit(100) // 🌟 核心修復：最多只抓 100 個線上的人，鎖死讀取上限！
         );
         const snap = await getDocs(q);
         setOnlineUsers(new Set(snap.docs.map(d => d.id)));
@@ -5385,7 +5386,8 @@ function App() {
     };
 
     fetchOnlineUsers();
-    const interval = setInterval(fetchOnlineUsers, 3 * 60 * 1000); // 每 3 分鐘更新一次畫面上的綠燈
+    // 🌟 核心修復：將 3 分鐘改為 10 分鐘，大幅降低輪詢頻率
+    const interval = setInterval(fetchOnlineUsers, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -6274,12 +6276,30 @@ function App() {
         // 🌟 當聽到警鐘 (lastGlobalUpdate 改變) 時，立刻打破快取重新下載最新名單！
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
         if (statsData.lastGlobalUpdate && cachedTs && statsData.lastGlobalUpdate > parseInt(cachedTs)) {
-          console.log("🔔 偵測到全站更新，正在重新抓取最新動態...");
-          try {
-            const vSnap = await getDocs(collection(db, getPath("vtubers")));
-            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data);
-          } catch (e) { console.error("背景更新名單失敗", e); }
+          console.log("🔔 偵測到全站更新，等待後端打包資料...");
+
+          // 🌟 終極防呆與成本優化：刻意等待 4 秒鐘！
+          // 讓後端的 Cloud Function 有充足的時間把最新的 JSON 打包並上傳到 Storage，避免前端抓太快抓到舊檔案。
+          setTimeout(async () => {
+            if (isAdmin) {
+              try {
+                const vSnap = await getDocs(collection(db, getPath("vtubers")));
+                const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                syncVtuberCache(data);
+              } catch (e) { console.error("背景更新名單失敗", e); }
+            } else {
+              try {
+                const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+                // 加上 Date.now() 確保絕對不會抓到瀏覽器的死快取
+                const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  syncVtuberCache(data);
+                  console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
+                }
+              } catch (e) { console.error("背景更新 JSON 失敗", e); }
+            }
+          }, 4000); // 👈 延遲 4000 毫秒 (4秒)
         }
       }
     });
