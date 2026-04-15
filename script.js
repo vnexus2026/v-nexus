@@ -5400,12 +5400,16 @@ function App() {
     try {
       const now = Date.now();
 
-      // 直接更新名片資料庫 (如果是清除，content 就是空字串)
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
         updatedAt: now
       });
+
+      // 🌟 關鍵修復 1：廣播給全站使用者「有新動態了，請立刻更新畫面！」
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: now
+      }, { merge: true });
 
       // 同步更新本地快取
       setRealVtubers(prev => {
@@ -6259,56 +6263,48 @@ function App() {
   const hasFetchedSettings = useRef(false);
 
   useEffect(() => {
-    const fetchBaseSettings = async () => {
-      try {
-        const now = Date.now();
-        const cachedStats = localStorage.getItem(STATS_CACHE_KEY);
-        const cachedStatsTs = localStorage.getItem(STATS_CACHE_TS);
+    // 🌟 關鍵修復 2：使用 onSnapshot 即時監聽全站統計與更新廣播
+    const unsubStats = onSnapshot(doc(db, getPath("settings"), "stats"), async (docSnap) => {
+      if (docSnap.exists()) {
+        const statsData = docSnap.data();
+        setSiteStats(statsData);
+        localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
+        localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
 
-        if (
-          cachedStats &&
-          cachedStatsTs &&
-          now - parseInt(cachedStatsTs) < STATS_CACHE_LIMIT
-        ) {
-          setSiteStats(JSON.parse(cachedStats));
-        } else {
-          const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
-          if (statsSnap.exists()) {
-            const statsData = statsSnap.data();
-            setSiteStats(statsData);
-            localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
-            localStorage.setItem(STATS_CACHE_TS, now.toString());
-          }
+        // 🌟 當聽到警鐘 (lastGlobalUpdate 改變) 時，立刻打破快取重新下載最新名單！
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+        if (statsData.lastGlobalUpdate && cachedTs && statsData.lastGlobalUpdate > parseInt(cachedTs)) {
+          console.log("🔔 偵測到全站更新，正在重新抓取最新動態...");
+          try {
+            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data);
+          } catch (e) { console.error("背景更新名單失敗", e); }
         }
-
-        // 加上鎖，整個連線生命週期內，站規與圖片庫只抓取一次！
-        if (!hasFetchedSettings.current) {
-          hasFetchedSettings.current = true;
-          const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
-            getDoc(doc(db, getPath("settings"), "tips")),
-            getDoc(doc(db, getPath("settings"), "rules")),
-            getDoc(doc(db, getPath("settings"), "bulletinImages")),
-          ]);
-
-          if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
-          if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
-          if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
-        }
-
-        if (
-          currentView === "home" &&
-          !sessionStorage.getItem("hasCountedView")
-        ) {
-          updateDoc(doc(db, getPath("settings"), "stats"), {
-            pageViews: increment(1),
-          }).catch(() => { });
-          sessionStorage.setItem("hasCountedView", "true");
-        }
-      } catch (err) {
-        console.error("基礎設定載入失敗:", err);
       }
-    };
-    fetchBaseSettings();
+    });
+
+    // 抓取其他靜態設定 (站規、小技巧等，只需抓一次)
+    if (!hasFetchedSettings.current) {
+      hasFetchedSettings.current = true;
+      Promise.all([
+        getDoc(doc(db, getPath("settings"), "tips")),
+        getDoc(doc(db, getPath("settings"), "rules")),
+        getDoc(doc(db, getPath("settings"), "bulletinImages")),
+      ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
+        if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
+        if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
+        if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
+      });
+    }
+
+    // 紀錄瀏覽人次
+    if (currentView === "home" && !sessionStorage.getItem("hasCountedView")) {
+      updateDoc(doc(db, getPath("settings"), "stats"), { pageViews: increment(1) }).catch(() => { });
+      sessionStorage.setItem("hasCountedView", "true");
+    }
+
+    return () => unsubStats();
   }, [currentView]);
 
   // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
@@ -6376,46 +6372,23 @@ function App() {
         const now = Date.now();
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
 
-        // 🛡️ 核心防護：一般使用者快取 30 分鐘，管理員快取 5 分鐘
-        const cacheLimit = isAdmin ? 5 * 60 * 1000 : 30 * 60 * 1000;
-        let isExpired = !cachedTs || (now - parseInt(cachedTs) > cacheLimit);
+        // 🌟 關鍵修復 3：預設快取 24 小時。
+        // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
+        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
 
-        // 🌟 關鍵修復：解決「待審核名片消失」的問題
-        // 如果管理員進入後台，但目前的快取是來自「一般使用者的公開 JSON」，則強制過期並重新抓取完整資料庫！
+        // 管理員進入後台時，確保擁有包含待審核的完整資料
         const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
         if (isAdmin && currentView === 'admin' && !hasFullData) {
           isExpired = true;
         }
 
-        // 只有在「快取過期」或「需要強制抓取完整資料」時，才允許重新抓取！
         if (isExpired) {
-          if (isAdmin) {
-            try {
-              // 管理員：讀取 Firestore (包含待審核、黑名單等所有完整資料)
-              const vSnap = await getDocs(collection(db, getPath("vtubers")));
-              const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-              syncVtuberCache(data);
-              sessionStorage.setItem("has_full_admin_data", "true"); // 標記已擁有完整資料
-            } catch (e) { console.error("管理員讀取失敗", e); }
-          } else {
-            try {
-              // 一般使用者：讀取 JSON (只包含已審核的公開資料)
-              const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-              const timestamp = Math.floor(Date.now() / (30 * 60 * 1000));
-              const response = await fetch(`${jsonUrl}&t=${timestamp}`);
-
-              if (response.ok) {
-                const data = await response.json();
-                syncVtuberCache(data);
-                sessionStorage.setItem("has_full_admin_data", "false"); // 標記為非完整資料
-              } else {
-                throw new Error("JSON 讀取失敗");
-              }
-            } catch (e) {
-              console.error("靜態 JSON 讀取失敗:", e);
-              // ⚠️ 絕對不要在這裡放 getDocs！寧可顯示舊的快取資料，保護錢包
-            }
-          }
+          try {
+            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data);
+            if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
+          } catch (e) { console.error("讀取名單失敗", e); }
         }
         setIsLoading(false);
       }
