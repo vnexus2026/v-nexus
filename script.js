@@ -5481,6 +5481,10 @@ function App() {
     const cached = localStorage.getItem(VTUBER_CACHE_KEY);
     return cached ? JSON.parse(cached) : [];
   });
+  const isAdmin = user && user.email === "apex.dasa@gmail.com";
+  const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
+  const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
+
   const [privateDocs, setPrivateDocs] = useState({});
   const [realBulletins, setRealBulletins] = useState([]);
   const [realUpdates, setRealUpdates] = useState([]);
@@ -5585,6 +5589,7 @@ function App() {
   const [copiedTemplate, setCopiedTemplate] = useState(false);
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const isFetchingJson = useRef(false);
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -6034,10 +6039,8 @@ function App() {
     }
   };
 
-  const isAdmin = user && user.email === "apex.dasa@gmail.com";
-  const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
-  const isVerifiedUser =
-    isAdmin ||
+
+  isAdmin ||
     (myProfile?.isVerified &&
       !myProfile?.isBlacklisted &&
       myProfile?.activityStatus === "active");
