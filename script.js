@@ -6261,7 +6261,14 @@ function App() {
   const hasFetchedSettings = useRef(false);
 
   useEffect(() => {
-    // 🌟 關鍵修復 2：使用 onSnapshot 即時監聽全站統計與更新廣播
+    if (currentView === "home" && !sessionStorage.getItem("hasCountedView")) {
+      updateDoc(doc(db, getPath("settings"), "stats"), { pageViews: increment(1) }).catch(() => { });
+      sessionStorage.setItem("hasCountedView", "true");
+    }
+  }, [currentView]);
+
+  // 🌟 獨立出全站設定與廣播監聽 (只在網頁載入時執行一次，不再受 currentView 影響)
+  useEffect(() => {
     const unsubStats = onSnapshot(doc(db, getPath("settings"), "stats"), async (docSnap) => {
       if (docSnap.exists()) {
         const statsData = docSnap.data();
@@ -6269,13 +6276,21 @@ function App() {
         localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
         localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
 
-        // 🌟 當聽到警鐘 (lastGlobalUpdate 改變) 時，立刻打破快取重新下載最新名單！
-        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
-        if (statsData.lastGlobalUpdate && cachedTs && statsData.lastGlobalUpdate > parseInt(cachedTs)) {
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
+        const processedUpdate = localStorage.getItem("processed_global_update") || '0';
+
+        // 🌟 終極防呆：確保這個更新時間大於快取時間，且「我們還沒處理過這個特定的更新時間」
+        // 這樣就算使用者的電腦時鐘比伺服器慢，也不會陷入無限重複抓取的迴圈！
+        if (
+          statsData.lastGlobalUpdate &&
+          statsData.lastGlobalUpdate > parseInt(cachedTs) &&
+          statsData.lastGlobalUpdate.toString() !== processedUpdate
+        ) {
           console.log("🔔 偵測到全站更新，等待後端打包資料...");
 
-          // 🌟 終極防呆與成本優化：刻意等待 4 秒鐘！
-          // 讓後端的 Cloud Function 有充足的時間把最新的 JSON 打包並上傳到 Storage，避免前端抓太快抓到舊檔案。
+          // 立刻記錄已處理，防止重複觸發
+          localStorage.setItem("processed_global_update", statsData.lastGlobalUpdate.toString());
+
           setTimeout(async () => {
             if (isAdmin) {
               try {
@@ -6286,7 +6301,6 @@ function App() {
             } else {
               try {
                 const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-                // 加上 Date.now() 確保絕對不會抓到瀏覽器的死快取
                 const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
                 if (response.ok) {
                   const data = await response.json();
@@ -6295,7 +6309,7 @@ function App() {
                 }
               } catch (e) { console.error("背景更新 JSON 失敗", e); }
             }
-          }, 1000); // 👈 延遲 1000 毫秒 (1秒)
+          }, 4000);
         }
       }
     });
@@ -6314,14 +6328,8 @@ function App() {
       });
     }
 
-    // 紀錄瀏覽人次
-    if (currentView === "home" && !sessionStorage.getItem("hasCountedView")) {
-      updateDoc(doc(db, getPath("settings"), "stats"), { pageViews: increment(1) }).catch(() => { });
-      sessionStorage.setItem("hasCountedView", "true");
-    }
-
     return () => unsubStats();
-  }, [currentView]);
+  }, [isAdmin]);
 
   // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
   const vtubersRef = useRef(realVtubers);
