@@ -1102,7 +1102,9 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         {/* ▼ 頭像圖片區塊 ▼ */}
         <LazyImage
           src={sanitizeUrl(v.avatar)}
-          containerCls="absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10"
+          // 🌟 優化：加入 Avatar Halo 頭像發光光環！
+          // 如果是直播中，發出強烈紅光；如果有發限動，發出橘色光暈
+          containerCls={`absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10 transition-all duration-300 ${isLive ? 'ring-2 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse' : isStatusValid ? 'ring-2 ring-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.8)]' : ''}`}
           imgCls="rounded-xl"
         />
 
@@ -7418,6 +7420,58 @@ function App() {
     }
   };
 
+  const handleStatusReaction = async (e, target, type) => {
+    e.stopPropagation(); // 阻止觸發進入名片
+    if (!user) return showToast("請先登入！");
+    if (!isVerifiedUser) return showToast("需通過認證才能互動喔！");
+    if (target.id === user.uid) return showToast("不能對自己的動態互動喔！");
+
+    // 防呆：同一則動態只能互動一次 (利用 localStorage 記錄)
+    const reactionKey = `react_${user.uid}_${target.id}_${target.statusMessageUpdatedAt}`;
+    if (localStorage.getItem(reactionKey)) {
+      return showToast("您已經對這則動態表達過心意囉！");
+    }
+
+    let msg = "";
+    let icon = "";
+    if (type === 'plus_one') {
+      msg = `對您的限時動態表示：👋 +1 (想了解/參加)！\n\n動態內容：「${target.statusMessage}」`;
+      icon = "👋";
+    } else if (type === 'watching') {
+      msg = `對您的限時動態表示：👀 觀望中 (很有興趣喔)！\n\n動態內容：「${target.statusMessage}」`;
+      icon = "👀";
+    } else if (type === 'fire') {
+      msg = `對您的限時動態表示：🔥 企劃超讚！幫推！\n\n動態內容：「${target.statusMessage}」`;
+      icon = "🔥";
+    }
+
+    try {
+      // 寫入通知資料庫 (對方會在小鈴鐺收到通知，並附帶您的名片連結)
+      await addDoc(collection(db, getPath("notifications")), {
+        userId: target.id,
+        fromUserId: user.uid,
+        fromUserName: myProfile?.name || "創作者",
+        fromUserAvatar: myProfile?.avatar || "",
+        message: msg,
+        type: "status_reaction",
+        sendEmail: false, // 輕互動不發 Email 避免擾民
+        createdAt: Date.now(),
+        read: false,
+      });
+
+      localStorage.setItem(reactionKey, "true");
+      showToast(`✅ 已發送 ${icon} 給對方！`);
+
+      // 🌟 核心破冰機制：如果是 +1，直接幫他打開聊天室！
+      if (type === 'plus_one') {
+        setChatTarget(target);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("❌ 發送失敗");
+    }
+  };
+
   const handleUserDeleteSelf = async () => {
     if (!user) return;
 
@@ -10606,101 +10660,92 @@ function App() {
                           setSelectedVTuber(v);
                           navigate(`profile/${v.id}`);
                         }}
-                        // 🌟 優化：如果是直播，外框加上紅色發光效果
-                        className={`bg-gray-800/60 border ${isLiveMsg ? 'border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative`}
+                        className={`bg-gray-800/60 border ${isLiveMsg ? 'border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col relative`}
                       >
-                        <div className="flex items-center gap-4 w-full sm:w-auto sm:min-w-[200px]">
-                          <div className="relative flex-shrink-0">
-                            <img
-                              src={sanitizeUrl(v.avatar)}
-                              // 🌟 優化：直播時頭像框變紅色
-                              className={`w-16 h-16 rounded-full object-cover border-2 ${isLiveMsg ? 'border-red-500' : 'border-orange-500'} group-hover:scale-105 transition-transform`}
-                            />
-                            {/* 🌟 優化：直播時右下角圖示變紅色，並換成閃爍的直播天線 */}
-                            <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-red-600' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center`}>
-                              <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse' : 'fa-bolt'} text-[10px] text-white`}></i>
-                            </div>
-                          </div>
-                          <div className="min-w-0 flex-1 text-left pr-16 sm:pr-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                              {/* 🌟 優化：Hover 時的名字顏色跟著變 */}
-                              <h4 className={`text-white font-bold truncate text-base transition-colors ${isLiveMsg ? 'group-hover:text-red-400' : 'group-hover:text-orange-400'}`}>
-                                {v.name}
-                              </h4>
-
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
-                                  <a
-                                    href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
-                                    title="前往 YouTube"
-                                  >
-                                    <i className="fa-brands fa-youtube text-[10px]"></i>
-                                  </a>
-                                )}
-                                {v.twitchUrl && v.twitchUrl !== "#" && (
-                                  <a
-                                    href={sanitizeUrl(v.twitchUrl)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors"
-                                    title="前往 Twitch"
-                                  >
-                                    <i className="fa-brands fa-twitch text-[10px]"></i>
-                                  </a>
-                                )}
+                        {/* 頂部：頭像、名字、社群、時間與右側按鈕 */}
+                        <div className="flex justify-between items-start w-full mb-4 gap-4">
+                          {/* 🌟 優化：將 items-center 改為 items-start，讓頭像對齊頂部 */}
+                          <div className="flex items-start gap-4 min-w-0 flex-1">
+                            <div className="relative flex-shrink-0">
+                              <img
+                                src={sanitizeUrl(v.avatar)}
+                                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 ${isLiveMsg ? 'border-red-500 ring-4 ring-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.6)]' : 'border-orange-500 ring-4 ring-orange-500/40 shadow-[0_0_20px_rgba(249,115,22,0.6)]'} group-hover:scale-105 transition-transform`}
+                              />
+                              <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-red-600' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center z-10`}>
+                                <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse' : 'fa-bolt'} text-[10px] text-white`}></i>
                               </div>
                             </div>
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <h4 className={`text-white font-bold truncate text-base transition-colors ${isLiveMsg ? 'group-hover:text-red-400' : 'group-hover:text-orange-400'}`}>
+                                  {v.name}
+                                </h4>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
+                                    <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 YouTube">
+                                      <i className="fa-brands fa-youtube text-[10px]"></i>
+                                    </a>
+                                  )}
+                                  {v.twitchUrl && v.twitchUrl !== "#" && (
+                                    <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 Twitch">
+                                      <i className="fa-brands fa-twitch text-[10px]"></i>
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {formatRelativeTime(v.statusMessageUpdatedAt)}
+                              </p>
 
-                            <p className="text-xs text-gray-400 mt-1">
-                              {formatRelativeTime(v.statusMessageUpdatedAt)}
-                            </p>
+                              {/* 🌟 優化：將微互動按鈕移到這裡，並縮小為精緻的徽章尺寸 */}
+                              {(!user || v.id !== user?.uid) && (
+                                <div className="flex flex-wrap gap-2 mt-2.5 z-20 relative">
+                                  <button
+                                    onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
+                                    className="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                                  >
+                                    👋 +1
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleStatusReaction(e, v, 'watching')}
+                                    className="bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)]"
+                                  >
+                                    👀 觀望中
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleStatusReaction(e, v, 'fire')}
+                                    className="bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)]"
+                                  >
+                                    🔥 幫推
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 右上角按鈕 (清除/私訊) */}
+                          <div className="flex-shrink-0 z-20">
+                            {user && v.id === user.uid ? (
+                              <button onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }} className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5">
+                                <i className="fa-solid fa-eraser"></i><span className="hidden sm:inline">清除</span>
+                              </button>
+                            ) : (
+                              <button onClick={(e) => { e.stopPropagation(); if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！"); setChatTarget(v); }} className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5">
+                                <i className="fa-solid fa-comment-dots"></i><span className="hidden sm:inline">私訊</span>
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        {/* 🌟 終極優化：直播時，訊息框變成強烈的紅底漸層白字！ */}
-                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-red-500/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20'}`}>
+                        {/* 中間：動態訊息 */}
+                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full mb-4 ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-red-500/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20'}`}>
                           <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse text-red-400/20' : 'fa-quote-left text-orange-500/10'} absolute top-2 right-2 text-4xl`}></i>
                           <p className={`text-sm sm:text-base leading-relaxed relative z-10 whitespace-pre-wrap ${isLiveMsg ? 'text-white font-bold tracking-wide' : 'text-orange-100 font-medium'}`}>
                             {v.statusMessage}
                           </p>
                         </div>
 
-                        <div className="absolute top-5 right-5 sm:static sm:flex-shrink-0 sm:mt-0 z-20">
-                          {user && v.id === user.uid ? (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm("確定要清除這則動態嗎？")) {
-                                  handlePostStory(e, "", false);
-                                }
-                              }}
-                              className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
-                            >
-                              <i className="fa-solid fa-eraser"></i>
-                              <span className="sm:hidden">清除</span>
-                              <span className="hidden sm:inline">清除動態</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!user) return showToast("請先登入！");
-                                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                                setChatTarget(v);
-                              }}
-                              className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 sm:px-6 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5"
-                            >
-                              <i className="fa-solid fa-comment-dots"></i>
-                              <span className="sm:hidden">私訊</span>
-                              <span className="hidden sm:inline">私訊我</span>
-                            </button>
-                          )}
-                        </div>
+
                       </div>
                     );
                   });
