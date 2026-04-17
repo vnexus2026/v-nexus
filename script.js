@@ -10648,21 +10648,26 @@ function App() {
                       className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px] flex-1"
                       placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
                     />
-                    <button
-                      type="submit"
-                      disabled={!storyInput.trim()}
-                      // 🌟 優化：發布按鈕改為 orange-600 呼應主題色
-                      className={`px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 flex-1 sm:flex-none ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
-                    >
-                      <i className="fa-solid fa-paper-plane"></i> 發布限動
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
-                      className="px-6 py-3 sm:py-2 rounded-xl font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse flex-1 sm:flex-none"
-                    >
-                      <i className="fa-solid fa-satellite-dish"></i> 我在直播！
-                    </button>
+
+                    {/* 🌟 優化：將兩個按鈕包在 flex 容器中，手機版並排顯示並平分寬度 */}
+                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                      <button
+                        type="submit"
+                        disabled={!storyInput.trim()}
+                        // 🌟 手機版縮小 padding (px-2 py-2.5) 與字體 (text-sm)，電腦版恢復 (sm:px-6 sm:py-2)
+                        className={`flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                      >
+                        <i className="fa-solid fa-paper-plane"></i> 發布限動
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
+                        // 🌟 手機版縮小 padding，並將文字稍微縮短為「我在直播」避免爆版
+                        className="flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse"
+                      >
+                        <i className="fa-solid fa-satellite-dish"></i> 我在直播
+                      </button>
+                    </div>
                   </form>
                 </div>
               ) : (
