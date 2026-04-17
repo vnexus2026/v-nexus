@@ -10642,31 +10642,49 @@ function App() {
                     <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
                   </h3>
                   <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      id="story-input" // 🌟 新增 ID，讓浮動按鈕可以找到它並自動對焦
-                      type="text"
-                      maxLength="40"
-                      value={storyInput}
-                      onChange={(e) => setStoryInput(e.target.value)}
-                      className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px] flex-1"
-                      placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
-                    />
+                    <div className="flex-1 flex flex-col">
+                      <input
+                        id="story-input"
+                        type="text"
+                        maxLength="40"
+                        value={storyInput}
+                        onChange={(e) => setStoryInput(e.target.value)}
+                        // 🌟 修正：將 p-3 改為 px-4 h-[50px]，強制固定高度並讓文字垂直置中
+                        className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
+                        placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+                      />
+                      <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-red-400 font-bold' : 'text-gray-400'}`}>
+                        {storyInput.length} / 40
+                      </div>
+                    </div>
 
-                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
+                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 items-start">
                       <button
                         type="submit"
                         disabled={!storyInput.trim()}
-                        className={`flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                        // 🌟 修正：加入 h-[50px] 強制與輸入框等高
+                        className={`flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                       >
                         <i className="fa-solid fa-paper-plane"></i> 發布限動
                       </button>
                       <button
                         type="button"
                         onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
-                        className="flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse"
+                        // 🌟 修正：加入 h-[50px] 強制與輸入框等高
+                        className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse"
                       >
                         <i className="fa-solid fa-satellite-dish"></i> 我在直播
                       </button>
+                      {/* 🌟 修正：清除按鈕也加入 h-[50px] */}
+                      {myProfile.statusMessage && (
+                        <button
+                          type="button"
+                          onClick={(e) => handlePostStory(e, "", false)}
+                          className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white hover:scale-105"
+                        >
+                          <i className="fa-solid fa-eraser"></i> 清除動態
+                        </button>
+                      )}
                     </div>
                   </form>
                 </div>
