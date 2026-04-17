@@ -10764,24 +10764,26 @@ function App() {
 
                                 {/* 互動按鈕區 (自己不能按自己的) */}
                                 {(!user || v.id !== user?.uid) && (
-                                  <div className="flex gap-2 w-full sm:w-auto">
+                                  // 🌟 優化 1：手機版縮小按鈕間距 (gap-1.5)
+                                  <div className="flex gap-1.5 sm:gap-2 w-full sm:w-auto">
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
-                                      className="flex-1 sm:flex-none bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                                      // 🌟 優化 2：加入 whitespace-nowrap 強制不換行，並縮小手機版 padding (px-1.5) 與字體 (text-[11px])
+                                      className="flex-1 sm:flex-none bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)] whitespace-nowrap"
                                     >
-                                      👋 +1 {v.statusReactions?.plus_one?.length > 0 && <span className="bg-purple-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.plus_one.length}</span>}
+                                      👋 +1 {v.statusReactions?.plus_one?.length > 0 && <span className="bg-purple-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.plus_one.length}</span>}
                                     </button>
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'watching')}
-                                      className="flex-1 sm:flex-none bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)]"
+                                      className="flex-1 sm:flex-none bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)] whitespace-nowrap"
                                     >
-                                      👀 觀望中 {v.statusReactions?.watching?.length > 0 && <span className="bg-blue-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.watching.length}</span>}
+                                      👀 觀望中 {v.statusReactions?.watching?.length > 0 && <span className="bg-blue-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.watching.length}</span>}
                                     </button>
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'fire')}
-                                      className="flex-1 sm:flex-none bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)]"
+                                      className="flex-1 sm:flex-none bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)] whitespace-nowrap"
                                     >
-                                      🔥 幫推 {v.statusReactions?.fire?.length > 0 && <span className="bg-orange-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.fire.length}</span>}
+                                      🔥 幫推 {v.statusReactions?.fire?.length > 0 && <span className="bg-orange-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.fire.length}</span>}
                                     </button>
                                   </div>
                                 )}
