@@ -61,6 +61,7 @@ const { useState, useEffect, useMemo, useRef, createContext, useContext } = Reac
 // 🌟 建立全域的 AppContext
 const AppContext = createContext(null);
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyD_JJZUcT56VkHFH0ykBRJQ_nFLK_4p7kY",
   authDomain: "v-nexus.firebaseapp.com",
@@ -685,6 +686,29 @@ const COLOR_OPTIONS = [
   "粉",
   "棕",
 ]; // 新增色系選項
+
+// 🌟 新增：12 星座清單
+const ZODIAC_SIGNS = [
+  "牡羊座", "金牛座", "雙子座", "巨蟹座", "獅子座", "處女座",
+  "天秤座", "天蠍座", "射手座", "摩羯座", "水瓶座", "雙魚座"
+];
+
+// 🌟 新增：12 星座真實配對指數矩陣 (0~100%)
+const ZODIAC_COMPATIBILITY = {
+  "牡羊座": { "牡羊座": 90, "金牛座": 65, "雙子座": 85, "巨蟹座": 50, "獅子座": 95, "處女座": 60, "天秤座": 85, "天蠍座": 40, "射手座": 95, "摩羯座": 50, "水瓶座": 75, "雙魚座": 70 },
+  "金牛座": { "牡羊座": 65, "金牛座": 90, "雙子座": 70, "巨蟹座": 85, "獅子座": 50, "處女座": 95, "天秤座": 75, "天蠍座": 85, "射手座": 60, "摩羯座": 95, "水瓶座": 50, "雙魚座": 80 },
+  "雙子座": { "牡羊座": 85, "金牛座": 70, "雙子座": 90, "巨蟹座": 75, "獅子座": 85, "處女座": 65, "天秤座": 95, "天蠍座": 60, "射手座": 80, "摩羯座": 55, "水瓶座": 95, "雙魚座": 45 },
+  "巨蟹座": { "牡羊座": 50, "金牛座": 85, "雙子座": 75, "巨蟹座": 90, "獅子座": 65, "處女座": 85, "天秤座": 55, "天蠍座": 95, "射手座": 60, "摩羯座": 80, "水瓶座": 50, "雙魚座": 95 },
+  "獅子座": { "牡羊座": 95, "金牛座": 50, "雙子座": 85, "巨蟹座": 65, "獅子座": 90, "處女座": 70, "天秤座": 85, "天蠍座": 55, "射手座": 95, "摩羯座": 60, "水瓶座": 80, "雙魚座": 50 },
+  "處女座": { "牡羊座": 60, "金牛座": 95, "雙子座": 65, "巨蟹座": 85, "獅子座": 70, "處女座": 90, "天秤座": 75, "天蠍座": 85, "射手座": 65, "摩羯座": 95, "水瓶座": 60, "雙魚座": 80 },
+  "天秤座": { "牡羊座": 85, "金牛座": 75, "雙子座": 95, "巨蟹座": 55, "獅子座": 85, "處女座": 75, "天秤座": 90, "天蠍座": 70, "射手座": 85, "摩羯座": 60, "水瓶座": 95, "雙魚座": 65 },
+  "天蠍座": { "牡羊座": 40, "金牛座": 85, "雙子座": 60, "巨蟹座": 95, "獅子座": 55, "處女座": 85, "天秤座": 70, "天蠍座": 90, "射手座": 65, "摩羯座": 85, "水瓶座": 55, "雙魚座": 95 },
+  "射手座": { "牡羊座": 95, "金牛座": 60, "雙子座": 80, "巨蟹座": 60, "獅子座": 95, "處女座": 65, "天秤座": 85, "天蠍座": 65, "射手座": 90, "摩羯座": 75, "水瓶座": 85, "雙魚座": 55 },
+  "摩羯座": { "牡羊座": 50, "金牛座": 95, "雙子座": 55, "巨蟹座": 80, "獅子座": 60, "處女座": 95, "天秤座": 60, "天蠍座": 85, "射手座": 75, "摩羯座": 90, "水瓶座": 65, "雙魚座": 80 },
+  "水瓶座": { "牡羊座": 75, "金牛座": 50, "雙子座": 95, "巨蟹座": 50, "獅子座": 80, "處女座": 60, "天秤座": 95, "天蠍座": 55, "射手座": 85, "摩羯座": 65, "水瓶座": 90, "雙魚座": 60 },
+  "雙魚座": { "牡羊座": 70, "金牛座": 80, "雙子座": 45, "巨蟹座": 95, "獅子座": 50, "處女座": 80, "天秤座": 65, "天蠍座": 95, "射手座": 55, "摩羯座": 80, "水瓶座": 60, "雙魚座": 90 }
+};
+
 const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-[16px]";
 const btnCls =
   "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
@@ -1069,6 +1093,12 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
       )}
 
       <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
+        {/* 🌟 新增：星座標籤 */}
+        {v.zodiacSign && (
+          <div className="bg-indigo-900/80 border border-indigo-500/50 text-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1">
+            <i className="fa-solid fa-star text-yellow-400"></i> {v.zodiacSign}
+          </div>
+        )}
         {/* 🌟 新增：線上狀態綠燈 */}
         {isOnline && !isLive && (
           <div className="bg-green-500/20 border border-green-500/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 animate-pulse">
@@ -1667,11 +1697,13 @@ const MatchPage = ({
   const [desiredType, setDesiredType] = useState("");
   const [matchedVtuber, setMatchedVtuber] = useState(null);
   const [isMatching, setIsMatching] = useState(false);
+  const [zodiacScore, setZodiacScore] = useState(null); // 🌟 新增：儲存星座分數
 
-  const handleMatch = () => {
+  const handleMatch = (type = "random") => {
     setIsMatching(true);
     setMatchedVtuber(null);
-    // 模擬雷達掃描動畫
+    setZodiacScore(null);
+
     setTimeout(() => {
       const candidates = (vtubers || []).filter(
         (v) => isVisible(v, currentUser) && v.id !== currentUser?.uid,
@@ -1680,20 +1712,48 @@ const MatchPage = ({
         setIsMatching(false);
         return showToast("目前資料庫尚無可配對的已認證創作者！");
       }
-      let filtered = desiredType
-        ? candidates.filter(
-          (v) =>
-            Array.isArray(v.collabTypes) &&
-            v.collabTypes.includes(desiredType),
-        )
-        : candidates;
-      if (filtered.length === 0) {
-        showToast("找不到完全符合類型的對象，為您隨機推薦一位命定夥伴！");
-        filtered = candidates;
+
+      let finalMatch = null;
+      let score = null;
+
+      // 🌟 處理星座配對邏輯
+      if (type === "zodiac" && currentUser) {
+        const myProfile = vtubers.find(v => v.id === currentUser.uid);
+        if (!myProfile || !myProfile.zodiacSign) {
+          showToast("⚠️ 您尚未在名片填寫星座，將為您隨機配對！");
+          finalMatch = candidates[Math.floor(Math.random() * candidates.length)];
+        } else {
+          const zodiacCandidates = candidates.filter(v => v.zodiacSign);
+          if (zodiacCandidates.length === 0) {
+            showToast("找不到有填寫星座的對象，為您隨機推薦！");
+            finalMatch = candidates[Math.floor(Math.random() * candidates.length)];
+          } else {
+            // 隨機挑選一個有星座的對象，並計算分數
+            finalMatch = zodiacCandidates[Math.floor(Math.random() * zodiacCandidates.length)];
+            score = ZODIAC_COMPATIBILITY[myProfile.zodiacSign][finalMatch.zodiacSign] || 50;
+            showToast("✨ 星座配對成功！");
+          }
+        }
       } else {
-        showToast("🎉 配對成功！");
+        // 原本的隨機配對邏輯
+        let filtered = desiredType
+          ? candidates.filter(
+            (v) =>
+              Array.isArray(v.collabTypes) &&
+              v.collabTypes.includes(desiredType),
+          )
+          : candidates;
+        if (filtered.length === 0) {
+          showToast("找不到完全符合類型的對象，為您隨機推薦一位命定夥伴！");
+          filtered = candidates;
+        } else {
+          showToast("🎉 配對成功！");
+        }
+        finalMatch = filtered[Math.floor(Math.random() * filtered.length)];
       }
-      setMatchedVtuber(filtered[Math.floor(Math.random() * filtered.length)]);
+
+      setMatchedVtuber(finalMatch);
+      setZodiacScore(score);
       setIsMatching(false);
     }, 1500);
   };
@@ -1731,11 +1791,19 @@ const MatchPage = ({
               </select>
             </div>
             <button
-              onClick={handleMatch}
+              onClick={() => handleMatch("random")}
               className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2"
             >
               <i className="fa-solid fa-wand-magic-sparkles"></i>{" "}
               開始尋找命定夥伴
+            </button>
+
+            {/* 🌟 新增：星座配對按鈕 */}
+            <button
+              onClick={() => handleMatch("zodiac")}
+              className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2"
+            >
+              <i className="fa-solid fa-star"></i> 星座命定配對
             </button>
           </div>
         )}
@@ -1758,6 +1826,19 @@ const MatchPage = ({
             <h3 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-6">
               就是決定是你了！
             </h3>
+
+            {/* 🌟 新增：顯示星座配對分數 */}
+            {zodiacScore !== null && (
+              <div className="mb-6 bg-indigo-900/40 border border-indigo-500/50 rounded-xl p-4 animate-bounce shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+                <p className="text-indigo-200 font-bold text-lg flex items-center justify-center gap-2">
+                  <i className="fa-solid fa-sparkles text-yellow-400"></i>
+                  星座配對指數：<span className="text-3xl text-yellow-400 font-black">{zodiacScore}%</span>
+                </p>
+                <p className="text-sm text-indigo-300 mt-1">
+                  你們是 {matchedVtuber.zodiacSign} 與你的完美邂逅！
+                </p>
+              </div>
+            )}
 
             {/* 詳細名片資訊區 */}
             <div className="w-full bg-gray-900/90 border border-purple-500/50 rounded-2xl overflow-hidden shadow-2xl flex flex-col text-left mb-8">
@@ -1839,7 +1920,7 @@ const MatchPage = ({
                 <i className="fa-solid fa-address-card"></i> 前往詳細名片
               </button>
               <button
-                onClick={handleMatch}
+                onClick={() => handleMatch(zodiacScore !== null ? "zodiac" : "random")}
                 className="sm:col-span-2 bg-gray-800 hover:bg-gray-700 text-gray-300 py-3 rounded-xl font-bold border border-gray-700 transition-colors flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-rotate-right"></i> 不滿意？再抽一次
@@ -2638,6 +2719,22 @@ const ProfileEditorForm = ({
                 className={inputCls + " mt-2"}
               />
             )}
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-bold text-gray-300 mb-2">
+              你的星座
+            </label>
+            <select
+              value={form.zodiacSign || ""}
+              onChange={(e) => updateForm({ zodiacSign: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">請選擇星座...</option>
+              {ZODIAC_SIGNS.map((z) => (
+                <option key={z} value={z}>{z}</option>
+              ))}
+            </select>
           </div>
           {/* 新增：色系選擇 */}
           <div className="mb-6">
@@ -5518,6 +5615,7 @@ function App() {
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
   const [allChatRooms, setAllChatRooms] = React.useState([]);
+
   useEffect(() => {
     if (!user) {
       setAllChatRooms([]);
@@ -5588,6 +5686,7 @@ function App() {
   const [selectedLanguage, setSelectedLanguage] = useState("All");
   const [selectedSchedule, setSelectedSchedule] = useState("All");
   const [selectedColor, setSelectedColor] = useState("All"); // 新增色系篩選狀態
+  const [selectedZodiac, setSelectedZodiac] = useState("All");
   const [collabCategoryTab, setCollabCategoryTab] = useState("All");
   const [bulletinFilter, setBulletinFilter] = useState("All");
   const [publicCollabForm, setPublicCollabForm] = useState({
@@ -5754,6 +5853,7 @@ function App() {
     isOtherNationality: false,
     otherNationalityText: "",
     languages: [],
+    zodiacSign: "",
     personalityType: "",
     personalityTypeOther: "",
     colorSchemes: [], // 新增色系
@@ -7097,6 +7197,7 @@ function App() {
             .includes(searchLower),
         );
 
+
       const matchTags =
         selectedTags.length === 0 ||
         selectedTags.every((t) => vTags.includes(t));
@@ -7123,7 +7224,7 @@ function App() {
       const matchColor =
         selectedColor === "All" || vColors.includes(selectedColor);
 
-
+      const matchZodiac = selectedZodiac === "All" || v.zodiacSign === selectedZodiac;
 
       return (
         matchSearch &&
@@ -7133,7 +7234,8 @@ function App() {
         matchNationality &&
         matchLanguage &&
         matchSchedule &&
-        matchColor
+        matchColor &&
+        matchZodiac
       );
     });
   }, [
@@ -7145,6 +7247,7 @@ function App() {
     selectedNationality,
     selectedLanguage,
     selectedSchedule,
+    selectedZodiac,
     selectedColor,
     user,
   ]);
@@ -7165,6 +7268,7 @@ function App() {
     selectedLanguage,
     selectedSchedule,
     selectedColor,
+    selectedZodiac,
     sortOrder,
     shuffleSeed,
   ]);
@@ -9346,6 +9450,23 @@ function App() {
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">星座</p>
+                    <select
+                      value={selectedZodiac}
+                      onChange={(e) => setSelectedZodiac(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                    >
+                      <option value="All" className="bg-gray-900 text-white">全部星座</option>
+                      {ZODIAC_SIGNS.map((z) => (
+                        <option key={z} value={z} className="bg-gray-900 text-white">
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="flex flex-wrap gap-2 mt-2">
                     <p className="w-full text-xs text-gray-500 mb-1">
                       想找什麼聯動？
@@ -9619,6 +9740,12 @@ function App() {
                           </div>
 
                           <div className="flex flex-wrap gap-2 mt-2 items-center">
+                            {selectedVTuber.zodiacSign && (
+                              <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
+                                <i className="fa-solid fa-star mr-1 text-yellow-400"></i>
+                                {selectedVTuber.zodiacSign}
+                              </span>
+                            )}
                             <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
                               {selectedVTuber.agency}
                             </span>
