@@ -5405,7 +5405,25 @@ function App() {
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
+        // 🌟 新增：發布新動態時，清空互動名單
+        statusReactions: { plus_one: [], watching: [], fire: [] },
         updatedAt: now
+      });
+
+      // 廣播給全站使用者
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: now
+      }, { merge: true });
+
+      // 同步更新本地快取
+      setRealVtubers(prev => {
+        const newList = prev.map(v =>
+          v.id === user.uid
+            ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now }
+            : v
+        );
+        syncVtuberCache(newList);
+        return newList;
       });
 
 
@@ -5766,7 +5784,8 @@ function App() {
     statusMessage: "",
     statusMessageUpdatedAt: 0,
     rejectionCount: 0,
-    lastRejectedAt: 0
+    lastRejectedAt: 0,
+    statusReactions: { plus_one: [], watching: [], fire: [] }
   });
   const [profileForm, setProfileForm] = useState(getEmptyProfile());
   // --- 確保這段是放在 App 函式內，useState 的下方 ---
@@ -7292,6 +7311,10 @@ function App() {
       // 這樣使用者隨時可以按儲存來延長動態的顯示時間。
       const newStatusMessageUpdatedAt = customForm.statusMessage?.trim() ? Date.now() : 0;
 
+      let newStatusReactions = existingProfile?.statusReactions || { plus_one: [], watching: [], fire: [] };
+      if (customForm.statusMessage !== existingProfile?.statusMessage) {
+        newStatusReactions = { plus_one: [], watching: [], fire: [] };
+      }
       // --- D. 準備寫入 Firestore 的公開資料 ---
       const publicData = {
         ...customForm,
@@ -7404,7 +7427,23 @@ function App() {
       await updateDoc(doc(db, getPath("vtubers"), uid), {
         statusMessage: content,
         statusMessageUpdatedAt: now,
+        // 🌟 新增：發布新動態時，清空互動名單
+        statusReactions: { plus_one: [], watching: [], fire: [] },
         updatedAt: now
+      });
+
+      // 廣播給全站使用者
+      await setDoc(doc(db, getPath("settings"), "stats"), {
+        lastGlobalUpdate: now
+      }, { merge: true });
+
+      // 即時更新本地畫面與快取
+      setRealVtubers((prev) => {
+        const newList = prev.map((v) =>
+          v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now } : v
+        );
+        syncVtuberCache(newList);
+        return newList;
       });
 
       setRealVtubers((prev) => {
@@ -7427,14 +7466,18 @@ function App() {
   };
 
   const handleStatusReaction = async (e, target, type) => {
-    e.stopPropagation(); // 阻止觸發進入名片
+    e.stopPropagation();
     if (!user) return showToast("請先登入！");
     if (!isVerifiedUser) return showToast("需通過認證才能互動喔！");
     if (target.id === user.uid) return showToast("不能對自己的動態互動喔！");
 
-    // 防呆：同一則動態只能互動一次 (利用 localStorage 記錄)
-    const reactionKey = `react_${user.uid}_${target.id}_${target.statusMessageUpdatedAt}`;
-    if (localStorage.getItem(reactionKey)) {
+    // 🌟 優化：改用資料庫真實數據判斷是否已互動，取代 localStorage (跨裝置也能同步)
+    const reactions = target.statusReactions || { plus_one: [], watching: [], fire: [] };
+    const hasReacted = (reactions.plus_one || []).includes(user.uid) ||
+      (reactions.watching || []).includes(user.uid) ||
+      (reactions.fire || []).includes(user.uid);
+
+    if (hasReacted) {
       return showToast("您已經對這則動態表達過心意囉！");
     }
 
@@ -7452,7 +7495,7 @@ function App() {
     }
 
     try {
-      // 寫入通知資料庫 (對方會在小鈴鐺收到通知，並附帶您的名片連結)
+      // 1. 寫入通知資料庫
       await addDoc(collection(db, getPath("notifications")), {
         userId: target.id,
         fromUserId: user.uid,
@@ -7460,15 +7503,33 @@ function App() {
         fromUserAvatar: myProfile?.avatar || "",
         message: msg,
         type: "status_reaction",
-        sendEmail: false, // 輕互動不發 Email 避免擾民
+        sendEmail: false,
         createdAt: Date.now(),
         read: false,
       });
 
-      localStorage.setItem(reactionKey, "true");
+      // 🌟 2. 更新名片上的互動名單 (使用 arrayUnion 確保不重複)
+      await updateDoc(doc(db, getPath("vtubers"), target.id), {
+        [`statusReactions.${type}`]: arrayUnion(user.uid)
+      });
+
+      // 🌟 3. 即時更新本地畫面，讓按鈕數字瞬間 +1
+      setRealVtubers(prev => prev.map(v => {
+        if (v.id === target.id) {
+          const currentReactions = v.statusReactions || { plus_one: [], watching: [], fire: [] };
+          return {
+            ...v,
+            statusReactions: {
+              ...currentReactions,
+              [type]: [...(currentReactions[type] || []), user.uid]
+            }
+          };
+        }
+        return v;
+      }));
+
       showToast(`✅ 已發送 ${icon} 給對方！`);
 
-      // 🌟 核心破冰機制：如果是 +1，直接幫他打開聊天室！
       if (type === 'plus_one') {
         setChatTarget(target);
       }
@@ -10694,28 +10755,66 @@ function App() {
                               </p>
 
                               {/* 🌟 優化：將微互動按鈕移到這裡，並縮小為精緻的徽章尺寸 */}
-                              {(!user || v.id !== user?.uid) && (
-                                <div className="flex flex-wrap gap-2 mt-2.5 z-20 relative">
-                                  <button
-                                    onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
-                                    className="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)]"
-                                  >
-                                    👋 +1
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleStatusReaction(e, v, 'watching')}
-                                    className="bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)]"
-                                  >
-                                    👀 觀望中
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleStatusReaction(e, v, 'fire')}
-                                    className="bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)]"
-                                  >
-                                    🔥 幫推
-                                  </button>
-                                </div>
-                              )}
+                              <div className="border-t border-gray-700/50 pt-4 flex flex-col gap-3 w-full z-20">
+
+                                {/* 互動按鈕區 (自己不能按自己的) */}
+                                {(!user || v.id !== user?.uid) && (
+                                  <div className="flex gap-2 w-full sm:w-auto">
+                                    <button
+                                      onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
+                                      className="flex-1 sm:flex-none bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)]"
+                                    >
+                                      👋 +1 {v.statusReactions?.plus_one?.length > 0 && <span className="bg-purple-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.plus_one.length}</span>}
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleStatusReaction(e, v, 'watching')}
+                                      className="flex-1 sm:flex-none bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)]"
+                                    >
+                                      👀 觀望中 {v.statusReactions?.watching?.length > 0 && <span className="bg-blue-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.watching.length}</span>}
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleStatusReaction(e, v, 'fire')}
+                                      className="flex-1 sm:flex-none bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)]"
+                                    >
+                                      🔥 幫推 {v.statusReactions?.fire?.length > 0 && <span className="bg-orange-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-1">{v.statusReactions.fire.length}</span>}
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* 🌟 顯示互動者的頭像 (所有人都能看見) */}
+                                {(() => {
+                                  const reactions = v.statusReactions || { plus_one: [], watching: [], fire: [] };
+                                  // 將三種互動的人合併，並用 Set 排除重複 (如果未來允許按多種)
+                                  const allReactors = [...new Set([...(reactions.plus_one || []), ...(reactions.watching || []), ...(reactions.fire || [])])];
+
+                                  if (allReactors.length === 0) return null;
+
+                                  return (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[10px] text-gray-400 font-medium">互動者：</span>
+                                      <div className="flex -space-x-2">
+                                        {allReactors.slice(0, 8).map(uid => {
+                                          const reactor = realVtubers.find(rv => rv.id === uid);
+                                          if (!reactor) return null;
+                                          return (
+                                            <img
+                                              key={uid}
+                                              src={sanitizeUrl(reactor.avatar)}
+                                              className="w-6 h-6 rounded-full border-2 border-gray-800 object-cover hover:scale-110 transition-transform relative z-10 hover:z-20"
+                                              title={reactor.name}
+                                            />
+                                          );
+                                        })}
+                                        {allReactors.length > 8 && (
+                                          <div className="w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-[8px] text-white font-bold relative z-0">
+                                            +{allReactors.length - 8}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </div>
                           </div>
 
@@ -10740,8 +10839,6 @@ function App() {
                             {v.statusMessage}
                           </p>
                         </div>
-
-
                       </div>
                     );
                   });
