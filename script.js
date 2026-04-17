@@ -10608,6 +10608,20 @@ function App() {
           {/* 🌟 全新：24H 動態牆頁面 */}
           {currentView === "status_wall" && (
             <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
+
+              {/* 🌟 新增：浮動發布按鈕 (固定在畫面正下方) */}
+              <button
+                onClick={() => {
+                  // 1. 平滑滾動到最上方
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  // 2. 延遲 400 毫秒等滾動差不多到了，自動對焦輸入框讓手機跳出鍵盤！
+                  setTimeout(() => document.getElementById('story-input')?.focus(), 400);
+                }}
+                className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(249,115,22,0.6)] transition-transform hover:scale-105 flex items-center gap-2 border border-orange-400/50"
+              >
+                <i className="fa-solid fa-arrow-up"></i> 去發布限動！
+              </button>
+
               {/* 頂部標題與按鈕 */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-700 pb-4">
                 <div>
@@ -10618,43 +10632,30 @@ function App() {
                     掌握 V 圈最新脈動！這裡顯示所有人 24 小時內的最新動態。
                   </p>
                 </div>
-                <div className="flex gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={() => {
-                      setShuffleSeed(Date.now()); // 借用 shuffleSeed 來觸發重新渲染
-                      showToast("🔄 已重新整理動態牆！");
-                    }}
-                    className="flex-1 sm:flex-none bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 border border-gray-600"
-                  >
-                    <i className="fa-solid fa-rotate-right"></i> 重新整理
-                  </button>
-                </div>
+                {/* (原本在這裡的去頂部按鈕已經刪除，因為我們有浮動按鈕了) */}
               </div>
 
               {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
               {isVerifiedUser && myProfile ? (
-                // 🌟 優化：背景改為深橘到深紅漸層，邊框改為 orange-500/40
                 <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border border-orange-500/40 rounded-xl p-5 mb-8 shadow-inner">
                   <h3 className="text-orange-300 font-bold mb-3 flex items-center gap-2">
                     <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
                   </h3>
                   <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
                     <input
+                      id="story-input" // 🌟 新增 ID，讓浮動按鈕可以找到它並自動對焦
                       type="text"
                       maxLength="40"
                       value={storyInput}
                       onChange={(e) => setStoryInput(e.target.value)}
-                      // 🌟 優化：輸入框 focus 時的光暈改為 orange-500
                       className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px] flex-1"
                       placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
                     />
 
-                    {/* 🌟 優化：將兩個按鈕包在 flex 容器中，手機版並排顯示並平分寬度 */}
                     <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
                       <button
                         type="submit"
                         disabled={!storyInput.trim()}
-                        // 🌟 手機版縮小 padding (px-2 py-2.5) 與字體 (text-sm)，電腦版恢復 (sm:px-6 sm:py-2)
                         className={`flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                       >
                         <i className="fa-solid fa-paper-plane"></i> 發布限動
@@ -10662,7 +10663,6 @@ function App() {
                       <button
                         type="button"
                         onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
-                        // 🌟 手機版縮小 padding，並將文字稍微縮短為「我在直播」避免爆版
                         className="flex-1 sm:flex-none px-2 py-2.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse"
                       >
                         <i className="fa-solid fa-satellite-dish"></i> 我在直播
@@ -10683,7 +10683,7 @@ function App() {
               )}
 
               {/* 動態列表 (垂直排列，依時間排序) */}
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-6 pb-28">
                 {(() => {
                   const now = Date.now();
                   // 抓取所有 24 小時內的動態，並依照時間「由新到舊」排序
