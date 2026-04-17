@@ -1093,12 +1093,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
       )}
 
       <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
-        {/* 🌟 新增：星座標籤 */}
-        {v.zodiacSign && (
-          <div className="bg-indigo-900/80 border border-indigo-500/50 text-indigo-200 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1">
-            <i className="fa-solid fa-star text-yellow-400"></i> {v.zodiacSign}
-          </div>
-        )}
+
         {/* 🌟 新增：線上狀態綠燈 */}
         {isOnline && !isLive && (
           <div className="bg-green-500/20 border border-green-500/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 animate-pulse">
@@ -1172,19 +1167,33 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         )}
 
         <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
-        {v.streamStyleUrl && (
-          <div className="mt-1 mb-1">
-            <a
-              href={sanitizeUrl(v.streamStyleUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"
-            >
-              <i className="fa-solid fa-video"></i> 觀看我的直播風格
-            </a>
+
+        {/* 🌟 優化：將直播風格與星座放在同一排，並讓星座靠右對齊 */}
+        {(v.streamStyleUrl || v.zodiacSign) && (
+          <div className="mt-1 mb-1 flex items-center justify-between min-h-[26px]">
+            {v.streamStyleUrl ? (
+              <a
+                href={sanitizeUrl(v.streamStyleUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"
+              >
+                <i className="fa-solid fa-video"></i> 觀看我的直播風格
+              </a>
+            ) : (
+              <div></div> /* 佔位符，確保只有星座時也能靠右 */
+            )}
+
+            {/* 🌟 新增：星座標籤顯示在最右側 */}
+            {v.zodiacSign && (
+              <span className="ml-auto inline-flex items-center gap-1 text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-1 rounded border border-indigo-500/20 font-bold shadow-sm">
+                <i className="fa-solid fa-star text-yellow-400"></i> {v.zodiacSign}
+              </span>
+            )}
           </div>
         )}
+
         <div className="mt-auto pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
             <i className="fa-solid fa-clock text-purple-400"></i>{" "}
@@ -9740,12 +9749,7 @@ function App() {
                           </div>
 
                           <div className="flex flex-wrap gap-2 mt-2 items-center">
-                            {selectedVTuber.zodiacSign && (
-                              <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
-                                <i className="fa-solid fa-star mr-1 text-yellow-400"></i>
-                                {selectedVTuber.zodiacSign}
-                              </span>
-                            )}
+
                             <span className="px-3 py-1 bg-gray-800 text-xs rounded-full text-gray-300 border border-gray-700">
                               {selectedVTuber.agency}
                             </span>
@@ -9942,9 +9946,19 @@ function App() {
                     <div className="md:col-span-2 space-y-8">
                       <section>
                         <div className="flex flex-wrap sm:flex-nowrap justify-between items-center border-b border-gray-700 pb-2 mb-4 gap-2">
-                          <h3 className="text-xl font-bold text-purple-400">
-                            <i className="fa-solid fa-microphone mr-2"></i>關於我
-                          </h3>
+
+                          {/* 🌟 修改：將「關於我」與「星座」包在同一個 flex 容器中 */}
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-xl font-bold text-purple-400">
+                              <i className="fa-solid fa-microphone mr-2"></i>關於我
+                            </h3>
+                            {selectedVTuber.zodiacSign && (
+                              <span className="bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-inner">
+                                <i className="fa-solid fa-star text-yellow-400"></i> {selectedVTuber.zodiacSign}
+                              </span>
+                            )}
+                          </div>
+
                           <button // 修改 profile 視圖中的複製按鈕 onClick 邏輯
                             onClick={() => {
                               const identifier =
