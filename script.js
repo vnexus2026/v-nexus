@@ -8789,20 +8789,50 @@ function App() {
   };
 
   const handleSendMassEmail = async (subject, content) => {
-    let count = 0;
     const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-    for (const v of realVtubers) {
+    
+    // 1. 先過濾出有信箱的目標名單
+    const targets = realVtubers.filter(v => {
       const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
-      if (email && email.includes("@")) {
-        sendSystemEmail({
+      return email && email.includes("@");
+    });
+
+    if (targets.length === 0) {
+      return showToast("❌ 找不到任何有效的信箱");
+    }
+
+    showToast(`⏳ 準備發送 ${targets.length} 封信件，請勿關閉網頁...`);
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    // 2. 使用 for 迴圈搭配 await，一封一封慢慢寄
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
+      
+      try {
+        await sendSystemEmail({
           to: email,
           subject: `[V-Nexus 官方公告] ${subject}`,
           text: `您好，${v.name}！\n\n${content}\n\n祝 聯動順利！\nV-Nexus 團隊`,
-        }).catch(console.error);
-        count++;
+        });
+        successCount++;
+      } catch (err) {
+        console.error(`發送給 ${email} 失敗:`, err);
+        failCount++;
       }
+      
+      // 每發送 5 封更新一次提示，讓管理員知道進度
+      if ((i + 1) % 5 === 0 || i === targets.length - 1) {
+        showToast(`⏳ 發送中... (${i + 1}/${targets.length})`);
+      }
+      
+      // 🌟 核心修復：加上 300 毫秒的延遲，避免瞬間發射幾百個請求導致瀏覽器或 Firebase 崩潰
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
-    showToast(`✅ 已發送 ${count} 封官方公告信件！`);
+    
+    showToast(`✅ 發送完畢！成功: ${successCount} 封，失敗: ${failCount} 封。`);
   };
 
   const contextValue = useMemo(() => {
