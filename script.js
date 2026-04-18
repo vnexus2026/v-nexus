@@ -6406,50 +6406,66 @@ function App() {
         setSiteStats(statsData);
         localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
         localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
-
-        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
-        const processedUpdate = localStorage.getItem("processed_global_update") || '0';
-
-        // 🌟 終極防呆：確保這個更新時間大於快取時間，且「我們還沒處理過這個特定的更新時間」
-        // 這樣就算使用者的電腦時鐘比伺服器慢，也不會陷入無限重複抓取的迴圈！
-        if (
-          statsData.lastGlobalUpdate &&
-          statsData.lastGlobalUpdate > parseInt(cachedTs) &&
-          statsData.lastGlobalUpdate.toString() !== processedUpdate
-        ) {
-          // 🌟 關鍵修復：如果已經在抓取中了，就直接擋掉，防止無限迴圈！
-          if (isFetchingJson.current) return;
-          isFetchingJson.current = true;
-
-          console.log("🔔 偵測到全站更新，等待後端打包資料...");
-
-          // 立刻記錄已處理，防止重複觸發
-          localStorage.setItem("processed_global_update", statsData.lastGlobalUpdate.toString());
-
-          setTimeout(async () => {
-            if (isAdmin) {
-              try {
-                const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                syncVtuberCache(data);
-              } catch (e) { console.error("背景更新名單失敗", e); }
-            } else {
-              try {
-                const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-                const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  syncVtuberCache(data);
-                  console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
-                }
-              } catch (e) { console.error("背景更新 JSON 失敗", e); }
-            }
-            // 🌟 抓取完畢，解開鎖
-            isFetchingJson.current = false;
-          }, 4000);
-        }
+        
+        // 🗑️ 已經徹底刪除原本「全站強制重新下載 300 筆資料」的笨邏輯！
       }
     });
+
+    useEffect(() => {
+    if (isLoading) return; // 等初始載入完成後才開始監聽
+
+    const cachedTsStr = localStorage.getItem(VTUBER_CACHE_TS);
+    if (!cachedTsStr) return;
+
+    const lastSyncTime = parseInt(cachedTsStr, 10);
+
+    // 告訴 Firebase：我只要 updatedAt 大於我上次快取時間的資料！
+    const q = query(
+      collection(db, getPath("vtubers")),
+      where("updatedAt", ">", lastSyncTime)
+    );
+
+    const unsubDelta = onSnapshot(q, (snap) => {
+      if (snap.empty) return;
+
+      setRealVtubers(prev => {
+        let newList = [...prev];
+        let hasChanges = false;
+
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const updatedData = { id: change.doc.id, ...change.doc.data() };
+            const index = newList.findIndex(v => v.id === change.doc.id);
+            
+            if (index !== -1) {
+              // 只有當遠端資料真的比較新時才替換 (避免自己剛發布的動態被舊資料覆蓋)
+              if ((newList[index].updatedAt || 0) < updatedData.updatedAt) {
+                newList[index] = updatedData;
+                hasChanges = true;
+              }
+            } else {
+              // 發現全新註冊的名片，直接加入清單
+              newList.push(updatedData);
+              hasChanges = true;
+            }
+          } else if (change.type === 'removed') {
+            // 有人被管理員刪除或黑單下架了，從畫面中移除
+            newList = newList.filter(v => v.id !== change.doc.id);
+            hasChanges = true;
+          }
+        });
+
+        if (hasChanges) {
+          console.log(`🔄 局部更新了 ${snap.docChanges().length} 筆名片資料 (極低讀取量)`);
+          syncVtuberCache(newList); // 將更新後的完整名單存回快取
+          return newList;
+        }
+        return prev;
+      });
+    });
+
+    return () => unsubDelta();
+  }, [isLoading]);
 
     // 抓取其他靜態設定 (站規、小技巧等，只需抓一次)
     if (!hasFetchedSettings.current) {
