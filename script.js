@@ -93,6 +93,34 @@ const storage = getStorage(app);
 
 const functionsInstance = getFunctions(app);
 
+// ✅ 前景推播監聽：App 開著時收到訊息，也能即時顯示通知
+let messagingInstance = null;
+try {
+  messagingInstance = getMessaging(app);
+  onMessage(messagingInstance, (payload) => {
+    const title = payload.notification?.title || "V-Nexus 通知";
+    const body = payload.notification?.body || "";
+    const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
+
+    // 如果瀏覽器已授權通知權限，就顯示原生通知泡泡
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body: body,
+        icon: icon,
+        badge: "https://duk.tw/u1jpPE.png",
+        vibrate: [200, 100, 200],
+      });
+    } else {
+      // 沒有通知權限時，退而求其次在 console 記錄
+      // （你也可以在這裡改成呼叫 showToast，但 showToast 在這個作用域外，建議用 console）
+      console.info(`📨 前景推播收到：${title} - ${body}`);
+    }
+  });
+  console.info("✅ FCM 前景推播監聽已啟動");
+} catch (e) {
+  console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
+}
+
 try {
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(
@@ -213,6 +241,7 @@ const FloatingChat = ({
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || !currentUser || !targetVtuber?.id) return;
+    if (input.trim().length > 500) return showToast("訊息不能超過 500 字！");
 
     const text = input;
     const now = Date.now();
@@ -725,10 +754,12 @@ const formatRelativeTime = (ts) => {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
   if (mins < 1) return "剛剛發布";
   if (mins < 60) return ` ${mins} 分鐘前發布`;
-  return ` ${hours} 小時前發布`;
+  if (hours < 24) return ` ${hours} 小時前發布`;
+  return ` ${days} 天前發布`;
 };
 
 const formatDateTimeLocalStr = (dtStr) => {
@@ -1300,7 +1331,9 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
     prevProps.v.updatedAt === nextProps.v.updatedAt &&
     prevProps.v.likes === nextProps.v.likes &&
     prevProps.v.dislikes === nextProps.v.dislikes &&
-    prevProps.isVerifiedUser === nextProps.isVerifiedUser
+    prevProps.isVerifiedUser === nextProps.isVerifiedUser &&
+    prevProps.v.statusMessage === nextProps.v.statusMessage &&
+    prevProps.v.statusMessageUpdatedAt === nextProps.v.statusMessageUpdatedAt
   );
 });
 
@@ -1680,15 +1713,12 @@ const BulletinCard = React.memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // 🌟 優化：自訂比對邏輯
   return (
     prevProps.b.id === nextProps.b.id &&
-    // 關鍵：當「有意願的人數」改變時，才需要重新渲染這張卡片
     prevProps.b.applicants?.length === nextProps.b.applicants?.length &&
-    // 登入的使用者改變時才重繪 (影響「✋ 我有意願」按鈕的狀態)
+    prevProps.b.applicantsData?.length === nextProps.b.applicantsData?.length &&
     prevProps.user?.uid === nextProps.user?.uid &&
     prevProps.isVerifiedUser === nextProps.isVerifiedUser &&
-    // 確保彈窗狀態正確對應
     prevProps.openModalId === nextProps.openModalId &&
     prevProps.currentView === nextProps.currentView
   );
@@ -5522,22 +5552,10 @@ function App() {
       }, { merge: true });
 
       // 同步更新本地快取
-      setRealVtubers(prev => {
+      ssetRealVtubers(prev => {
         const newList = prev.map(v =>
           v.id === user.uid
             ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now }
-            : v
-        );
-        syncVtuberCache(newList);
-        return newList;
-      });
-
-
-      // 同步更新本地快取
-      setRealVtubers(prev => {
-        const newList = prev.map(v =>
-          v.id === user.uid
-            ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, updatedAt: now }
             : v
         );
         syncVtuberCache(newList);
@@ -6166,12 +6184,6 @@ function App() {
       showToast("❌ 遷移失敗，請檢查 Storage 權限。");
     }
   };
-
-
-  isAdmin ||
-    (myProfile?.isVerified &&
-      !myProfile?.isBlacklisted &&
-      myProfile?.activityStatus === "active");
 
   const navigate = (view, preserveScroll = false) => {
     if (!preserveScroll && !view.startsWith("profile/")) {
