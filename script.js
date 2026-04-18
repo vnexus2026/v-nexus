@@ -9664,7 +9664,7 @@ function App() {
           )}
 
           {currentView === "profile" && selectedVTuber && (
-  <div className="bg-[#0a0a0f] text-slate-200 font-sans p-3 sm:p-5 min-h-screen w-full">
+  <div className="bg-transparent text-slate-200 font-sans p-3 sm:p-5 min-h-screen w-full">
     <div className="max-w-4xl mx-auto animate-fade-in-up">
       
       {/* 頂部導航 */}
@@ -9724,17 +9724,17 @@ function App() {
           <div className="flex flex-col sm:flex-row gap-5 sm:items-end justify-between mb-5">
             
             <div className="relative">
-              {/* 頭像 (尺寸縮小) */}
-              <div className="p-1.5 bg-[#0f1016] rounded-[1.5rem] shadow-xl inline-block relative z-20">
+              {/* 頭像 (尺寸適度放大，增強角色存在感) */}
+              <div className="p-2 bg-[#0f1016] rounded-[1.75rem] shadow-xl inline-block relative z-20">
                 <LazyImage
                   src={sanitizeUrl(selectedVTuber.avatar)}
-                  containerCls="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.25rem] bg-slate-800 flex-shrink-0 relative transform transition-transform hover:scale-[1.02] overflow-hidden"
+                  containerCls="w-28 h-28 sm:w-36 sm:h-36 rounded-[1.5rem] bg-slate-800 flex-shrink-0 relative transform transition-transform hover:scale-[1.02] overflow-hidden"
                 />
               </div>
-              {/* 在線狀態圓點 */}
+              {/* 在線狀態圓點 (配合放大的頭像微調位置與大小) */}
               {onlineUsers?.has(selectedVTuber.id) && (
-                <div className="absolute bottom-3 -right-1 z-30 bg-[#0f1016] rounded-full p-1 shadow-md">
-                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]"></div>
+                <div className="absolute bottom-4 -right-1 z-30 bg-[#0f1016] rounded-full p-1 shadow-md">
+                  <div className="w-3.5 h-3.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]"></div>
                 </div>
               )}
             </div>
@@ -9942,7 +9942,7 @@ function App() {
                       className="group flex items-center gap-1.5 text-slate-400 hover:text-cyan-400 text-xs font-medium transition-colors"
                     >
                       <i className="fa-solid fa-link group-hover:rotate-45 transition-transform"></i> 
-                      複製連結
+                      複製我的專屬連結
                     </button>
                   </div>
                   
