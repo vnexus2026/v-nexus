@@ -9664,8 +9664,8 @@ function App() {
           )}
 
           {currentView === "profile" && selectedVTuber && (
-  <div className="bg-[#0a0a0f] text-slate-200 font-sans p-4 sm:p-8 min-h-screen w-full">
-    <div className="max-w-5xl mx-auto animate-fade-in-up">
+  <div className="bg-[#0a0a0f] text-slate-200 font-sans p-3 sm:p-5 min-h-screen w-full">
+    <div className="max-w-4xl mx-auto animate-fade-in-up">
       
       {/* 頂部導航 */}
       <button
@@ -9678,7 +9678,7 @@ function App() {
           }
           setTimeout(() => { window.scrollTo(0, gridScrollY.current); }, 50);
         }}
-        className="group flex items-center gap-2 text-slate-400 hover:text-white mb-6 text-sm font-medium transition-all duration-300 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full w-fit backdrop-blur-md ring-1 ring-white/10"
+        className="group flex items-center gap-2 text-slate-400 hover:text-white mb-4 text-xs font-medium transition-all duration-300 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full w-fit backdrop-blur-md ring-1 ring-white/10"
       >
         <i className="fa-solid fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
         <span>
@@ -9693,75 +9693,75 @@ function App() {
         </span>
       </button>
 
-      {/* 主名片容器 */}
-      <div className="bg-[#0f1016] rounded-[2.5rem] overflow-hidden shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] ring-1 ring-white/5 relative z-10">
+      {/* 主名片容器 (縮小整體圓角與陰影) */}
+      <div className="bg-[#0f1016] rounded-[2rem] overflow-hidden shadow-[0_15px_40px_-10px_rgba(0,0,0,0.7)] ring-1 ring-white/5 relative z-10">
         
-        {/* Banner 區域 */}
-        <div className="h-56 sm:h-80 relative group">
+        {/* Banner 區域 (高度縮減) */}
+        <div className="h-40 sm:h-60 relative group">
           <LazyImage
             src={sanitizeUrl(selectedVTuber.banner)}
             containerCls="absolute inset-0 w-full h-full opacity-70"
           />
-          {/* 質感漸層遮罩 (加深底部融合感) */}
+          {/* 質感漸層遮罩 */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0f1016]/40 to-[#0f1016] z-10"></div>
           
           {/* 網點裝飾 */}
-          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay z-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
+          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay z-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
           
-          {/* 右上角平台標籤 (改為更低調的玻璃質感) */}
-          <div className="absolute top-6 right-6 z-20 flex gap-2">
-            <span className="text-slate-200 text-xs font-bold px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-xl ring-1 ring-white/10 bg-white/5 shadow-lg">
-              <i className={`fa-brands fa-${selectedVTuber.mainPlatform === "Twitch" ? "twitch text-purple-400" : "youtube text-rose-400"} text-sm`}></i>
+          {/* 右上角平台標籤 */}
+          <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <span className="text-slate-200 text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-xl ring-1 ring-white/10 bg-white/5 shadow-md">
+              <i className={`fa-brands fa-${selectedVTuber.mainPlatform === "Twitch" ? "twitch text-purple-400" : "youtube text-rose-400"}`}></i>
               主要出沒: {selectedVTuber.mainPlatform || "YouTube"}
             </span>
           </div>
         </div>
 
-        {/* 內容區域 */}
-        <div className="px-6 sm:px-12 pb-12 relative z-20 -mt-20 sm:-mt-28">
+        {/* 內容區域 (Padding與Margin收斂) */}
+        <div className="px-5 sm:px-8 pb-8 relative z-20 -mt-16 sm:-mt-20">
           
           {/* 頭像與主要操作列 */}
-          <div className="flex flex-col sm:flex-row gap-8 sm:items-end justify-between mb-8">
+          <div className="flex flex-col sm:flex-row gap-5 sm:items-end justify-between mb-5">
             
             <div className="relative">
-              {/* 頭像 */}
-              <div className="p-2 bg-[#0f1016] rounded-[2rem] shadow-2xl inline-block relative z-20">
+              {/* 頭像 (尺寸縮小) */}
+              <div className="p-1.5 bg-[#0f1016] rounded-[1.5rem] shadow-xl inline-block relative z-20">
                 <LazyImage
                   src={sanitizeUrl(selectedVTuber.avatar)}
-                  containerCls="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl bg-slate-800 flex-shrink-0 relative transform transition-transform hover:scale-[1.02] overflow-hidden"
+                  containerCls="w-24 h-24 sm:w-32 sm:h-32 rounded-[1.25rem] bg-slate-800 flex-shrink-0 relative transform transition-transform hover:scale-[1.02] overflow-hidden"
                 />
               </div>
               {/* 在線狀態圓點 */}
               {onlineUsers?.has(selectedVTuber.id) && (
-                <div className="absolute bottom-4 -right-1 z-30 bg-[#0f1016] rounded-full p-1.5 shadow-lg">
-                  <div className="w-4 h-4 bg-green-400 rounded-full animate-pulse shadow-[0_0_12px_rgba(74,222,128,0.8)]"></div>
+                <div className="absolute bottom-3 -right-1 z-30 bg-[#0f1016] rounded-full p-1 shadow-md">
+                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]"></div>
                 </div>
               )}
             </div>
 
-            {/* 核心聯動/操作按鈕群 (色彩收斂：主行動按鈕為紫青漸層，其餘低調玻璃態) */}
-            <div className="flex flex-wrap gap-4 items-center w-full sm:w-auto pb-2">
+            {/* 核心聯動/操作按鈕群 (按鈕縮小、Padding縮減) */}
+            <div className="flex flex-wrap gap-3 items-center w-full sm:w-auto pb-1">
               {isVerifiedUser && selectedVTuber.id !== user?.uid && (
                 <>
                   <button
                     onClick={() => handleOpenCollabModal(selectedVTuber)}
-                    className="flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white px-7 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
+                    className="flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-[0_5px_15px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-1.5"
                   >
-                    <i className="fa-solid fa-handshake-angle text-lg"></i>
+                    <i className="fa-solid fa-handshake-angle"></i>
                     邀約聯動
                   </button>
                   <button
                     onClick={() => setChatTarget(selectedVTuber)}
-                    className="flex-1 sm:flex-none bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-7 py-3.5 rounded-2xl font-bold transition-all hover:-translate-y-1 backdrop-blur-md ring-1 ring-white/10 flex items-center justify-center gap-2"
+                    className="flex-1 sm:flex-none bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 backdrop-blur-md ring-1 ring-white/10 flex items-center justify-center gap-1.5"
                   >
-                    <i className="fa-regular fa-comment-dots text-lg text-cyan-400"></i>
+                    <i className="fa-regular fa-comment-dots text-cyan-400"></i>
                     即時私訊
                   </button>
                   <button
                     onClick={() => handleBraveInvite(selectedVTuber)}
-                    className="flex-1 sm:flex-none bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 px-7 py-3.5 rounded-2xl font-bold transition-all hover:-translate-y-1 backdrop-blur-md ring-1 ring-white/10 hover:ring-rose-500/30 flex items-center justify-center gap-2 group"
+                    className="flex-1 sm:flex-none bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:-translate-y-0.5 backdrop-blur-md ring-1 ring-white/10 hover:ring-rose-500/30 flex items-center justify-center gap-1.5 group"
                   >
-                    <i className="fa-solid fa-heart group-hover:scale-110 transition-transform text-lg text-rose-500/70 group-hover:text-rose-400"></i>
+                    <i className="fa-solid fa-heart group-hover:scale-110 transition-transform text-rose-500/70 group-hover:text-rose-400"></i>
                     勇敢邀請
                   </button>
                 </>
@@ -9769,25 +9769,25 @@ function App() {
             </div>
           </div>
 
-          {/* 名稱與社群資料列 */}
-          <div className="flex flex-col lg:flex-row justify-between items-start gap-8 mb-10 pb-8 border-b border-white/5">
+          {/* 名稱與社群資料列 (間距與字體壓縮) */}
+          <div className="flex flex-col lg:flex-row justify-between items-start gap-5 mb-6 pb-6 border-b border-white/5">
             
             {/* 左側：名字與屬性 */}
             <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 tracking-tight flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 tracking-tight flex items-center gap-3">
                   {selectedVTuber.name}
                   {selectedVTuber.isVerified && (
-                    <i className="fa-solid fa-badge-check text-cyan-400 text-3xl drop-shadow-[0_0_12px_rgba(34,211,238,0.4)]"></i>
+                    <i className="fa-solid fa-badge-check text-cyan-400 text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]"></i>
                   )}
                 </h1>
               </div>
 
-              {/* 🌟 屬性標籤大進化：移除區塊感，改為純文字與圓點分隔，展現高級科技感 */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-slate-400">
+              {/* 屬性標籤 */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium text-slate-400">
                 {selectedVTuber.agency && (
                   <span className="flex items-center gap-1.5 text-slate-200">
-                    <i className="fa-solid fa-building text-xs opacity-50"></i>{selectedVTuber.agency}
+                    <i className="fa-solid fa-building opacity-50"></i>{selectedVTuber.agency}
                   </span>
                 )}
                 
@@ -9795,7 +9795,7 @@ function App() {
                   <>
                     <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                     <span className="flex items-center gap-1.5">
-                      <i className="fa-solid fa-earth-asia text-xs opacity-50"></i>
+                      <i className="fa-solid fa-earth-asia opacity-50"></i>
                       {(selectedVTuber.nationalities?.length > 0 ? selectedVTuber.nationalities : [selectedVTuber.nationality]).join(", ")}
                     </span>
                   </>
@@ -9805,7 +9805,7 @@ function App() {
                   <>
                     <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                     <span className="flex items-center gap-1.5">
-                      <i className="fa-solid fa-language text-xs opacity-50"></i>
+                      <i className="fa-solid fa-language opacity-50"></i>
                       {(selectedVTuber.languages?.length > 0 ? selectedVTuber.languages : [selectedVTuber.language]).join(", ")}
                     </span>
                   </>
@@ -9815,7 +9815,7 @@ function App() {
                   <>
                     <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                     <span className="flex items-center gap-1.5">
-                      <i className="fa-solid fa-brain text-xs text-violet-400/70"></i>{selectedVTuber.personalityType}
+                      <i className="fa-solid fa-brain text-violet-400/70"></i>{selectedVTuber.personalityType}
                     </span>
                   </>
                 )}
@@ -9824,7 +9824,7 @@ function App() {
                   <>
                     <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                     <span className="flex items-center gap-1.5">
-                      <i className="fa-solid fa-palette text-xs opacity-50"></i>{selectedVTuber.colorSchemes.join(", ")}系
+                      <i className="fa-solid fa-palette opacity-50"></i>{selectedVTuber.colorSchemes.join(", ")}系
                     </span>
                   </>
                 )}
@@ -9832,39 +9832,39 @@ function App() {
             </div>
 
             {/* 右側：社群連結庫與評價 */}
-            <div className="flex flex-col gap-3 w-full lg:w-auto">
+            <div className="flex flex-col gap-2.5 w-full lg:w-auto">
               
-              {/* 社交平台按鈕列 */}
-              <div className="flex flex-wrap gap-2 sm:gap-3 lg:justify-end items-center">
+              {/* 社交平台按鈕列 (維持指定顏色，高度壓縮至 h-9) */}
+              <div className="flex flex-wrap gap-2 lg:justify-end items-center">
                 {(selectedVTuber.youtubeUrl || selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && (
                   <a href={sanitizeUrl(selectedVTuber.youtubeUrl || '#')} target="_blank" rel="noopener noreferrer" 
-                     className="flex items-center justify-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-4 h-10 rounded-xl text-sm font-bold transition-colors">
-                    <i className="fa-brands fa-youtube text-lg"></i>
+                     className="flex items-center justify-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-3 h-9 rounded-lg text-xs sm:text-sm font-bold transition-colors">
+                    <i className="fa-brands fa-youtube text-base"></i>
                     <span>{(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers || 'YouTube')}</span>
                   </a>
                 )}
                 {(selectedVTuber.twitchUrl || selectedVTuber.twitchFollowers) && (
                   <a href={sanitizeUrl(selectedVTuber.twitchUrl || '#')} target="_blank" rel="noopener noreferrer"
-                     className="flex items-center justify-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 px-4 h-10 rounded-xl text-sm font-bold transition-colors">
-                    <i className="fa-brands fa-twitch text-lg"></i>
+                     className="flex items-center justify-center gap-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 px-3 h-9 rounded-lg text-xs sm:text-sm font-bold transition-colors">
+                    <i className="fa-brands fa-twitch text-base"></i>
                     <span>{(selectedVTuber.twitchFollowers || 'Twitch')}</span>
                   </a>
                 )}
                 {selectedVTuber.xUrl && (
                   <a href={sanitizeUrl(selectedVTuber.xUrl)} target="_blank" rel="noopener noreferrer"
-                     className="flex items-center justify-center w-10 h-10 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl transition-colors">
-                    <i className="fa-brands fa-x-twitter text-lg"></i>
+                     className="flex items-center justify-center w-9 h-9 bg-white/5 hover:bg-white/10 text-slate-300 rounded-lg transition-colors">
+                    <i className="fa-brands fa-x-twitter text-base"></i>
                   </a>
                 )}
                 {selectedVTuber.igUrl && (
                   <a href={sanitizeUrl(selectedVTuber.igUrl)} target="_blank" rel="noopener noreferrer"
-                     className="flex items-center justify-center w-10 h-10 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl transition-colors">
-                    <i className="fa-brands fa-instagram text-lg"></i>
+                     className="flex items-center justify-center w-9 h-9 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-lg transition-colors">
+                    <i className="fa-brands fa-instagram text-base"></i>
                   </a>
                 )}
               </div>
 
-              {/* 推薦按鈕區塊 */}
+              {/* 推薦按鈕區塊 (維持指定顏色與大小) */}
               <div className="flex flex-wrap gap-2 lg:justify-end items-center">
                 <button onClick={() => isVerifiedUser && selectedVTuber.id !== user?.uid ? handleRecommend(selectedVTuber) : null}
                   className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-colors">
@@ -9883,50 +9883,50 @@ function App() {
             </div>
           </div>
 
-          {/* 限時動態 */}
+          {/* 限時動態 (高度縮減，間距收緊) */}
           {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt && 
            (Date.now() - selectedVTuber.statusMessageUpdatedAt < (selectedVTuber.statusMessage.includes('🔴') ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)) && (
-            <div className={`mb-10 relative overflow-hidden rounded-[1.5rem] p-5 flex items-center gap-5 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/10 ring-1 ring-red-500/30' : 'bg-cyan-500/10 ring-1 ring-cyan-500/20'} backdrop-blur-sm`}>
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)]' : 'bg-cyan-500'}`}></div>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/20 text-red-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                <i className={`fa-solid text-xl ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish animate-pulse' : 'fa-comment-dots animate-bounce'}`}></i>
+            <div className={`mb-6 relative overflow-hidden rounded-2xl p-4 flex items-center gap-4 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/10 ring-1 ring-red-500/30' : 'bg-cyan-500/10 ring-1 ring-cyan-500/20'} backdrop-blur-sm`}>
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'bg-cyan-500'}`}></div>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/20 text-red-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                <i className={`fa-solid text-lg ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish animate-pulse' : 'fa-comment-dots animate-bounce'}`}></i>
               </div>
               <div className="flex-1">
-                <p className="text-xs text-slate-400 mb-1.5 uppercase tracking-wider font-semibold">
+                <p className="text-[10px] sm:text-xs text-slate-400 mb-0.5 uppercase tracking-wider font-semibold">
                   {selectedVTuber.statusMessage.includes('🔴') ? 'LIVE ON AIR' : 'Status Update'}
                 </p>
-                <p className={`text-base font-medium ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-cyan-100'}`}>
+                <p className={`text-sm sm:text-base font-medium ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-cyan-100'}`}>
                   {selectedVTuber.statusMessage}
                 </p>
               </div>
             </div>
           )}
 
-          {/* 詳細資訊 Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 詳細資訊 Grid (間距 gap-8 縮小至 gap-6) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* 左側：關於我與標籤 */}
-            <div className="lg:col-span-2 space-y-8">
+            <div className="lg:col-span-2 space-y-5">
               
-              {/* 關於我卡片 */}
-              <div className="bg-white/[0.02] rounded-[2rem] p-8 sm:p-10 backdrop-blur-xl ring-1 ring-white/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+              {/* 關於我卡片 (內部 Padding 縮小) */}
+              <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
                 
                 <div className="relative z-10">
-                  <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400">
-                        <i className="fa-solid fa-address-card text-lg"></i>
+                  <div className="flex flex-wrap justify-between items-center mb-5 gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center text-violet-400">
+                        <i className="fa-solid fa-address-card text-base"></i>
                       </div>
-                      <h3 className="text-2xl font-bold text-white tracking-wide">關於我</h3>
+                      <h3 className="text-xl font-bold text-white tracking-wide">關於我</h3>
                       {selectedVTuber.zodiacSign && (
-                        <span className="text-slate-400 text-sm font-medium flex items-center gap-1.5">
+                        <span className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
                           <i className="fa-solid fa-star text-[10px] text-amber-400/70"></i> {selectedVTuber.zodiacSign}
                         </span>
                       )}
                       {selectedVTuber.streamStyleUrl && (
                         <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer"
-                           className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-100 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ring-1 ring-cyan-500/30 flex items-center gap-1.5 ml-2">
+                           className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-100 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-all ring-1 ring-cyan-500/30 flex items-center gap-1.5 ml-1">
                           <i className="fa-solid fa-video"></i> 觀看直播風格
                         </a>
                       )}
@@ -9939,32 +9939,32 @@ function App() {
                         navigator.clipboard.writeText(url);
                         showToast("✅ 已複製專屬名片連結！");
                       }}
-                      className="group flex items-center gap-2 text-slate-400 hover:text-cyan-400 text-sm font-medium transition-colors"
+                      className="group flex items-center gap-1.5 text-slate-400 hover:text-cyan-400 text-xs font-medium transition-colors"
                     >
                       <i className="fa-solid fa-link group-hover:rotate-45 transition-transform"></i> 
                       複製連結
                     </button>
                   </div>
                   
-                  <p className="text-slate-300 leading-relaxed whitespace-pre-wrap font-medium text-lg">
+                  <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
                     {selectedVTuber.description || "這位 VTuber 還沒有留下自我介紹喔！"}
                   </p>
                 </div>
               </div>
 
-              {/* 🌟 內容標籤卡片大進化 (Tech Chips 設計) */}
+              {/* 內容標籤卡片 */}
               {selectedVTuber.tags && selectedVTuber.tags.length > 0 && (
-                <div className="bg-white/[0.02] rounded-[2rem] p-8 sm:p-10 backdrop-blur-xl ring-1 ring-white/5">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-                      <i className="fa-solid fa-hashtag text-lg"></i>
+                <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                      <i className="fa-solid fa-hashtag text-base"></i>
                     </div>
-                    <h3 className="text-2xl font-bold text-white tracking-wide">內容關鍵字</h3>
+                    <h3 className="text-xl font-bold text-white tracking-wide">內容關鍵字</h3>
                   </div>
-                  {/* 標籤改為緊湊排列的「晶片」風格，文字縮小、邊界縮小，大幅減輕視覺負擔 */}
-                  <div className="flex flex-wrap gap-2.5">
+                  {/* 標籤微縮 */}
+                  <div className="flex flex-wrap gap-2">
                     {selectedVTuber.tags.map((t) => (
-                      <span key={t} className="px-3 py-1.5 bg-white/[0.03] hover:bg-cyan-500/10 transition-colors rounded-lg text-xs font-medium text-slate-300 ring-1 ring-white/10 hover:ring-cyan-500/30 cursor-default">
+                      <span key={t} className="px-2.5 py-1 bg-white/[0.03] hover:bg-cyan-500/10 transition-colors rounded-md text-[11px] sm:text-xs font-medium text-slate-300 ring-1 ring-white/10 hover:ring-cyan-500/30 cursor-default">
                         {t}
                       </span>
                     ))}
@@ -9974,34 +9974,34 @@ function App() {
             </div>
 
             {/* 右側：聯動情報 */}
-            <div className="space-y-8">
+            <div className="space-y-5">
               
               {/* 演出型態 & 聯動意願 */}
-              <div className="bg-white/[0.02] rounded-[2rem] p-8 ring-1 ring-white/5 backdrop-blur-xl relative overflow-hidden">
-                <div className="relative z-10 space-y-8">
+              <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl relative overflow-hidden">
+                <div className="relative z-10 space-y-6">
                   <div>
-                    <h4 className="font-bold text-violet-300 mb-3 flex items-center gap-2.5 text-sm uppercase tracking-wider">
+                    <h4 className="font-bold text-violet-300 mb-2 flex items-center gap-2 text-xs uppercase tracking-wider">
                       <i className="fa-solid fa-display"></i> 演出型態
                     </h4>
-                    <p className="text-slate-200 text-lg font-medium">
+                    <p className="text-slate-200 text-base font-medium">
                       {selectedVTuber.streamingStyle || "一般型態"}
                     </p>
                   </div>
                   
                   <div>
-                    <h4 className="font-bold text-cyan-300 mb-4 flex items-center gap-2.5 text-sm uppercase tracking-wider">
+                    <h4 className="font-bold text-cyan-300 mb-3 flex items-center gap-2 text-xs uppercase tracking-wider">
                       <i className="fa-solid fa-people-group"></i> 歡迎聯動類型
                     </h4>
-                    <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col gap-2">
                       {(selectedVTuber.collabTypes || []).length > 0 ? (
                         selectedVTuber.collabTypes.map((t) => (
-                          <div key={t} className="bg-white/5 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-200 flex items-center gap-3">
+                          <div key={t} className="bg-white/5 px-3 py-2 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
                             {t}
                           </div>
                         ))
                       ) : (
-                        <div className="text-sm text-slate-400">尚未填寫</div>
+                        <div className="text-xs text-slate-400">尚未填寫</div>
                       )}
                     </div>
                   </div>
@@ -10009,11 +10009,11 @@ function App() {
               </div>
 
               {/* 時段卡片 */}
-              <div className="bg-white/[0.02] rounded-[2rem] p-8 ring-1 ring-white/5 backdrop-blur-xl">
-                <h4 className="font-bold text-amber-300/80 mb-4 flex items-center gap-2.5 text-sm uppercase tracking-wider">
+              <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl">
+                <h4 className="font-bold text-amber-300/80 mb-3 flex items-center gap-2 text-xs uppercase tracking-wider">
                   <i className="fa-regular fa-calendar-check"></i> 可聯動時段
                 </h4>
-                <div className="text-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
+                <div className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-medium">
                   {formatSchedule(selectedVTuber) || "尚未提供"}
                 </div>
               </div>
