@@ -6253,15 +6253,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/firebase-messaging-sw.js")
-        .then((reg) => console.log("SW Registered", reg))
-        .catch((err) => console.log("SW Register Fail", err));
-    }
-  }, []);
-
-  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
       if (hash.startsWith("profile/")) {
@@ -6327,17 +6318,6 @@ function App() {
       setProfileForm(getEmptyProfile(u?.uid));
     });
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
-
-    try {
-      const messaging = getMessaging(app);
-      onMessage(messaging, (payload) => {
-        showToast(
-          `🔔 收到新通知: ${payload.notification?.title || "您有新訊息"}`,
-        );
-      });
-    } catch (e) {
-      console.warn("目前環境尚未啟用 Messaging", e);
-    }
 
     return () => {
       unsubscribeAuth();
@@ -6831,14 +6811,13 @@ function App() {
     if (!confirm("確定要刪除全部信件嗎？此動作無法復原！")) return;
     try {
       showToast("⏳ 正在清空信箱...");
-      await Promise.all(
-        myNotifications.map((n) =>
-          deleteDoc(doc(db, getPath("notifications"), n.id)),
-        ),
-      );
+      const batch = writeBatch(db);
+      myNotifications.forEach((n) => {
+        batch.delete(doc(db, getPath("notifications"), n.id));
+      });
+      await batch.commit();
       showToast("✅ 已成功清空所有信件！");
     } catch (err) {
-      console.error(err);
       showToast("❌ 刪除失敗，請稍後再試。");
     }
   };
@@ -7566,14 +7545,6 @@ function App() {
       setRealVtubers((prev) => {
         const newList = prev.map((v) =>
           v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now } : v
-        );
-        syncVtuberCache(newList);
-        return newList;
-      });
-
-      setRealVtubers((prev) => {
-        const newList = prev.map((v) =>
-          v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, updatedAt: now } : v
         );
         syncVtuberCache(newList);
         return newList;
