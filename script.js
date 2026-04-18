@@ -5552,7 +5552,7 @@ function App() {
       }, { merge: true });
 
       // 同步更新本地快取
-      ssetRealVtubers(prev => {
+      setRealVtubers(prev => {
         const newList = prev.map(v =>
           v.id === user.uid
             ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now }
