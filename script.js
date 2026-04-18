@@ -9920,8 +9920,8 @@ function App() {
                       </div>
                       <h3 className="text-xl font-bold text-white tracking-wide">關於我</h3>
                       {selectedVTuber.zodiacSign && (
-                        <span className="text-slate-400 text-xs font-medium flex items-center gap-1.5">
-                          <i className="fa-solid fa-star text-[10px] text-amber-400/70"></i> {selectedVTuber.zodiacSign}
+                        <span className="bg-yellow-500/10 text-yellow-400 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold ring-1 ring-yellow-500/40 flex items-center gap-1.5">
+                          <i className="fa-solid fa-star text-[10px] text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"></i> {selectedVTuber.zodiacSign}
                         </span>
                       )}
                       {selectedVTuber.streamStyleUrl && (
