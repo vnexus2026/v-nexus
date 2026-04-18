@@ -9708,12 +9708,18 @@ function App() {
           {/* 網點裝飾 */}
           <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay z-10" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
           
-          {/* 右上角平台標籤 */}
+          {/* 右上角平台標籤 (改為可點擊連結) */}
           <div className="absolute top-4 right-4 z-20 flex gap-2">
-            <span className="text-slate-200 text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-xl ring-1 ring-white/10 bg-white/5 shadow-md">
-              <i className={`fa-brands fa-${selectedVTuber.mainPlatform === "Twitch" ? "twitch text-purple-400" : "youtube text-rose-400"}`}></i>
-              主要出沒: {selectedVTuber.mainPlatform || "YouTube"}
-            </span>
+            <a 
+              href={sanitizeUrl(selectedVTuber.mainPlatform === "Twitch" ? selectedVTuber.twitchUrl : selectedVTuber.youtubeUrl) || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-white text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-xl ring-1 ring-white/20 shadow-md transition-all hover:scale-105 ${selectedVTuber.mainPlatform === "Twitch" ? "bg-purple-600/80 hover:bg-purple-500/90 shadow-[0_0_10px_rgba(147,51,234,0.5)]" : "bg-red-600/80 hover:bg-red-500/90 shadow-[0_0_10px_rgba(220,38,38,0.5)]"}`}
+            >
+              <i className={`fa-brands fa-${selectedVTuber.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}></i>
+              主要直播平台: {selectedVTuber.mainPlatform || "YouTube"}
+              <i className="fa-solid fa-arrow-up-right-from-square ml-1 text-[10px] opacity-70"></i>
+            </a>
           </div>
         </div>
 
