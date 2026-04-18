@@ -3217,12 +3217,12 @@ const ProfileEditorForm = ({
           </div>
         </div>
       </div>
-      <div className="pt-6 border-t border-gray-700 flex justify-end gap-3">
+      <div className="pt-6 border-t border-gray-700 flex sm:justify-end gap-3">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+            className="flex-1 sm:flex-none px-2 sm:px-4 py-3 text-gray-400 hover:text-white transition-colors font-bold flex items-center justify-center"
           >
             取消
           </button>
@@ -3231,13 +3231,18 @@ const ProfileEditorForm = ({
           <button
             type="button"
             onClick={onDeleteSelf}
-            className="px-6 py-3 rounded-xl font-bold text-red-400 border border-red-500/30 hover:bg-red-600 hover:text-white transition-all flex items-center gap-2"
+            // 🌟 加入 flex-1 讓手機版平分寬度，並確保內容置中 (justify-center)
+            className="flex-1 sm:flex-none px-2 sm:px-6 py-3 rounded-xl font-bold text-red-400 border border-red-500/30 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
           >
             <i className="fa-solid fa-trash-can"></i> 刪除名片
           </button>
         )}
-        <button type="submit" className={btnCls}>
-          <i className="fa-solid fa-floppy-disk mr-2"></i>
+        <button 
+          type="submit" 
+          // 🌟 加入 flex-1 讓手機版平分寬度，並寫死樣式確保不受外部干擾
+          className="flex-1 sm:flex-none w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-2 sm:px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2"
+        >
+          <i className="fa-solid fa-floppy-disk"></i>
           {isAdmin ? "強制儲存更新" : "儲存名片"}
         </button>
       </div>
