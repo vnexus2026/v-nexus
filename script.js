@@ -5339,7 +5339,7 @@ const ChatListContent = ({
       if (targetId && !vtubers.find((v) => v.id === targetId) && !fetchedIds.current.has(targetId)) {
         fetchedIds.current.add(targetId);
 
-        getDoc(doc(db, `artifacts/v-nexus-official/public/data/vtubers`, targetId))
+        getDoc(doc(db, getPath("vtubers"), targetId))
           .then((snap) => {
             if (snap.exists()) {
               setMissingUsers((prev) => ({ ...prev, [targetId]: { id: snap.id, ...snap.data() } }));
@@ -5506,13 +5506,16 @@ function App() {
 
   // 🌟 2. 抓取全站線上名單 (獨立於 JSON 快取，確保即時性且極度省錢)
   useEffect(() => {
+    // 🛡️ 核心防護：如果未登入，直接中斷，不抓取也不設定定時器！
+    if (!user) return;
+
     const fetchOnlineUsers = async () => {
       try {
         const tenMinsAgo = Date.now() - 10 * 60 * 1000;
         const q = query(
           collection(db, getPath("vtubers")),
           where("lastOnlineAt", ">", tenMinsAgo),
-          limit(100) // 🌟 核心修復：最多只抓 100 個線上的人，鎖死讀取上限！
+          limit(100)
         );
         const snap = await getDocs(q);
         setOnlineUsers(new Set(snap.docs.map(d => d.id)));
@@ -5522,10 +5525,9 @@ function App() {
     };
 
     fetchOnlineUsers();
-    // 🌟 核心修復：將 3 分鐘改為 10 分鐘，大幅降低輪詢頻率
     const interval = setInterval(fetchOnlineUsers, 10 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // 🌟 新增：發布限時動態 (同步更新 IG 圈圈、首頁網格與名片狀態)
   const handlePostStory = async (e, overrideContent = null, isLive = false) => {
@@ -6546,7 +6548,7 @@ function App() {
         setIsLoading(false);
       }
 
-      // 2. 佈告欄與行程資料
+      // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
       const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
@@ -6555,20 +6557,22 @@ function App() {
         const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
         const cTs = localStorage.getItem(COLLABS_CACHE_TS);
 
+        // 🌟 新增：讀取 Updates 的快取
+        const uCache = localStorage.getItem("vnexus_updates_data");
+        const uTs = localStorage.getItem("vnexus_updates_ts");
+
         const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
         const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
+        const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
 
-        if (isBCacheValid && isCCacheValid) {
+        // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
+        if (isBCacheValid && isCCacheValid && isUCacheValid) {
           setRealBulletins(JSON.parse(bCache));
           setRealCollabs(JSON.parse(cCache));
-          setIsLoadingActivities(false); // 👈 快取有效，關閉載入動畫
-
-          if (realUpdates.length === 0) {
-            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
-              .then(uSnap => setRealUpdates(uSnap.docs.map(d => ({ id: d.id, ...d.data() }))));
-          }
+          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
+          setIsLoadingActivities(false);
         } else {
-          setIsLoadingActivities(true); // 👈 開始向資料庫抓取，開啟載入動畫
+          setIsLoadingActivities(true);
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -6582,11 +6586,16 @@ function App() {
 
             syncBulletinCache(bData);
             syncCollabCache(cData);
+
+            // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
             setRealUpdates(uData);
+            localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
+            localStorage.setItem("vnexus_updates_ts", Date.now().toString());
+
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            setIsLoadingActivities(false); // 👈 無論成功失敗，最後都關閉載入動畫
+            setIsLoadingActivities(false);
           }
         }
       }
