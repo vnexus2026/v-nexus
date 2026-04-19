@@ -26,6 +26,7 @@ import {
   getDoc,
   orderBy,
   limit,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import {
   initializeAppCheck,
@@ -4245,10 +4246,19 @@ const AdminPage = ({
   onDeleteArticle,
   onEditArticle,
   onMigrateBulletinImages,
-  handleAdminCleanBulletins // 👈 1. 補上這個缺失的 Prop
+  handleAdminCleanBulletins,
+  functionsInstance,
 }) => {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
+  const [adminEmailTo, setAdminEmailTo] = useState("");
+  const [adminEmailSubject, setAdminEmailSubject] = useState("");
+  const [adminEmailBody, setAdminEmailBody] = useState("");
+  const [isAdminEmailSending, setIsAdminEmailSending] = useState(false);
+  const [isTestEmailSending, setIsTestEmailSending] = useState(false);
+  const [adminSendCurrent, setAdminSendCurrent] = useState(0);
+  const [adminSendTotal, setAdminSendTotal] = useState(0);
+  const [adminSendLog, setAdminSendLog] = useState("");
 
   const getAdminSortTime = (v) => {
     const getTime = (val) => {
@@ -4885,8 +4895,123 @@ const AdminPage = ({
                   發送全站公告
                 </button>
               </div>
+              {/* 🌟 新增：系統通知信發送面板 */}
+              <div className="border-t border-gray-700 pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      <i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>
+                      發送全站系統通知信
+                    </h3>
+                    <p className="text-sm text-gray-400 mt-1">
+                      將寄送給所有填寫過信箱的創作者。
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setIsTestEmailSending(true);
+                      try {
+                        const fn = httpsCallable(functionsInstance, "sendSystemEmail");
+                        const now = new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
+                        const res = await fn({
+                          to: "apex.dasa@gmail.com",
+                          subject: "審核結果通知 - 系統測試",
+                          text: `這是一封來自 V-Nexus 後端的測試信！\n\n發送時間（台北時間）：${now}\n\n如果您收到這封信，代表系統通知信功能運作正常。\n\n— V-Nexus 系統`,
+                        });
+                        if (res.data?.success) showToast("✅ 測試信已寄出！請至信箱確認");
+                        else showToast(`❌ 失敗：${res.data?.message}`);
+                      } catch (e) {
+                        showToast(`❌ 呼叫失敗：${e.message}`);
+                      } finally {
+                        setIsTestEmailSending(false);
+                      }
+                    }}
+                    disabled={isTestEmailSending}
+                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+                  >
+                    {isTestEmailSending
+                      ? <><i className="fa-solid fa-circle-notch animate-spin text-purple-300"></i><span>寄送中...</span></>
+                      : <><i className="fa-solid fa-flask text-yellow-400"></i><span>寄測試信給自己</span></>
+                    }
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                      <i className="fa-solid fa-heading mr-1 text-purple-400"></i>主旨
+                    </label>
+                    <input
+                      type="text"
+                      value={adminEmailSubject}
+                      onChange={e => setAdminEmailSubject(e.target.value)}
+                      placeholder="例：重要系統公告"
+                      maxLength={100}
+                      className={inputCls}
+                    />
+                    <p className="text-right text-xs text-gray-600 mt-1">{adminEmailSubject.length} / 100</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                      <i className="fa-solid fa-align-left mr-1 text-purple-400"></i>內容
+                    </label>
+                    <textarea
+                      value={adminEmailBody}
+                      onChange={e => setAdminEmailBody(e.target.value)}
+                      placeholder="請輸入信件內文……"
+                      rows={5}
+                      className={inputCls + " resize-none"}
+                    />
+                  </div>
 
+                  {/* 進度顯示 */}
+                  {isAdminEmailSending && (
+                    <div className="bg-gray-800 border border-purple-500/30 rounded-xl p-4 space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-purple-300 font-bold">
+                          <i className="fa-solid fa-paper-plane animate-bounce mr-2"></i>
+                          發送中...
+                        </span>
+                        <span className="text-white font-mono font-bold">
+                          {adminSendCurrent} / {adminSendTotal}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                        <div
+                          className="bg-purple-500 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: adminSendTotal > 0 ? `${Math.round((adminSendCurrent / adminSendTotal) * 100)}%` : "0%" }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400 text-right">
+                        {adminSendTotal > 0 ? Math.round((adminSendCurrent / adminSendTotal) * 100) : 0}%　{adminSendLog}
+                      </p>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      if (!adminEmailSubject.trim()) return showToast("❌ 請填寫主旨");
+                      if (!adminEmailBody.trim()) return showToast("❌ 請填寫內容");
+                      if (!confirm(`確定要發送給全站所有創作者嗎？`)) return;
+                      setIsAdminEmailSending(true);
+                      try {
+                        await onSendMassEmail(adminEmailSubject.trim(), adminEmailBody.trim());
+                        setAdminEmailSubject(""); setAdminEmailBody("");
+                      } finally {
+                        setIsAdminEmailSending(false);
+                      }
+                    }}
+                    disabled={isAdminEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
+                    className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
+                  >
+                    {isAdminEmailSending
+                      ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中...</span></>
+                      : <><i className="fa-solid fa-paper-plane"></i><span>發送給全站創作者</span></>
+                    }
+                  </button>
+                </div>
+              </div>
             </div>
+
           )}
 
 
@@ -5484,6 +5609,11 @@ function App() {
   const [storyInput, setStoryInput] = useState("");
 
   const [onlineUsers, setOnlineUsers] = useState(new Set());
+
+  const [adminEmailSubject, setAdminEmailSubject] = useState("");
+  const [adminEmailBody, setAdminEmailBody] = useState("");
+  const [isAdminEmailSending, setIsAdminEmailSending] = useState(false);
+  const [isTestEmailSending, setIsTestEmailSending] = useState(false);
 
   // 🌟 1. 輕量級線上狀態偵測 (心跳機制 Ping)
   useEffect(() => {
@@ -11142,6 +11272,7 @@ function App() {
               onEditArticle={handleAdminEditArticle}
               onMigrateBulletinImages={handleMigrateBulletinImages}
               handleAdminCleanBulletins={handleAdminCleanBulletins}
+              functionsInstance={functionsInstance}
             />
           )}
         </main>
