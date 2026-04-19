@@ -4248,6 +4248,10 @@ const AdminPage = ({
   onMigrateBulletinImages,
   handleAdminCleanBulletins,
   functionsInstance,
+  massEmailSending,     // 🌟 新增
+  massEmailCurrent,     // 🌟 新增
+  massEmailTotal,       // 🌟 新增
+  massEmailLog,
 }) => {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
@@ -4870,32 +4874,8 @@ const AdminPage = ({
                   </div>
                 ))}
               </div>
-              <div className="border-t border-gray-700 pt-6 mt-6">
-                <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-solid fa-envelope-open-text text-purple-400 mr-2"></i>
-                  發送全站官方公告信件
-                </h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  此功能將發送 Email 至所有已填寫信箱的創作者。
-                </p>
-                <button
-                  onClick={async () => {
-                    const subject = prompt("請輸入公告信件主旨：");
-                    if (!subject) return;
-                    const content = prompt(
-                      "請輸入公告信件內容：\n(將發送給所有有填寫公開或私人信箱的創作者)",
-                    );
-                    if (!content) return;
-                    if (!confirm("確定要發送給所有創作者嗎？此動作不可逆！"))
-                      return;
-                    onSendMassEmail(subject, content);
-                  }}
-                  className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg"
-                >
-                  發送全站公告
-                </button>
-              </div>
-              {/* 🌟 新增：系統通知信發送面板 */}
+
+              {/* 🌟 系統通知信：發送給全站 VTuber */}
               <div className="border-t border-gray-700 pt-6 mt-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -4926,7 +4906,7 @@ const AdminPage = ({
                         setIsTestEmailSending(false);
                       }
                     }}
-                    disabled={isTestEmailSending}
+                    disabled={isTestEmailSending || massEmailSending}
                     className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
                   >
                     {isTestEmailSending
@@ -4935,6 +4915,7 @@ const AdminPage = ({
                     }
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">
@@ -4946,6 +4927,7 @@ const AdminPage = ({
                       onChange={e => setAdminEmailSubject(e.target.value)}
                       placeholder="例：重要系統公告"
                       maxLength={100}
+                      disabled={massEmailSending}
                       className={inputCls}
                     />
                     <p className="text-right text-xs text-gray-600 mt-1">{adminEmailSubject.length} / 100</p>
@@ -4959,12 +4941,13 @@ const AdminPage = ({
                       onChange={e => setAdminEmailBody(e.target.value)}
                       placeholder="請輸入信件內文……"
                       rows={5}
+                      disabled={massEmailSending}
                       className={inputCls + " resize-none"}
                     />
                   </div>
 
-                  {/* 進度顯示 */}
-                  {isAdminEmailSending && (
+                  {/* 進度條 */}
+                  {massEmailSending && (
                     <div className="bg-gray-800 border border-purple-500/30 rounded-xl p-4 space-y-2">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-purple-300 font-bold">
@@ -4972,18 +4955,16 @@ const AdminPage = ({
                           發送中...
                         </span>
                         <span className="text-white font-mono font-bold">
-                          {adminSendCurrent} / {adminSendTotal}
+                          {massEmailCurrent} / {massEmailTotal}
                         </span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
                         <div
                           className="bg-purple-500 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: adminSendTotal > 0 ? `${Math.round((adminSendCurrent / adminSendTotal) * 100)}%` : "0%" }}
+                          style={{ width: massEmailTotal > 0 ? `${Math.round((massEmailCurrent / massEmailTotal) * 100)}%` : "0%" }}
                         />
                       </div>
-                      <p className="text-xs text-gray-400 text-right">
-                        {adminSendTotal > 0 ? Math.round((adminSendCurrent / adminSendTotal) * 100) : 0}%　{adminSendLog}
-                      </p>
+                      <p className="text-xs text-gray-400 truncate">{massEmailLog}</p>
                     </div>
                   )}
 
@@ -4991,20 +4972,16 @@ const AdminPage = ({
                     onClick={async () => {
                       if (!adminEmailSubject.trim()) return showToast("❌ 請填寫主旨");
                       if (!adminEmailBody.trim()) return showToast("❌ 請填寫內容");
-                      if (!confirm(`確定要發送給全站所有創作者嗎？`)) return;
-                      setIsAdminEmailSending(true);
-                      try {
-                        await onSendMassEmail(adminEmailSubject.trim(), adminEmailBody.trim());
-                        setAdminEmailSubject(""); setAdminEmailBody("");
-                      } finally {
-                        setIsAdminEmailSending(false);
-                      }
+                      if (!confirm(`確定要發送給全站所有創作者嗎？此動作不可逆！`)) return;
+                      await onSendMassEmail(adminEmailSubject.trim(), adminEmailBody.trim());
+                      setAdminEmailSubject("");
+                      setAdminEmailBody("");
                     }}
-                    disabled={isAdminEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
+                    disabled={massEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
                     className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
                   >
-                    {isAdminEmailSending
-                      ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中...</span></>
+                    {massEmailSending
+                      ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中，請勿關閉視窗...</span></>
                       : <><i className="fa-solid fa-paper-plane"></i><span>發送給全站創作者</span></>
                     }
                   </button>
@@ -8924,7 +8901,6 @@ function App() {
   const handleSendMassEmail = async (subject, content) => {
     const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
 
-    // 1. 先過濾出有信箱的目標名單
     const targets = realVtubers.filter(v => {
       const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
       return email && email.includes("@");
@@ -8934,15 +8910,19 @@ function App() {
       return showToast("❌ 找不到任何有效的信箱");
     }
 
-    showToast(`⏳ 準備發送 ${targets.length} 封信件，請勿關閉網頁...`);
+    setMassEmailSending(true);
+    setMassEmailCurrent(0);
+    setMassEmailTotal(targets.length);
+    setMassEmailLog("準備發送中...");
 
     let successCount = 0;
     let failCount = 0;
 
-    // 2. 使用 for 迴圈搭配 await，一封一封慢慢寄
     for (let i = 0; i < targets.length; i++) {
       const v = targets[i];
       const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
+      setMassEmailCurrent(i + 1);
+      setMassEmailLog(`正在寄給：${v.name}（${email}）`);
 
       try {
         await sendSystemEmail({
@@ -8954,19 +8934,23 @@ function App() {
       } catch (err) {
         console.error(`發送給 ${email} 失敗:`, err);
         failCount++;
+        setMassEmailLog(`⚠️ ${v.name} 寄送失敗，繼續下一位...`);
       }
 
-      // 每發送 5 封更新一次提示，讓管理員知道進度
-      if ((i + 1) % 5 === 0 || i === targets.length - 1) {
-        showToast(`⏳ 發送中... (${i + 1}/${targets.length})`);
-      }
-
-      // 🌟 核心修復：加上 300 毫秒的延遲，避免瞬間發射幾百個請求導致瀏覽器或 Firebase 崩潰
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    showToast(`✅ 發送完畢！成功: ${successCount} 封，失敗: ${failCount} 封。`);
+    setMassEmailSending(false);
+    setMassEmailLog("");
+    setMassEmailCurrent(0);
+    setMassEmailTotal(0);
+    showToast(`✅ 發送完畢！成功 ${successCount} 封，失敗 ${failCount} 封`);
   };
+
+  const [massEmailSending, setMassEmailSending] = useState(false);
+  const [massEmailCurrent, setMassEmailCurrent] = useState(0);
+  const [massEmailTotal, setMassEmailTotal] = useState(0);
+  const [massEmailLog, setMassEmailLog] = useState("");
 
   const contextValue = useMemo(() => {
     return { user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers };
@@ -11273,6 +11257,10 @@ function App() {
               onMigrateBulletinImages={handleMigrateBulletinImages}
               handleAdminCleanBulletins={handleAdminCleanBulletins}
               functionsInstance={functionsInstance}
+              massEmailSending={massEmailSending}
+              massEmailCurrent={massEmailCurrent}
+              massEmailTotal={massEmailTotal}
+              massEmailLog={massEmailLog}
             />
           )}
         </main>
