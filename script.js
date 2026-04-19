@@ -4972,10 +4972,24 @@ const AdminPage = ({
                     onClick={async () => {
                       if (!adminEmailSubject.trim()) return showToast("❌ 請填寫主旨");
                       if (!adminEmailBody.trim()) return showToast("❌ 請填寫內容");
-                      if (!confirm(`確定要發送給全站所有創作者嗎？此動作不可逆！`)) return;
-                      await onSendMassEmail(adminEmailSubject.trim(), adminEmailBody.trim());
-                      setAdminEmailSubject("");
-                      setAdminEmailBody("");
+                      if (!confirm("確定要發送給全站所有創作者嗎？此動作不可逆！")) return;
+
+                      setMassEmailSending(true);
+                      try {
+                        const fn = httpsCallable(functionsInstance, "sendMassEmail");
+                        const res = await fn({ subject: adminEmailSubject.trim(), text: adminEmailBody.trim() });
+                        if (res.data?.success) {
+                          showToast(`✅ ${res.data.message}`);
+                          setAdminEmailSubject("");
+                          setAdminEmailBody("");
+                        } else {
+                          showToast(`❌ ${res.data?.message}`);
+                        }
+                      } catch (e) {
+                        showToast(`❌ 呼叫失敗：${e.message}`);
+                      } finally {
+                        setMassEmailSending(false);
+                      }
                     }}
                     disabled={massEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
                     className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
