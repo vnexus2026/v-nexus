@@ -4891,12 +4891,12 @@ const AdminPage = ({
                     onClick={async () => {
                       setIsTestEmailSending(true);
                       try {
-                        const fn = httpsCallable(functionsInstance, "sendSystemEmail");
+                        const fn = httpsCallable(functionsInstance, "sendMassEmail");
                         const now = new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
                         const res = await fn({
-                          to: "apex.dasa@gmail.com",
-                          subject: "審核結果通知 - 系統測試",
+                          subject: "系統測試信",
                           text: `這是一封來自 V-Nexus 後端的測試信！\n\n發送時間（台北時間）：${now}\n\n如果您收到這封信，代表系統通知信功能運作正常。\n\n— V-Nexus 系統`,
+                          testOnly: true,  // 告訴後端只寄給管理員自己
                         });
                         if (res.data?.success) showToast("✅ 測試信已寄出！請至信箱確認");
                         else showToast(`❌ 失敗：${res.data?.message}`);
