@@ -9927,9 +9927,9 @@ function App() {
                             </button>
                             <button
                               onClick={() => handleBraveInvite(selectedVTuber)}
-                              className="flex-1 sm:flex-none bg-white/5 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all hover:-translate-y-0.5 backdrop-blur-md ring-1 ring-white/10 hover:ring-rose-500/30 flex items-center justify-center gap-1 sm:gap-1.5 group whitespace-nowrap"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_5px_15px_rgba(244,63,94,0.4)] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-1 sm:gap-1.5 group whitespace-nowrap"
                             >
-                              <i className="fa-solid fa-heart group-hover:scale-110 transition-transform text-rose-500/70 group-hover:text-rose-400"></i>
+                              <i className="fa-solid fa-heart group-hover:scale-110 transition-transform text-white"></i>
                               勇敢邀請
                             </button>
                           </>
@@ -10054,16 +10054,16 @@ function App() {
                     {/* 限時動態 (高度縮減，間距收緊) */}
                     {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt &&
                       (Date.now() - selectedVTuber.statusMessageUpdatedAt < (selectedVTuber.statusMessage.includes('🔴') ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)) && (
-                        <div className={`mb-6 relative overflow-hidden rounded-2xl p-4 flex items-center gap-4 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/10 ring-1 ring-red-500/30' : 'bg-cyan-500/10 ring-1 ring-cyan-500/20'} backdrop-blur-sm`}>
-                          <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'bg-cyan-500'}`}></div>
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/20 text-red-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                        <div className={`mb-6 relative overflow-hidden rounded-2xl p-4 flex items-center gap-4 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/10 ring-1 ring-red-500/30' : 'bg-orange-500/10 ring-1 ring-orange-500/30'} backdrop-blur-sm`}>
+                          <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]'}`}></div>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
                             <i className={`fa-solid text-lg ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish animate-pulse' : 'fa-comment-dots animate-bounce'}`}></i>
                           </div>
                           <div className="flex-1">
                             <p className="text-[10px] sm:text-xs text-slate-400 mb-0.5 uppercase tracking-wider font-semibold">
-                              {selectedVTuber.statusMessage.includes('🔴') ? 'LIVE ON AIR' : 'Status Update'}
+                              {selectedVTuber.statusMessage.includes('🔴') ? 'LIVE ON AIR' : '24H限時動態'}
                             </p>
-                            <p className={`text-sm sm:text-base font-medium ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-cyan-100'}`}>
+                            <p className={`text-sm sm:text-base font-medium ${selectedVTuber.statusMessage.includes('🔴') ? 'text-red-100' : 'text-orange-100'}`}>
                               {selectedVTuber.statusMessage}
                             </p>
                           </div>
@@ -10094,8 +10094,8 @@ function App() {
                                 )}
                                 {selectedVTuber.streamStyleUrl && (
                                   <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer"
-                                    className="bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-cyan-100 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-all ring-1 ring-cyan-500/30 flex items-center gap-1.5 ml-1">
-                                    <i className="fa-solid fa-video"></i> 觀看直播風格
+                                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-all ring-1 ring-blue-500/40 flex items-center gap-1.5 ml-1">
+                                    <i className="fa-solid fa-video"></i> 觀看我的直播風格
                                   </a>
                                 )}
                               </div>
