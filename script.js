@@ -4884,7 +4884,7 @@ const AdminPage = ({
                       發送全站系統通知信
                     </h3>
                     <p className="text-sm text-gray-400 mt-1">
-                      將寄送給所有填寫過信箱的創作者。
+                      將由後端伺服器寄送給所有填寫過信箱的創作者。
                     </p>
                   </div>
                   <button
@@ -4906,7 +4906,8 @@ const AdminPage = ({
                         setIsTestEmailSending(false);
                       }
                     }}
-                    disabled={isTestEmailSending || massEmailSending}
+                    // 🌟 修正：使用 isAdminEmailSending
+                    disabled={isTestEmailSending || isAdminEmailSending}
                     className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
                   >
                     {isTestEmailSending
@@ -4927,7 +4928,8 @@ const AdminPage = ({
                       onChange={e => setAdminEmailSubject(e.target.value)}
                       placeholder="例：重要系統公告"
                       maxLength={100}
-                      disabled={massEmailSending}
+                      // 🌟 修正：使用 isAdminEmailSending
+                      disabled={isAdminEmailSending}
                       className={inputCls}
                     />
                     <p className="text-right text-xs text-gray-600 mt-1">{adminEmailSubject.length} / 100</p>
@@ -4941,30 +4943,26 @@ const AdminPage = ({
                       onChange={e => setAdminEmailBody(e.target.value)}
                       placeholder="請輸入信件內文……"
                       rows={5}
-                      disabled={massEmailSending}
+                      // 🌟 修正：使用 isAdminEmailSending
+                      disabled={isAdminEmailSending}
                       className={inputCls + " resize-none"}
                     />
                   </div>
 
-                  {/* 進度條 */}
-                  {massEmailSending && (
-                    <div className="bg-gray-800 border border-purple-500/30 rounded-xl p-4 space-y-2">
+                  {/* 🌟 狀態提示 (取代原本的數字進度條，因為現在是後端在跑) */}
+                  {isAdminEmailSending && (
+                    <div className="bg-gray-800 border border-purple-500/30 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-purple-300 font-bold">
-                          <i className="fa-solid fa-paper-plane animate-bounce mr-2"></i>
-                          發送中...
-                        </span>
-                        <span className="text-white font-mono font-bold">
-                          {massEmailCurrent} / {massEmailTotal}
+                          <i className="fa-solid fa-server animate-pulse mr-2"></i>
+                          伺服器背景發送中...
                         </span>
                       </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                        <div
-                          className="bg-purple-500 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: massEmailTotal > 0 ? `${Math.round((massEmailCurrent / massEmailTotal) * 100)}%` : "0%" }}
-                        />
+                      <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden relative">
+                        <div className="bg-purple-500 h-2.5 rounded-full absolute top-0 left-0 w-1/3 animate-ping" style={{ animationDuration: '1.5s' }} />
+                        <div className="bg-purple-400 h-2.5 rounded-full absolute top-0 left-0 w-full animate-pulse" />
                       </div>
-                      <p className="text-xs text-gray-400 truncate">{massEmailLog}</p>
+                      <p className="text-xs text-gray-400">信件正由後端逐一寄出，這可能需要幾分鐘的時間，請耐心等候。</p>
                     </div>
                   )}
 
@@ -4974,7 +4972,8 @@ const AdminPage = ({
                       if (!adminEmailBody.trim()) return showToast("❌ 請填寫內容");
                       if (!confirm("確定要發送給全站所有創作者嗎？此動作不可逆！")) return;
 
-                      setMassEmailSending(true);
+                      // 🌟 修正：使用 isAdminEmailSending
+                      setIsAdminEmailSending(true);
                       try {
                         const fn = httpsCallable(functionsInstance, "sendMassEmail");
                         const res = await fn({ subject: adminEmailSubject.trim(), text: adminEmailBody.trim() });
@@ -4988,13 +4987,15 @@ const AdminPage = ({
                       } catch (e) {
                         showToast(`❌ 呼叫失敗：${e.message}`);
                       } finally {
-                        setMassEmailSending(false);
+                        // 🌟 修正：使用 isAdminEmailSending
+                        setIsAdminEmailSending(false);
                       }
                     }}
-                    disabled={massEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
+                    // 🌟 修正：使用 isAdminEmailSending
+                    disabled={isAdminEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
                     className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
                   >
-                    {massEmailSending
+                    {isAdminEmailSending
                       ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中，請勿關閉視窗...</span></>
                       : <><i className="fa-solid fa-paper-plane"></i><span>發送給全站創作者</span></>
                     }
