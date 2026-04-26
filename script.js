@@ -245,64 +245,70 @@ const FloatingChat = ({
     if (!input.trim() || !currentUser || !targetVtuber?.id) return;
     if (input.trim().length > 500) return showToast("訊息不能超過 500 字！");
 
-    const text = input;
+    const text = input.trim();
     const now = Date.now();
-    // 統一使用 getPath 確保路徑與監聽器完全一致
     const roomRef = doc(db, getPath("chat_rooms"), roomId);
 
     setInput("");
 
     try {
-      // 1. 寫入訊息到子集合
-      await addDoc(collection(db, getMsgPath(roomId)), {
-        senderId: currentUser.uid,
-        text: text,
-        createdAt: now,
-      });
+      // ✅ 重要修正：先建立 / 更新聊天室主文件，確保一般使用者在 Rules 中是 participants。
+      // 舊版流程是「先寫 messages，再寫 chat_rooms」，在較嚴格的 Firestore Rules 下會導致一般使用者 permission-denied。
+      let roomData = {};
+      try {
+        const roomSnap = await getDoc(roomRef);
+        roomData = roomSnap.exists() ? roomSnap.data() : {};
+      } catch (readErr) {
+        console.warn("讀取聊天室主文件失敗，仍會嘗試建立聊天室:", readErr);
+      }
 
-      // 2. 取得房間資料以檢查發送頻率
-      const roomSnap = await getDoc(roomRef);
-      const roomData = roomSnap.exists() ? roomSnap.data() : {};
       const lastEmailTime = roomData.lastEmailSentAt || 0;
       const lastNotifTime = roomData.lastNotifSentAt || 0;
+      const shouldCreateNotification = now - lastNotifTime > 1 * 60 * 1000;
+      const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
 
-      // 3. 準備更新房間主文件
       const roomUpdate = {
         lastTimestamp: now,
         lastMessage: text,
-        // 確保參與者名單正確，對方才能透過 where('participants', 'array-contains', ...) 搜到
         participants: [currentUser.uid, targetVtuber.id],
         unreadBy: arrayUnion(targetVtuber.id),
       };
 
-      // 🌟 核心修復：合併通知邏輯，徹底刪除重複的區塊
-      // 只有距離上次發送站內通知超過 1 分鐘，才發送新通知
-      if (now - lastNotifTime > 1 * 60 * 1000) {
+      if (shouldCreateNotification) {
         roomUpdate.lastNotifSentAt = now;
-
-        // 檢查是否距離上次寄 Email 超過 10 分鐘
-        const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
-
-        // ⚠️ 關鍵：這裡只寫入「一筆」通知；是否寄信由後端依 type 與節流規則判斷。
-        await addDoc(collection(db, getPath("notifications")), {
-          userId: targetVtuber.id,
-          fromUserId: currentUser.uid,
-          fromUserName: myProfile?.name || "創作者",
-          fromUserAvatar: myProfile?.avatar || "",
-          message: "傳送了一則私訊，請查看右下角聊天室。",
-          createdAt: now,
-          read: false,
-          type: "chat_notification",
-        });
       }
 
-      // 4. 執行房間更新 (移到最後統一執行一次就好，節省資料庫寫入次數)
+      // 1. 先確保聊天室存在，讓收件方的聊天列表可以透過 participants 查到。
       await setDoc(roomRef, roomUpdate, { merge: true });
 
+      // 2. 再寫入訊息到子集合。
+      await addDoc(collection(db, getMsgPath(roomId)), {
+        senderId: currentUser.uid,
+        text,
+        createdAt: now,
+      });
+
+      // 3. 通知失敗不應該讓聊天訊息失敗；因此獨立 try/catch。
+      if (shouldCreateNotification) {
+        try {
+          await addDoc(collection(db, getPath("notifications")), {
+            userId: targetVtuber.id,
+            fromUserId: currentUser.uid,
+            fromUserName: myProfile?.name || "創作者",
+            fromUserAvatar: myProfile?.avatar || "",
+            message: "傳送了一則私訊，請查看右下角聊天室。",
+            createdAt: now,
+            read: false,
+            type: "chat_notification",
+          });
+        } catch (notifErr) {
+          console.warn("聊天訊息已送出，但通知建立失敗:", notifErr);
+        }
+      }
     } catch (err) {
       console.error("發送過程出錯詳細資訊:", err);
-      showToast("傳送失敗，請確認登入狀態或權限");
+      showToast(`傳送失敗：${err.code || ""} ${err.message || "請確認登入狀態或權限"}`);
     }
   };
   return (
