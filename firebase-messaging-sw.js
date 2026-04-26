@@ -24,21 +24,36 @@ messaging.onBackgroundMessage((payload) => {
     self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-const IMAGE_CACHE_NAME = 'vnexus-image-cache-v1';
+const IMAGE_CACHE_NAME = 'vnexus-image-cache-v2';
 
-// 攔截圖片請求
+// 啟用新版 Service Worker 時清掉舊版圖片快取，避免快取無限膨脹。
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) =>
+            Promise.all(
+                keys
+                    .filter((key) => key !== IMAGE_CACHE_NAME)
+                    .map((key) => caches.delete(key))
+            )
+        )
+    );
+    self.clients.claim();
+});
+
+// 攔截圖片請求：只快取成功的 GET 圖片回應，失敗時回退到網路錯誤。
 self.addEventListener('fetch', (event) => {
-    if (event.request.destination === 'image') {
-        event.respondWith(
-            caches.open(IMAGE_CACHE_NAME).then((cache) => {
-                return cache.match(event.request).then((response) => {
-                    // 如果快取有，直接回傳；沒有就去下載並存入快取
-                    return response || fetch(event.request).then((networkResponse) => {
-                        cache.put(event.request, networkResponse.clone());
-                        return networkResponse;
-                    });
-                });
-            })
-        );
-    }
+    if (event.request.method !== 'GET' || event.request.destination !== 'image') return;
+
+    event.respondWith(
+        caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
+            const cached = await cache.match(event.request);
+            if (cached) return cached;
+
+            const networkResponse = await fetch(event.request);
+            if (networkResponse && networkResponse.ok) {
+                cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+        }).catch(() => fetch(event.request))
+    );
 });

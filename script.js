@@ -27,6 +27,7 @@ import {
   orderBy,
   limit,
   writeBatch,
+  deleteField,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import {
   initializeAppCheck,
@@ -283,7 +284,7 @@ const FloatingChat = ({
         const shouldSendEmail = now - lastEmailTime > 10 * 60 * 1000;
         if (shouldSendEmail) roomUpdate.lastEmailSentAt = now;
 
-        // ⚠️ 關鍵：這裡只寫入「一筆」通知！並透過 sendEmail 參數交給後端決定要不要寄信
+        // ⚠️ 關鍵：這裡只寫入「一筆」通知；是否寄信由後端依 type 與節流規則判斷。
         await addDoc(collection(db, getPath("notifications")), {
           userId: targetVtuber.id,
           fromUserId: currentUser.uid,
@@ -293,7 +294,6 @@ const FloatingChat = ({
           createdAt: now,
           read: false,
           type: "chat_notification",
-          sendEmail: shouldSendEmail,
         });
       }
 
@@ -408,7 +408,13 @@ const uploadImageToStorage = async (uid, dataStr, fileName) => {
     return dataStr || "";
 
   try {
-    const storageRef = ref(storage, `vtubers/${uid}/${fileName}`);
+    const storagePath =
+      uid === "system"
+        ? `system/${fileName}`
+        : String(fileName).startsWith("bulletin_")
+          ? `bulletin_covers/${uid}/${fileName}`
+          : `vtubers/${uid}/${fileName}`;
+    const storageRef = ref(storage, storagePath);
     await uploadString(storageRef, dataStr, "data_url");
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
@@ -5595,6 +5601,16 @@ function App() {
   const [currentView, setCurrentView] = useState(getInitialView());
   const [previousView, setPreviousView] = useState("grid");
   const [selectedVTuber, setSelectedVTuber] = useState(null);
+  const [user, setUser] = useState(null);
+  const [realVtubers, setRealVtubers] = useState(() => {
+    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
+  });
+  const isAdmin = user && user.email === "apex.dasa@gmail.com";
+  const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
+  const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
+
+
 
   // 🌟 新增：限時動態 (Stories) 狀態
   const [realStories, setRealStories] = useState([]);
@@ -5750,15 +5766,6 @@ function App() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [siteStats, setSiteStats] = useState({ pageViews: null });
   const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
-  const [user, setUser] = useState(null);
-  const [realVtubers, setRealVtubers] = useState(() => {
-    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
-    return cached ? JSON.parse(cached) : [];
-  });
-  const isAdmin = user && user.email === "apex.dasa@gmail.com";
-  const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
-  const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
-
   const [privateDocs, setPrivateDocs] = useState({});
   const [realBulletins, setRealBulletins] = useState([]);
   const [realUpdates, setRealUpdates] = useState([]);
@@ -5935,12 +5942,16 @@ function App() {
   // --- 手動啟動通知函式 ---
   const handleEnableNotifications = async () => {
     if (!user) return showToast("請先登入");
+    if (!("Notification" in window)) return showToast("此瀏覽器不支援通知");
+    if (!("serviceWorker" in navigator)) return showToast("此瀏覽器不支援 Service Worker");
+
     try {
       showToast("⏳ 正在啟動推播系統...");
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟。");
       }
+
       const registration = await navigator.serviceWorker.ready;
       const messaging = getMessaging(app);
       const currentToken = await getToken(messaging, {
@@ -5948,11 +5959,15 @@ function App() {
         vapidKey:
           "BOsq0-39IZhc2I1Y5wiJ2mGrQIUT8zl59MlhMVh_4_41CUvJaYJlw3a1XV-6XM00fvteHsYsF3ukYKbn36SPuIw",
       });
+
       if (currentToken) {
-        await updateDoc(doc(db, getPath("vtubers"), user.uid), {
+        // FCM token 屬於裝置私密資料，不再寫入公開 vtubers 文件。
+        await setDoc(doc(db, getPath("vtubers_private"), user.uid), {
           fcmToken: currentToken,
           notificationsEnabled: true,
-        });
+          fcmTokenUpdatedAt: Date.now(),
+        }, { merge: true });
+
         showToast("✅ 手機推播已成功啟動！");
         alert("🎉 恭喜！您的設備已成功綁定推播功能。");
       } else {
@@ -6183,10 +6198,11 @@ function App() {
       // 2. 寫入通知資料庫 (這會觸發後端 Cloud Functions 發送真正的 FCM 推播)
       await addDoc(collection(db, getPath("notifications")), {
         userId: user.uid,
-        fromUserId: "system",
+        fromUserId: user.uid,
         fromUserName: "V-Nexus 測試員",
         fromUserAvatar: "https://duk.tw/u1jpPE.png",
         message: "🎉 恭喜！您的手機推播功能已成功啟動！",
+        type: "test_push",
         createdAt: Date.now(),
         read: false,
       });
@@ -6457,61 +6473,9 @@ function App() {
     };
   }, []);
 
-  // --- 自動提醒檢查邏輯 (Lazy Cron) ---
-  useEffect(() => {
-    // 只有管理員在線上時才會執行掃描
-    if (isLoading || !isAdmin) return;
+  // --- 自動提醒檢查邏輯已移至 Cloud Functions sendCollabReminders ---
+  // 前端不再負責排程寄信，避免管理員沒開頁面時提醒失效或重複寄信。
 
-    const checkAndSendReminders = async () => {
-      const now = Date.now();
-      const twentyFourHours = 24 * 60 * 60 * 1000;
-
-      // 搜尋 24 小時內即將開始，且尚未發送提醒的行程
-      const q = query(
-        collection(db, getPath("collabs")),
-        where("reminderSent", "==", false),
-        where("startTimestamp", "<=", now + twentyFourHours),
-        where("startTimestamp", ">", now),
-      );
-
-      const snap = await getDocs(q);
-
-      for (const collabDoc of snap.docs) {
-        const collab = { id: collabDoc.id, ...collabDoc.data() };
-
-        // 立即標記為已發送，防止重複觸發
-        await updateDoc(collabDoc.ref, { reminderSent: true });
-
-        // 整理所有需要通知的人 (發起人 + 參與者)
-        const allMemberIds = [collab.userId, ...(collab.participants || [])];
-        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-
-        for (const uid of allMemberIds) {
-          // 抓取該成員的 Email (優先從資料庫抓取最新私密資料)
-          const privSnap = await getDoc(doc(db, getPath("vtubers_private"), uid));
-          const pubSnap = await getDoc(doc(db, getPath("vtubers"), uid));
-
-          let targetEmail = "";
-          if (privSnap.exists()) targetEmail = privSnap.data().contactEmail || privSnap.data().publicEmail;
-          if (!targetEmail && pubSnap.exists()) targetEmail = pubSnap.data().publicEmail;
-
-          if (targetEmail && targetEmail.includes('@')) {
-            sendSystemEmail({
-              to: targetEmail,
-              subject: `[V-Nexus 聯動提醒] 行程即將開始！⏰`,
-              text: `您好！提醒您，您參與的聯動行程【${collab.title}】即將在 24 小時內開始！\n\n預計時間：${collab.date} ${collab.time}\n直播連結：${collab.streamUrl}\n\n祝聯動順利！\nV-Nexus 團隊`,
-            }).catch(e => console.error("提醒信發送失敗:", e));
-          }
-        }
-      }
-    };
-
-    // 每 5 分鐘自動檢查一次
-    checkAndSendReminders();
-    const reminderTimer = setInterval(checkAndSendReminders, 5 * 60 * 1000);
-    return () => clearInterval(reminderTimer);
-  }, [isLoading, isAdmin, realCollabs]);
-  // --- 提醒邏輯結束 ---
 
   const hasFetchedSettings = useRef(false);
 
@@ -6981,7 +6945,6 @@ function App() {
         fromUserAvatar: myProfile?.avatar || user.photoURL,
         message: "鼓起勇氣向您發送了「勇敢邀請」！請問您是否有意願聯動呢？",
         type: "brave_invite",
-        sendEmail: true,
         createdAt: Date.now(),
         read: false,
         handled: false,
@@ -7004,7 +6967,7 @@ function App() {
         ? "可以試試看！我們站內信聯絡！"
         : "對不起，對方覺得暫時不適合聯動，謝謝你的邀約。";
 
-      // 🔒 寫入通知並標記 sendEmail 觸發後端
+      // 🔒 寫入通知；寄信由後端依 type 與節流規則判斷
       await addDoc(collection(db, getPath("notifications")), {
         userId: senderId,
         fromUserId: user.uid,
@@ -7012,7 +6975,6 @@ function App() {
         fromUserAvatar: myProfile?.avatar || user.photoURL,
         message: replyMsg,
         type: "brave_response",
-        sendEmail: true,
         createdAt: Date.now(),
         read: false,
       });
@@ -7461,7 +7423,7 @@ function App() {
     if (e) e.preventDefault();
     if (!user) return showToast("請先登入！");
 
-    const targetUid = customForm.id || user.uid;
+    const targetUid = isAdmin ? (customForm.id || user.uid) : user.uid;
     const existingProfile = realVtubers.find((v) => v.id === targetUid);
 
     // 🌟 新增：檢查是否被限制提交 (退回 >= 3 次且在 24 小時內)
@@ -7508,7 +7470,7 @@ function App() {
 
     try {
       showToast("⏳ 正在處理圖片並儲存名片...");
-      const targetUid = customForm.id || user.uid;
+      const targetUid = isAdmin ? (customForm.id || user.uid) : user.uid;
 
       // --- A. 圖片上傳至 Storage ---
       const avatarUrl = await uploadImageToStorage(
@@ -7571,13 +7533,15 @@ function App() {
         // 🌟 新增：寫入限時動態資料
         statusMessage: customForm.statusMessage || "",
         statusMessageUpdatedAt: newStatusMessageUpdatedAt,
-        lastActiveAt: Date.now(),
+        statusReactions: newStatusReactions,
         updatedAt: Date.now(),
-        createdAt: existingProfile?.createdAt || Date.now(),
       };
 
       // 💡 關鍵修正：移除 UI 狀態欄位與可能為 undefined 的欄位
       const uiFields = [
+        // 私密 / UI 暫存欄位
+        "id",
+        "emailOtp",
         "contactEmail",
         "verificationNote",
         "publicEmail",
@@ -7587,13 +7551,31 @@ function App() {
         "isOtherNationality",
         "otherNationalityText",
         "personalityTypeOther",
+
+        // 使用者不應透過「儲存名片」改動的系統 / 互動欄位
+        "likes",
+        "likedBy",
+        "dislikes",
+        "dislikedBy",
+        "fcmToken",
+        "privateEmail",
+        "admin",
+        "role",
+        "customClaims",
+        "lastActiveAt",
+        "lastOnlineAt",
         "lastEmailSentAt",
         "lastNotifSentAt",
         "rejectionCount",
-        "lastRejectedAt"
+        "lastRejectedAt",
+        "status"
       ];
       uiFields.forEach((f) => delete publicData[f]);
 
+      // ✅ Firestore Rules 會阻擋 name / description 內類似 HTML tag 的內容
+      const stripHtmlTags = (val) => typeof val === "string" ? val.replace(/<[^>]+>/g, "") : val;
+      publicData.name = stripHtmlTags(publicData.name || "");
+      publicData.description = stripHtmlTags(publicData.description || "");
       // Firestore 不允許 undefined，將所有 undefined 轉為 null 或空字串
       Object.keys(publicData).forEach((key) => {
         if (publicData[key] === undefined) {
@@ -7609,6 +7591,18 @@ function App() {
         publicData.isBlacklisted = false;
         publicData.verificationStatus = "pending";
         publicData.showVerificationModal = null;
+        publicData.likes = 0;
+        publicData.likedBy = [];
+        publicData.dislikes = 0;
+        publicData.dislikedBy = [];
+        publicData.createdAt = existingProfile?.createdAt || Date.now();
+      } else {
+        // ✅ 已存在且非退回的名片：一般儲存不碰審核欄位，避免 Rules 判定為竄改
+        delete publicData.isVerified;
+        delete publicData.isBlacklisted;
+        delete publicData.verificationStatus;
+        delete publicData.showVerificationModal;
+        delete publicData.createdAt;
       }
 
       // --- E. 準備私密資料 ---
@@ -7621,14 +7615,71 @@ function App() {
       };
 
       // --- F. 執行寫入 ---
-      await setDoc(doc(db, getPath("vtubers"), targetUid), publicData, {
-        merge: true,
-      });
-      await setDoc(
-        doc(db, getPath("vtubers_private"), targetUid),
-        privateData,
-        { merge: true },
+      const publicRef = doc(db, getPath("vtubers"), targetUid);
+      const privateRef = doc(db, getPath("vtubers_private"), targetUid);
+      const isNewProfile = !existingProfile;
+
+      console.group("🧪 V-Nexus 名片儲存 Debug");
+      console.log("目前登入 uid:", user?.uid);
+      console.log("目標 targetUid:", targetUid);
+      console.log("是否管理員:", !!isAdmin);
+      console.log("是否新名片:", isNewProfile);
+      console.log("publicData keys:", Object.keys(publicData));
+      console.table(
+        Object.keys(publicData).map((key) => ({
+          key,
+          type: Array.isArray(publicData[key]) ? "array" : typeof publicData[key],
+          value:
+            typeof publicData[key] === "string"
+              ? publicData[key].slice(0, 80)
+              : JSON.stringify(publicData[key] ?? "").slice(0, 120),
+        })),
       );
+      console.groupEnd();
+
+      // ✅ 舊公開名片如果殘留 fcmToken/contactEmail 等敏感欄位，
+      // 新版 Rules 的 noPublicSensitiveKeys 會導致任何後續更新被拒絕。
+      // 因此更新舊名片時一併刪除這些欄位。
+      const publicFieldCleanup = isNewProfile ? {} : {
+        fcmToken: deleteField(),
+        privateEmail: deleteField(),
+        contactEmail: deleteField(),
+        publicEmail: deleteField(),
+        publicEmailVerified: deleteField(),
+        verificationNote: deleteField(),
+        emailOtp: deleteField(),
+        admin: deleteField(),
+        role: deleteField(),
+        customClaims: deleteField(),
+        lastEmailSentAt: deleteField(),
+        lastNotifSentAt: deleteField(),
+        rejectionCount: deleteField(),
+        lastRejectedAt: deleteField(),
+        status: deleteField(),
+      };
+
+      try {
+        if (isNewProfile) {
+          await setDoc(publicRef, publicData, { merge: true });
+        } else {
+          await updateDoc(publicRef, { ...publicData, ...publicFieldCleanup });
+        }
+        console.log("✅ public vtubers 寫入成功");
+      } catch (err) {
+        console.error("❌ public vtubers 寫入失敗:", err);
+        console.log("失敗時 publicData keys:", Object.keys(publicData));
+        console.log("失敗時 publicData:", publicData);
+        throw err;
+      }
+
+      try {
+        await setDoc(privateRef, privateData, { merge: true });
+        console.log("✅ private vtubers_private 寫入成功");
+      } catch (err) {
+        console.error("❌ private vtubers_private 寫入失敗:", err);
+        console.log("失敗時 privateData keys:", Object.keys(privateData));
+        throw err;
+      }
 
       // --- G. 同步本地與快取 ---
       setRealVtubers((prev) => {
@@ -7649,7 +7700,7 @@ function App() {
     } catch (err) {
       console.error("儲存失敗詳細錯誤:", err);
       // 這裡會噴出具體的錯誤原因，請打開 F12 查看
-      showToast(`❌ 儲存失敗: ${err.message.slice(0, 20)}...`);
+      showToast(`❌ 儲存失敗: ${err.code || ""} ${err.message || err}`);
     }
   };
 
@@ -7738,7 +7789,6 @@ function App() {
         fromUserAvatar: myProfile?.avatar || "",
         message: msg,
         type: "status_reaction",
-        sendEmail: false,
         createdAt: Date.now(),
         read: false,
       });
@@ -8073,7 +8123,7 @@ function App() {
 
       showToast(isApplying ? "✅ 已成功送出意願！" : "已收回意願");
       if (isApplying && bulletinAuthorId !== user.uid) {
-        // 🔒 統一寫入通知，並標記 sendEmail: true 觸發後端寄信
+        // 🔒 統一寫入通知；寄信由後端依 type 與節流規則判斷
         addDoc(collection(db, getPath("notifications")), {
           userId: bulletinAuthorId,
           fromUserId: user.uid,
@@ -8081,7 +8131,6 @@ function App() {
           fromUserAvatar: myProfile?.avatar || user.photoURL,
           message: "對您的招募企劃表達了意願！快去招募佈告欄看看！",
           type: "bulletin_apply",
-          sendEmail: true,
           createdAt: Date.now(),
           read: false,
         }).catch(() => { });
@@ -8768,7 +8817,7 @@ function App() {
           console.log(`正在轉換企劃：${data.title || docSnap.id} ...`);
 
           // 1. 在 Storage 建立專屬路徑 (放進 bulletin_covers 資料夾)
-          const imageRef = ref(storage, `bulletin_covers/${docSnap.id}_${Date.now()}.jpg`);
+          const imageRef = ref(storage, `bulletin_covers/${user.uid}/${docSnap.id}_${Date.now()}.jpg`);
 
           // 2. 將 Base64 字串上傳到 Storage ('data_url' 格式)
           await uploadString(imageRef, data.coverImage, 'data_url');
@@ -8914,52 +8963,37 @@ function App() {
   };
 
   const handleSendMassEmail = async (subject, content) => {
-    const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-
-    const targets = realVtubers.filter(v => {
-      const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
-      return email && email.includes("@");
-    });
-
-    if (targets.length === 0) {
-      return showToast("❌ 找不到任何有效的信箱");
+    if (!subject?.trim() || !content?.trim()) {
+      return showToast("❌ 請輸入主旨與內容");
     }
 
     setMassEmailSending(true);
     setMassEmailCurrent(0);
-    setMassEmailTotal(targets.length);
-    setMassEmailLog("準備發送中...");
+    setMassEmailTotal(1);
+    setMassEmailLog("正在交給後端批次寄送...");
 
-    let successCount = 0;
-    let failCount = 0;
+    try {
+      const fn = httpsCallable(functionsInstance, "sendMassEmail");
+      const res = await fn({
+        subject: subject.trim(),
+        text: content.trim(),
+        testOnly: false,
+      });
 
-    for (let i = 0; i < targets.length; i++) {
-      const v = targets[i];
-      const email = privateDocs[v.id]?.contactEmail || v.publicEmail;
-      setMassEmailCurrent(i + 1);
-      setMassEmailLog(`正在寄給：${v.name}（${email}）`);
-
-      try {
-        await sendSystemEmail({
-          to: email,
-          subject: `[V-Nexus 官方公告] ${subject}`,
-          text: `您好，${v.name}！\n\n${content}\n\n祝 聯動順利！\nV-Nexus 團隊`,
-        });
-        successCount++;
-      } catch (err) {
-        console.error(`發送給 ${email} 失敗:`, err);
-        failCount++;
-        setMassEmailLog(`⚠️ ${v.name} 寄送失敗，繼續下一位...`);
+      if (res.data?.success) {
+        showToast(`✅ ${res.data.message || "全站通知信已送出"}`);
+      } else {
+        showToast(`❌ 發送失敗：${res.data?.message || "未知錯誤"}`);
       }
-
-      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (err) {
+      console.error("sendMassEmail error:", err);
+      showToast(`❌ 呼叫後端失敗：${err.message}`);
+    } finally {
+      setMassEmailSending(false);
+      setMassEmailLog("");
+      setMassEmailCurrent(0);
+      setMassEmailTotal(0);
     }
-
-    setMassEmailSending(false);
-    setMassEmailLog("");
-    setMassEmailCurrent(0);
-    setMassEmailTotal(0);
-    showToast(`✅ 發送完畢！成功 ${successCount} 封，失敗 ${failCount} 封`);
   };
 
   const [massEmailSending, setMassEmailSending] = useState(false);
@@ -10811,7 +10845,6 @@ function App() {
                                 fromUserAvatar: myProfile?.avatar,
                                 message: `您已被加入聯動行程：【${publicCollabForm.title}】！`,
                                 type: "collab_added",
-                                sendEmail: true,
                                 createdAt: Date.now(),
                                 read: false,
                               },
@@ -11344,7 +11377,6 @@ function App() {
                           fromUserAvatar: myProfile.avatar || "",
                           message: inviteMessage,
                           type: "collab_invite",
-                          sendEmail: true,
                           createdAt: now,
                           read: false,
                         });
@@ -11357,7 +11389,6 @@ function App() {
                           fromUserAvatar: myProfile.avatar || "",
                           message: `【寄件備份 - 寄給 ${selectedVTuber.name}】\n\n${inviteMessage}`,
                           type: "collab_invite",
-                          sendEmail: false,
                           createdAt: now + 1,
                           read: false,
                         });
