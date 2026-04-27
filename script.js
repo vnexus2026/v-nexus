@@ -1194,8 +1194,9 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
     };
   })();
 
+  const isStoryStatus = Boolean(isStatusValid && !isLive && v.statusMessage);
   const introText =
-    (isStatusValid && !isLive && v.statusMessage) ||
+    (isStoryStatus && v.statusMessage) ||
     v.description ||
     '這位創作者還沒有填寫自我介紹。';
 
@@ -1252,9 +1253,21 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
           )}
         </div>
 
-        <p className="text-sm text-[#CBD5E1] leading-relaxed line-clamp-2 min-h-[2.5rem] mb-4">
-          {introText}
-        </p>
+        {isStoryStatus ? (
+          <div className="mb-4 min-h-[2.5rem]">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#F59E0B] mb-1">
+              <i className="fa-solid fa-stopwatch"></i>
+              限時動態
+            </div>
+            <p className="text-sm text-[#F59E0B] leading-relaxed line-clamp-2">
+              {introText}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-[#CBD5E1] leading-relaxed line-clamp-2 min-h-[2.5rem] mb-4">
+            {introText}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-4 min-h-[1.75rem]">
           {profileTags.length > 0 ? (
@@ -1282,18 +1295,6 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
             <i className={`fa-brands fa-${platformLabel === 'Twitch' ? 'twitch' : 'youtube'} ${platformLabel === 'Twitch' ? 'text-[#8B5CF6]' : 'text-[#EF4444]'} w-4 text-center flex-shrink-0`}></i>
             <span className="truncate">主要平台：{platformLabel}</span>
           </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-            className="w-full mt-3 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
-          >
-            查看名片
-            <i className="fa-solid fa-arrow-right text-xs"></i>
-          </button>
         </div>
       </div>
     </article>
