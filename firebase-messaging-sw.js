@@ -24,7 +24,7 @@ messaging.onBackgroundMessage((payload) => {
     self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-const IMAGE_CACHE_NAME = 'vnexus-image-cache-v2';
+const IMAGE_CACHE_NAME = 'vnexus-image-cache-v5';
 
 // 啟用新版 Service Worker 時清掉舊版圖片快取，避免快取無限膨脹。
 self.addEventListener('activate', (event) => {
