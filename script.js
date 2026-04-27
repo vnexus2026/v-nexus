@@ -3394,18 +3394,15 @@ const HomePage = ({
   onNavigateProfile,
 }) => {
   const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
-  // 🌟 新增：控制洗牌動畫的狀態
   const [isShuffling, setIsShuffling] = useState(false);
 
-  // 🌟 新增：處理洗牌與微動畫的函式
   const handleShuffleStatus = () => {
-    if (isShuffling) return; // 防止狂點
-    setIsShuffling(true); // 1. 觸發淡出動畫
-
+    if (isShuffling) return;
+    setIsShuffling(true);
     setTimeout(() => {
-      setStatusShuffleSeed(Date.now()); // 2. 在畫面最暗的時候替換資料
-      setIsShuffling(false); // 3. 觸發淡入動畫顯示新資料
-    }, 300); // 300毫秒的黃金微動畫時間
+      setStatusShuffleSeed(Date.now());
+      setIsShuffling(false);
+    }, 240);
   };
 
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
@@ -3451,230 +3448,485 @@ const HomePage = ({
   }, [safeDisplayCollabs.length]);
 
   const recommendedVtubers = useMemo(() => {
-    const myProfile = user ? realVtubers.find(v => v.id === user.uid) : null;
-    // 判斷是否為已認證的有效使用者
-    const isVerified = myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === 'active';
+    const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
+    const isVerified =
+      myProfile?.isVerified &&
+      !myProfile?.isBlacklisted &&
+      myProfile?.activityStatus === "active";
 
-    const candidates = [...realVtubers]
-      .filter(
-        (v) =>
-          v.isVerified &&
-          !v.isBlacklisted &&
-          v.activityStatus !== "sleep" &&
-          v.activityStatus !== "graduated" &&
-          !String(v.id || "").startsWith("mock") &&
-          v.id !== user?.uid // 排除自己
-      );
+    const candidates = [...realVtubers].filter(
+      (v) =>
+        v.isVerified &&
+        !v.isBlacklisted &&
+        v.activityStatus !== "sleep" &&
+        v.activityStatus !== "graduated" &&
+        !String(v.id || "").startsWith("mock") &&
+        v.id !== user?.uid,
+    );
 
-    // 🌟 修正：如果未登入或未認證，直接隨機洗牌，不計算契合度 (卡片上就不會出現分數)
     if (!isVerified) {
-      return candidates.sort(() => Math.random() - 0.5).slice(0, 5);
+      return candidates
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 5);
     }
 
-    // 已認證使用者：計算契合度
-    const scoredCandidates = candidates.map(v => ({
+    const scoredCandidates = candidates.map((v) => ({
       ...v,
-      compatibilityScore: calculateCompatibility(myProfile, v)
+      compatibilityScore: calculateCompatibility(myProfile, v),
     }));
 
-    // 🌟 優化 1：先篩選出契合度 >= 60% 的「及格名單」
-    let qualified = scoredCandidates.filter(v => v.compatibilityScore >= 80);
-
-    // 🌟 防呆機制：如果連一個 60 分以上的都沒有，就抓取分數最高的前 5 名當作備用名單
+    let qualified = scoredCandidates.filter((v) => v.compatibilityScore >= 80);
     if (qualified.length === 0) {
       qualified = scoredCandidates
         .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
         .slice(0, 5);
     }
 
-    // 🌟 優化 2：將及格名單「隨機打亂 (Shuffle)」
     return qualified
       .sort(() => Math.random() - 0.5)
       .slice(0, 5);
   }, [realVtubers, user]);
 
+  const myHomeProfile = useMemo(() => {
+    return user ? realVtubers.find((v) => v.id === user.uid) : null;
+  }, [realVtubers, user]);
+
+  const onboardingState = useMemo(() => {
+    const profile = myHomeProfile || {};
+    const hasProfile = !!myHomeProfile;
+    const hasAvatar = !!profile.avatar;
+    const hasCollabTypes = Array.isArray(profile.collabTypes) && profile.collabTypes.length > 0;
+    const hasSchedule =
+      profile.isScheduleAnytime ||
+      profile.isScheduleCustom ||
+      profile.isScheduleExcept ||
+      (Array.isArray(profile.scheduleSlots) && profile.scheduleSlots.length > 0);
+    const hasTags = Array.isArray(profile.tags) && profile.tags.length > 0;
+    const completed = [hasProfile, hasCollabTypes, hasSchedule, hasTags].filter(Boolean).length;
+    return {
+      percent: Math.round((completed / 4) * 100),
+      hasAvatar,
+      hasCollabTypes,
+      hasSchedule,
+      hasTags,
+    };
+  }, [myHomeProfile]);
+
   const activeStatuses = useMemo(() => {
     const now = Date.now();
-    const validStatuses = [...realVtubers].filter(
-      (v) => {
-        if (!v.isVerified || v.isBlacklisted || v.activityStatus === "sleep" || v.activityStatus === "graduated" || String(v.id || "").startsWith("mock") || !v.statusMessage || !v.statusMessageUpdatedAt) return false;
+    const validStatuses = [...realVtubers].filter((v) => {
+      if (
+        !v.isVerified ||
+        v.isBlacklisted ||
+        v.activityStatus === "sleep" ||
+        v.activityStatus === "graduated" ||
+        String(v.id || "").startsWith("mock") ||
+        !v.statusMessage ||
+        !v.statusMessageUpdatedAt
+      )
+        return false;
 
-        // 🌟 判斷限時動態是否有效 (直播 3 小時，一般 24 小時)
-        const isLiveMsg = v.statusMessage.includes('🔴');
-        const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-        return now - v.statusMessageUpdatedAt < expireLimit;
-      }
-    );
+      const isLiveMsg = v.statusMessage.includes("🔴");
+      const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      return now - v.statusMessageUpdatedAt < expireLimit;
+    });
 
-    // 隨機打亂陣列，並只取前 3 名
-    // 這裡依賴 statusShuffleSeed，只要按鈕更新了這個值，就會重新洗牌！
     return validStatuses
       .sort(() => Math.random() - 0.5)
       .slice(0, 5);
   }, [realVtubers, statusShuffleSeed]);
 
-  // 輔助組件：手機版最後一個按鈕卡片
   const MobileMoreCard = ({ onClick, icon, text, subText }) => (
     <div
-      className="flex-shrink-0 w-[60vw] sm:hidden flex flex-col items-center justify-center snap-center bg-[#181B25]/40 border border-dashed border-[#2A2F3D] rounded-2xl p-6 text-center gap-3 active:scale-95 transition-transform"
+      className="flex-shrink-0 w-[60vw] sm:hidden flex flex-col items-center justify-center snap-center bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-6 text-center gap-3 active:scale-[0.98] transition-transform"
       onClick={onClick}
     >
-      <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-full flex items-center justify-center text-[#A78BFA] text-xl">
+      <div className="w-12 h-12 bg-[#8B5CF6]/15 rounded-full flex items-center justify-center text-[#A78BFA] text-xl">
         <i className={`fa-solid ${icon}`}></i>
       </div>
       <div>
-        <p className="text-white font-bold">{text}</p>
-        <p className="text-[10px] text-[#64748B] mt-1">{subText}</p>
+        <p className="text-[#F8FAFC] font-bold">{text}</p>
+        <p className="text-[10px] text-[#94A3B8] mt-1">{subText}</p>
       </div>
     </div>
   );
 
+  const SectionHeader = ({ icon, iconColor = "text-[#8B5CF6]", title, desc, action }) => (
+    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 text-left">
+      <div>
+        <h2 className="text-2xl md:text-3xl font-extrabold text-[#F8FAFC] flex items-center gap-2">
+          <i className={`fa-solid ${icon} ${iconColor}`}></i>
+          {title}
+        </h2>
+        {desc && <p className="text-[#94A3B8] text-sm mt-2 leading-relaxed">{desc}</p>}
+      </div>
+      {action}
+    </div>
+  );
+
+  const GuideCard = ({ icon, title, desc, onClick, color = "#8B5CF6" }) => (
+    <button
+      onClick={onClick}
+      className="text-left bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] rounded-2xl p-5 transition-colors group"
+    >
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+        style={{ backgroundColor: `${color}22`, color }}
+      >
+        <i className={`fa-solid ${icon}`}></i>
+      </div>
+      <h3 className="text-[#F8FAFC] font-bold mb-1 group-hover:text-white transition-colors">
+        {title}
+      </h3>
+      <p className="text-[#94A3B8] text-sm leading-relaxed">{desc}</p>
+    </button>
+  );
+
   return (
-    <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
-      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-sm font-medium mb-6">
-        <i className="fa-solid fa-rocket"></i>{" "}
-        <span>專為 VTuber 打造的聯動平台</span>
-      </div>
-      <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-12 leading-tight">
-        V-NEXUS <br />
-        <br />
-        讓是I人的你 <br className="my-2" />
-        也可以找到
-        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-red-400">
-          最佳聯動夥伴
-        </span>
-      </h1>
-      <p className="text-[#94A3B8] mb-4 max-w-2xl mx-auto text-lg leading-relaxed">
-        大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？
-        <br className="hidden md:block" />
-        註冊你的名片，找尋你的夥伴吧！
-      </p>
-      <p className="text-[#EF4444] text-sm font-bold mb-10 max-w-2xl mx-auto">
-        目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。
-      </p>
+    <section className="pt-10 md:pt-14 pb-20 px-4 max-w-6xl mx-auto animate-fade-in-up">
+      {/* 1. 簡短 Hero：社群入口，而不是產品宣傳頁 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-6 items-stretch mb-10">
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5">
+            <i className="fa-solid fa-link"></i>
+            <span>專為 VTuber 打造的聯動社群</span>
+          </div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#F8FAFC] mb-5">
+            為你的 Vtuber 生涯加一點朋友！
+          </h1>
+          <p className="text-[#CBD5E1] text-lg md:text-xl leading-relaxed max-w-2xl mb-3">
+            找聯動、發企劃、認識適合一起創作的 VTuber。
+          </p>
+          <p className="text-[#94A3B8] text-sm md:text-base leading-relaxed max-w-2xl">
+            大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？註冊你的名片，找尋你的夥伴吧！
+          </p>
+          <p className="text-[#F59E0B] text-xs md:text-sm font-bold mt-5 leading-relaxed max-w-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-xl px-4 py-3">
+            目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。
+          </p>
 
-      <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
-        <button
-          onClick={() => navigate("grid")}
-          className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white px-8 rounded-xl font-bold shadow-sm transition-transform w-full sm:w-auto flex items-center justify-center"
-        >
-          <i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴
-        </button>
-        <button
-          onClick={() => navigate("dashboard")}
-          className="h-14 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-white px-8 rounded-xl font-bold shadow-sm transition-transform w-full sm:w-auto flex items-center justify-center"
-        >
-          <i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片
-        </button>
-        <div className="flex flex-col items-center w-full sm:w-auto">
-          <button
-            onClick={onOpenUpdates}
-            className="relative h-14 bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-8 rounded-xl font-bold shadow-sm shadow-blue-500/25 transition-transform flex items-center justify-center w-full sm:w-auto"
-          >
-            <i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布
-            {hasUnreadUpdates && (
-              <span className="absolute -top-2 -right-2 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#EF4444] border border-[#0f111a]"></span>
-              </span>
-            )}
-          </button>
+          {/* 2. 立即行動 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
+            <button
+              onClick={() => navigate("dashboard")}
+              className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+            >
+              <i className="fa-solid fa-pen-to-square mr-2"></i>建立名片
+            </button>
+            <button
+              onClick={() => navigate("grid")}
+              className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+            >
+              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>探索創作者
+            </button>
+            <button
+              onClick={onOpenUpdates}
+              className="relative h-12 bg-[#38BDF8]/12 hover:bg-[#38BDF8]/20 text-[#7DD3FC] border border-[#38BDF8]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+            >
+              <i className="fa-solid fa-bullhorn mr-2"></i>最新消息
+              {hasUnreadUpdates && (
+                <span className="absolute -top-1.5 -right-1.5 rounded-full h-3.5 w-3.5 bg-[#EF4444] border border-[#0F111A]"></span>
+              )}
+            </button>
+            <button
+              onClick={onOpenRules}
+              className="h-12 bg-[#EF4444]/10 hover:bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+            >
+              <i className="fa-solid fa-triangle-exclamation mr-2"></i>聯動規範
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0">
-          <button
-            onClick={onOpenRules}
-            className="h-14 bg-[#3B171D]/80 hover:bg-[#7F1D1D] text-red-100 border border-[#EF4444]/50 px-8 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center w-full sm:w-auto"
-          >
-            <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-            V-NEXUS聯動規範
-          </button>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
-          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
-            網站總瀏覽人次
-          </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-            {siteStats?.pageViews !== null ? (
-              <AnimatedCounter value={siteStats.pageViews} />
-            ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
-            )}
-          </p>
-        </div>
-        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
-          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
-            V-NEXUS已成功讓VTUBER聯動
-          </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
-            {!isLoadingCollabs ? (
-              <AnimatedCounter value={completedCollabsCount} />
-            ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
-            )}
-            <span className="text-xl text-[#64748B] font-bold ml-1">次</span>
-          </p>
-        </div>
-        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
-          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
-            目前VTUBER註冊人數
-          </p>
-          <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
-            {registeredCount !== null ? (
-              <AnimatedCounter value={registeredCount} />
-            ) : (
-              <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
-            )}
-            <span className="text-xl text-[#64748B] font-bold ml-1">位</span>
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-[#64748B] font-medium tracking-widest mb-8 -mt-2">
-        本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
-      </p>
-
-      {activeStatuses.length > 0 && (
-        <div className="mt-8 mb-8 pt-12 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
-
-          {/* 標題與按鈕區塊 */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
-            <div className="text-left">
-              <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-                {/* 🌟 改為橘色 */}
-                <i className="fa-solid fa-stopwatch text-[#F59E0B]"></i>{" "}
-                24H 最新動態
-              </h2>
-              <p className="text-[#94A3B8] text-sm">
-                看看大家現在正在做什麼！(至名片編輯即可發布，24小時後自動隱藏)
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 text-left flex flex-col justify-between">
+          <div>
+            <p className="text-[#94A3B8] text-xs font-bold tracking-widest uppercase mb-3">
+              Community Snapshot
+            </p>
+            <h2 className="text-2xl font-extrabold text-[#F8FAFC] mb-2">
+              今天就從一張名片開始
+            </h2>
+            <p className="text-[#94A3B8] text-sm leading-relaxed">
+              建立名片、填上聯動偏好，再去看看最近有哪些創作者正在找企劃夥伴。
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 mt-6">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
+              <p className="text-[#94A3B8] text-xs font-bold mb-1">目前VTUBER註冊人數</p>
+              <p className="text-2xl font-black text-[#22C55E]">
+                {registeredCount !== null ? <AnimatedCounter value={registeredCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
+                <span className="text-sm text-[#94A3B8] ml-1">位</span>
               </p>
             </div>
-            {/* 電腦版按鈕群組 (靠右對齊) */}
-            <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
+              <p className="text-[#94A3B8] text-xs font-bold mb-1">已成功促成聯動</p>
+              <p className="text-2xl font-black text-[#38BDF8]">
+                {!isLoadingCollabs ? <AnimatedCounter value={completedCollabsCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
+                <span className="text-sm text-[#94A3B8] ml-1">次</span>
+              </p>
+            </div>
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
+              <p className="text-[#94A3B8] text-xs font-bold mb-1">網站總瀏覽人次</p>
+              <p className="text-2xl font-black text-[#8B5CF6]">
+                {siteStats?.pageViews !== null ? <AnimatedCounter value={siteStats.pageViews} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 今日活躍創作者 */}
+      {recommendedVtubers.length > 0 && (
+        <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
+          <SectionHeader
+            icon="fa-user-group"
+            iconColor="text-[#22C55E]"
+            title="今日活躍創作者"
+            desc="先看看最近適合認識的創作者，從一張名片開始找到聯動可能。"
+            action={
               <button
-                onClick={handleShuffleStatus}
-                disabled={isShuffling}
-                className="bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => navigate("grid")}
+                className="hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap"
               >
-                {/* 🌟 改為橘色 */}
-                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
+                探索更多 <i className="fa-solid fa-arrow-right text-[#38BDF8]"></i>
+              </button>
+            }
+          />
+
+          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 sm:overflow-visible custom-scrollbar">
+            {recommendedVtubers.map((v) => (
+              <div key={v.id} className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto">
+                <VTuberCard
+                  v={v}
+                  onSelect={() => {
+                    setSelectedVTuber(v);
+                    navigate(`profile/${v.id}`);
+                  }}
+                  onDislike={() => {}}
+                />
+              </div>
+            ))}
+            <div className="flex-shrink-0 w-[60vw] sm:hidden">
+              <MobileMoreCard
+                onClick={() => navigate("grid")}
+                icon="fa-magnifying-glass"
+                text="探索更多創作者"
+                subText="查看完整 VTuber 名單"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. 最近招募 */}
+      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
+        <SectionHeader
+          icon="fa-bullhorn"
+          iconColor="text-[#8B5CF6]"
+          title="最近招募"
+          desc="正在尋找夥伴的企劃，或許就有你感興趣的。"
+          action={
+            <button
+              onClick={goToBulletin}
+              className="hidden sm:flex bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap"
+            >
+              發現招募 <i className="fa-solid fa-arrow-right"></i>
+            </button>
+          }
+        />
+
+        {randomBulletins.length > 0 ? (
+          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
+            {randomBulletins.map((b) => (
+              <div key={b.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+                <BulletinCard
+                  b={b}
+                  user={user}
+                  isVerifiedUser={isVerifiedUser}
+                  onNavigateProfile={onNavigateProfile}
+                  onApply={onApply}
+                  currentView="home"
+                />
+              </div>
+            ))}
+            <MobileMoreCard
+              onClick={goToBulletin}
+              icon="fa-bullhorn"
+              text="查看更多招募"
+              subText="尋找適合你的聯動企劃"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
+            <p className="text-[#94A3B8] font-bold text-lg">目前暫無招募中的企劃</p>
+            <p className="text-[#64748B] text-sm mt-2">成為第一個發起聯動企劃的人吧。</p>
+          </div>
+        )}
+      </div>
+
+      {/* 5. 即將聯動 */}
+      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full">
+        <SectionHeader
+          icon="fa-calendar-check"
+          iconColor="text-[#38BDF8]"
+          title="即將聯動"
+          desc="看看有哪些 VTuber 即將展開合作，也可以從中認識新夥伴。"
+          action={
+            <button
+              onClick={() => navigate("collabs")}
+              className="hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap"
+            >
+              完整聯動表 <i className="fa-solid fa-arrow-right text-[#38BDF8]"></i>
+            </button>
+          }
+        />
+
+        {randomCollabs.length > 0 ? (
+          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full">
+            {randomCollabs.map((c) => (
+              <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+                <CollabCard
+                  c={c}
+                  isLive={
+                    c.startTimestamp &&
+                    currentTime >= c.startTimestamp &&
+                    currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
+                  }
+                  vtuber={realVtubers.find((v) => v.id === c.userId)}
+                  realVtubers={realVtubers}
+                  onNavigateProfile={(vt) => {
+                    setSelectedVTuber(vt);
+                    navigate(`profile/${vt.id}`);
+                  }}
+                  onShowParticipants={onShowParticipants}
+                />
+              </div>
+            ))}
+            <MobileMoreCard
+              onClick={() => navigate("collabs")}
+              icon="fa-calendar-check"
+              text="查看完整聯動表"
+              subText="掌握所有即將到來的直播"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
+            <p className="text-[#94A3B8] font-bold text-lg">
+              <i className="fa-solid fa-ghost mb-4 text-3xl block text-[#64748B]"></i>
+              目前沒有即將到來的聯動行程
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 6. 新手引導 */}
+      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
+        <SectionHeader
+          icon="fa-compass"
+          iconColor="text-[#F59E0B]"
+          title="第一次來 V-Nexus？"
+          desc="照著這四步走，更容易找到適合一起創作的夥伴。"
+        />
+
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 md:p-6 mb-5 text-left">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-[#94A3B8] text-xs font-bold tracking-widest uppercase mb-2">Profile onboarding</p>
+              <h3 className="text-[#F8FAFC] text-xl font-extrabold mb-2">
+                你的 V-Nexus 名片完成度 {onboardingState.percent}%
+              </h3>
+              <div className="h-2.5 bg-[#11131C] border border-[#2A2F3D] rounded-full overflow-hidden max-w-xl">
+                <div
+                  className="h-full bg-[#8B5CF6] transition-all duration-300"
+                  style={{ width: `${onboardingState.percent}%` }}
+                ></div>
+              </div>
+              <p className="text-[#94A3B8] text-sm mt-3 leading-relaxed">
+                完成名片、聯動類型與可聯動時段後，其他創作者會更容易判斷是否適合邀請你。
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <button
+                onClick={() => navigate("dashboard")}
+                className={`px-3 py-2 rounded-xl text-sm font-bold border transition-colors whitespace-nowrap ${onboardingState.hasAvatar ? "bg-[#22C55E]/10 text-[#86EFAC] border-[#22C55E]/25" : "bg-[#11131C] text-[#F8FAFC] border-[#2A2F3D] hover:bg-[#1D2130]"}`}
+              >
+                {onboardingState.hasAvatar ? "已補上頭像" : "補上頭像"}
               </button>
               <button
-                onClick={() => navigate("status_wall")}
-                // 🌟 改為橘色
-                className="bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                onClick={() => navigate("dashboard")}
+                className={`px-3 py-2 rounded-xl text-sm font-bold border transition-colors whitespace-nowrap ${onboardingState.hasSchedule ? "bg-[#22C55E]/10 text-[#86EFAC] border-[#22C55E]/25" : "bg-[#11131C] text-[#F8FAFC] border-[#2A2F3D] hover:bg-[#1D2130]"}`}
               >
-                <i className="fa-solid fa-pen-nib"></i> 發布我的動態
+                {onboardingState.hasSchedule ? "已填寫時段" : "填寫聯動時段"}
+              </button>
+              <button
+                onClick={() => navigate("dashboard")}
+                className={`px-3 py-2 rounded-xl text-sm font-bold border transition-colors whitespace-nowrap ${onboardingState.hasTags ? "bg-[#22C55E]/10 text-[#86EFAC] border-[#22C55E]/25" : "bg-[#11131C] text-[#F8FAFC] border-[#2A2F3D] hover:bg-[#1D2130]"}`}
+              >
+                {onboardingState.hasTags ? "已新增標籤" : "新增常玩遊戲"}
               </button>
             </div>
           </div>
+        </div>
 
-          {/* 🌟 手機版橫向滑動 (flex overflow-x-auto)，電腦版 5 欄網格 (lg:grid-cols-5) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <GuideCard
+            icon="fa-id-card"
+            title="Step 1：建立名片"
+            desc="先讓大家知道你是誰、常玩什麼、想找哪種聯動。"
+            onClick={() => navigate("dashboard")}
+            color="#8B5CF6"
+          />
+          <GuideCard
+            icon="fa-gamepad"
+            title="Step 2：選擇聯動類型"
+            desc="選好想找的合作內容，讓適合的人更容易找到你。"
+            onClick={() => navigate("dashboard")}
+            color="#38BDF8"
+          />
+          <GuideCard
+            icon="fa-calendar-days"
+            title="Step 3：填寫可聯動時段"
+            desc="清楚標示時間，可以減少來回詢問，也更容易成功約到。"
+            onClick={() => navigate("dashboard")}
+            color="#F59E0B"
+          />
+          <GuideCard
+            icon="fa-magnifying-glass"
+            title="Step 4：開始探索創作者"
+            desc="看看近期活躍的人、招募企劃，從一個輕鬆的邀請開始。"
+            onClick={() => navigate("grid")}
+            color="#22C55E"
+          />
+        </div>
+      </div>
+
+      {/* 保留 24H 社群動態，但降為首頁後段補充內容 */}
+      {activeStatuses.length > 0 && (
+        <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
+          <SectionHeader
+            icon="fa-stopwatch"
+            iconColor="text-[#F59E0B]"
+            title="24H 最新動態"
+            desc="看看大家現在正在做什麼！(至名片編輯即可發布，24小時後自動隱藏)"
+            action={
+              <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+                <button
+                  onClick={handleShuffleStatus}
+                  disabled={isShuffling}
+                  className="bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
+                </button>
+                <button
+                  onClick={() => navigate("status_wall")}
+                  className="bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                >
+                  <i className="fa-solid fa-pen-nib"></i> 發布我的動態
+                </button>
+              </div>
+            }
+          />
+
           <div
-            className={`flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar transition-all duration-300 ease-in-out ${isShuffling ? "opacity-0 scale-95 blur-sm" : "opacity-100 scale-100 blur-0"
-              }`}
+            className={`flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar transition-opacity duration-200 ${isShuffling ? "opacity-0" : "opacity-100"}`}
           >
             {activeStatuses.map((v) => (
               <div
@@ -3683,43 +3935,33 @@ const HomePage = ({
                   setSelectedVTuber(v);
                   navigate(`profile/${v.id}`);
                 }}
-                // 🌟 改為橘色
-                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-[#181B25]/60 border border-[#F59E0B]/30 hover:border-[#FBBF24] rounded-2xl p-5 cursor-pointer transition-all shadow-sm group flex flex-col gap-4"
+                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-[#181B25] border border-[#F59E0B]/25 hover:border-[#F59E0B]/50 rounded-2xl p-5 cursor-pointer transition-colors shadow-sm group flex flex-col gap-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
                       src={sanitizeUrl(v.avatar)}
-                      // 🌟 改為橘色
-                      className="w-12 h-12 rounded-full object-cover border border-[#F59E0B] group-transition-transform"
+                      className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D]"
                     />
-                    {/* 🌟 改為橘色 */}
-                    <div className="absolute -bottom-1 -right-1 bg-[#F59E0B] w-4 h-4 rounded-full border border-gray-900 flex items-center justify-center">
+                    <div className="absolute -bottom-1 -right-1 bg-[#F59E0B] w-4 h-4 rounded-full border border-[#0F111A] flex items-center justify-center">
                       <i className="fa-solid fa-bolt text-[8px] text-white"></i>
                     </div>
                   </div>
                   <div className="min-w-0 flex-1 text-left">
-                    {/* 🌟 改為橘色 */}
-                    <h4 className="text-white font-bold truncate text-sm group-hover:text-orange-300 transition-colors">
+                    <h4 className="text-[#F8FAFC] font-bold truncate text-sm group-hover:text-[#FBBF24] transition-colors">
                       {v.name}
                     </h4>
-                    <p className="text-[10px] text-[#94A3B8]">
-                      {/* 🌟 優化：套用相對時間 (發布了 X 分鐘) */}
-                      {formatRelativeTime(v.statusMessageUpdatedAt)}
-                    </p>
+                    <p className="text-[10px] text-[#94A3B8]">{formatRelativeTime(v.statusMessageUpdatedAt)}</p>
                   </div>
                 </div>
-                {/* 🌟 改為橘色漸層 */}
-                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 border border-[#F59E0B]/20 flex-1 text-left relative overflow-hidden">
-                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-[#F59E0B]/10"></i>
-                  <p className="text-sm text-orange-100 line-clamp-3 leading-relaxed relative z-10 font-medium">
+                <div className="bg-[#11131C] rounded-xl p-4 border border-[#2A2F3D] flex-1 text-left relative overflow-hidden">
+                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-2xl text-[#F59E0B]/10"></i>
+                  <p className="text-sm text-[#F8FAFC] line-clamp-3 leading-relaxed relative z-10 font-medium">
                     {v.statusMessage}
                   </p>
                 </div>
               </div>
             ))}
-
-            {/* 🌟 手機版最後的「觀看更多」卡片 */}
             <div className="flex-shrink-0 w-[60vw] sm:hidden">
               <MobileMoreCard
                 onClick={() => navigate("status_wall")}
@@ -3730,214 +3972,30 @@ const HomePage = ({
             </div>
           </div>
 
-          {/* 手機版按鈕群組 (顯示在卡片下方，並排顯示) */}
           <div className="mt-2 sm:hidden flex gap-3 justify-center">
             <button
               onClick={handleShuffleStatus}
               disabled={isShuffling}
               className="flex-1 bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {/* 🌟 改為橘色 */}
               <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
             </button>
             <button
               onClick={() => navigate("status_wall")}
-              // 🌟 改為橘色
               className="flex-1 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-pen-nib"></i> 發布動態
             </button>
           </div>
-
-          {/* 🌟 電腦版下方的「觀看更多」按鈕 */}
-          <div className="hidden sm:flex mt-8 justify-center">
-            <button
-              onClick={() => navigate("status_wall")}
-              className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 border border-[#2A2F3D]"
-            >
-              <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 觀看更多 24H 最新動態
-            </button>
-          </div>
-
         </div>
       )}
 
-      {/* 歡迎新 VTuber */}
-      {recommendedVtubers.length > 0 && (
-        <div className="mt-8 mb-16 pt-12 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
-          <div className="text-left mb-8">
-            <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
-              <i className="fa-solid fa-heart-circle-bolt text-pink-500"></i>{" "}
-              為您推薦跟你最契合的V朋朋
-            </h2>
-            <p className="text-[#94A3B8] text-sm">
-              系統透過 AI 與標籤分析，為您找出最適合聯動的潛在夥伴！快去看看他們的名片吧！
-            </p>
-          </div>
-
-          {/* 手機版橫移，電腦版網格 */}
-          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar">
-            {recommendedVtubers.map((v) => (
-              <div
-                key={v.id}
-                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto"
-              >
-                <VTuberCard
-                  key={v.id}
-                  v={v}
-                  onSelect={() => {
-                    setSelectedVTuber(v);
-                    navigate(`profile/${v.id}`);
-                  }}
-                  onDislike={() => handleInitiateDislike(v)}
-                />
-              </div>
-            ))}
-            <div className="flex-shrink-0 w-[60vw] sm:hidden">
-              <MobileMoreCard
-                onClick={() => navigate("grid")}
-                icon="fa-magnifying-glass"
-                text="來這裡找更多夥伴"
-                subText="查看完整 VTuber 名單"
-              />
-            </div>
-          </div>
-
-          <div className="hidden sm:flex mt-10 justify-center">
-            <button
-              onClick={() => navigate("grid")}
-              className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 border border-[#2A2F3D]"
-            >
-              <i className="fa-solid fa-magnifying-glass text-[#A78BFA]"></i>{" "}
-              來這裡找更多Vtuber夥伴
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 隨機招募區塊 */}
-      <div className="mt-16 pt-16 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
-        <div className="text-left mb-10">
-          <h2 className="text-3xl font-extrabold text-white mb-2">
-            <i className="fa-solid fa-bullhorn text-[#A78BFA] mr-2"></i>
-            來看看有哪些揪團！
-          </h2>
-          <p className="text-[#94A3B8]">
-            正在尋找夥伴的企劃，或許就有你感興趣的！
-          </p>
-        </div>
-
-        {randomBulletins.length > 0 ? (
-          <div className="flex flex-col gap-10">
-            <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
-              {randomBulletins.map((b) => (
-                <div
-                  key={b.id}
-                  className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left"
-                >
-                  <BulletinCard
-                    b={b}
-                    user={user}
-                    isVerifiedUser={isVerifiedUser}
-                    onNavigateProfile={onNavigateProfile}
-                    onApply={onApply}
-                    currentView="home"
-                  />
-                </div>
-              ))}
-              <MobileMoreCard
-                onClick={goToBulletin}
-                icon="fa-bullhorn"
-                text="查看更多招募"
-                subText="尋找適合你的聯動企劃"
-              />
-            </div>
-            <div className="hidden sm:flex justify-center">
-              <button
-                onClick={goToBulletin}
-                className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-8 py-4 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center gap-2"
-              >
-                <i className="fa-solid fa-bullhorn"></i>{" "}
-                想找夥伴聯動嗎？看這裡！
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-12 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
-            <p className="text-[#64748B] font-bold text-lg">
-              目前暫無招募中的企劃
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 為您隨機推薦聯動 */}
-      <div className="mt-16 pt-16 border-t border-[#2A2F3D]/50 w-full">
-        <div className="text-left mb-10">
-          <h2 className="text-3xl font-extrabold text-white mb-2">
-            <i className="fa-solid fa-fire text-[#EF4444] mr-2"></i>
-            為您隨機推薦聯動
-          </h2>
-          <p className="text-[#94A3B8]">
-            快來看看有哪些 VTuber 即將展開精彩合作！
-          </p>
-        </div>
-
-        {randomCollabs.length > 0 ? (
-          <div className="flex flex-col gap-10">
-            <div className="flex overflow-x-auto pb-6 gap-6 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-4xl mx-auto w-full">
-              {randomCollabs.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left"
-                >
-                  <CollabCard
-                    c={c}
-                    isLive={
-                      c.startTimestamp &&
-                      currentTime >= c.startTimestamp &&
-                      currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
-                    }
-                    vtuber={realVtubers.find((v) => v.id === c.userId)}
-                    realVtubers={realVtubers}
-                    onNavigateProfile={(vt) => {
-                      setSelectedVTuber(vt);
-                      navigate(`profile/${vt.id}`);
-                    }}
-                    onShowParticipants={onShowParticipants}
-                  />
-                </div>
-              ))}
-              <MobileMoreCard
-                onClick={() => navigate("collabs")}
-                icon="fa-broadcast-tower"
-                text="查看完整聯動表"
-                subText="掌握所有即將到來的直播"
-              />
-            </div>
-            <div className="hidden sm:flex justify-center">
-              <button
-                onClick={() => navigate("collabs")}
-                className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3 rounded-xl font-bold shadow-sm transition-transform"
-              >
-                查看完整確定聯動表{" "}
-                <i className="fa-solid fa-arrow-right ml-2"></i>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-12 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
-            <p className="text-[#64748B] font-bold text-lg">
-              <i className="fa-solid fa-ghost mb-4 text-3xl block"></i>
-              目前沒有即將到來的聯動行程
-            </p>
-          </div>
-        )}
-      </div>
+      <p className="text-xs text-[#64748B] text-center font-medium tracking-widest mt-12">
+        本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
+      </p>
     </section>
   );
 };
-
 const maskEmail = (email) => {
   if (!email || !email.includes("@")) return email;
   const [name, domain] = email.split("@");
