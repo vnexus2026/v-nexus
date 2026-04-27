@@ -75,29 +75,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
-// ✅ App Check：必須盡早初始化，放在 Firestore / Storage / Functions 初始化之前。
-// 本地開發 localhost / 127.0.0.1 會啟用 Debug Token；正式網域不會啟用。
-try {
-  if (
-    typeof location !== "undefined" &&
-    (location.hostname === "localhost" || location.hostname === "127.0.0.1")
-  ) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-    console.info("✅ App Check Debug Token 模式已啟用，請到 Firebase Console 加入此 debug token。");
-  }
-
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(
-      "6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M",
-    ),
-    isTokenAutoRefreshEnabled: true,
-  });
-  console.info("✅ App Check 初始化完成");
-} catch (error) {
-  console.warn("App Check 初始化失敗:", error);
-}
-
 const auth = getAuth(app);
 
 // 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
@@ -144,6 +121,17 @@ try {
   console.info("✅ FCM 前景推播監聽已啟動");
 } catch (e) {
   console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
+}
+
+try {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(
+      "6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M",
+    ),
+    isTokenAutoRefreshEnabled: true,
+  });
+} catch (error) {
+  console.warn("App Check:", error);
 }
 
 const provider = new GoogleAuthProvider();
@@ -465,8 +453,14 @@ const sanitizeUrl = (url) => {
     return "about:blank";
   }
 
-  // ✅ App Check 強制執行 Storage 後，不要移除 Firebase Storage download token。
-  // <img src=...> 不會像 Firebase SDK 一樣自動帶 App Check token；保留 getDownloadURL() 產生的 token 才能避免圖片 403。
+  // 🌟 終極優化：Firebase Token 免疫機制
+  // 因為 Storage 規則已設定為公開 (allow read: if true)，讀取根本不需要 Token。
+  // 我們直接把網址裡的 &token=... 拔掉，徹底解決舊 Token 失效導致的 403 破圖問題！
+  if (u.includes("firebasestorage.googleapis.com") && u.includes("&token=")) {
+    // 使用正規表達式拔除 token 參數
+    return u.replace(/&token=[a-zA-Z0-9-]+/, "");
+  }
+
   return u;
 };
 
@@ -8252,9 +8246,10 @@ function App() {
     verificationStatus: "approved",
     showVerificationModal: "approved",
     rejectionCount: 0,
+    reviewEmailQueuedAt: Date.now(),
   };
 
-  // 1. 審核資料更新：只有這一步失敗，才顯示審核失敗
+  // 審核結果信改由後端 Firestore Trigger 自動寄送，避免前端 callable / App Check / token 問題造成誤報失敗。
   try {
     await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
@@ -8267,34 +8262,13 @@ function App() {
     });
 
     showToast("已通過審核！");
+    console.info("審核已通過，審核結果信將由後端自動處理", {
+      id,
+      name: targetVtuber?.name,
+    });
   } catch (err) {
     console.error("審核通過資料更新失敗:", err);
     showToast("❌ 審核失敗");
-    return;
-  }
-
-  // 2. 通知信寄送：失敗時不可覆蓋審核成功結果
-  try {
-    let emailToSend = targetVtuber?.publicEmail;
-
-    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-    if (privSnap.exists()) {
-      const privData = privSnap.data();
-      emailToSend =
-        privData.contactEmail || privData.publicEmail || emailToSend;
-    }
-
-    if (emailToSend) {
-      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-      await sendSystemEmail({
-        to: emailToSend,
-        subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
-        text: `您好，${targetVtuber?.name || "創作者"}！恭喜您的名片已通過審核並正式上架，趕快回VNEXUS找新夥伴吧！https://www.vnexus2026.com/。`,
-      });
-    }
-  } catch (err) {
-    console.warn("審核已成功，但通知信寄送失敗:", err);
-    showToast("⚠️ 審核已通過，但通知信寄送失敗");
   }
 };
 
@@ -8329,9 +8303,10 @@ function App() {
     rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
     lastRejectedAt: now,
     updatedAt: now,
+    reviewEmailQueuedAt: now,
   };
 
-  // 1. 退回審核資料更新：只有這一步失敗，才顯示退回失敗
+  // 退回審核結果信改由後端 Firestore Trigger 自動寄送，避免前端寄信失敗影響操作結果。
   try {
     await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
@@ -8348,52 +8323,13 @@ function App() {
     });
 
     showToast("已退回審核");
+    console.info("審核已退回，審核結果信將由後端自動處理", {
+      id,
+      name: targetVtuber?.name,
+    });
   } catch (err) {
     console.error("退回審核資料更新失敗:", err);
     showToast("❌ 退回審核失敗");
-    return;
-  }
-
-  // 2. 通知信寄送：失敗時不可覆蓋退回成功結果
-  try {
-    let emailToSend = targetVtuber?.publicEmail;
-
-    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-
-    if (privSnap.exists()) {
-      const privData = privSnap.data();
-      emailToSend =
-        privData.contactEmail ||
-        privData.publicEmail ||
-        emailToSend;
-    }
-
-    if (emailToSend && emailToSend.includes("@")) {
-      const sendSystemEmail = httpsCallable(
-        functionsInstance,
-        "sendSystemEmail"
-      );
-
-      await sendSystemEmail({
-        to: emailToSend,
-        subject: `[V-Nexus] 關於您的創作者名片審核結果通知`,
-        text:
-          `您好，${targetVtuber?.name || "創作者"}！\n\n` +
-          `很抱歉，您的創作者名片本次未通過審核。\n\n` +
-          `退回原因：\n${trimmedReason}\n\n` +
-          `請回到 V-Nexus 修改資料後再次送出審核：\n` +
-          `https://www.vnexus2026.com/\n\n` +
-          `V-Nexus 團隊`,
-      });
-    } else {
-      console.warn("退回審核已成功，但找不到可寄送的 Email:", {
-        id,
-        publicEmail: targetVtuber?.publicEmail,
-      });
-    }
-  } catch (err) {
-    console.warn("退回審核已成功，但通知信寄送失敗:", err);
-    showToast("⚠️ 已退回審核，但通知信寄送失敗");
   }
 };
 
