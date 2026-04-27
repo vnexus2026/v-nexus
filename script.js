@@ -63,6 +63,11 @@ const { useState, useEffect, useMemo, useRef, createContext, useContext } = Reac
 // 🌟 建立全域的 AppContext
 const AppContext = createContext(null);
 
+// --- V-Nexus 社群色彩系統 (UI/UX 調整基準) ---
+// 背景 #0F111A / #11131C，卡片 #181B25，hover #1D2130，分隔線 #2A2F3D
+// 主紫 #8B5CF6；資訊藍 #38BDF8；成功綠 #22C55E；警示黃 #F59E0B；危險紅 #EF4444
+// 紫色只用於品牌與主要 CTA；藍/綠/黃/紅依資訊、成功、提醒、危險語意使用。
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyD_JJZUcT56VkHFH0ykBRJQ_nFLK_4p7kY",
@@ -172,7 +177,7 @@ const LazyImage = ({
   return (
     <div
       onClick={onClick}
-      className={`overflow-hidden ${containerCls} ${loaded ? "" : "bg-gray-700 animate-pulse"}`}
+      className={`overflow-hidden ${containerCls} ${loaded ? "" : "bg-[#1D2130]"}`}
     >
       {src && (
         <img
@@ -312,9 +317,9 @@ const FloatingChat = ({
     }
   };
   return (
-    <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in-up border-purple-500/30">
+    <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm flex flex-col overflow-hidden animate-fade-in-up border-white/10">
       {/* Header */}
-      <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-lg">
+      <div className="bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-sm">
 
         {/* 🌟 修改這裡：加入手機版自動關閉視窗的邏輯 */}
         <div
@@ -336,7 +341,7 @@ const FloatingChat = ({
               className="w-8 h-8 rounded-full border border-white/20 object-cover"
             />
             {onlineUsers?.has(targetVtuber.id) && (
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-purple-600 rounded-full"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border border-[#7C3AED] rounded-full"></div>
             )}
           </div>
           <span className="font-bold text-sm truncate max-w-[120px]">
@@ -346,22 +351,22 @@ const FloatingChat = ({
 
         <button
           onClick={onClose}
-          className="hover:bg-purple-700 w-8 h-8 rounded-full transition-colors flex items-center justify-center"
+          className="hover:bg-[#7C3AED] w-8 h-8 rounded-full transition-colors flex items-center justify-center"
         >
           <i className="fa-solid fa-xmark"></i>
         </button>
       </div>
 
       {/* --- 新增：懸浮警告條 (固定在頂部) --- */}
-      <div className="bg-red-950/90 backdrop-blur-md border-b border-red-500/30 px-3 py-2 z-20 flex-shrink-0">
-        <p className="text-[16px] text-red-400 leading-relaxed text-center font-medium animate-pulse">
+      <div className="bg-[#2A1418]/90 backdrop-blur-md border-b border-[#EF4444]/30 px-3 py-2 z-20 flex-shrink-0">
+        <p className="text-[16px] text-[#EF4444] leading-relaxed text-center font-medium">
           <i className="fa-solid fa-triangle-exclamation mr-1"></i>
           訊息僅留七天，僅聯絡使用，私密訊息或龐大討論請轉至DC謝謝。
         </p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0f111a]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0F111A]">
         {messages.map((m) => (
           <div
             key={m.id}
@@ -369,8 +374,8 @@ const FloatingChat = ({
           >
             <div
               className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${m.senderId === currentUser.uid
-                ? "bg-purple-600 text-white rounded-tr-none"
-                : "bg-gray-800 text-gray-200 rounded-tl-none border border-gray-700"
+                ? "bg-[#8B5CF6] text-white rounded-tr-none"
+                : "bg-[#181B25] text-[#E2E8F0] rounded-tl-none border border-[#2A2F3D]"
                 }`}
             >
               {m.text}
@@ -383,7 +388,7 @@ const FloatingChat = ({
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="p-3 bg-gray-800/80 border-t border-gray-700 flex gap-2"
+        className="p-3 bg-[#181B25]/80 border-t border-[#2A2F3D] flex gap-2"
       >
         <input
           type="text"
@@ -391,11 +396,11 @@ const FloatingChat = ({
           onChange={(e) => setInput(e.target.value)}
           placeholder="說點什麼..."
           // 🌟 優化：將 text-sm 改為 text-[16px]，完美阻止 iOS 手機點擊時自動放大畫面！
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-4 py-2 text-[16px] text-white outline-none focus:border-purple-500 transition-all"
+          className="flex-1 bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 py-2 text-[16px] text-white outline-none focus:border-[#8B5CF6] transition-all"
         />
         <button
           type="submit"
-          className="bg-purple-600 hover:bg-purple-500 text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform hover:scale-105 flex-shrink-0"
+          className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform flex-shrink-0"
         >
           <i className="fa-solid fa-paper-plane"></i>
         </button>
@@ -530,9 +535,9 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
   const renderContent = (text) => {
     return text.split('\n').map((line, idx) => {
       if (line.startsWith('## ')) return <h2 key={idx} className="text-2xl font-bold text-white mt-6 mb-3">{line.replace('## ', '')}</h2>;
-      if (line.startsWith('### ')) return <h3 key={idx} className="text-xl font-bold text-blue-300 mt-4 mb-2">{line.replace('### ', '')}</h3>;
-      if (line.startsWith('- ')) return <li key={idx} className="text-gray-300 ml-4 mb-1 list-disc flex items-start gap-2"><span className="text-blue-500 mt-1">•</span> <span>{line.replace('- ', '')}</span></li>;
-      return <p key={idx} className="text-gray-300 leading-relaxed mb-4 min-h-[1.5rem]">{line}</p>;
+      if (line.startsWith('### ')) return <h3 key={idx} className="text-xl font-bold text-[#7DD3FC] mt-4 mb-2">{line.replace('### ', '')}</h3>;
+      if (line.startsWith('- ')) return <li key={idx} className="text-[#CBD5E1] ml-4 mb-1 list-disc flex items-start gap-2"><span className="text-[#38BDF8] mt-1">•</span> <span>{line.replace('- ', '')}</span></li>;
+      return <p key={idx} className="text-[#CBD5E1] leading-relaxed mb-4 min-h-[1.5rem]">{line}</p>;
     });
   };
 
@@ -540,13 +545,13 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
     <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-extrabold text-blue-400 flex items-center gap-3"><i className="fa-solid fa-book-open-reader"></i> VTuber 寶典</h2>
-          <p className="text-gray-400 mt-2 text-sm">分享經驗、學習成長，讓您的 V 圈之路少走彎路。</p>
+          <h2 className="text-3xl font-extrabold text-[#38BDF8] flex items-center gap-3"><i className="fa-solid fa-book-open-reader"></i> VTuber 寶典</h2>
+          <p className="text-[#94A3B8] mt-2 text-sm">分享經驗、學習成長，讓您的 V 圈之路少走彎路。</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setActiveTab('list')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'list' || activeTab === 'read' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>文章列表</button>
-          {isVerifiedUser && <button onClick={() => setActiveTab('mine')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'mine' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>我的文章</button>}
-          {isVerifiedUser && <button onClick={() => setActiveTab('create')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'create' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}><i className="fa-solid fa-pen-nib mr-1"></i> 寫文章</button>}
+          <button onClick={() => setActiveTab('list')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'list' || activeTab === 'read' ? 'bg-[#38BDF8] text-[#0F111A]' : 'bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]'}`}>文章列表</button>
+          {isVerifiedUser && <button onClick={() => setActiveTab('mine')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'mine' ? 'bg-[#38BDF8] text-[#0F111A]' : 'bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]'}`}>我的文章</button>}
+          {isVerifiedUser && <button onClick={() => setActiveTab('create')} className={`px-4 py-2 rounded-xl font-bold transition-all ${activeTab === 'create' ? 'bg-[#22C55E] text-[#0F111A]' : 'bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]'}`}><i className="fa-solid fa-pen-nib mr-1"></i> 寫文章</button>}
         </div>
       </div>
 
@@ -557,19 +562,19 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
 
             {/* 左側：文章分類 */}
             <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar flex-1 w-full sm:w-auto">
-              <button onClick={() => setFilterCategory('All')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === 'All' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>全部</button>
+              <button onClick={() => setFilterCategory('All')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === 'All' ? 'bg-[#38BDF8] text-[#0F111A]' : 'bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]'}`}>全部</button>
               {ARTICLE_CATEGORIES.map(c => (
-                <button key={c} onClick={() => setFilterCategory(c)} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === c ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{c}</button>
+                <button key={c} onClick={() => setFilterCategory(c)} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filterCategory === c ? 'bg-[#38BDF8] text-[#0F111A]' : 'bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]'}`}>{c}</button>
               ))}
             </div>
 
             {/* 右側：排序下拉選單 */}
-            <div className="flex items-center gap-2 flex-shrink-0 bg-gray-800/80 p-1.5 rounded-xl border border-gray-700">
-              <span className="text-sm text-gray-400 font-bold ml-2"><i className="fa-solid fa-sort"></i> 排序</span>
+            <div className="flex items-center gap-2 flex-shrink-0 bg-[#181B25]/80 p-1.5 rounded-xl border border-[#2A2F3D]">
+              <span className="text-sm text-[#94A3B8] font-bold ml-2"><i className="fa-solid fa-sort"></i> 排序</span>
               <select
                 value={sortOrder}
                 onChange={e => setSortOrder(e.target.value)}
-                className="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                className="bg-[#0F111A] border border-[#2A2F3D] text-white text-sm rounded-lg px-3 py-1.5 outline-none focus:border-[#38BDF8] transition-colors cursor-pointer"
               >
                 <option value="latest">最新發布</option>
                 <option value="popular">最受歡迎 (最多閱讀)</option>
@@ -578,30 +583,30 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
 
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayList.length === 0 ? <p className="text-gray-500 col-span-3 text-center py-10">目前尚無分類文章</p> : displayList.map(a => {
+            {displayList.length === 0 ? <p className="text-[#64748B] col-span-3 text-center py-10">目前尚無分類文章</p> : displayList.map(a => {
               const author = realVtubers.find(v => v.id === a.userId);
               return (
-                <div key={a.id} onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="bg-gray-800/60 border border-gray-700 rounded-2xl overflow-hidden hover:border-blue-500/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all flex flex-col h-full group">
+                <div key={a.id} onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden hover:border-[#38BDF8]/50 hover:shadow-sm cursor-pointer transition-all flex flex-col h-full group">
                   {a.coverUrl && (
                     <div className="h-40 overflow-hidden relative">
-                      <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
-                      <span className="absolute bottom-2 left-3 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
+                      <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+                      <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
                   <div className="p-5 flex-1 flex flex-col">
-                    {!a.coverUrl && <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow w-fit mb-2">{a.category}</span>}
-                    <h3 className="font-bold text-white text-lg mb-2 line-clamp-2 group-hover:text-blue-400 transition-colors">{a.title}</h3>
-                    <p className="text-sm text-gray-400 line-clamp-3 mb-4">{a.content.replace(/[#*]/g, '')}</p>
-                    <div className="mt-auto pt-4 border-t border-gray-700 flex items-center justify-between">
+                    {!a.coverUrl && <span className="bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow w-fit mb-2">{a.category}</span>}
+                    <h3 className="font-bold text-white text-lg mb-2 line-clamp-2 group-hover:text-[#38BDF8] transition-colors">{a.title}</h3>
+                    <p className="text-sm text-[#94A3B8] line-clamp-3 mb-4">{a.content.replace(/[#*]/g, '')}</p>
+                    <div className="mt-auto pt-4 border-t border-[#2A2F3D] flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <img src={sanitizeUrl(author?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-8 h-8 rounded-full border border-gray-600 object-cover flex-shrink-0" />
+                        <img src={sanitizeUrl(author?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-8 h-8 rounded-full border border-[#2A2F3D] object-cover flex-shrink-0" />
                         <div className="text-xs min-w-0">
-                          <p className="text-gray-300 font-bold truncate">{author?.name || '匿名創作者'}</p>
-                          <p className="text-gray-500">{formatTime(a.createdAt)}</p>
+                          <p className="text-[#CBD5E1] font-bold truncate">{author?.name || '匿名創作者'}</p>
+                          <p className="text-[#64748B]">{formatTime(a.createdAt)}</p>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500 font-bold flex items-center gap-1.5 flex-shrink-0">
+                      <div className="text-xs text-[#64748B] font-bold flex items-center gap-1.5 flex-shrink-0">
                         <i className="fa-solid fa-eye"></i> {a.views || 0}
                       </div>
                     </div>
@@ -614,28 +619,28 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
       )}
 
       {activeTab === 'read' && currentArticle && (
-        <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl relative">
-          <button onClick={() => setActiveTab('list')} className="text-blue-400 hover:text-white mb-6 font-bold text-sm flex items-center gap-2 transition-colors"><i className="fa-solid fa-arrow-left"></i> 返回列表</button>
-          {currentArticle.coverUrl && <img src={sanitizeUrl(currentArticle.coverUrl)} className="w-full h-64 sm:h-96 object-cover rounded-2xl mb-8 border border-gray-700" />}
+        <div className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 sm:p-10 shadow-sm relative">
+          <button onClick={() => setActiveTab('list')} className="text-[#38BDF8] hover:text-white mb-6 font-bold text-sm flex items-center gap-2 transition-colors"><i className="fa-solid fa-arrow-left"></i> 返回列表</button>
+          {currentArticle.coverUrl && <img src={sanitizeUrl(currentArticle.coverUrl)} className="w-full h-64 sm:h-96 object-cover rounded-2xl mb-8 border border-[#2A2F3D]" />}
 
           <div className="flex items-center gap-3 mb-4">
-            <span className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">{currentArticle.category}</span>
-            <span className="text-gray-400 text-sm flex items-center gap-1"><i className="fa-regular fa-clock"></i>{formatTime(currentArticle.createdAt)}</span>
+            <span className="bg-[#38BDF8] text-[#0F111A] text-xs font-bold px-3 py-1 rounded-full">{currentArticle.category}</span>
+            <span className="text-[#94A3B8] text-sm flex items-center gap-1"><i className="fa-regular fa-clock"></i>{formatTime(currentArticle.createdAt)}</span>
             {/* 👇 觀看數直接讀取最新同步的真實資料，不再使用強制 +1 的假象 */}
-            <span className="text-gray-400 text-sm flex items-center gap-1"><i className="fa-solid fa-eye"></i>{currentArticle.views || 0}</span>
+            <span className="text-[#94A3B8] text-sm flex items-center gap-1"><i className="fa-solid fa-eye"></i>{currentArticle.views || 0}</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-8 leading-tight">{currentArticle.title}</h1>
 
-          <div className="flex items-center gap-4 mb-8 pb-8 border-b border-gray-700">
-            <img src={sanitizeUrl(realVtubers.find(v => v.id === currentArticle.userId)?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-12 h-12 rounded-full border-2 border-blue-500/50 object-cover" />
+          <div className="flex items-center gap-4 mb-8 pb-8 border-b border-[#2A2F3D]">
+            <img src={sanitizeUrl(realVtubers.find(v => v.id === currentArticle.userId)?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anon')} className="w-12 h-12 rounded-full border border-[#38BDF8]/50 object-cover" />
             <div>
-              <p className="text-gray-200 font-bold">{realVtubers.find(v => v.id === currentArticle.userId)?.name || '匿名創作者'}</p>
-              <p className="text-xs text-gray-500">文章作者</p>
+              <p className="text-[#E2E8F0] font-bold">{realVtubers.find(v => v.id === currentArticle.userId)?.name || '匿名創作者'}</p>
+              <p className="text-xs text-[#64748B]">文章作者</p>
             </div>
           </div>
 
-          <article className="prose prose-invert prose-blue max-w-none text-gray-300">
+          <article className="prose prose-invert prose-blue max-w-none text-[#CBD5E1]">
             {renderContent(currentArticle.content)}
           </article>
         </div>
@@ -643,22 +648,22 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
 
       {activeTab === 'mine' && (
         <div className="space-y-4">
-          {myArticles.length === 0 ? <p className="text-center text-gray-500 py-10 bg-gray-800/40 rounded-2xl border border-gray-700">您尚未發表任何文章</p> : myArticles.map(a => (
-            <div key={a.id} className="bg-gray-800 border border-gray-700 p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-blue-500/30 transition-colors">
+          {myArticles.length === 0 ? <p className="text-center text-[#64748B] py-10 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]">您尚未發表任何文章</p> : myArticles.map(a => (
+            <div key={a.id} className="bg-[#181B25] border border-[#2A2F3D] p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-[#38BDF8]/30 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  {a.status === 'published' ? <span className="bg-green-500/20 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded border border-green-500/30 flex items-center gap-1"><i className="fa-solid fa-check"></i>已發布</span> : <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-500/30 flex items-center gap-1"><i className="fa-solid fa-hourglass-half"></i>審核中</span>}
-                  <span className="text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">{a.category}</span>
+                  {a.status === 'published' ? <span className="bg-[#22C55E]/20 text-[#22C55E] text-[10px] font-bold px-2 py-0.5 rounded border border-[#22C55E]/30 flex items-center gap-1"><i className="fa-solid fa-check"></i>已發布</span> : <span className="bg-[#F59E0B]/20 text-[#F59E0B] text-[10px] font-bold px-2 py-0.5 rounded border border-[#F59E0B]/30 flex items-center gap-1"><i className="fa-solid fa-hourglass-half"></i>審核中</span>}
+                  <span className="text-[#38BDF8] text-[10px] font-bold px-2 py-0.5 rounded bg-[#38BDF8]/10 border border-[#38BDF8]/20">{a.category}</span>
                 </div>
                 <h3 className="font-bold text-white text-lg truncate">{a.title}</h3>
                 <div className="flex items-center gap-4 mt-1">
-                  <p className="text-xs text-gray-500">發布時間: {formatTime(a.createdAt)}</p>
-                  <p className="text-xs text-gray-500 font-bold flex items-center gap-1"><i className="fa-solid fa-eye"></i> {a.views || 0}</p>
+                  <p className="text-xs text-[#64748B]">發布時間: {formatTime(a.createdAt)}</p>
+                  <p className="text-xs text-[#64748B] font-bold flex items-center gap-1"><i className="fa-solid fa-eye"></i> {a.views || 0}</p>
                 </div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                {a.status === 'published' && <button onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">閱讀</button>}
-                <button onClick={() => onDelete(a.id)} className="flex-1 sm:flex-none bg-red-900/50 hover:bg-red-800 text-red-400 hover:text-white border border-red-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors">刪除文章</button>
+                {a.status === 'published' && <button onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="flex-1 sm:flex-none bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-4 py-2 rounded-xl text-sm font-bold transition-colors">閱讀</button>}
+                <button onClick={() => onDelete(a.id)} className="flex-1 sm:flex-none bg-[#3B171D]/50 hover:bg-[#7F1D1D] text-[#EF4444] hover:text-white border border-[#EF4444]/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors">刪除文章</button>
               </div>
             </div>
           ))}
@@ -666,48 +671,48 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
       )}
 
       {activeTab === 'create' && (
-        <form onSubmit={handlePublish} className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
-          <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl text-blue-300 text-sm mb-6 flex items-start gap-2">
+        <form onSubmit={handlePublish} className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 sm:p-10 shadow-sm space-y-6">
+          <div className="bg-blue-900/20 border border-[#38BDF8]/30 p-4 rounded-xl text-[#7DD3FC] text-sm mb-6 flex items-start gap-2">
             <i className="fa-solid fa-circle-info mt-1"></i>
             <span>發表文章後需經管理員審核才會公開顯示。支援簡易語法（<code>## 標題2</code>, <code>### 標題3</code>, <code>- 列表項目</code>）。</span>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">文章標題 <span className="text-red-400">*</span></label>
-            <input required type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-purple-500 outline-none" placeholder="請輸入吸引人的標題..." />
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">文章標題 <span className="text-[#EF4444]">*</span></label>
+            <input required type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-3 text-white focus:ring-[#8B5CF6] outline-none" placeholder="請輸入吸引人的標題..." />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">文章分類 <span className="text-red-400">*</span></label>
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-purple-500 outline-none">
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">文章分類 <span className="text-[#EF4444]">*</span></label>
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-3 text-white focus:ring-[#8B5CF6] outline-none">
                 {ARTICLE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-300 mb-2">封面圖網址 (選填)</label>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">封面圖網址 (選填)</label>
               {/* 👇 替換成上傳檔案與預覽介面 */}
               <div className="flex items-center gap-4">
                 {form.coverUrl && form.coverUrl.startsWith('data:image') && (
-                  <div className="relative h-12 w-20 rounded-lg overflow-hidden border border-gray-600 flex-shrink-0">
+                  <div className="relative h-12 w-20 rounded-lg overflow-hidden border border-[#2A2F3D] flex-shrink-0">
                     <img src={form.coverUrl} className="w-full h-full object-cover" alt="封面預覽" />
-                    <button type="button" onClick={() => setForm({ ...form, coverUrl: '' })} className="absolute top-0 right-0 bg-red-600/80 hover:bg-red-500 text-white w-5 h-5 flex items-center justify-center text-[10px] backdrop-blur-sm"><i className="fa-solid fa-xmark"></i></button>
+                    <button type="button" onClick={() => setForm({ ...form, coverUrl: '' })} className="absolute top-0 right-0 bg-[#EF4444]/80 hover:bg-[#EF4444] text-white w-5 h-5 flex items-center justify-center text-[10px] backdrop-blur-sm"><i className="fa-solid fa-xmark"></i></button>
                   </div>
                 )}
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleCoverUpload}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-gray-400 focus:ring-purple-500 outline-none file:cursor-pointer file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-purple-500/20 file:text-purple-400 hover:file:bg-purple-500/30 transition-colors"
+                  className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-2 text-[#94A3B8] focus:ring-[#8B5CF6] outline-none file:cursor-pointer file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#8B5CF6]/20 file:text-[#A78BFA] hover:file:bg-[#8B5CF6]/30 transition-colors"
                 />
               </div>
               {/* 👆 替換結束 */}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">文章內容 <span className="text-red-400">*</span></label>
-            <textarea required rows="15" value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} className="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-purple-500 outline-none font-mono text-sm leading-relaxed" placeholder="在此輸入文章內容..." />
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">文章內容 <span className="text-[#EF4444]">*</span></label>
+            <textarea required rows="15" value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-3 text-white focus:ring-[#8B5CF6] outline-none font-mono text-sm leading-relaxed" placeholder="在此輸入文章內容..." />
           </div>
-          <div className="flex justify-end pt-4 border-t border-gray-700">
-            <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center gap-2"><i className="fa-solid fa-paper-plane"></i> 送出審核</button>
+          <div className="flex justify-end pt-4 border-t border-[#2A2F3D]">
+            <button type="submit" className="bg-[#22C55E] hover:bg-[#22C55E] text-[#0F111A] px-8 py-3 rounded-xl font-bold shadow-sm transition-transform flex items-center gap-2"><i className="fa-solid fa-paper-plane"></i> 送出審核</button>
           </div>
         </form>
       )}
@@ -751,9 +756,9 @@ const ZODIAC_COMPATIBILITY = {
   "雙魚座": { "牡羊座": 70, "金牛座": 80, "雙子座": 45, "巨蟹座": 95, "獅子座": 50, "處女座": 80, "天秤座": 65, "天蠍座": 95, "射手座": 55, "摩羯座": 80, "水瓶座": 60, "雙魚座": 90 }
 };
 
-const inputCls = "w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 outline-none text-[16px]";
+const inputCls = "w-full min-w-0 box-border bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-3 text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none text-[16px]";
 const btnCls =
-  "w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2";
+  "w-full sm:w-auto bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white py-3 px-8 rounded-xl font-bold shadow-sm transition-transform flex justify-center items-center gap-2";
 
 const formatTime = (ts) => {
   if (!ts) return "剛剛";
@@ -900,7 +905,7 @@ const isVisible = (v, currentUser) => {
 const TagBadge = ({ text, onClick, selected }) => (
   <span
     onClick={onClick}
-    className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? "bg-purple-600 text-white border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]" : "bg-gray-800 text-gray-300 border-gray-700 hover:bg-gray-700 hover:text-white"}`}
+    className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors border ${selected ? "bg-[#8B5CF6] text-white border-[#8B5CF6]/60" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130] hover:text-white"}`}
   >
     {text}
   </span>
@@ -957,17 +962,17 @@ const CollabCard = React.memo(({
 
   return (
     <div
-      className={`group h-full ${isLive ? "bg-red-950/40 border-2 border-red-500 shadow-[0_0_30px_rgba(220,38,38,0.4)] transform scale-[1.02] z-10" : "bg-gray-800/60 border border-gray-700 hover:border-red-500/50 hover:shadow-red-500/20"} rounded-3xl overflow-hidden flex flex-col transition-all relative w-full`}
+      className={`group h-full ${isLive ? "bg-[#2A1418]/40 border border-[#EF4444] shadow-sm transform scale-[1.02] z-10" : "bg-[#181B25]/60 border border-[#2A2F3D] hover:border-[#EF4444]/50 "} rounded-2xl overflow-hidden flex flex-col transition-all relative w-full`}
     >
       {isLive && (
-        <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-center py-1.5 font-bold text-xs tracking-widest z-30 animate-pulse">
+        <div className="absolute top-0 left-0 w-full bg-[#EF4444] text-white text-center py-1.5 font-bold text-xs tracking-widest z-30">
           <i className="fa-solid fa-satellite-dish mr-2"></i> 正在進行聯動中
         </div>
       )}
       {onDeleteCollab && (isAdmin || (user && c.userId === user.uid)) && (
         <button
           onClick={() => onDeleteCollab(c.id)}
-          className={`absolute ${isLive ? "top-10" : "top-4"} right-4 z-20 bg-black/60 backdrop-blur-md text-gray-300 hover:text-red-400 hover:bg-black/80 p-2 rounded-lg transition-colors`}
+          className={`absolute ${isLive ? "top-10" : "top-4"} right-4 z-20 bg-black/60 backdrop-blur-md text-[#CBD5E1] hover:text-[#EF4444] hover:bg-black/80 p-2 rounded-lg transition-colors`}
           title="刪除此行程"
         >
           <i className="fa-solid fa-trash"></i>
@@ -978,47 +983,47 @@ const CollabCard = React.memo(({
       >
         <img
           src={displayImg}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          className="w-full h-full object-cover group-transition-transform duration-700"
           alt="聯動封面"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/20 to-transparent"></div>
-        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-gray-600 text-white px-3 py-1.5 rounded-xl flex flex-col items-center shadow-lg transform -rotate-2">
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-[#2A2F3D] text-white px-3 py-1.5 rounded-xl flex flex-col items-center shadow-sm transform -rotate-2">
+          <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">
             {c.date}
           </span>
-          <span className="text-sm text-red-400 font-extrabold">{c.time}</span>
+          <span className="text-sm text-[#EF4444] font-extrabold">{c.time}</span>
         </div>
         {c.streamUrl && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none">
             <div
-              className={`w-16 h-16 ${isLive ? "bg-red-500" : "bg-red-600/90"} text-white rounded-full flex items-center justify-center pl-1 shadow-[0_0_30px_rgba(220,38,38,0.8)] backdrop-blur-sm`}
+              className={`w-16 h-16 ${isLive ? "bg-[#EF4444]" : "bg-[#EF4444]/90"} text-white rounded-full flex items-center justify-center pl-1 shadow-sm backdrop-blur-sm`}
             >
               <i className="fa-solid fa-play text-2xl"></i>
             </div>
           </div>
         )}
       </div>
-      <div className="p-6 flex-1 flex flex-col relative z-10 bg-gray-900/80">
+      <div className="p-6 flex-1 flex flex-col relative z-10 bg-[#0F111A]/80">
         <div className="mb-2">
-          <span className="bg-purple-500/20 text-purple-300 text-[10px] px-2 py-1 rounded-lg border border-purple-500/30 font-bold">
+          <span className="bg-[#8B5CF6]/20 text-[#C4B5FD] text-[10px] px-2 py-1 rounded-lg border border-white/10 font-bold">
             {c.category || "遊戲"}
           </span>
         </div>
         <h3
-          className={`text-xl font-extrabold text-white mb-6 line-clamp-2 leading-tight transition-colors ${isLive ? "text-red-400" : "group-hover:text-red-400"}`}
+          className={`text-xl font-extrabold text-white mb-6 line-clamp-2 leading-tight transition-colors ${isLive ? "text-[#EF4444]" : "group-hover:text-[#EF4444]"}`}
         >
           {c.title}
         </h3>
         {/* 👇 加上防呆確保 isArray 才 map */}
         {Array.isArray(c.participants) && c.participants.length > 0 && (
           <div
-            className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-gray-800/50 p-1 -ml-1 rounded-lg transition-colors group/members"
+            className="flex items-center gap-2 mb-4 cursor-pointer hover:bg-[#181B25]/50 p-1 -ml-1 rounded-lg transition-colors group/members"
             onClick={(e) => {
               e.stopPropagation();
               onShowParticipants(c);
             }}
           >
-            <span className="text-[10px] text-gray-500 font-bold">
+            <span className="text-[10px] text-[#64748B] font-bold">
               聯動成員:
             </span>
             <div className="flex -space-x-2">
@@ -1033,7 +1038,7 @@ const CollabCard = React.memo(({
                 ) : null;
               })}
             </div>
-            <span className="text-[10px] text-purple-400 opacity-0 group-hover/members:opacity-100 transition-opacity ml-1">
+            <span className="text-[10px] text-[#A78BFA] opacity-0 group-hover/members:opacity-100 transition-opacity ml-1">
               查看名單
             </span>
           </div>
@@ -1044,13 +1049,13 @@ const CollabCard = React.memo(({
               href={sanitizeUrl(c.streamUrl)}
               target="_blank"
               rel="noopener noreferrer"
-              className={`w-full ${isLive ? "bg-red-500 shadow-[0_0_20px_rgba(220,38,38,0.6)] animate-pulse" : "bg-red-600 hover:bg-red-500 group-hover:shadow-[0_0_20px_rgba(220,38,38,0.4)]"} text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2`}
+              className={`w-full ${isLive ? "bg-[#EF4444] shadow-sm" : "bg-[#EF4444] hover:bg-[#EF4444] group-hover:shadow-sm"} text-white py-3.5 rounded-xl font-bold transition-all flex justify-center items-center gap-2`}
             >
               <i className="fa-solid fa-play-circle text-lg"></i> 前往待機室 /
               觀看直播
             </a>
           ) : (
-            <div className="w-full bg-gray-800 text-gray-500 py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 border border-gray-700">
+            <div className="w-full bg-[#181B25] text-[#64748B] py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 border border-[#2A2F3D]">
               <i className="fa-solid fa-clock"></i> 直播連結尚未提供
             </div>
           )}
@@ -1061,21 +1066,21 @@ const CollabCard = React.memo(({
                 e.stopPropagation();
                 onNavigateProfile(vtuber);
               }}
-              className="mt-4 pt-4 border-t border-gray-700/50 flex items-center justify-between cursor-pointer group/author hover:bg-gray-800/80 p-2 -mx-2 rounded-xl transition-colors"
+              className="mt-4 pt-4 border-t border-[#2A2F3D]/50 flex items-center justify-between cursor-pointer group/author hover:bg-[#181B25]/80 p-2 -mx-2 rounded-xl transition-colors"
             >
               <div className="flex items-center gap-3">
                 <img
                   src={sanitizeUrl(vtuber.avatar)}
-                  className="w-8 h-8 rounded-full border border-gray-600 object-cover"
+                  className="w-8 h-8 rounded-full border border-[#2A2F3D] object-cover"
                 />
                 <div className="text-left">
-                  <p className="text-[10px] text-gray-400 mb-0.5">發起人</p>
-                  <p className="text-sm font-bold text-white group-hover/author:text-purple-400 transition-colors truncate max-w-[150px]">
+                  <p className="text-[10px] text-[#94A3B8] mb-0.5">發起人</p>
+                  <p className="text-sm font-bold text-white group-hover/author:text-[#A78BFA] transition-colors truncate max-w-[150px]">
                     {vtuber.name}
                   </p>
                 </div>
               </div>
-              <button className="text-xs bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg group-hover/author:bg-purple-600 group-hover/author:text-white transition-colors font-bold">
+              <button className="text-xs bg-[#1D2130] text-[#CBD5E1] px-3 py-1.5 rounded-lg group-hover/author:bg-[#8B5CF6] group-hover/author:text-white transition-colors font-bold">
                 <i className="fa-solid fa-id-card mr-1.5"></i>查看名片
               </button>
             </div>
@@ -1100,292 +1105,218 @@ const CollabCard = React.memo(({
 });
 
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
-  const { user, isVerifiedUser, onlineUsers } = useContext(AppContext);
+  const { onlineUsers } = useContext(AppContext);
 
-  // 🌟 關鍵修復：先判斷是不是直播訊息，取得對應的過期時間 (3小時或24小時)
   const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
   const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-
-  // 🌟 然後再用這個 expireLimit 來判斷動態是否有效！
-  const isStatusValid = v.statusMessage && v.statusMessageUpdatedAt && (Date.now() - v.statusMessageUpdatedAt < expireLimit);
+  const isStatusValid =
+    v.statusMessage &&
+    v.statusMessageUpdatedAt &&
+    Date.now() - v.statusMessageUpdatedAt < expireLimit;
   const isLive = isStatusValid && isLiveMsg;
-
-  // 🌟 判斷是否在線上
   const isOnline = onlineUsers?.has(v.id);
 
+  const profileTags = Array.from(
+    new Set([
+      ...(Array.isArray(v.collabTypes) ? v.collabTypes : []),
+      ...(Array.isArray(v.tags) ? v.tags : []),
+    ].filter(Boolean)),
+  ).slice(0, 3);
+
+  const statusMeta = (() => {
+    if (isLive) {
+      return {
+        label: '直播中',
+        cls: 'bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30',
+        dot: 'bg-[#EF4444]',
+      };
+    }
+    if (!v.isVerified) {
+      return {
+        label: '待審核',
+        cls: 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30',
+        dot: 'bg-[#F59E0B]',
+      };
+    }
+    if (v.activityStatus === 'sleep') {
+      return {
+        label: '暫時休息',
+        cls: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
+        dot: 'bg-slate-400',
+      };
+    }
+    if (v.activityStatus === 'graduated') {
+      return {
+        label: '已畢業',
+        cls: 'bg-slate-600/10 text-slate-400 border-slate-600/30',
+        dot: 'bg-slate-500',
+      };
+    }
+    if (isOnline) {
+      return {
+        label: '線上',
+        cls: 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30',
+        dot: 'bg-[#22C55E]',
+      };
+    }
+    return {
+      label: '開放聯動',
+      cls: 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/25',
+      dot: 'bg-[#22C55E]',
+    };
+  })();
+
+  const introText =
+    (isStatusValid && !isLive && v.statusMessage) ||
+    v.description ||
+    '這位創作者還沒有填寫自我介紹。';
+
+  const platformLabel = v.mainPlatform || (v.twitchUrl ? 'Twitch' : 'YouTube');
+
   return (
-    <div onClick={onSelect}
-      // 🌟 優化：加入 isStatusValid 的判斷，給予橘色邊框與發光陰影！
-      // 優先級：直播中(紅) > 有發限動(橘+發光) > 待審核(黃) > 一般狀態(灰)
-      className={`group h-full bg-gray-800/40 border-2 ${isLive
-        ? "border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-        : isStatusValid
-          ? "border-orange-500/60 hover:border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)]"
-          : !v.isVerified
-            ? "border-yellow-500/50 hover:border-yellow-400"
-            : "border-gray-700/50 hover:border-purple-500/50"
-        } rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1 flex flex-col relative`}
+    <article
+      onClick={onSelect}
+      className="group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col"
     >
-      {isLive && (
-        <div className="absolute inset-0 border-2 border-red-500 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse pointer-events-none z-20"></div>
-      )}
-
-      {isLive && (
-        <div className="absolute top-3 right-3 z-30 bg-red-600 text-white text-xs font-extrabold px-3 py-1 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse flex items-center gap-1.5">
-          <i className="fa-solid fa-satellite-dish"></i> 直播中
-        </div>
-      )}
-
-      <div className="absolute top-2 left-2 z-10 flex gap-1 flex-wrap max-w-[70%]">
-
-        {/* 🌟 新增：線上狀態綠燈 */}
-        {isOnline && !isLive && (
-          <div className="bg-green-500/20 border border-green-500/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 animate-pulse">
-            <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div> 線上
-          </div>
-        )}
-        {!v.isVerified && (
-          <div className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">待審核</div>
-        )}
-        {v.activityStatus === "sleep" && (
-          <div className="bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">休眠中</div>
-        )}
-        <div className={`text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg flex items-center gap-1 ${v.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}>
-          <i className={`fa-brands fa-${v.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}></i> {v.mainPlatform || "YouTube"}
-        </div>
-        <div className="bg-black/60 border border-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-lg">
-          {v.agency}
-        </div>
-      </div>
-
-      {/* ▼ 橫幅圖片區塊 ▼ */}
-      <div className="h-24 relative overflow-hidden flex-shrink-0 bg-gray-900">
+      <div className="h-20 relative overflow-hidden bg-[#11131C] border-b border-[#2A2F3D]">
         <LazyImage
           src={sanitizeUrl(v.banner)}
           containerCls="absolute inset-0 w-full h-full"
-          imgCls="opacity-60 group-hover:scale-105 transition-transform"
+          imgCls="opacity-45 group-hover:opacity-55 transition-opacity"
+          alt={`${v.name || 'VTuber'} 橫幅`}
         />
+        <div className="absolute inset-0 bg-[#0F111A]/35"></div>
       </div>
 
-      <div className="p-4 relative flex-1 flex flex-col z-30">
-        {/* ▼ 頭像圖片區塊 ▼ */}
-        <LazyImage
-          src={sanitizeUrl(v.avatar)}
-          // 🌟 優化：加入 Avatar Halo 頭像發光光環！
-          // 如果是直播中，發出強烈紅光；如果有發限動，發出橘色光暈
-          containerCls={`absolute -top-8 left-4 w-16 h-16 rounded-xl border-2 border-gray-800 bg-gray-900 z-10 transition-all duration-300 ${isLive ? 'ring-2 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.8)] animate-pulse' : isStatusValid ? 'ring-2 ring-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.8)]' : ''}`}
-          imgCls="rounded-xl"
-        />
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="flex items-start gap-3 -mt-10 mb-3 relative z-10">
+          <LazyImage
+            src={sanitizeUrl(v.avatar)}
+            containerCls="w-16 h-16 rounded-2xl border border-[#2A2F3D] bg-[#11131C] flex-shrink-0"
+            imgCls="rounded-2xl"
+            alt={`${v.name || 'VTuber'} 頭像`}
+          />
 
-        <div className="ml-20 mb-3">
-          <h3 className="font-bold text-white truncate flex items-center gap-1">
-            {v.name}{" "}
-            {v.isVerified && (
-              <i className="fa-solid fa-circle-check text-blue-400 text-xs" title="已認證"></i>
-            )}
-          </h3>
-          <div className="flex flex-wrap gap-2 text-xs mt-1 text-gray-400">
-            {(v.youtubeSubscribers || v.subscribers || v.youtubeUrl || v.channelUrl) && (
-              <span className="flex items-center gap-1">
-                <i className="fa-brands fa-youtube text-red-400"></i> {v.youtubeSubscribers || v.subscribers || "未公開"}
-              </span>
-            )}
-            {(v.twitchFollowers || v.twitchUrl) && (
-              <span className="flex items-center gap-1">
-                <i className="fa-brands fa-twitch text-purple-400"></i> {v.twitchFollowers || "未公開"}
-              </span>
-            )}
-            <span className="flex items-center gap-1 text-green-400">
-              <i className="fa-solid fa-thumbs-up"></i> {v.likes || 0}
-            </span>
+          <div className="min-w-0 flex-1 pt-8">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="font-bold text-[#F8FAFC] truncate leading-tight">
+                {v.name || '未命名創作者'}
+              </h3>
+              {v.isVerified && (
+                <i className="fa-solid fa-circle-check text-[#38BDF8] text-xs flex-shrink-0" title="已認證"></i>
+              )}
+            </div>
+            <p className="text-xs text-[#94A3B8] truncate mt-0.5">
+              {v.agency || '個人勢'} · {platformLabel}
+            </p>
           </div>
         </div>
 
-        {/* 🌟 優化：如果是預設的直播文字，就隱藏起來讓名片更乾淨；如果有自訂文字才顯示 */}
-        {isStatusValid && (!isLive || v.statusMessage !== "🔴 正在直播中！快來找我玩！") && (
-          // 🌟 將原本的 pink/purple 替換為 orange/red
-          <div className={`mb-3 bg-gradient-to-r ${isLive ? 'from-red-500/20 to-orange-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'from-orange-500/10 to-red-500/10 border-orange-500/30'} rounded-lg px-3 py-2 text-xs ${isLive ? 'text-red-200' : 'text-orange-200'} font-medium flex items-start gap-2 shadow-inner relative`}>
-            <i className={`fa-solid ${isLive ? 'fa-satellite-dish text-red-400 animate-pulse' : 'fa-comment-dots text-orange-400 animate-bounce'} mt-0.5 text-lg`}></i>
-            <span className="line-clamp-2 leading-relaxed">{v.statusMessage}</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${statusMeta.cls}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`}></span>
+            {statusMeta.label}
+          </span>
+          {v.zodiacSign && (
+            <span className="text-xs text-[#94A3B8] flex-shrink-0">
+              {v.zodiacSign}
+            </span>
+          )}
+        </div>
 
-        <p className="text-xs text-gray-400 line-clamp-2 h-8">{v.description}</p>
+        <p className="text-sm text-[#CBD5E1] leading-relaxed line-clamp-2 min-h-[2.5rem] mb-4">
+          {introText}
+        </p>
 
-        {/* 🌟 優化：將直播風格與星座放在同一排，並讓星座靠右對齊 */}
-        {(v.streamStyleUrl || v.zodiacSign) && (
-          <div className="mt-1 mb-1 flex items-center justify-between min-h-[26px]">
-            {v.streamStyleUrl ? (
-              <a
-                href={sanitizeUrl(v.streamStyleUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[10px] bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 px-2 py-1 rounded transition-colors border border-blue-500/30 w-fit font-bold"
+        <div className="flex flex-wrap gap-2 mb-4 min-h-[1.75rem]">
+          {profileTags.length > 0 ? (
+            profileTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-2.5 py-1 rounded-full bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] text-xs"
               >
-                <i className="fa-solid fa-video"></i> 觀看我的直播風格
-              </a>
-            ) : (
-              <div></div> /* 佔位符，確保只有星座時也能靠右 */
-            )}
-
-            {/* 🌟 新增：星座標籤顯示在最右側 */}
-            {v.zodiacSign && (
-              <span className="ml-auto inline-flex items-center gap-1 text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-1 rounded border border-indigo-500/20 font-bold shadow-sm">
-                <i className="fa-solid fa-star text-yellow-400"></i> {v.zodiacSign}
+                {tag}
               </span>
-            )}
-          </div>
-        )}
+            ))
+          ) : (
+            <span className="px-2.5 py-1 rounded-full bg-[#11131C] border border-[#2A2F3D] text-[#64748B] text-xs">
+              尚未設定標籤
+            </span>
+          )}
+        </div>
 
-        <div className="mt-auto pt-2 border-t border-gray-700/50 text-xs text-gray-400 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-2">
-            <i className="fa-solid fa-clock text-purple-400"></i>{" "}
+        <div className="mt-auto pt-3 border-t border-[#2A2F3D] space-y-2">
+          <div className="flex items-center gap-2 text-xs text-[#94A3B8] min-w-0">
+            <i className="fa-solid fa-clock text-[#8B5CF6] w-4 text-center flex-shrink-0"></i>
             <span className="truncate">{formatSchedule(v)}</span>
           </div>
-          {isVerifiedUser && v.id !== user?.uid && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDislike(v);
-              }}
-              className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-50 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0"
-              title="檢舉負面行為"
-            >
-              <i className="fa-solid fa-thumbs-down text-[10px]"></i>
-            </button>
-          )}
-        </div>
-        <div className="mt-2 pt-2 border-t border-gray-700/50 flex gap-2">
-          {(v.youtubeUrl || v.channelUrl) &&
-            (v.youtubeUrl || v.channelUrl) !== "#" ? (
-            <a
-              href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="bg-red-500/20 text-red-400 hover:bg-red-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1"
-              title="YouTube"
-            >
-              <i className="fa-brands fa-youtube text-sm"></i>
-              {(v.youtubeSubscribers || v.subscribers) && (
-                <span className="text-[10px] font-bold">
-                  {v.youtubeSubscribers || v.subscribers}
-                </span>
-              )}
-            </a>
-          ) : v.youtubeSubscribers || v.subscribers ? (
-            <div
-              className="bg-red-500/10 text-red-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1"
-              title="YouTube 訂閱數"
-            >
-              <i className="fa-brands fa-youtube text-sm"></i>
-              <span className="text-[10px] font-bold">
-                {v.youtubeSubscribers || v.subscribers}
-              </span>
-            </div>
-          ) : null}
-          {v.twitchUrl && v.twitchUrl !== "#" ? (
-            <a
-              href={sanitizeUrl(v.twitchUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="bg-purple-500/20 text-purple-400 hover:bg-purple-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 gap-1"
-              title="Twitch"
-            >
-              <i className="fa-brands fa-twitch text-sm"></i>
-              {v.twitchFollowers && (
-                <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
-              )}
-            </a>
-          ) : v.twitchFollowers ? (
-            <div
-              className="bg-purple-500/10 text-purple-400/80 px-2.5 py-1.5 rounded-lg flex items-center justify-center flex-shrink-0 gap-1"
-              title="Twitch 追隨數"
-            >
-              <i className="fa-brands fa-twitch text-sm"></i>
-              <span className="text-[10px] font-bold">{v.twitchFollowers}</span>
-            </div>
-          ) : null}
-          {v.xUrl && v.xUrl !== "#" && (
-            <a
-              href={sanitizeUrl(v.xUrl)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="bg-blue-500/20 text-blue-400 hover:bg-blue-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0"
-              title="X (Twitter)"
-            >
-              <i className="fa-brands fa-x-twitter text-sm"></i>
-            </a>
-          )}
-          {v.igUrl && v.igUrl !== "#" && (
-            <a href={sanitizeUrl(v.igUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="bg-pink-500/20 text-pink-400 hover:bg-pink-50 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors flex items-center justify-center flex-shrink-0" title="Instagram">
-              <i className="fa-brands fa-instagram text-sm"></i>
-            </a>
-          )}
-        </div>
-
-        {/* 🌟 優化：將契合度移到名片最下方，並改為低調柔和的樣式 */}
-        {v.compatibilityScore && (
-          <div className="mt-3 pt-3 border-t border-gray-700/50">
-            <div className="w-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-bold py-2.5 rounded-xl flex justify-center items-center gap-2 shadow-inner transition-colors hover:bg-pink-500/20">
-              <i className="fa-solid fa-heart animate-pulse"></i> 系統判定契合度 {v.compatibilityScore}%
-            </div>
+          <div className="flex items-center gap-2 text-xs text-[#94A3B8] min-w-0">
+            <i className={`fa-brands fa-${platformLabel === 'Twitch' ? 'twitch' : 'youtube'} ${platformLabel === 'Twitch' ? 'text-[#8B5CF6]' : 'text-[#EF4444]'} w-4 text-center flex-shrink-0`}></i>
+            <span className="truncate">主要平台：{platformLabel}</span>
           </div>
-        )}
 
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
+            }}
+            className="w-full mt-3 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            查看名片
+            <i className="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </div>
       </div>
-    </div>
+    </article>
   );
 }, (prevProps, nextProps) => {
   return (
     prevProps.v.updatedAt === nextProps.v.updatedAt &&
     prevProps.v.likes === nextProps.v.likes &&
     prevProps.v.dislikes === nextProps.v.dislikes &&
-    prevProps.isVerifiedUser === nextProps.isVerifiedUser &&
     prevProps.v.statusMessage === nextProps.v.statusMessage &&
-    prevProps.v.statusMessageUpdatedAt === nextProps.v.statusMessageUpdatedAt
+    prevProps.v.statusMessageUpdatedAt === nextProps.v.statusMessageUpdatedAt &&
+    prevProps.v.activityStatus === nextProps.v.activityStatus
   );
 });
 
 const BulletinSkeleton = () => (
-  <div className="bg-gray-800/40 border border-gray-700 rounded-3xl overflow-hidden flex flex-col shadow-lg">
+  <div className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col shadow-sm">
     {/* 頂部圖片骨架 */}
-    <div className="w-full h-48 sm:h-56 bg-gray-700/30 animate-pulse"></div>
+    <div className="w-full h-48 sm:h-56 bg-[#1D2130]/30"></div>
 
     {/* 頭部資訊骨架 */}
-    <div className="bg-gray-900/60 p-5 border-b border-gray-700/50 flex items-start gap-4">
-      <div className="w-14 h-14 rounded-full bg-gray-700/50 animate-pulse flex-shrink-0"></div>
+    <div className="bg-[#0F111A]/60 p-5 border-b border-[#2A2F3D]/50 flex items-start gap-4">
+      <div className="w-14 h-14 rounded-full bg-[#1D2130]/50 flex-shrink-0"></div>
       <div className="flex-1 space-y-3 py-2">
-        <div className="h-4 bg-gray-700/50 rounded-md w-1/3 animate-pulse"></div>
-        <div className="h-3 bg-gray-700/50 rounded-md w-1/4 animate-pulse"></div>
+        <div className="h-4 bg-[#1D2130]/50 rounded-md w-1/3"></div>
+        <div className="h-3 bg-[#1D2130]/50 rounded-md w-1/4"></div>
       </div>
     </div>
 
     {/* 內容區骨架 */}
     <div className="p-6 flex-1 flex flex-col">
       <div className="space-y-3 mb-6">
-        <div className="h-3 bg-gray-700/50 rounded-md w-full animate-pulse"></div>
-        <div className="h-3 bg-gray-700/50 rounded-md w-5/6 animate-pulse"></div>
-        <div className="h-3 bg-gray-700/50 rounded-md w-4/6 animate-pulse"></div>
+        <div className="h-3 bg-[#1D2130]/50 rounded-md w-full"></div>
+        <div className="h-3 bg-[#1D2130]/50 rounded-md w-5/6"></div>
+        <div className="h-3 bg-[#1D2130]/50 rounded-md w-4/6"></div>
       </div>
 
       {/* 網格資訊骨架 */}
       <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
-        <div className="bg-gray-900/50 h-14 rounded-xl animate-pulse"></div>
-        <div className="bg-gray-900/50 h-14 rounded-xl animate-pulse"></div>
-        <div className="bg-gray-900/50 h-14 rounded-xl col-span-2 animate-pulse"></div>
+        <div className="bg-[#0F111A]/50 h-14 rounded-xl"></div>
+        <div className="bg-[#0F111A]/50 h-14 rounded-xl"></div>
+        <div className="bg-[#0F111A]/50 h-14 rounded-xl col-span-2"></div>
       </div>
 
       {/* 底部按鈕骨架 */}
-      <div className="mt-4 pt-4 border-t border-gray-700/50 flex justify-between items-center">
+      <div className="mt-4 pt-4 border-t border-[#2A2F3D]/50 flex justify-between items-center">
         <div className="flex gap-2">
-          <div className="w-6 h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
-          <div className="w-6 h-6 rounded-full bg-gray-700/50 animate-pulse -ml-2"></div>
+          <div className="w-6 h-6 rounded-full bg-[#1D2130]/50"></div>
+          <div className="w-6 h-6 rounded-full bg-[#1D2130]/50 -ml-2"></div>
         </div>
-        <div className="h-9 bg-purple-600/20 rounded-xl w-24 animate-pulse"></div>
+        <div className="h-9 bg-[#8B5CF6]/20 rounded-xl w-24"></div>
       </div>
     </div>
   </div>
@@ -1423,20 +1354,20 @@ const BulletinCard = React.memo(({
   }, [openModalId, b.id]);
 
   return (
-    <div className="bg-gray-800/60 border border-gray-700 rounded-3xl overflow-hidden flex flex-col hover:border-purple-500/50 transition-all shadow-lg group">
+    <div className="bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col hover:border-white/10 transition-all shadow-sm group">
       {b.image && (
-        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-gray-700 bg-gray-900">
+        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-[#2A2F3D] bg-[#0F111A]">
           <LazyImage
             src={sanitizeUrl(b.image)}
             containerCls="absolute inset-0 w-full h-full"
-            imgCls="group-hover:scale-105 transition-transform duration-700"
+            imgCls="group-transition-transform duration-700"
             alt="招募附圖"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent pointer-events-none z-10"></div>
         </div>
       )}
 
-      <div className="bg-gray-900/80 p-5 border-b border-gray-700 flex items-start gap-4">
+      <div className="bg-[#0F111A]/80 p-5 border-b border-[#2A2F3D] flex items-start gap-4">
         {/* ▼▼▼ 發起人頭像修改處 ▼▼▼ */}
         <LazyImage
           src={sanitizeUrl(b.vtuber.avatar)}
@@ -1445,14 +1376,14 @@ const BulletinCard = React.memo(({
             e.stopPropagation();
             onNavigateProfile(b.vtuber, false);
           }}
-          containerCls="w-14 h-14 rounded-full border-2 border-purple-500/50 flex-shrink-0 cursor-pointer hover:scale-105 transition-transform z-10"
+          containerCls="w-14 h-14 rounded-full border border-white/10 flex-shrink-0 cursor-pointer transition-transform z-10"
           imgCls="rounded-full"
         />
 
         <div className="flex-1 flex justify-between items-start gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-purple-400 font-bold text-[10px] bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+              <span className="text-[#A78BFA] font-bold text-[10px] bg-[#8B5CF6]/10 px-2 py-0.5 rounded border border-[#8B5CF6]/20">
                 發起人
               </span>
               <span
@@ -1461,26 +1392,26 @@ const BulletinCard = React.memo(({
                   e.stopPropagation();
                   onNavigateProfile(b.vtuber, false);
                 }}
-                className="font-extrabold text-white text-lg hover:text-purple-400 transition-colors cursor-pointer"
+                className="font-extrabold text-white text-lg hover:text-[#A78BFA] transition-colors cursor-pointer"
               >
                 {b.vtuber.name}
               </span>
               {b.vtuber.isVerified && (
                 <i
-                  className="fa-solid fa-circle-check text-blue-400 text-sm"
+                  className="fa-solid fa-circle-check text-[#38BDF8] text-sm"
                   title="已認證"
                 ></i>
               )}
-              <span className="text-white font-bold text-xs bg-purple-600 px-2.5 py-1 rounded-lg ml-1 shadow-sm border border-purple-500">
+              <span className="text-white font-bold text-xs bg-[#8B5CF6] px-2.5 py-1 rounded-lg ml-1 shadow-sm border border-[#8B5CF6]">
                 {b.collabType || "未指定"}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-[#94A3B8]">
                 {b.vtuber.agency}
               </span>
               <span className="text-gray-600 text-[10px]">•</span>
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-[#94A3B8]">
                 {b.postedAt} 發布
               </span>
             </div>
@@ -1492,7 +1423,7 @@ const BulletinCard = React.memo(({
         <div className="mb-4">
           {/* 將 line-clamp-[10] 改為 line-clamp-4，讓未展開時更簡潔 */}
           <div
-            className={`text-gray-300 whitespace-pre-wrap text-sm leading-relaxed transition-all duration-300 ${isExpanded ? "" : "line-clamp-4"}`}
+            className={`text-[#CBD5E1] whitespace-pre-wrap text-sm leading-relaxed transition-all duration-300 ${isExpanded ? "" : "line-clamp-4"}`}
           >
             {b.content}
           </div>
@@ -1504,7 +1435,7 @@ const BulletinCard = React.memo(({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="text-purple-400 hover:text-purple-300 text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-purple-500/10 px-3 py-1.5 rounded-lg w-full justify-center"
+            className="text-[#A78BFA] hover:text-[#C4B5FD] text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-[#8B5CF6]/10 px-3 py-1.5 rounded-lg w-full justify-center"
           >
             {isExpanded ? (
               <>
@@ -1518,24 +1449,24 @@ const BulletinCard = React.memo(({
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
-          <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-gray-500 mb-1">
+          <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
+            <span className="text-[10px] text-[#64748B] mb-1">
               <i className="fa-solid fa-users"></i> 人數
             </span>
-            <span className="text-sm font-bold text-gray-200">
+            <span className="text-sm font-bold text-[#E2E8F0]">
               {b.collabSize || "未指定"}
             </span>
           </div>
-          <div className="bg-gray-900/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-gray-500 mb-1">
+          <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
+            <span className="text-[10px] text-[#64748B] mb-1">
               <i className="fa-regular fa-calendar"></i> 時間
             </span>
-            <span className="text-sm font-bold text-gray-200">
+            <span className="text-sm font-bold text-[#E2E8F0]">
               {formatDateTimeLocalStr(b.collabTime)}
             </span>
           </div>
-          <div className="bg-red-500/5 p-3 rounded-xl border border-red-500/20 flex flex-col col-span-2">
-            <span className="text-[10px] text-red-400/80 mb-1">
+          <div className="bg-[#EF4444]/5 p-3 rounded-xl border border-[#EF4444]/20 flex flex-col col-span-2">
+            <span className="text-[10px] text-[#EF4444]/80 mb-1">
               <i className="fa-solid fa-hourglass-half"></i> 截止
             </span>
             <span className="text-sm font-bold text-red-300">
@@ -1543,21 +1474,21 @@ const BulletinCard = React.memo(({
             </span>
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-gray-700/50">
+        <div className="mt-4 pt-4 border-t border-[#2A2F3D]/50">
           {isAuthor ? (
             <div className="flex flex-col gap-3">
               {/* 🌟 給發起人看的達標提示 */}
               {isReached && (
-                <div className="text-xs text-green-400 font-bold flex items-center gap-1.5 bg-green-500/10 px-3 py-1.5 rounded-lg w-fit border border-green-500/20">
+                <div className="text-xs text-[#22C55E] font-bold flex items-center gap-1.5 bg-[#22C55E]/10 px-3 py-1.5 rounded-lg w-fit border border-[#22C55E]/20">
                   <i className="fa-solid fa-circle-check"></i> 意願人數已達標！您可以開始挑選夥伴囉
                 </div>
               )}
               <div
-                className="flex items-center justify-between bg-gray-800/40 hover:bg-gray-800 p-3 rounded-xl border border-gray-700 cursor-pointer transition-colors"
+                className="flex items-center justify-between bg-[#181B25]/40 hover:bg-[#181B25] p-3 rounded-xl border border-[#2A2F3D] cursor-pointer transition-colors"
                 onClick={() => setShowApplicants(true)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="bg-purple-500/20 w-8 h-8 rounded-full flex items-center justify-center text-purple-400">
+                  <div className="bg-[#8B5CF6]/20 w-8 h-8 rounded-full flex items-center justify-center text-[#A78BFA]">
                     <i className="fa-solid fa-users"></i>
                   </div>
                   <span className="text-sm font-bold text-white">
@@ -1574,24 +1505,24 @@ const BulletinCard = React.memo(({
                       />
                     ))}
                     {b.applicantsData?.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#181B25] ring-2 ring-gray-900 text-[10px] text-[#CBD5E1]">
                         +{b.applicantsData.length - 3}
                       </div>
                     )}
                   </div>
-                  <i className="fa-solid fa-chevron-right text-gray-500 text-xs ml-2"></i>
+                  <i className="fa-solid fa-chevron-right text-[#64748B] text-xs ml-2"></i>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-700/50">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#2A2F3D]/50">
                 <button
                   onClick={() => onEditBulletin && onEditBulletin(b)}
-                  className="text-[10px] font-bold bg-blue-600/80 hover:bg-blue-500 text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
+                  className="text-[10px] font-bold bg-[#38BDF8]/80 hover:bg-[#38BDF8] text-[#0F111A] px-3 py-1.5 rounded shadow transition-colors flex items-center"
                 >
                   <i className="fa-solid fa-pen mr-1.5"></i>編輯招募
                 </button>
                 <button
                   onClick={() => onDeleteBulletin && onDeleteBulletin(b.id)}
-                  className="text-[10px] font-bold bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
+                  className="text-[10px] font-bold bg-[#EF4444]/80 hover:bg-[#EF4444] text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
                 >
                   <i className="fa-solid fa-trash mr-1.5"></i>刪除招募
                 </button>
@@ -1601,16 +1532,16 @@ const BulletinCard = React.memo(({
             <div className="flex flex-col gap-2">
               {/* 🌟 給報名者看的達標提示 (用橘色火焰吸引目光，並強調仍可報名) */}
               {isReached && !hasApplied && (
-                <div className="text-[10px] text-orange-400 font-bold flex items-center gap-1 bg-orange-500/10 px-2 py-1 rounded-lg w-fit border border-orange-500/20">
-                  <i className="fa-solid fa-fire animate-pulse"></i> 意願人數達標！(發起人挑選中，仍可報名)
+                <div className="text-[10px] text-[#F59E0B] font-bold flex items-center gap-1 bg-[#F59E0B]/10 px-2 py-1 rounded-lg w-fit border border-[#F59E0B]/20">
+                  <i className="fa-solid fa-fire"></i> 意願人數達標！(發起人挑選中，仍可報名)
                 </div>
               )}
               <div className="flex items-center justify-between">
                 <div
-                  className="flex items-center gap-2 cursor-pointer group/apply hover:bg-gray-800/50 p-2 -ml-2 rounded-lg transition-colors"
+                  className="flex items-center gap-2 cursor-pointer group/apply hover:bg-[#181B25]/50 p-2 -ml-2 rounded-lg transition-colors"
                   onClick={() => setShowApplicants(true)}
                 >
-                  <span className="text-xs text-gray-400 group-hover/apply:text-white transition-colors">
+                  <span className="text-xs text-[#94A3B8] group-hover/apply:text-white transition-colors">
                     目前 {b.applicantsData?.length || 0} 人有意願
                   </span>
                   <div className="flex -space-x-2">
@@ -1622,12 +1553,12 @@ const BulletinCard = React.memo(({
                       />
                     ))}
                     {b.applicantsData?.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-800 ring-2 ring-gray-900 text-[10px] text-gray-300">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#181B25] ring-2 ring-gray-900 text-[10px] text-[#CBD5E1]">
                         +{b.applicantsData.length - 3}
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] text-purple-400 opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
+                  <span className="text-[10px] text-[#A78BFA] opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
                     點擊展開
                   </span>
                 </div>
@@ -1637,7 +1568,7 @@ const BulletinCard = React.memo(({
                     e.stopPropagation();
                     onApply(b.id, !hasApplied, b.userId);
                   }}
-                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform hover:scale-105 ${hasApplied ? "bg-gray-700 text-gray-300 hover:bg-gray-600" : "bg-purple-600 text-white hover:bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"}`}
+                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform ${hasApplied ? "bg-[#1D2130] text-[#CBD5E1] hover:bg-[#2A2F3D]" : "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6] shadow-sm"}`}
                 >
                   {hasApplied ? "收回意願" : "✋ 我有意願"}
                 </button>
@@ -1658,17 +1589,17 @@ const BulletinCard = React.memo(({
             }}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-2xl cursor-default"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-sm cursor-default"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+              <div className="sticky top-0 bg-[#0F111A]/95 backdrop-blur px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center z-10">
                 <h3 className="font-bold text-white flex items-center gap-2">
-                  <i className="fa-solid fa-users text-purple-400"></i>{" "}
+                  <i className="fa-solid fa-users text-[#A78BFA]"></i>{" "}
                   有意願的Vtuber ({b.applicantsData?.length || 0})
                 </h3>
                 <button
                   onClick={() => setShowApplicants(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
@@ -1678,7 +1609,7 @@ const BulletinCard = React.memo(({
                   b.applicantsData.map((a) => (
                     <div
                       key={a.id}
-                      className="flex items-center justify-between bg-gray-800/50 p-3 rounded-xl border border-gray-700 hover:border-purple-500/50 transition-all cursor-pointer group"
+                      className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-all cursor-pointer group"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowApplicants(false);
@@ -1688,13 +1619,13 @@ const BulletinCard = React.memo(({
                       <div className="flex items-center gap-4">
                         <img
                           src={sanitizeUrl(a.avatar)}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-700 group-hover:border-purple-400 transition-colors"
+                          className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] group-hover:border-[#A78BFA] transition-colors"
                         />
                         <div>
-                          <p className="font-bold text-white text-sm group-hover:text-purple-300 transition-colors">
+                          <p className="font-bold text-white text-sm group-hover:text-[#C4B5FD] transition-colors">
                             {a.name}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-1">
+                          <p className="text-[10px] text-[#94A3B8] mt-1">
                             點擊查看名片
                           </p>
                         </div>
@@ -1706,7 +1637,7 @@ const BulletinCard = React.memo(({
                             setShowApplicants(false);
                             onInvite(a);
                           }}
-                          className="bg-purple-600 hover:bg-purple-500 text-xs text-white px-4 py-2 rounded-lg shadow-lg transition-transform hover:scale-105 font-bold"
+                          className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-xs text-white px-4 py-2 rounded-lg shadow-sm transition-transform font-bold"
                         >
                           發送邀約
                         </button>
@@ -1714,7 +1645,7 @@ const BulletinCard = React.memo(({
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 text-center py-6">
+                  <p className="text-sm text-[#64748B] text-center py-6">
                     目前還沒有人表達意願喔！
                   </p>
                 )}
@@ -1812,21 +1743,21 @@ const MatchPage = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 text-center animate-fade-in-up">
-      <h2 className="text-3xl font-extrabold text-purple-400 mb-4 flex justify-center items-center gap-3">
+      <h2 className="text-3xl font-extrabold text-[#A78BFA] mb-4 flex justify-center items-center gap-3">
         <i className="fa-solid fa-dice"></i> 聯動隨機配對
       </h2>
-      <p className="text-gray-400 mb-10">
+      <p className="text-[#94A3B8] mb-10">
         不知道該找誰玩嗎？讓 V-Nexus
         幫您隨機抽籤配對，或許會遇到意想不到的好夥伴喔！
       </p>
 
-      <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-8 shadow-2xl max-w-2xl mx-auto relative overflow-hidden">
-        <div className="absolute -top-16 -left-16 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl"></div>
+      <div className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-8 shadow-sm max-w-2xl mx-auto relative overflow-hidden">
+        <div className="absolute -top-16 -left-16 w-32 h-32 bg-[#8B5CF6]/10 rounded-full blur-3xl"></div>
 
         {!isMatching && !matchedVtuber && (
           <div className="space-y-6 relative z-10 animate-fade-in-up">
             <div className="text-left">
-              <label className="block text-sm font-bold text-gray-300 mb-2">
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                 想要聯動的類型 (選填)
               </label>
               <select
@@ -1844,7 +1775,7 @@ const MatchPage = ({
             </div>
             <button
               onClick={() => handleMatch("random")}
-              className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2"
+              className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white py-4 rounded-xl font-bold text-lg shadow-sm transition-transform flex justify-center items-center gap-2"
             >
               <i className="fa-solid fa-wand-magic-sparkles"></i>{" "}
               開始尋找命定夥伴
@@ -1853,7 +1784,7 @@ const MatchPage = ({
             {/* 🌟 新增：星座配對按鈕 */}
             <button
               onClick={() => handleMatch("zodiac")}
-              className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-transform hover:scale-105 flex justify-center items-center gap-2"
+              className="w-full mt-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-4 rounded-xl font-bold text-lg shadow-sm transition-transform flex justify-center items-center gap-2"
             >
               <i className="fa-solid fa-star"></i> 星座命定配對
             </button>
@@ -1863,11 +1794,11 @@ const MatchPage = ({
         {isMatching && (
           <div className="py-12 flex flex-col items-center justify-center animate-fade-in-up">
             <div className="relative w-32 h-32 mb-6">
-              <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-[#2A2F3D] rounded-full"></div>
               <div className="absolute inset-0 border-4 border-t-purple-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-radar"></div>
-              <i className="fa-solid fa-satellite-dish text-4xl text-purple-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
+              <i className="fa-solid fa-satellite-dish text-4xl text-[#A78BFA] absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
             </div>
-            <h3 className="text-xl font-bold text-white mb-2 animate-pulse">
+            <h3 className="text-xl font-bold text-white mb-2">
               雷達掃描中...
             </h3>
           </div>
@@ -1881,10 +1812,10 @@ const MatchPage = ({
 
             {/* 🌟 新增：顯示星座配對分數 */}
             {zodiacScore !== null && (
-              <div className="mb-6 bg-indigo-900/40 border border-indigo-500/50 rounded-xl p-4 animate-bounce shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+              <div className="mb-6 bg-indigo-900/40 border border-indigo-500/50 rounded-xl p-4 animate-bounce shadow-sm">
                 <p className="text-indigo-200 font-bold text-lg flex items-center justify-center gap-2">
-                  <i className="fa-solid fa-sparkles text-yellow-400"></i>
-                  星座配對指數：<span className="text-3xl text-yellow-400 font-black">{zodiacScore}%</span>
+                  <i className="fa-solid fa-sparkles text-[#F59E0B]"></i>
+                  星座配對指數：<span className="text-3xl text-[#F59E0B] font-black">{zodiacScore}%</span>
                 </p>
                 <p className="text-sm text-indigo-300 mt-1">
                   你們是 {matchedVtuber.zodiacSign} 與你的完美邂逅！
@@ -1893,7 +1824,7 @@ const MatchPage = ({
             )}
 
             {/* 詳細名片資訊區 */}
-            <div className="w-full bg-gray-900/90 border border-purple-500/50 rounded-2xl overflow-hidden shadow-2xl flex flex-col text-left mb-8">
+            <div className="w-full bg-[#0F111A]/90 border border-white/10 rounded-2xl overflow-hidden shadow-sm flex flex-col text-left mb-8">
               <div className="h-32 relative overflow-hidden">
                 <img
                   src={sanitizeUrl(matchedVtuber.banner)}
@@ -1904,7 +1835,7 @@ const MatchPage = ({
                     {matchedVtuber.agency}
                   </span>
                   <span
-                    className={`px-2 py-1 rounded text-[10px] text-white font-bold ${matchedVtuber.mainPlatform === "Twitch" ? "bg-purple-600" : "bg-red-600"}`}
+                    className={`px-2 py-1 rounded text-[10px] text-white font-bold ${matchedVtuber.mainPlatform === "Twitch" ? "bg-[#8B5CF6]" : "bg-[#EF4444]"}`}
                   >
                     <i
                       className={`fa-brands fa-${matchedVtuber.mainPlatform === "Twitch" ? "twitch" : "youtube"} mr-1`}
@@ -1916,34 +1847,34 @@ const MatchPage = ({
               <div className="p-6 relative">
                 <img
                   src={sanitizeUrl(matchedVtuber.avatar)}
-                  className="absolute -top-12 left-6 w-24 h-24 rounded-2xl border-4 border-gray-900 bg-gray-800 object-cover shadow-xl"
+                  className="absolute -top-12 left-6 w-24 h-24 rounded-2xl border-4 border-gray-900 bg-[#181B25] object-cover shadow-md"
                 />
                 <div className="ml-28 min-h-[80px]">
                   <h4 className="text-2xl font-bold text-white flex items-center gap-2">
                     {matchedVtuber.name}{" "}
                     {matchedVtuber.isVerified && (
-                      <i className="fa-solid fa-circle-check text-blue-400 text-sm"></i>
+                      <i className="fa-solid fa-circle-check text-[#38BDF8] text-sm"></i>
                     )}
                   </h4>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="text-xs text-green-400 font-bold bg-green-500/10 px-2 py-1 rounded">
+                    <span className="text-xs text-[#22C55E] font-bold bg-[#22C55E]/10 px-2 py-1 rounded">
                       <i className="fa-solid fa-thumbs-up mr-1"></i>
                       {matchedVtuber.likes || 0} 推薦
                     </span>
-                    <span className="text-xs text-red-400 font-bold bg-red-500/10 px-2 py-1 rounded">
+                    <span className="text-xs text-[#EF4444] font-bold bg-[#EF4444]/10 px-2 py-1 rounded">
                       <i className="fa-brands fa-youtube mr-1"></i>
                       {matchedVtuber.youtubeSubscribers || "0"}
                     </span>
                   </div>
                 </div>
-                <p className="text-gray-400 text-sm mt-4 line-clamp-3 leading-relaxed">
+                <p className="text-[#94A3B8] text-sm mt-4 line-clamp-3 leading-relaxed">
                   {matchedVtuber.description}
                 </p>
-                <div className="mt-4 pt-4 border-t border-gray-800 flex flex-wrap gap-2">
+                <div className="mt-4 pt-4 border-t border-[#2A2F3D] flex flex-wrap gap-2">
                   {(matchedVtuber.collabTypes || []).slice(0, 3).map((t) => (
                     <span
                       key={t}
-                      className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-1 rounded-lg border border-purple-500/30 font-bold"
+                      className="text-[10px] bg-[#8B5CF6]/20 text-[#C4B5FD] px-2 py-1 rounded-lg border border-white/10 font-bold"
                     >
                       #{t}
                     </span>
@@ -1957,7 +1888,7 @@ const MatchPage = ({
               {isVerifiedUser && matchedVtuber.id !== currentUser?.uid && (
                 <button
                   onClick={() => onBraveInvite(matchedVtuber)}
-                  className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+                  className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white py-3 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center gap-2"
                 >
                   <i className="fa-solid fa-heart"></i> 勇敢邀請
                 </button>
@@ -1967,13 +1898,13 @@ const MatchPage = ({
                   setSelectedVTuber(matchedVtuber);
                   navigate(`profile/${matchedVtuber.id}`);
                 }}
-                className="bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-2"
+                className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white py-3 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-address-card"></i> 前往詳細名片
               </button>
               <button
                 onClick={() => handleMatch(zodiacScore !== null ? "zodiac" : "random")}
-                className="sm:col-span-2 bg-gray-800 hover:bg-gray-700 text-gray-300 py-3 rounded-xl font-bold border border-gray-700 transition-colors flex items-center justify-center gap-2"
+                className="sm:col-span-2 bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] py-3 rounded-xl font-bold border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-rotate-right"></i> 不滿意？再抽一次
               </button>
@@ -2065,7 +1996,7 @@ const ScheduleEditor = ({ form, updateForm }) => {
     updateForm({ scheduleSlots: newSlots });
   };
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mt-1">
+    <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4 mt-1">
       <div className="mb-3">
         <select
           value={mode}
@@ -2079,7 +2010,7 @@ const ScheduleEditor = ({ form, updateForm }) => {
         </select>
       </div>
       {mode === "custom" && (
-        <div className="space-y-3 border-t border-gray-700 pt-3">
+        <div className="space-y-3 border-t border-[#2A2F3D] pt-3">
           <input
             type="text"
             value={form.customScheduleText || ""}
@@ -2090,16 +2021,16 @@ const ScheduleEditor = ({ form, updateForm }) => {
         </div>
       )}
       {(mode === "specific" || mode === "except") && (
-        <div className="space-y-3 border-t border-gray-700 pt-3">
+        <div className="space-y-3 border-t border-[#2A2F3D] pt-3">
           {(form.scheduleSlots || []).map((slot, index) => (
             <div
               key={index}
-              className="flex flex-wrap items-center gap-2 bg-gray-800/50 p-2 rounded-lg border border-gray-700"
+              className="flex flex-wrap items-center gap-2 bg-[#181B25]/50 p-2 rounded-lg border border-[#2A2F3D]"
             >
               <select
                 value={slot.day}
                 onChange={(e) => updateSlot(index, "day", e.target.value)}
-                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none"
+                className="bg-[#181B25] border border-[#2A2F3D] rounded p-1.5 text-white text-xs outline-none"
               >
                 {[
                   "星期一",
@@ -2123,7 +2054,7 @@ const ScheduleEditor = ({ form, updateForm }) => {
               <select
                 value={slot.start}
                 onChange={(e) => updateSlot(index, "start", e.target.value)}
-                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
+                className="bg-[#181B25] border border-[#2A2F3D] rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
               >
                 {/* 防呆：如果原本資料庫存了奇怪的時間(如 14:15)，也能正常顯示出來 */}
                 {!TIME_OPTIONS.includes(slot.start) && slot.start && (
@@ -2132,13 +2063,13 @@ const ScheduleEditor = ({ form, updateForm }) => {
                 {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
 
-              <span className="text-gray-400 text-xs">至</span>
+              <span className="text-[#94A3B8] text-xs">至</span>
 
               {/* 🌟 修改：將原本的 input type="time" 改成 select 下拉選單 */}
               <select
                 value={slot.end}
                 onChange={(e) => updateSlot(index, "end", e.target.value)}
-                className="bg-gray-800 border border-gray-600 rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
+                className="bg-[#181B25] border border-[#2A2F3D] rounded p-1.5 text-white text-xs outline-none box-border min-w-0 cursor-pointer"
               >
                 {!TIME_OPTIONS.includes(slot.end) && slot.end && (
                   <option value={slot.end}>{slot.end}</option>
@@ -2155,7 +2086,7 @@ const ScheduleEditor = ({ form, updateForm }) => {
                     ),
                   })
                 }
-                className="text-red-400 hover:text-red-300 ml-auto px-2 transition-colors"
+                className="text-[#EF4444] hover:text-red-300 ml-auto px-2 transition-colors"
               >
                 <i className="fa-solid fa-trash"></i>
               </button>
@@ -2171,7 +2102,7 @@ const ScheduleEditor = ({ form, updateForm }) => {
                 ],
               })
             }
-            className="text-xs text-purple-400 hover:text-white flex items-center gap-1 mt-2 bg-purple-500/10 hover:bg-purple-500 px-3 py-1.5 rounded-lg border border-purple-500/20 transition-colors"
+            className="text-xs text-[#A78BFA] hover:text-white flex items-center gap-1 mt-2 bg-[#8B5CF6]/10 hover:bg-[#8B5CF6] px-3 py-1.5 rounded-lg border border-[#8B5CF6]/20 transition-colors"
           >
             <i className="fa-solid fa-plus"></i> 新增時段
           </button>
@@ -2210,7 +2141,7 @@ const CollabTypesEditor = ({ formState, setFormState, showToast }) => {
     ? formState.collabTypes
     : [];
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mt-1">
+    <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4 mt-1">
       <div className="flex flex-wrap gap-3">
         {PREDEFINED_COLLABS.map((type) => (
           <label
@@ -2223,7 +2154,7 @@ const CollabTypesEditor = ({ formState, setFormState, showToast }) => {
               onChange={() => toggleCollab(type)}
               className="accent-purple-500 w-4 h-4"
             />
-            <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+            <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
               {type}
             </span>
           </label>
@@ -2235,7 +2166,7 @@ const CollabTypesEditor = ({ formState, setFormState, showToast }) => {
             onChange={toggleOther}
             className="accent-purple-500 w-4 h-4"
           />
-          <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+          <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
             其他
           </span>
         </label>
@@ -2549,8 +2480,8 @@ const ProfileEditorForm = ({
 
     <form onSubmit={onSubmit} className="space-y-6">
 
-      <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-5">
-        <h3 className="text-purple-400 font-bold mb-3 flex items-center gap-2">
+      <div className="bg-purple-900/20 border border-white/10 rounded-xl p-5">
+        <h3 className="text-[#A78BFA] font-bold mb-3 flex items-center gap-2">
           <i className="fa-solid fa-power-off"></i> 名片顯示狀態
         </h3>
         <select
@@ -2567,8 +2498,8 @@ const ProfileEditorForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* 左側：VTuber 名稱 */}
         <div className="flex flex-col justify-center">
-          <label className="block text-sm font-bold text-gray-300 mb-2">
-            VTuber 名稱 <span className="text-red-400">*</span>
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+            VTuber 名稱 <span className="text-[#EF4444]">*</span>
           </label>
           <input
             required
@@ -2581,12 +2512,12 @@ const ProfileEditorForm = ({
         </div>
 
         {/* 右側：專屬網址 ID */}
-        <div className="bg-purple-500/5 border border-purple-500/20 p-4 rounded-xl flex flex-col justify-center">
-          <label className="block text-sm font-bold text-purple-300 mb-2">
+        <div className="bg-[#8B5CF6]/5 border border-[#8B5CF6]/20 p-4 rounded-xl flex flex-col justify-center">
+          <label className="block text-sm font-bold text-[#C4B5FD] mb-2">
             <i className="fa-solid fa-link mr-1"></i> 設定專屬網址 ID
           </label>
           <div className="flex items-center gap-1">
-            <span className="text-gray-500 text-[10px] font-mono hidden sm:inline">
+            <span className="text-[#64748B] text-[10px] font-mono hidden sm:inline">
               #profile/
             </span>
             <input
@@ -2600,7 +2531,7 @@ const ProfileEditorForm = ({
                     .toLowerCase(),
                 })
               }
-              className={inputCls + " font-mono text-purple-400 !p-2"}
+              className={inputCls + " font-mono text-[#A78BFA] !p-2"}
             />
           </div>
         </div>
@@ -2610,7 +2541,7 @@ const ProfileEditorForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               所屬勢力
             </label>
             <select
@@ -2625,7 +2556,7 @@ const ProfileEditorForm = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               演出型態
             </label>
             <select
@@ -2646,7 +2577,7 @@ const ProfileEditorForm = ({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             國籍 (所在地)
           </label>
           <div className="flex flex-wrap gap-3 mb-2">
@@ -2667,7 +2598,7 @@ const ProfileEditorForm = ({
                   }}
                   className="accent-purple-500 w-4 h-4"
                 />
-                <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
                   {nat}
                 </span>
               </label>
@@ -2681,7 +2612,7 @@ const ProfileEditorForm = ({
                 }
                 className="accent-purple-500 w-4 h-4"
               />
-              <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+              <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
                 其他(自行新增)
               </span>
             </label>
@@ -2699,7 +2630,7 @@ const ProfileEditorForm = ({
           )}
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             使用語言
           </label>
           <div className="flex flex-wrap gap-3">
@@ -2720,7 +2651,7 @@ const ProfileEditorForm = ({
                   }}
                   className="accent-purple-500 w-4 h-4"
                 />
-                <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
                   {lang}
                 </span>
               </label>
@@ -2731,8 +2662,8 @@ const ProfileEditorForm = ({
 
 
       <div>
-        <label className="block text-sm font-bold text-gray-300 mb-2">
-          介紹一下你自己吧！ <span className="text-red-400">*</span>
+        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+          介紹一下你自己吧！ <span className="text-[#EF4444]">*</span>
         </label>
         <textarea
           required
@@ -2745,7 +2676,7 @@ const ProfileEditorForm = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <div className="mb-6">
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               你是什麼人？
             </label>
             <select
@@ -2774,7 +2705,7 @@ const ProfileEditorForm = ({
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               你的星座
             </label>
             <select
@@ -2790,10 +2721,10 @@ const ProfileEditorForm = ({
           </div>
           {/* 新增：色系選擇 */}
           <div className="mb-6">
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               你是什麼色系? (至多三項)
             </label>
-            <div className="flex flex-wrap gap-3 bg-gray-900 border border-gray-700 rounded-xl p-4">
+            <div className="flex flex-wrap gap-3 bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
               {COLOR_OPTIONS.map((color) => (
                 <label
                   key={color}
@@ -2815,14 +2746,14 @@ const ProfileEditorForm = ({
                     }}
                     className="accent-purple-500 w-4 h-4"
                   />
-                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                  <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
                     {color}
                   </span>
                 </label>
               ))}
             </div>
           </div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             內容標籤 (逗號分隔)
           </label>
           <input
@@ -2833,8 +2764,8 @@ const ProfileEditorForm = ({
           />
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
-            主要願意連動類型 <span className="text-red-400">*</span>
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+            主要願意連動類型 <span className="text-[#EF4444]">*</span>
           </label>
           <CollabTypesEditor
             formState={form}
@@ -2844,15 +2775,15 @@ const ProfileEditorForm = ({
         </div>
       </div>
       <div>
-        <label className="block text-sm font-bold text-gray-300 mb-2">
-          可聯動時段 <span className="text-red-400">*</span>
+        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+          可聯動時段 <span className="text-[#EF4444]">*</span>
         </label>
         <ScheduleEditor form={form} updateForm={updateForm} />
       </div>
       {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               推薦數
             </label>
             <input
@@ -2863,7 +2794,7 @@ const ProfileEditorForm = ({
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               倒讚數
             </label>
             <input
@@ -2878,7 +2809,7 @@ const ProfileEditorForm = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             YouTube 訂閱數
           </label>
           <div className="flex gap-2">
@@ -2888,7 +2819,7 @@ const ProfileEditorForm = ({
               value={form.youtubeSubscribers || ""}
               placeholder="系統將自動抓取"
               className={
-                inputCls + " bg-gray-800 cursor-not-allowed text-gray-400"
+                inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"
               }
             />
             <button
@@ -2898,7 +2829,7 @@ const ProfileEditorForm = ({
                 isFetchingSubscribers ||
                 (Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)
               }
-              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin ? "bg-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
+              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin ? "bg-[#181B25] text-[#64748B] cursor-not-allowed" : "bg-[#1D2130] hover:bg-[#2A2F3D] text-white"}`}
             >
               {isFetchingSubscribers ? (
                 <i className="fa-solid fa-spinner fa-spin"></i>
@@ -2915,12 +2846,12 @@ const ProfileEditorForm = ({
               )}
             </button>
           </div>
-          <p className="text-[10px] text-purple-400/80 mt-1">
+          <p className="text-[10px] text-[#A78BFA]/80 mt-1">
             （填妥下方 YouTube 連結後會自動抓取，每24小時限抓一次）
           </p>
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             Twitch 追隨數
           </label>
           <div className="flex gap-2">
@@ -2930,7 +2861,7 @@ const ProfileEditorForm = ({
               value={form.twitchFollowers || ""}
               placeholder="系統將自動抓取"
               className={
-                inputCls + " bg-gray-800 cursor-not-allowed text-gray-400"
+                inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"
               }
             />
             <button
@@ -2941,7 +2872,7 @@ const ProfileEditorForm = ({
                 (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 &&
                   !isAdmin)
               }
-              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin ? "bg-gray-800 text-gray-500 cursor-not-allowed" : "bg-gray-700 hover:bg-gray-600 text-white"}`}
+              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin ? "bg-[#181B25] text-[#64748B] cursor-not-allowed" : "bg-[#1D2130] hover:bg-[#2A2F3D] text-white"}`}
             >
               {isFetchingTwitch ? (
                 <i className="fa-solid fa-spinner fa-spin"></i>
@@ -2958,7 +2889,7 @@ const ProfileEditorForm = ({
               )}
             </button>
           </div>
-          <p className="text-[10px] text-purple-400/80 mt-1">
+          <p className="text-[10px] text-[#A78BFA]/80 mt-1">
             （填妥下方 Twitch 連結後會自動抓取，每24小時限抓一次）
           </p>
         </div>
@@ -2966,9 +2897,9 @@ const ProfileEditorForm = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2">
+          <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
             <span>YouTube 連結</span>
-            <label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal">
+            <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
               <input
                 type="radio"
                 value="YouTube"
@@ -2987,9 +2918,9 @@ const ProfileEditorForm = ({
           />
         </div>
         <div>
-          <label className="flex items-center justify-between text-sm font-bold text-gray-300 mb-2">
+          <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
             <span>Twitch 連結</span>
-            <label className="flex items-center gap-1 text-xs cursor-pointer text-purple-300 font-normal">
+            <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
               <input
                 type="radio"
                 value="Twitch"
@@ -3010,7 +2941,7 @@ const ProfileEditorForm = ({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             X連結
           </label>
           <input
@@ -3021,7 +2952,7 @@ const ProfileEditorForm = ({
           />
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             Instagram
           </label>
           <input
@@ -3033,17 +2964,17 @@ const ProfileEditorForm = ({
         </div>
       </div>
 
-      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-5 mt-2">
+      <div className="bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl p-5 mt-2">
         <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-          <i className="fa-solid fa-envelopes-bulk text-purple-400"></i>{" "}
+          <i className="fa-solid fa-envelopes-bulk text-[#A78BFA]"></i>{" "}
           聯絡信箱設定
         </h3>
         {/* 🌟 優化：改為單欄排版，完全移除私人信箱 */}
         <div className="grid grid-cols-1 gap-6">
           <div>
-            <label className="block text-sm font-bold text-gray-300 mb-2">
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               公開工商信箱 (選填)
-              <span className="text-yellow-400 text-xs font-normal ml-2">
+              <span className="text-[#F59E0B] text-xs font-normal ml-2">
                 (⚠️ 若您不驗證信箱，將無法在信箱收到任何邀約與提醒通知喔！請勿填寫私人信箱。)
               </span>
             </label>
@@ -3063,7 +2994,7 @@ const ProfileEditorForm = ({
                   placeholder="例如：business@example.com"
                 />
                 {form.publicEmailVerified && (
-                  <p className="text-green-400 text-xs mt-1.5 font-bold">
+                  <p className="text-[#22C55E] text-xs mt-1.5 font-bold">
                     <i className="fa-solid fa-circle-check"></i> 信箱已驗證
                   </p>
                 )}
@@ -3075,7 +3006,7 @@ const ProfileEditorForm = ({
                     type="button"
                     onClick={handleSendOtp}
                     disabled={otpStatus === "sending"}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-colors border border-gray-600 flex-shrink-0"
+                    className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-3 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-colors border border-[#2A2F3D] flex-shrink-0"
                   >
                     {otpStatus === "sending" ? (
                       <i className="fa-solid fa-spinner fa-spin"></i>
@@ -3100,7 +3031,7 @@ const ProfileEditorForm = ({
                 <button
                   type="button"
                   onClick={handleVerifyOtp}
-                  className="bg-purple-600 hover:bg-purple-500 text-white px-5 rounded-xl text-sm font-bold whitespace-nowrap shadow-lg transition-transform hover:scale-105"
+                  className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-5 rounded-xl text-sm font-bold whitespace-nowrap shadow-sm transition-transform"
                 >
                   確認
                 </button>
@@ -3112,7 +3043,7 @@ const ProfileEditorForm = ({
 
       <div className="grid grid-cols-1 gap-6 pt-2">
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
             我的直播風格代表作
           </label>
           <input
@@ -3126,19 +3057,19 @@ const ProfileEditorForm = ({
       </div>
 
       {!isAdmin && (
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5 mt-2">
-          <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2">
+        <div className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded-xl p-5 mt-2">
+          <h3 className="text-[#38BDF8] font-bold mb-2 flex items-center gap-2">
             <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用){" "}
-            <span className="text-red-400">*</span>
+            <span className="text-[#EF4444]">*</span>
           </h3>
-          <p className="text-xs text-gray-300 mb-4">
+          <p className="text-xs text-[#CBD5E1] mb-4">
             請將「
-            <span className="text-white font-bold bg-gray-800 px-1 rounded">
+            <span className="text-white font-bold bg-[#181B25] px-1 rounded">
               V-Nexus審核中
             </span>
             」放入X或Youtube簡介中，管理員審核後即可刪除。
             <br />
-            <span className="text-yellow-400 font-bold">
+            <span className="text-[#F59E0B] font-bold">
               請在下方輸入您放入的平台 X 或 YT
             </span>
           </p>
@@ -3154,16 +3085,16 @@ const ProfileEditorForm = ({
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span>頭像網址 / 上傳</span>
-            <span className="text-xs text-purple-400 font-normal">
+            <span className="text-xs text-[#A78BFA] font-normal">
               建議: 300x300px
             </span>
           </label>
           <div className="flex gap-3">
             <img
               src={sanitizeUrl(form.avatar)}
-              className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-gray-800"
+              className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-[#181B25]"
             />
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               <input
@@ -3182,7 +3113,7 @@ const ProfileEditorForm = ({
                 />
                 <button
                   type="button"
-                  className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-2 rounded-lg border border-gray-600 transition-colors flex items-center justify-center gap-2 relative z-0"
+                  className="w-full bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] text-xs py-2 rounded-lg border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2 relative z-0"
                 >
                   <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片
                   (自動壓縮省空間)
@@ -3192,16 +3123,16 @@ const ProfileEditorForm = ({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-300 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <label className="block text-sm font-bold text-[#CBD5E1] mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
             <span>橫幅網址 / 上傳</span>
-            <span className="text-xs text-purple-400 font-normal">
+            <span className="text-xs text-[#A78BFA] font-normal">
               建議: 800x400px
             </span>
           </label>
           <div className="flex gap-3">
             <img
               src={sanitizeUrl(form.banner)}
-              className="w-20 h-12 rounded-xl object-cover flex-shrink-0 bg-gray-800"
+              className="w-20 h-12 rounded-xl object-cover flex-shrink-0 bg-[#181B25]"
             />
             <div className="flex-1 flex flex-col gap-2 min-w-0">
               <input
@@ -3220,7 +3151,7 @@ const ProfileEditorForm = ({
                 />
                 <button
                   type="button"
-                  className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs py-2 rounded-lg border border-gray-600 transition-colors flex items-center justify-center gap-2 relative z-0"
+                  className="w-full bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] text-xs py-2 rounded-lg border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2 relative z-0"
                 >
                   <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片
                   (自動壓縮省空間)
@@ -3230,12 +3161,12 @@ const ProfileEditorForm = ({
           </div>
         </div>
       </div>
-      <div className="pt-6 border-t border-gray-700 flex sm:justify-end gap-3">
+      <div className="pt-6 border-t border-[#2A2F3D] flex sm:justify-end gap-3">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 sm:flex-none px-2 sm:px-4 py-3 text-gray-400 hover:text-white transition-colors font-bold flex items-center justify-center"
+            className="flex-1 sm:flex-none px-2 sm:px-4 py-3 text-[#94A3B8] hover:text-white transition-colors font-bold flex items-center justify-center"
           >
             取消
           </button>
@@ -3245,7 +3176,7 @@ const ProfileEditorForm = ({
             type="button"
             onClick={onDeleteSelf}
             // 🌟 加入 flex-1 讓手機版平分寬度，並確保內容置中 (justify-center)
-            className="flex-1 sm:flex-none px-2 sm:px-6 py-3 rounded-xl font-bold text-red-400 border border-red-500/30 hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-2 sm:px-6 py-3 rounded-xl font-bold text-[#EF4444] border border-[#EF4444]/30 hover:bg-[#EF4444] hover:text-white transition-all flex items-center justify-center gap-2"
           >
             <i className="fa-solid fa-trash-can"></i> 刪除名片
           </button>
@@ -3253,7 +3184,7 @@ const ProfileEditorForm = ({
         <button
           type="submit"
           // 🌟 加入 flex-1 讓手機版平分寬度，並寫死樣式確保不受外部干擾
-          className="flex-1 sm:flex-none w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white py-3 px-2 sm:px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex justify-center items-center gap-2"
+          className="flex-1 sm:flex-none w-full sm:w-auto bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white py-3 px-2 sm:px-8 rounded-xl font-bold shadow-sm transition-transform flex justify-center items-center gap-2"
         >
           <i className="fa-solid fa-floppy-disk"></i>
           {isAdmin ? "強制儲存更新" : "儲存名片"}
@@ -3287,19 +3218,19 @@ const InboxPage = ({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 animate-fade-in-up">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-gray-700 pb-4 gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-[#2A2F3D] pb-4 gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
-            <i className="fa-solid fa-envelope-open-text text-purple-400"></i>{" "}
+            <i className="fa-solid fa-envelope-open-text text-[#A78BFA]"></i>{" "}
             我的信箱
           </h2>
-          <p className="text-gray-400 mt-2 text-sm">您的專屬通知中心</p>
+          <p className="text-[#94A3B8] mt-2 text-sm">您的專屬通知中心</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {notifications.some((n) => !n.read) && (
             <button
               onClick={markAllAsRead}
-              className="text-sm font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-4 py-2 rounded-xl"
+              className="text-sm font-bold text-[#A78BFA] bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 px-4 py-2 rounded-xl"
             >
               <i className="fa-solid fa-check-double mr-1"></i> 全部標示為已讀
             </button>
@@ -3307,7 +3238,7 @@ const InboxPage = ({
           {notifications.length > 0 && (
             <button
               onClick={onDeleteAll}
-              className="text-sm font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl"
+              className="text-sm font-bold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 px-4 py-2 rounded-xl"
             >
               <i className="fa-solid fa-trash-can mr-1"></i> 一鍵刪除全部
             </button>
@@ -3315,16 +3246,16 @@ const InboxPage = ({
         </div>
       </div>
       {notifications.length === 0 ? (
-        <div className="text-center py-24 bg-gray-800/40 rounded-3xl border border-gray-700/50 shadow-xl">
+        <div className="text-center py-24 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]/50 shadow-md">
           <i className="fa-regular fa-envelope-open text-6xl text-gray-600 mb-6"></i>
-          <p className="text-gray-400 font-bold text-lg">信箱目前空空如也！</p>
+          <p className="text-[#94A3B8] font-bold text-lg">信箱目前空空如也！</p>
         </div>
       ) : (
         <div className="space-y-4">
           {displayNotifications.map((n) => (
             <div
               key={n.id}
-              className={`p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? "bg-gray-800/60 border-gray-700" : "bg-gray-800 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]"}`}
+              className={`p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? "bg-[#181B25]/60 border-[#2A2F3D]" : "bg-[#181B25] border-white/10 shadow-sm"}`}
             >
               <div className="flex items-start gap-4 sm:gap-5">
                 <img
@@ -3333,38 +3264,38 @@ const InboxPage = ({
                     "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                   )}
                   onClick={() => onNavigateProfile(n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId)}
-                  className="w-14 h-14 rounded-full border-2 border-gray-700 bg-gray-900 object-cover cursor-pointer hover:border-purple-400"
+                  className="w-14 h-14 rounded-full border border-[#2A2F3D] bg-[#0F111A] object-cover cursor-pointer hover:border-[#A78BFA]"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                     <h4 className="font-bold text-white text-lg flex flex-wrap items-center gap-2">
                       <span
                         onClick={() => onNavigateProfile(n.fromUserId)}
-                        className="cursor-pointer hover:text-purple-400"
+                        className="cursor-pointer hover:text-[#A78BFA]"
                       >
                         {n.fromUserName}
                       </span>
                       {!n.read && (
-                        <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-lg whitespace-nowrap">
+                        <span className="bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap">
                           新通知
                         </span>
                       )}
                     </h4>
-                    <span className="text-xs text-gray-500 font-medium whitespace-nowrap">
+                    <span className="text-xs text-[#64748B] font-medium whitespace-nowrap">
                       <i className="fa-regular fa-clock mr-1"></i>
                       {formatTime(n.createdAt)}
                     </span>
                   </div>
-                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap bg-gray-900/80 p-4 rounded-xl border border-gray-700/50 mt-3">
+                  <p className="text-[#CBD5E1] text-sm leading-relaxed whitespace-pre-wrap bg-[#0F111A]/80 p-4 rounded-xl border border-[#2A2F3D]/50 mt-3">
                     {n.message}
                   </p>
                   {n.type === "brave_invite" && !n.handled && (
-                    <div className="flex gap-3 mt-4 pt-4 border-t border-gray-700/50">
+                    <div className="flex gap-3 mt-4 pt-4 border-t border-[#2A2F3D]/50">
                       <button
                         onClick={() =>
                           onBraveResponse(n.id, n.fromUserId, true)
                         }
-                        className="text-xs font-bold text-white bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg shadow-md transition-transform hover:scale-105"
+                        className="text-xs font-bold text-white bg-[#22C55E] hover:bg-[#22C55E] px-4 py-2 rounded-lg shadow-md transition-transform"
                       >
                         <i className="fa-solid fa-check mr-1"></i> 可以試試
                       </button>
@@ -3372,7 +3303,7 @@ const InboxPage = ({
                         onClick={() =>
                           onBraveResponse(n.id, n.fromUserId, false)
                         }
-                        className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg shadow-md transition-transform hover:scale-105"
+                        className="text-xs font-bold text-[#CBD5E1] bg-[#1D2130] hover:bg-[#2A2F3D] px-4 py-2 rounded-lg shadow-md transition-transform"
                       >
                         <i className="fa-solid fa-xmark mr-1"></i> 委婉拒絕
                       </button>
@@ -3384,28 +3315,28 @@ const InboxPage = ({
                     {(n.type === "chat_notification" || n.type === "collab_invite") && (
                       <button
                         onClick={() => onOpenChat(n)}
-                        className="text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg flex items-center shadow-md transition-transform hover:scale-105"
+                        className="text-xs font-bold text-white bg-[#8B5CF6] hover:bg-[#8B5CF6] px-4 py-2 rounded-lg flex items-center shadow-md transition-transform"
                       >
                         <i className="fa-solid fa-comments mr-2"></i> 查看聊天室
                       </button>
                     )}
                     <button
                       onClick={() => onNavigateProfile(n.fromUserId)}
-                      className="text-xs font-bold text-gray-300 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg flex items-center shadow-md"
+                      className="text-xs font-bold text-[#CBD5E1] bg-[#1D2130] hover:bg-[#2A2F3D] px-4 py-2 rounded-lg flex items-center shadow-md"
                     >
                       <i className="fa-solid fa-address-card mr-2"></i> 查看名片
                     </button>
                     {!n.read && (
                       <button
                         onClick={() => onMarkRead(n.id)}
-                        className="text-xs font-bold text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 px-4 py-2 rounded-lg flex items-center shadow-md"
+                        className="text-xs font-bold text-[#A78BFA] bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 border border-white/10 px-4 py-2 rounded-lg flex items-center shadow-md"
                       >
                         <i className="fa-solid fa-check mr-2"></i> 標為已讀
                       </button>
                     )}
                     <button
                       onClick={() => onDelete(n.id)}
-                      className="text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-4 py-2 rounded-lg flex items-center shadow-md"
+                      className="text-xs font-bold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 px-4 py-2 rounded-lg flex items-center shadow-md"
                     >
                       <i className="fa-solid fa-trash mr-2"></i> 刪除此信
                     </button>
@@ -3421,17 +3352,17 @@ const InboxPage = ({
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className={`px-4 py-2 rounded-lg font-bold text-sm ${page === 1 ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+            className={`px-4 py-2 rounded-lg font-bold text-sm ${page === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
           >
             上一頁
           </button>
-          <span className="text-gray-400 text-sm font-bold">
+          <span className="text-[#94A3B8] text-sm font-bold">
             第 {page} / {totalPages} 頁
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className={`px-4 py-2 rounded-lg font-bold text-sm ${page === totalPages ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+            className={`px-4 py-2 rounded-lg font-bold text-sm ${page === totalPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
           >
             下一頁
           </button>
@@ -3585,22 +3516,22 @@ const HomePage = ({
   // 輔助組件：手機版最後一個按鈕卡片
   const MobileMoreCard = ({ onClick, icon, text, subText }) => (
     <div
-      className="flex-shrink-0 w-[60vw] sm:hidden flex flex-col items-center justify-center snap-center bg-gray-800/40 border-2 border-dashed border-gray-700 rounded-3xl p-6 text-center gap-3 active:scale-95 transition-transform"
+      className="flex-shrink-0 w-[60vw] sm:hidden flex flex-col items-center justify-center snap-center bg-[#181B25]/40 border border-dashed border-[#2A2F3D] rounded-2xl p-6 text-center gap-3 active:scale-95 transition-transform"
       onClick={onClick}
     >
-      <div className="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center text-purple-400 text-xl">
+      <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-full flex items-center justify-center text-[#A78BFA] text-xl">
         <i className={`fa-solid ${icon}`}></i>
       </div>
       <div>
         <p className="text-white font-bold">{text}</p>
-        <p className="text-[10px] text-gray-500 mt-1">{subText}</p>
+        <p className="text-[10px] text-[#64748B] mt-1">{subText}</p>
       </div>
     </div>
   );
 
   return (
     <section className="pt-16 pb-20 px-4 text-center max-w-5xl mx-auto animate-fade-in-up">
-      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-6">
+      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-sm font-medium mb-6">
         <i className="fa-solid fa-rocket"></i>{" "}
         <span>專為 VTuber 打造的聯動平台</span>
       </div>
@@ -3613,38 +3544,38 @@ const HomePage = ({
           最佳聯動夥伴
         </span>
       </h1>
-      <p className="text-gray-400 mb-4 max-w-2xl mx-auto text-lg leading-relaxed">
+      <p className="text-[#94A3B8] mb-4 max-w-2xl mx-auto text-lg leading-relaxed">
         大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？
         <br className="hidden md:block" />
         註冊你的名片，找尋你的夥伴吧！
       </p>
-      <p className="text-red-400 text-sm font-bold mb-10 max-w-2xl mx-auto">
+      <p className="text-[#EF4444] text-sm font-bold mb-10 max-w-2xl mx-auto">
         目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。
       </p>
 
       <div className="flex flex-col sm:flex-row justify-center items-start gap-4">
         <button
           onClick={() => navigate("grid")}
-          className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white px-8 rounded-xl font-bold shadow-[0_0_25px_rgba(168,85,247,0.5)] transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"
+          className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white px-8 rounded-xl font-bold shadow-sm transition-transform w-full sm:w-auto flex items-center justify-center"
         >
           <i className="fa-solid fa-magnifying-glass mr-2"></i>開始尋找VT夥伴
         </button>
         <button
           onClick={() => navigate("dashboard")}
-          className="h-14 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 w-full sm:w-auto flex items-center justify-center"
+          className="h-14 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-white px-8 rounded-xl font-bold shadow-sm transition-transform w-full sm:w-auto flex items-center justify-center"
         >
           <i className="fa-solid fa-pen-to-square mr-2"></i>註冊Vtuber名片
         </button>
         <div className="flex flex-col items-center w-full sm:w-auto">
           <button
             onClick={onOpenUpdates}
-            className="relative h-14 bg-blue-600 hover:bg-blue-500 text-white px-8 rounded-xl font-bold shadow-lg shadow-blue-500/25 transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"
+            className="relative h-14 bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-8 rounded-xl font-bold shadow-sm shadow-blue-500/25 transition-transform flex items-center justify-center w-full sm:w-auto"
           >
             <i className="fa-solid fa-bullhorn mr-2"></i>最新消息/功能發布
             {hasUnreadUpdates && (
               <span className="absolute -top-2 -right-2 flex h-4 w-4">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-[#0f111a]"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-[#EF4444] border border-[#0f111a]"></span>
               </span>
             )}
           </button>
@@ -3652,7 +3583,7 @@ const HomePage = ({
         <div className="flex flex-col items-center w-full sm:w-auto mt-2 sm:mt-0">
           <button
             onClick={onOpenRules}
-            className="h-14 bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-500/50 px-8 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center w-full sm:w-auto"
+            className="h-14 bg-[#3B171D]/80 hover:bg-[#7F1D1D] text-red-100 border border-[#EF4444]/50 px-8 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center w-full sm:w-auto"
           >
             <i className="fa-solid fa-triangle-exclamation mr-2"></i>
             V-NEXUS聯動規範
@@ -3661,8 +3592,8 @@ const HomePage = ({
       </div>
 
       <div className="flex flex-wrap justify-center gap-6 mt-20 mb-8">
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
+        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
+          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
             網站總瀏覽人次
           </p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
@@ -3673,8 +3604,8 @@ const HomePage = ({
             )}
           </p>
         </div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
+        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
+          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
             V-NEXUS已成功讓VTUBER聯動
           </p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">
@@ -3683,11 +3614,11 @@ const HomePage = ({
             ) : (
               <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
             )}
-            <span className="text-xl text-gray-500 font-bold ml-1">次</span>
+            <span className="text-xl text-[#64748B] font-bold ml-1">次</span>
           </p>
         </div>
-        <div className="bg-gray-800/40 border border-gray-700/50 px-8 py-6 rounded-3xl min-w-[220px] shadow-xl flex-1 max-w-[300px]">
-          <p className="text-gray-400 text-sm font-bold mb-2 tracking-widest uppercase">
+        <div className="bg-[#181B25]/40 border border-[#2A2F3D]/50 px-8 py-6 rounded-2xl min-w-[220px] shadow-md flex-1 max-w-[300px]">
+          <p className="text-[#94A3B8] text-sm font-bold mb-2 tracking-widest uppercase">
             目前VTUBER註冊人數
           </p>
           <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
@@ -3696,27 +3627,27 @@ const HomePage = ({
             ) : (
               <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
             )}
-            <span className="text-xl text-gray-500 font-bold ml-1">位</span>
+            <span className="text-xl text-[#64748B] font-bold ml-1">位</span>
           </p>
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 font-medium tracking-widest mb-8 -mt-2">
+      <p className="text-xs text-[#64748B] font-medium tracking-widest mb-8 -mt-2">
         本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
       </p>
 
       {activeStatuses.length > 0 && (
-        <div className="mt-8 mb-8 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="mt-8 mb-8 pt-12 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
 
           {/* 標題與按鈕區塊 */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
             <div className="text-left">
               <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
                 {/* 🌟 改為橘色 */}
-                <i className="fa-solid fa-stopwatch text-orange-500 animate-pulse"></i>{" "}
+                <i className="fa-solid fa-stopwatch text-[#F59E0B]"></i>{" "}
                 24H 最新動態
               </h2>
-              <p className="text-gray-400 text-sm">
+              <p className="text-[#94A3B8] text-sm">
                 看看大家現在正在做什麼！(至名片編輯即可發布，24小時後自動隱藏)
               </p>
             </div>
@@ -3725,15 +3656,15 @@ const HomePage = ({
               <button
                 onClick={handleShuffleStatus}
                 disabled={isShuffling}
-                className="bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {/* 🌟 改為橘色 */}
-                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-orange-400" : ""}`}></i> 換一批
+                <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
               </button>
               <button
                 onClick={() => navigate("status_wall")}
                 // 🌟 改為橘色
-                className="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
+                className="bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
               >
                 <i className="fa-solid fa-pen-nib"></i> 發布我的動態
               </button>
@@ -3753,17 +3684,17 @@ const HomePage = ({
                   navigate(`profile/${v.id}`);
                 }}
                 // 🌟 改為橘色
-                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-gray-800/60 border border-orange-500/30 hover:border-orange-400 rounded-3xl p-5 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col gap-4"
+                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-[#181B25]/60 border border-[#F59E0B]/30 hover:border-[#FBBF24] rounded-2xl p-5 cursor-pointer transition-all shadow-sm group flex flex-col gap-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <img
                       src={sanitizeUrl(v.avatar)}
                       // 🌟 改為橘色
-                      className="w-12 h-12 rounded-full object-cover border-2 border-orange-500 group-hover:scale-105 transition-transform"
+                      className="w-12 h-12 rounded-full object-cover border border-[#F59E0B] group-transition-transform"
                     />
                     {/* 🌟 改為橘色 */}
-                    <div className="absolute -bottom-1 -right-1 bg-orange-500 w-4 h-4 rounded-full border-2 border-gray-900 flex items-center justify-center">
+                    <div className="absolute -bottom-1 -right-1 bg-[#F59E0B] w-4 h-4 rounded-full border border-gray-900 flex items-center justify-center">
                       <i className="fa-solid fa-bolt text-[8px] text-white"></i>
                     </div>
                   </div>
@@ -3772,15 +3703,15 @@ const HomePage = ({
                     <h4 className="text-white font-bold truncate text-sm group-hover:text-orange-300 transition-colors">
                       {v.name}
                     </h4>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[10px] text-[#94A3B8]">
                       {/* 🌟 優化：套用相對時間 (發布了 X 分鐘) */}
                       {formatRelativeTime(v.statusMessageUpdatedAt)}
                     </p>
                   </div>
                 </div>
                 {/* 🌟 改為橘色漸層 */}
-                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 border border-orange-500/20 flex-1 text-left relative overflow-hidden">
-                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-orange-500/10"></i>
+                <div className="bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-2xl p-4 border border-[#F59E0B]/20 flex-1 text-left relative overflow-hidden">
+                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-3xl text-[#F59E0B]/10"></i>
                   <p className="text-sm text-orange-100 line-clamp-3 leading-relaxed relative z-10 font-medium">
                     {v.statusMessage}
                   </p>
@@ -3804,15 +3735,15 @@ const HomePage = ({
             <button
               onClick={handleShuffleStatus}
               disabled={isShuffling}
-              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-600 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {/* 🌟 改為橘色 */}
-              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-orange-400" : ""}`}></i> 換一批
+              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
             </button>
             <button
               onClick={() => navigate("status_wall")}
               // 🌟 改為橘色
-              className="flex-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+              className="flex-1 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
             >
               <i className="fa-solid fa-pen-nib"></i> 發布動態
             </button>
@@ -3822,9 +3753,9 @@ const HomePage = ({
           <div className="hidden sm:flex mt-8 justify-center">
             <button
               onClick={() => navigate("status_wall")}
-              className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:-translate-y-1 flex items-center gap-2 border border-gray-700"
+              className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 border border-[#2A2F3D]"
             >
-              <i className="fa-solid fa-bolt text-orange-400"></i> 觀看更多 24H 最新動態
+              <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 觀看更多 24H 最新動態
             </button>
           </div>
 
@@ -3833,13 +3764,13 @@ const HomePage = ({
 
       {/* 歡迎新 VTuber */}
       {recommendedVtubers.length > 0 && (
-        <div className="mt-8 mb-16 pt-12 border-t border-gray-800/50 w-full animate-fade-in-up">
+        <div className="mt-8 mb-16 pt-12 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
           <div className="text-left mb-8">
             <h2 className="text-2xl font-extrabold text-white mb-2 flex items-center gap-2">
               <i className="fa-solid fa-heart-circle-bolt text-pink-500"></i>{" "}
               為您推薦跟你最契合的V朋朋
             </h2>
-            <p className="text-gray-400 text-sm">
+            <p className="text-[#94A3B8] text-sm">
               系統透過 AI 與標籤分析，為您找出最適合聯動的潛在夥伴！快去看看他們的名片吧！
             </p>
           </div>
@@ -3875,9 +3806,9 @@ const HomePage = ({
           <div className="hidden sm:flex mt-10 justify-center">
             <button
               onClick={() => navigate("grid")}
-              className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-all hover:-translate-y-1 flex items-center gap-2 border border-gray-700"
+              className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 border border-[#2A2F3D]"
             >
-              <i className="fa-solid fa-magnifying-glass text-purple-400"></i>{" "}
+              <i className="fa-solid fa-magnifying-glass text-[#A78BFA]"></i>{" "}
               來這裡找更多Vtuber夥伴
             </button>
           </div>
@@ -3885,13 +3816,13 @@ const HomePage = ({
       )}
 
       {/* 隨機招募區塊 */}
-      <div className="mt-16 pt-16 border-t border-gray-800/50 w-full animate-fade-in-up">
+      <div className="mt-16 pt-16 border-t border-[#2A2F3D]/50 w-full animate-fade-in-up">
         <div className="text-left mb-10">
           <h2 className="text-3xl font-extrabold text-white mb-2">
-            <i className="fa-solid fa-bullhorn text-purple-400 mr-2"></i>
+            <i className="fa-solid fa-bullhorn text-[#A78BFA] mr-2"></i>
             來看看有哪些揪團！
           </h2>
-          <p className="text-gray-400">
+          <p className="text-[#94A3B8]">
             正在尋找夥伴的企劃，或許就有你感興趣的！
           </p>
         </div>
@@ -3924,7 +3855,7 @@ const HomePage = ({
             <div className="hidden sm:flex justify-center">
               <button
                 onClick={goToBulletin}
-                className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-xl font-bold shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-transform hover:-translate-y-1 animate-pulse flex items-center justify-center gap-2"
+                className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-8 py-4 rounded-xl font-bold shadow-sm transition-transform flex items-center justify-center gap-2"
               >
                 <i className="fa-solid fa-bullhorn"></i>{" "}
                 想找夥伴聯動嗎？看這裡！
@@ -3932,8 +3863,8 @@ const HomePage = ({
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700">
-            <p className="text-gray-500 font-bold text-lg">
+          <div className="text-center py-12 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
+            <p className="text-[#64748B] font-bold text-lg">
               目前暫無招募中的企劃
             </p>
           </div>
@@ -3941,13 +3872,13 @@ const HomePage = ({
       </div>
 
       {/* 為您隨機推薦聯動 */}
-      <div className="mt-16 pt-16 border-t border-gray-800/50 w-full">
+      <div className="mt-16 pt-16 border-t border-[#2A2F3D]/50 w-full">
         <div className="text-left mb-10">
           <h2 className="text-3xl font-extrabold text-white mb-2">
-            <i className="fa-solid fa-fire text-red-500 mr-2"></i>
+            <i className="fa-solid fa-fire text-[#EF4444] mr-2"></i>
             為您隨機推薦聯動
           </h2>
-          <p className="text-gray-400">
+          <p className="text-[#94A3B8]">
             快來看看有哪些 VTuber 即將展開精彩合作！
           </p>
         </div>
@@ -3987,7 +3918,7 @@ const HomePage = ({
             <div className="hidden sm:flex justify-center">
               <button
                 onClick={() => navigate("collabs")}
-                className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1"
+                className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-3 rounded-xl font-bold shadow-sm transition-transform"
               >
                 查看完整確定聯動表{" "}
                 <i className="fa-solid fa-arrow-right ml-2"></i>
@@ -3995,8 +3926,8 @@ const HomePage = ({
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 bg-gray-800/30 rounded-3xl border border-gray-700 max-w-4xl mx-auto">
-            <p className="text-gray-500 font-bold text-lg">
+          <div className="text-center py-12 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
+            <p className="text-[#64748B] font-bold text-lg">
               <i className="fa-solid fa-ghost mb-4 text-3xl block"></i>
               目前沒有即將到來的聯動行程
             </p>
@@ -4051,28 +3982,28 @@ const AdminVtuberList = ({
 
   return (
     <div className="mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-gray-700 pb-2 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-[#2A2F3D] pb-2 gap-3">
         <h3
-          className={`text-xl font-bold ${isBlacklist ? "text-red-500" : title.includes("待") ? "text-yellow-400" : "text-white"}`}
+          className={`text-xl font-bold ${isBlacklist ? "text-[#EF4444]" : title.includes("待") ? "text-[#F59E0B]" : "text-white"}`}
         >
           {title} ({filteredList.length})
         </h3>
         {showSearch && (
           <div className="relative w-full sm:w-64">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]"></i>
             <input
               type="text"
               placeholder="搜尋名稱、勢力或UID..."
               value={searchQ}
               onChange={(e) => setSearchQ(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg py-1.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-purple-500"
+              className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-lg py-1.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-[#8B5CF6]"
             />
           </div>
         )}
       </div>
 
       {filteredList.length === 0 ? (
-        <p className="text-gray-500 text-sm py-4 text-center bg-gray-900/50 rounded-xl border border-dashed border-gray-800">
+        <p className="text-[#64748B] text-sm py-4 text-center bg-[#0F111A]/50 rounded-xl border border-dashed border-[#2A2F3D]">
           目前無符合條件的資料
         </p>
       ) : (
@@ -4080,7 +4011,7 @@ const AdminVtuberList = ({
           {displayList.map((v) => (
             <div
               key={v.id}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border ${isBlacklist ? "bg-red-950/20 border-red-900/50" : title.includes("待") ? "bg-gray-900 border-yellow-500/30" : "bg-gray-900 border-gray-700"} gap-4`}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border ${isBlacklist ? "bg-[#2A1418]/20 border-red-900/50" : title.includes("待") ? "bg-[#0F111A] border-[#F59E0B]/30" : "bg-[#0F111A] border-[#2A2F3D]"} gap-4`}
             >
               <div className="flex items-center gap-4">
                 <img
@@ -4089,15 +4020,15 @@ const AdminVtuberList = ({
                 />
                 <div className="min-w-0">
                   <p
-                    className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? "text-gray-400 line-through" : "text-white"}`}
+                    className={`font-bold text-sm flex items-center gap-2 ${isBlacklist ? "text-[#94A3B8] line-through" : "text-white"}`}
                   >
                     {v.name || "（空白名片）"}
                     {v.isVerified && (
-                      <i className="fa-solid fa-circle-check text-blue-400 text-xs"></i>
+                      <i className="fa-solid fa-circle-check text-[#38BDF8] text-xs"></i>
                     )}
                   </p>
                   {!isBlacklist && (
-                    <p className="text-[10px] text-gray-400 mt-1">
+                    <p className="text-[10px] text-[#94A3B8] mt-1">
                       {v.agency} |{" "}
                       {v.activityStatus === "sleep"
                         ? "休眠"
@@ -4105,15 +4036,15 @@ const AdminVtuberList = ({
                           ? "畢業"
                           : "活躍"}{" "}
                       | 推薦:{" "}
-                      <span className="text-green-400">{v.likes || 0}</span> |
+                      <span className="text-[#22C55E]">{v.likes || 0}</span> |
                       倒讚:{" "}
-                      <span className="text-red-400">{v.dislikes || 0}</span>
+                      <span className="text-[#EF4444]">{v.dislikes || 0}</span>
                     </p>
                   )}
 
                   {/* 顯示驗證備註 */}
                   {privateDocs[v.id]?.verificationNote && (
-                    <p className="text-[10px] text-yellow-400 mt-1.5 bg-yellow-500/10 p-1 rounded border border-yellow-500/20 inline-block">
+                    <p className="text-[10px] text-[#F59E0B] mt-1.5 bg-[#F59E0B]/10 p-1 rounded border border-[#F59E0B]/20 inline-block">
                       <i className="fa-solid fa-key mr-1"></i> 驗證:{" "}
                       {privateDocs[v.id].verificationNote}
                     </p>
@@ -4125,7 +4056,7 @@ const AdminVtuberList = ({
                         href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[10px] text-red-400 hover:underline"
+                        className="text-[10px] text-[#EF4444] hover:underline"
                       >
                         <i className="fa-brands fa-youtube"></i> YT
                       </a>
@@ -4135,7 +4066,7 @@ const AdminVtuberList = ({
                         href={sanitizeUrl(v.twitchUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[10px] text-purple-400 hover:underline"
+                        className="text-[10px] text-[#A78BFA] hover:underline"
                       >
                         <i className="fa-brands fa-twitch"></i> Twitch
                       </a>
@@ -4145,7 +4076,7 @@ const AdminVtuberList = ({
                         href={sanitizeUrl(v.xUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[10px] text-blue-400 hover:underline"
+                        className="text-[10px] text-[#38BDF8] hover:underline"
                       >
                         <i className="fa-brands fa-x-twitter"></i> X
                       </a>
@@ -4157,7 +4088,7 @@ const AdminVtuberList = ({
                 {onVerify && (
                   <button
                     onClick={() => onVerify(v.id)}
-                    className="text-green-400 bg-green-500/10 hover:bg-green-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                    className="text-[#22C55E] bg-[#22C55E]/10 hover:bg-[#22C55E] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                   >
                     審核
                   </button>
@@ -4165,20 +4096,20 @@ const AdminVtuberList = ({
                 {onReject && (
                   <button
                     onClick={() => onReject(v.id)}
-                    className="text-orange-400 bg-orange-500/10 hover:bg-orange-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                    className="text-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                   >
                     退回
                   </button>
                 )}
                 <button
                   onClick={() => onEdit(v)}
-                  className="text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  className="text-[#38BDF8] bg-[#38BDF8]/10 hover:bg-[#38BDF8] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                 >
                   編輯
                 </button>
                 <button
                   onClick={() => onDelete(v.id)}
-                  className="text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                  className="text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                 >
                   刪除
                 </button>
@@ -4194,17 +4125,17 @@ const AdminVtuberList = ({
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === 1 ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
           >
             上一頁
           </button>
-          <span className="text-gray-400 text-xs font-bold">
+          <span className="text-[#94A3B8] text-xs font-bold">
             第 {page} / {totalPages} 頁
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === totalPages ? "bg-gray-800 text-gray-600 cursor-not-allowed" : "bg-gray-700 text-white hover:bg-gray-600"}`}
+            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${page === totalPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
           >
             下一頁
           </button>
@@ -4481,7 +4412,7 @@ const AdminPage = ({
     <>
       <div className="max-w-5xl mx-auto px-4 py-8 relative animate-fade-in-up">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-red-400 mb-2">
+          <h2 className="text-3xl font-extrabold text-[#EF4444] mb-2">
             <i className="fa-solid fa-shield-halved mr-3"></i>超級管理員中心
           </h2>
         </div>
@@ -4497,7 +4428,7 @@ const AdminPage = ({
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? "bg-red-600 text-white shadow-lg" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+              className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap flex items-center gap-2 ${activeTab === t.id ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]"}`}
             >
               <i className={`fa-solid ${t.icon}`}></i> {t.label}
               {t.id === "vtubers" && pendingVtubers.length > 0 && (
@@ -4508,7 +4439,7 @@ const AdminPage = ({
             </button>
           ))}
         </div>
-        <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 shadow-2xl">
+        <div className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 shadow-sm">
           {activeTab === "vtubers" && (
             <div className="space-y-8">
               {/* 1. 待審核名單 */}
@@ -4526,26 +4457,26 @@ const AdminPage = ({
 
               {/* 2. 已退回名單 */}
               {rejectedVtubers.length > 0 && (
-                <div className="mb-8 border border-orange-500/20 rounded-2xl overflow-hidden">
+                <div className="mb-8 border border-[#F59E0B]/20 rounded-2xl overflow-hidden">
                   <button
                     onClick={() => setIsRejectedExpanded(!isRejectedExpanded)}
-                    className="w-full flex items-center justify-between p-4 bg-orange-500/5 hover:bg-orange-500/10 transition-colors"
+                    className="w-full flex items-center justify-between p-4 bg-[#F59E0B]/5 hover:bg-[#F59E0B]/10 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <h3 className="text-xl font-bold text-orange-400">
+                      <h3 className="text-xl font-bold text-[#F59E0B]">
                         已退回名單 ({rejectedVtubers.length})
                       </h3>
-                      <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded">
+                      <span className="text-[10px] bg-[#F59E0B]/20 text-orange-300 px-2 py-0.5 rounded">
                         點擊{isRejectedExpanded ? "收合" : "展開"}
                       </span>
                     </div>
                     <i
-                      className={`fa-solid fa-chevron-${isRejectedExpanded ? "up" : "down"} text-orange-400`}
+                      className={`fa-solid fa-chevron-${isRejectedExpanded ? "up" : "down"} text-[#F59E0B]`}
                     ></i>
                   </button>
 
                   {isRejectedExpanded && (
-                    <div className="p-4 bg-gray-900/30">
+                    <div className="p-4 bg-[#0F111A]/30">
                       <AdminVtuberList
                         title="搜尋退回名單"
                         list={rejectedVtubers}
@@ -4583,17 +4514,17 @@ const AdminPage = ({
                 paginate={true}
                 showSearch={true}
               />
-              <div className="mt-12 pt-6 border-t border-red-500/50 flex flex-wrap gap-4">
+              <div className="mt-12 pt-6 border-t border-[#EF4444]/50 flex flex-wrap gap-4">
                 <button
                   onClick={onResetAllCollabTypes}
-                  className="bg-red-900 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-bold"
+                  className="bg-[#3B171D] hover:bg-[#B91C1C] text-white px-6 py-3 rounded-xl font-bold"
                 >
                   <i className="fa-solid fa-bomb mr-2"></i>重置所有人聯動類型
                 </button>
                 <button
                   onClick={onMassUpdateVerification}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-blue-900/50 cursor-not-allowed text-gray-400" : "bg-blue-900 hover:bg-blue-700 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-blue-900/50 cursor-not-allowed text-[#94A3B8]" : "bg-blue-900 hover:bg-[#0284C7] text-white"}`}
                 >
                   <i className="fa-solid fa-user-shield mr-2"></i>
                   一鍵更改驗證內容為 'X'
@@ -4607,7 +4538,7 @@ const AdminPage = ({
                 <button
                   onClick={onMassSyncSubs}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-red-900/50 cursor-not-allowed text-gray-400" : "bg-red-900 hover:bg-red-700 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-[#3B171D]/50 cursor-not-allowed text-[#94A3B8]" : "bg-[#3B171D] hover:bg-[#B91C1C] text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -4624,7 +4555,7 @@ const AdminPage = ({
                 <button
                   onClick={onMassSyncTwitch}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-purple-900/50 cursor-not-allowed text-gray-400" : "bg-purple-900 hover:bg-purple-700 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center ${isSyncingSubs ? "bg-purple-900/50 cursor-not-allowed text-[#94A3B8]" : "bg-purple-900 hover:bg-[#7C3AED] text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -4648,7 +4579,7 @@ const AdminPage = ({
                 <button
                   onClick={handleAdminCleanBulletins}
                   disabled={isSyncingSubs}
-                  className="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg flex items-center gap-2"
+                  className="bg-[#D97706] hover:bg-[#F59E0B] text-[#0F111A] px-4 py-2 rounded-lg font-bold shadow-sm flex items-center gap-2"
                 >
                   {isSyncingSubs ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-broom"></i>}
                   結算並清理過期招募
@@ -4663,17 +4594,17 @@ const AdminPage = ({
                 return (
                   <div
                     key={b.id}
-                    className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"
+                    className="flex justify-between bg-[#0F111A] p-4 rounded-xl border border-[#2A2F3D] gap-4"
                   >
                     <div className="flex-1">
-                      <p className="text-sm text-gray-300 mb-1">{b.content}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm text-[#CBD5E1] mb-1">{b.content}</p>
+                      <p className="text-xs text-[#64748B]">
                         {authorName} | {postedAt}
                       </p>
                     </div>
                     <button
                       onClick={() => onDeleteBulletin(b.id)}
-                      className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg font-bold"
+                      className="text-[#EF4444] bg-[#EF4444]/10 px-3 py-1.5 rounded-lg font-bold"
                     >
                       刪除
                     </button>
@@ -4690,8 +4621,8 @@ const AdminPage = ({
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      聯動類別 <span className="text-red-400">*</span>
+                    <label className="text-xs text-[#94A3B8] mb-1 block">
+                      聯動類別 <span className="text-[#EF4444]">*</span>
                     </label>
                     <select
                       required
@@ -4709,8 +4640,8 @@ const AdminPage = ({
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      聯動時間 <span className="text-red-400">*</span>
+                    <label className="text-xs text-[#94A3B8] mb-1 block">
+                      聯動時間 <span className="text-[#EF4444]">*</span>
                     </label>
                     {/* 🌟 替換為 DateTimePicker */}
                     <DateTimePicker
@@ -4722,8 +4653,8 @@ const AdminPage = ({
                     />
                   </div>
                   <div className="relative">
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      直播連結 <span className="text-red-400">*</span>
+                    <label className="text-xs text-[#94A3B8] mb-1 block">
+                      直播連結 <span className="text-[#EF4444]">*</span>
                     </label>
                     <div className="flex gap-2">
                       <input
@@ -4748,13 +4679,13 @@ const AdminPage = ({
                             showToast,
                           )
                         }
-                        className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"
+                        className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 rounded-xl text-xs font-bold transition-colors"
                       >
                         <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>
                         抓取
                       </button>
                     </div>
-                    <p className="text-[10px] text-purple-400/80 mt-1">
+                    <p className="text-[10px] text-[#A78BFA]/80 mt-1">
                       （放入連結按下就可以自動抓取YT縮圖及標題）
                     </p>
                   </div>
@@ -4781,17 +4712,17 @@ const AdminPage = ({
                 </div>
                 <button
                   onClick={handleAdminPublish}
-                  className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold"
+                  className="bg-[#EF4444] text-white px-6 py-2 rounded-lg font-bold"
                 >
                   發布
                 </button>
               </div>
-              <div className="border-t border-gray-700 pt-6 space-y-4">
+              <div className="border-t border-[#2A2F3D] pt-6 space-y-4">
                 <h3 className="text-lg font-bold text-white mb-4">現有清單</h3>
                 {(collabs || []).map((c) => (
                   <div
                     key={c.id}
-                    className="flex justify-between bg-gray-900 p-4 rounded-xl border border-gray-700"
+                    className="flex justify-between bg-[#0F111A] p-4 rounded-xl border border-[#2A2F3D]"
                   >
                     <div>
                       <p className="font-bold text-white text-sm">
@@ -4800,7 +4731,7 @@ const AdminPage = ({
                     </div>
                     <button
                       onClick={() => onDeleteCollab(c.id)}
-                      className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg"
+                      className="text-[#EF4444] bg-[#EF4444]/10 px-3 py-1.5 rounded-lg"
                     >
                       刪除
                     </button>
@@ -4827,8 +4758,8 @@ const AdminPage = ({
                   }}
                 >
                   <div className="mb-4">
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      標題 <span className="text-red-400">*</span>
+                    <label className="text-xs text-[#94A3B8] mb-1 block">
+                      標題 <span className="text-[#EF4444]">*</span>
                     </label>
                     <input
                       required
@@ -4839,8 +4770,8 @@ const AdminPage = ({
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="text-xs text-gray-400 mb-1 block">
-                      內容 <span className="text-red-400">*</span>
+                    <label className="text-xs text-[#94A3B8] mb-1 block">
+                      內容 <span className="text-[#EF4444]">*</span>
                     </label>
                     <textarea
                       required
@@ -4852,34 +4783,34 @@ const AdminPage = ({
                   <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg"
+                      className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-6 py-2 rounded-lg font-bold shadow-sm"
                     >
                       發布公告
                     </button>
                   </div>
                 </form>
               </div>
-              <div className="border-t border-gray-700 pt-6 space-y-4">
+              <div className="border-t border-[#2A2F3D] pt-6 space-y-4">
                 <h3 className="text-lg font-bold text-white mb-4">歷史公告</h3>
                 {(updates || []).map((u) => (
                   <div
                     key={u.id}
-                    className="flex flex-col sm:flex-row sm:justify-between bg-gray-900 p-4 rounded-xl border border-gray-700 gap-4"
+                    className="flex flex-col sm:flex-row sm:justify-between bg-[#0F111A] p-4 rounded-xl border border-[#2A2F3D] gap-4"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white text-sm truncate">
                         {u.title}{" "}
-                        <span className="text-xs text-gray-500 font-normal ml-2">
+                        <span className="text-xs text-[#64748B] font-normal ml-2">
                           {u.date}
                         </span>
                       </p>
-                      <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                      <p className="text-xs text-[#94A3B8] mt-1 line-clamp-2">
                         {u.content}
                       </p>
                     </div>
                     <button
                       onClick={() => onDeleteUpdate(u.id)}
-                      className="text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg flex-shrink-0 font-bold self-start"
+                      className="text-[#EF4444] bg-[#EF4444]/10 px-3 py-1.5 rounded-lg flex-shrink-0 font-bold self-start"
                     >
                       刪除
                     </button>
@@ -4888,14 +4819,14 @@ const AdminPage = ({
               </div>
 
               {/* 🌟 系統通知信：發送給全站 VTuber */}
-              <div className="border-t border-gray-700 pt-6 mt-6">
+              <div className="border-t border-[#2A2F3D] pt-6 mt-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-white">
-                      <i className="fa-solid fa-paper-plane text-purple-400 mr-2"></i>
+                      <i className="fa-solid fa-paper-plane text-[#A78BFA] mr-2"></i>
                       發送全站系統通知信
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-[#94A3B8] mt-1">
                       將由後端伺服器寄送給所有填寫過信箱的創作者。
                     </p>
                   </div>
@@ -4920,19 +4851,19 @@ const AdminPage = ({
                     }}
                     // 🌟 修正：使用 isAdminEmailSending
                     disabled={isTestEmailSending || isAdminEmailSending}
-                    className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
+                    className="flex items-center gap-1.5 bg-[#1D2130] hover:bg-[#2A2F3D] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors flex-shrink-0"
                   >
                     {isTestEmailSending
-                      ? <><i className="fa-solid fa-circle-notch animate-spin text-purple-300"></i><span>寄送中...</span></>
-                      : <><i className="fa-solid fa-flask text-yellow-400"></i><span>寄測試信給自己</span></>
+                      ? <><i className="fa-solid fa-circle-notch animate-spin text-[#C4B5FD]"></i><span>寄送中...</span></>
+                      : <><i className="fa-solid fa-flask text-[#F59E0B]"></i><span>寄測試信給自己</span></>
                     }
                   </button>
                 </div>
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      <i className="fa-solid fa-heading mr-1 text-purple-400"></i>主旨
+                    <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">
+                      <i className="fa-solid fa-heading mr-1 text-[#A78BFA]"></i>主旨
                     </label>
                     <input
                       type="text"
@@ -4947,8 +4878,8 @@ const AdminPage = ({
                     <p className="text-right text-xs text-gray-600 mt-1">{adminEmailSubject.length} / 100</p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                      <i className="fa-solid fa-align-left mr-1 text-purple-400"></i>內容
+                    <label className="block text-xs font-medium text-[#94A3B8] mb-1.5">
+                      <i className="fa-solid fa-align-left mr-1 text-[#A78BFA]"></i>內容
                     </label>
                     <textarea
                       value={adminEmailBody}
@@ -4963,18 +4894,18 @@ const AdminPage = ({
 
                   {/* 🌟 狀態提示 (取代原本的數字進度條，因為現在是後端在跑) */}
                   {isAdminEmailSending && (
-                    <div className="bg-gray-800 border border-purple-500/30 rounded-xl p-4 space-y-3">
+                    <div className="bg-[#181B25] border border-white/10 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-purple-300 font-bold">
-                          <i className="fa-solid fa-server animate-pulse mr-2"></i>
+                        <span className="text-[#C4B5FD] font-bold">
+                          <i className="fa-solid fa-server mr-2"></i>
                           伺服器背景發送中...
                         </span>
                       </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden relative">
-                        <div className="bg-purple-500 h-2.5 rounded-full absolute top-0 left-0 w-1/3 animate-ping" style={{ animationDuration: '1.5s' }} />
-                        <div className="bg-purple-400 h-2.5 rounded-full absolute top-0 left-0 w-full animate-pulse" />
+                      <div className="w-full bg-[#1D2130] rounded-full h-2.5 overflow-hidden relative">
+                        <div className="bg-[#8B5CF6] h-2.5 rounded-full absolute top-0 left-0 w-1/3 animate-ping" style={{ animationDuration: '1.5s' }} />
+                        <div className="bg-purple-400 h-2.5 rounded-full absolute top-0 left-0 w-full" />
                       </div>
-                      <p className="text-xs text-gray-400">信件正由後端逐一寄出，這可能需要幾分鐘的時間，請耐心等候。</p>
+                      <p className="text-xs text-[#94A3B8]">信件正由後端逐一寄出，這可能需要幾分鐘的時間，請耐心等候。</p>
                     </div>
                   )}
 
@@ -5005,7 +4936,7 @@ const AdminPage = ({
                     }}
                     // 🌟 修正：使用 isAdminEmailSending
                     disabled={isAdminEmailSending || !adminEmailSubject.trim() || !adminEmailBody.trim()}
-                    className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
+                    className="w-full flex items-center justify-center gap-2 bg-[#8B5CF6] hover:bg-[#8B5CF6] disabled:bg-[#1D2130] disabled:text-[#64748B] disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-colors text-sm"
                   >
                     {isAdminEmailSending
                       ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中，請勿關閉視窗...</span></>
@@ -5024,33 +4955,33 @@ const AdminPage = ({
             <div className="space-y-6">
               <h3 className="text-xl font-bold text-white mb-4">寶典文章審核系統</h3>
               <div className="space-y-4">
-                <h4 className="text-yellow-400 font-bold border-b border-gray-700 pb-2">待審核文章 ({(articles || []).filter(a => a.status === 'pending').length})</h4>
-                {(articles || []).filter(a => a.status === 'pending').length === 0 ? <p className="text-gray-500 bg-gray-900/50 p-4 rounded-xl border border-dashed border-gray-700 text-center">無待審核文章</p> : (articles || []).filter(a => a.status === 'pending').map(a => (
-                  <div key={a.id} className="bg-gray-900 border border-yellow-500/30 p-5 rounded-xl flex flex-col sm:flex-row gap-4 justify-between hover:border-yellow-500/60 transition-colors">
+                <h4 className="text-[#F59E0B] font-bold border-b border-[#2A2F3D] pb-2">待審核文章 ({(articles || []).filter(a => a.status === 'pending').length})</h4>
+                {(articles || []).filter(a => a.status === 'pending').length === 0 ? <p className="text-[#64748B] bg-[#0F111A]/50 p-4 rounded-xl border border-dashed border-[#2A2F3D] text-center">無待審核文章</p> : (articles || []).filter(a => a.status === 'pending').map(a => (
+                  <div key={a.id} className="bg-[#0F111A] border border-[#F59E0B]/30 p-5 rounded-xl flex flex-col sm:flex-row gap-4 justify-between hover:border-[#F59E0B]/60 transition-colors">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">{a.category}</span>
+                        <span className="text-xs bg-[#38BDF8]/20 text-[#38BDF8] px-2 py-0.5 rounded border border-[#38BDF8]/30">{a.category}</span>
                         <span className="font-bold text-white text-lg">{a.title}</span>
                       </div>
-                      <p className="text-gray-400 text-sm line-clamp-3 mt-2 bg-gray-800 p-3 rounded-lg">{a.content}</p>
+                      <p className="text-[#94A3B8] text-sm line-clamp-3 mt-2 bg-[#181B25] p-3 rounded-lg">{a.content}</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0 self-start sm:self-center">
-                      <button onClick={() => onVerifyArticle(a.id)} className="bg-green-600/80 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-check mr-1"></i>核准張貼</button>
-                      <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="bg-blue-600/80 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-pen mr-1"></i>編輯</button>
-                      <button onClick={() => onDeleteArticle(a.id)} className="bg-red-600/80 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform hover:scale-105"><i className="fa-solid fa-xmark mr-1"></i>拒絕/刪除</button>
+                      <button onClick={() => onVerifyArticle(a.id)} className="bg-[#22C55E]/80 hover:bg-[#22C55E] text-[#0F111A] px-4 py-2 rounded-lg font-bold text-sm transition-transform"><i className="fa-solid fa-check mr-1"></i>核准張貼</button>
+                      <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="bg-[#38BDF8]/80 hover:bg-[#38BDF8] text-[#0F111A] px-4 py-2 rounded-lg font-bold text-sm transition-transform"><i className="fa-solid fa-pen mr-1"></i>編輯</button>
+                      <button onClick={() => onDeleteArticle(a.id)} className="bg-[#EF4444]/80 hover:bg-[#EF4444] text-white px-4 py-2 rounded-lg font-bold text-sm transition-transform"><i className="fa-solid fa-xmark mr-1"></i>拒絕/刪除</button>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="space-y-4 mt-8 pt-8 border-t border-gray-700">
-                <h4 className="text-green-400 font-bold border-b border-gray-700 pb-2">已發布文章 ({(articles || []).filter(a => a.status === 'published').length})</h4>
+              <div className="space-y-4 mt-8 pt-8 border-t border-[#2A2F3D]">
+                <h4 className="text-[#22C55E] font-bold border-b border-[#2A2F3D] pb-2">已發布文章 ({(articles || []).filter(a => a.status === 'published').length})</h4>
                 {(articles || []).filter(a => a.status === 'published').map(a => (
-                  <div key={a.id} className="bg-gray-800 border border-gray-700 p-4 rounded-xl flex justify-between items-center gap-4">
+                  <div key={a.id} className="bg-[#181B25] border border-[#2A2F3D] p-4 rounded-xl flex justify-between items-center gap-4">
                     <div className="min-w-0 flex-1">
-                      <span className="font-bold text-white truncate block">{a.title} <span className="text-xs text-blue-400 font-normal ml-2 bg-blue-500/10 px-2 py-0.5 rounded">({a.category})</span></span>
+                      <span className="font-bold text-white truncate block">{a.title} <span className="text-xs text-[#38BDF8] font-normal ml-2 bg-[#38BDF8]/10 px-2 py-0.5 rounded">({a.category})</span></span>
                     </div>
-                    <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="text-blue-400 bg-blue-500/10 hover:bg-blue-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">編輯</button>
-                    <button onClick={() => onDeleteArticle(a.id)} className="text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">強制刪除</button>
+                    <button onClick={() => { setEditingArticleId(a.id); setArticleEditForm({ title: a.title, category: a.category, content: a.content, coverUrl: a.coverUrl || '' }); }} className="text-[#38BDF8] bg-[#38BDF8]/10 hover:bg-[#38BDF8] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">編輯</button>
+                    <button onClick={() => onDeleteArticle(a.id)} className="text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex-shrink-0">強制刪除</button>
                   </div>
                 ))}
               </div>
@@ -5059,36 +4990,36 @@ const AdminPage = ({
 
           {editingArticleId && (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-              <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
-                <div className="bg-gray-800 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-                  <h3 className="font-bold text-white"><i className="fa-solid fa-pen text-blue-400 mr-2"></i>編輯文章</h3>
-                  <button onClick={() => setEditingArticleId(null)} className="text-gray-400 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+              <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-sm overflow-hidden">
+                <div className="bg-[#181B25] px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center">
+                  <h3 className="font-bold text-white"><i className="fa-solid fa-pen text-[#38BDF8] mr-2"></i>編輯文章</h3>
+                  <button onClick={() => setEditingArticleId(null)} className="text-[#94A3B8] hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
                 </div>
                 <div className="p-6 overflow-y-auto space-y-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-1">標題</label>
-                    <input type="text" value={articleEditForm.title} onChange={e => setArticleEditForm({ ...articleEditForm, title: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" />
+                    <label className="block text-sm font-bold text-[#CBD5E1] mb-1">標題</label>
+                    <input type="text" value={articleEditForm.title} onChange={e => setArticleEditForm({ ...articleEditForm, title: e.target.value })} className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-lg p-2 text-white outline-none focus:border-[#38BDF8]" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-bold text-gray-300 mb-1">分類</label>
-                      <select value={articleEditForm.category} onChange={e => setArticleEditForm({ ...articleEditForm, category: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500">
+                      <label className="block text-sm font-bold text-[#CBD5E1] mb-1">分類</label>
+                      <select value={articleEditForm.category} onChange={e => setArticleEditForm({ ...articleEditForm, category: e.target.value })} className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-lg p-2 text-white outline-none focus:border-[#38BDF8]">
                         {ARTICLE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-300 mb-1">封面網址 (不改請留空)</label>
-                      <input type="text" value={articleEditForm.coverUrl} onChange={e => setArticleEditForm({ ...articleEditForm, coverUrl: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500" />
+                      <label className="block text-sm font-bold text-[#CBD5E1] mb-1">封面網址 (不改請留空)</label>
+                      <input type="text" value={articleEditForm.coverUrl} onChange={e => setArticleEditForm({ ...articleEditForm, coverUrl: e.target.value })} className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-lg p-2 text-white outline-none focus:border-[#38BDF8]" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-1">內文</label>
-                    <textarea rows="10" value={articleEditForm.content} onChange={e => setArticleEditForm({ ...articleEditForm, content: e.target.value })} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500 font-mono text-sm" />
+                    <label className="block text-sm font-bold text-[#CBD5E1] mb-1">內文</label>
+                    <textarea rows="10" value={articleEditForm.content} onChange={e => setArticleEditForm({ ...articleEditForm, content: e.target.value })} className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-lg p-2 text-white outline-none focus:border-[#38BDF8] font-mono text-sm" />
                   </div>
                 </div>
-                <div className="bg-gray-800 px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
-                  <button onClick={() => setEditingArticleId(null)} className="px-4 py-2 text-gray-400 hover:text-white font-bold transition-colors">取消</button>
-                  <button onClick={() => { onEditArticle(editingArticleId, articleEditForm); setEditingArticleId(null); }} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow transition-transform hover:scale-105">儲存修改</button>
+                <div className="bg-[#181B25] px-6 py-4 border-t border-[#2A2F3D] flex justify-end gap-3">
+                  <button onClick={() => setEditingArticleId(null)} className="px-4 py-2 text-[#94A3B8] hover:text-white font-bold transition-colors">取消</button>
+                  <button onClick={() => { onEditArticle(editingArticleId, articleEditForm); setEditingArticleId(null); }} className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-6 py-2 rounded-lg font-bold shadow transition-transform">儲存修改</button>
                 </div>
               </div>
             </div>
@@ -5108,7 +5039,7 @@ const AdminPage = ({
               <div className="flex justify-end">
                 <button
                   onClick={() => onSaveSettings(undefined, editRules)}
-                  className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold"
+                  className="bg-[#EF4444] text-white px-8 py-2.5 rounded-xl font-bold"
                 >
                   儲存規範
                 </button>
@@ -5127,18 +5058,18 @@ const AdminPage = ({
               <div className="flex justify-end">
                 <button
                   onClick={() => onSaveSettings(editTips, undefined)}
-                  className="bg-red-600 text-white px-8 py-2.5 rounded-xl font-bold"
+                  className="bg-[#EF4444] text-white px-8 py-2.5 rounded-xl font-bold"
                 >
                   儲存小技巧
                 </button>
               </div>
 
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-solid fa-images text-purple-400 mr-2"></i>
+                  <i className="fa-solid fa-images text-[#A78BFA] mr-2"></i>
                   招募佈告欄預設圖片庫
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   當使用者發布招募沒有上傳圖片時，將從這裡隨機挑選一張顯示。
                 </p>
                 <div className="flex flex-wrap gap-4 mb-4">
@@ -5146,11 +5077,11 @@ const AdminPage = ({
                     <div key={idx} className="relative group w-32 h-24">
                       <img
                         src={sanitizeUrl(img)}
-                        className="w-full h-full object-cover rounded-xl border border-gray-600"
+                        className="w-full h-full object-cover rounded-xl border border-[#2A2F3D]"
                       />
                       <button
                         onClick={() => onDeleteDefaultBulletinImage(idx)}
-                        className="absolute top-1 right-1 bg-red-600/90 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 bg-[#EF4444]/90 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <i className="fa-solid fa-trash text-xs"></i>
                       </button>
@@ -5197,34 +5128,34 @@ const AdminPage = ({
                     }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
-                  <button className="w-full bg-gray-800 hover:bg-gray-700 text-white py-2 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2">
+                  <button className="w-full bg-[#181B25] hover:bg-[#1D2130] text-white py-2 rounded-xl border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2">
                     <i className="fa-solid fa-plus"></i> 新增預設圖片
                   </button>
                 </div>
               </div>
 
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-solid fa-envelope-circle-check text-blue-400 mr-2"></i>
+                  <i className="fa-solid fa-envelope-circle-check text-[#38BDF8] mr-2"></i>
                   Email 系統測試
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   如果 Firebase 後台沒有看到 mail
                   路徑，請點擊下方按鈕寫入一筆測試資料，路徑就會自動出現。
                 </p>
                 <button
                   onClick={handleTestMail}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg"
+                  className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-6 py-2.5 rounded-xl font-bold shadow-sm"
                 >
                   寫入一筆測試信件
                 </button>
               </div>
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-brands fa-youtube text-red-500 mr-2"></i>
+                  <i className="fa-brands fa-youtube text-[#EF4444] mr-2"></i>
                   YouTube API 測試
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   輸入任意 YouTube 頻道網址，測試後端抓取功能是否正常運作。
                 </p>
                 <div className="flex gap-2">
@@ -5258,18 +5189,18 @@ const AdminPage = ({
                         showToast(`❌ 錯誤：${e.message}`);
                       }
                     }}
-                    className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg whitespace-nowrap"
+                    className="bg-[#EF4444] hover:bg-[#EF4444] text-white px-6 py-2.5 rounded-xl font-bold shadow-sm whitespace-nowrap"
                   >
                     測試抓取
                   </button>
                 </div>
               </div>
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-brands fa-twitch text-purple-400 mr-2"></i>
+                  <i className="fa-brands fa-twitch text-[#A78BFA] mr-2"></i>
                   Twitch API 測試
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   輸入任意 Twitch 頻道網址，測試後端抓取功能是否正常運作。
                 </p>
                 <div className="flex gap-2">
@@ -5303,23 +5234,23 @@ const AdminPage = ({
                         showToast(`❌ 錯誤：${e.message}`);
                       }
                     }}
-                    className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg whitespace-nowrap"
+                    className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-6 py-2.5 rounded-xl font-bold shadow-sm whitespace-nowrap"
                   >
                     測試抓取
                   </button>
                 </div>
               </div>
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-solid fa-mobile-screen-button text-blue-400 mr-2"></i>
+                  <i className="fa-solid fa-mobile-screen-button text-[#38BDF8] mr-2"></i>
                   手機推播功能測試
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   此功能僅限在手機「加入主畫面」後使用。點擊按鈕將發送一則推播通知給您自己。
                 </p>
                 <button
                   onClick={onTestPush}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                  className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-6 py-2.5 rounded-xl font-bold shadow-sm transition-transform"
                 >
                   立即測試手機推播
                 </button>
@@ -5347,30 +5278,30 @@ const AdminPage = ({
                     }
                     showToast("✅ 清理完畢");
                   }}
-                  className="bg-red-900 text-white px-4 py-2 rounded-lg ml-4"
+                  className="bg-[#3B171D] text-white px-4 py-2 rounded-lg ml-4"
                 >
                   清理過期訊息
                 </button>
               </div>
 
-              <div className="mt-8 border-t border-gray-700 pt-8">
+              <div className="mt-8 border-t border-[#2A2F3D] pt-8">
                 <h3 className="text-xl font-bold text-white mb-2">
-                  <i className="fa-solid fa-clock-rotate-left text-orange-400 mr-2"></i>
+                  <i className="fa-solid fa-clock-rotate-left text-[#F59E0B] mr-2"></i>
                   聯動提醒系統測試
                 </h3>
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[#94A3B8] mb-4">
                   點擊下方按鈕將建立一筆「1小時後開始」的虛擬聯動行程。建立後，系統會自動偵測並立即發送提醒信件至您的信箱，以確認提醒功能正常運作。
                 </p>
                 <button
                   onClick={onTestReminder}
-                  className="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                  className="bg-[#F59E0B] hover:bg-[#F59E0B] text-[#0F111A] px-6 py-2.5 rounded-xl font-bold shadow-sm transition-transform"
                 >
                   立即測試 24h 提醒寄送
                 </button>
                 <button
                   onClick={onMassMigrateImages}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-emerald-900/50 cursor-not-allowed text-gray-400" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-emerald-900/50 cursor-not-allowed text-[#94A3B8]" : "bg-emerald-700 hover:bg-emerald-600 text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -5388,7 +5319,7 @@ const AdminPage = ({
                 <button
                   onClick={onMigrateBulletinImages}
                   disabled={isSyncingSubs}
-                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-teal-900/50 cursor-not-allowed text-gray-400" : "bg-teal-700 hover:bg-teal-600 text-white"}`}
+                  className={`px-6 py-3 rounded-xl font-bold flex items-center mt-4 ${isSyncingSubs ? "bg-teal-900/50 cursor-not-allowed text-[#94A3B8]" : "bg-teal-700 hover:bg-teal-600 text-white"}`}
                 >
                   {isSyncingSubs ? (
                     <>
@@ -5409,15 +5340,15 @@ const AdminPage = ({
 
       {editingVtuber && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-2xl">
-            <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-2xl flex flex-col max-h-[90vh] shadow-sm">
+            <div className="sticky top-0 bg-[#0F111A]/95 backdrop-blur px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center z-10">
               <h3 className="font-bold text-white">
                 <i className="fa-solid fa-pen-to-square mr-2"></i>強制編輯：
                 {editingVtuber.name}
               </h3>
               <button
                 onClick={() => setEditingVtuber(null)}
-                className="text-gray-400 hover:text-white"
+                className="text-[#94A3B8] hover:text-white"
               >
                 <i className="fa-solid fa-xmark text-xl"></i>
               </button>
@@ -5511,13 +5442,13 @@ const ChatListContent = ({
 
   if (rooms.length === 0)
     return (
-      <div className="p-4 text-center text-gray-500 text-sm">
+      <div className="p-4 text-center text-[#64748B] text-sm">
         目前沒有任何私訊紀錄
       </div>
     );
 
   return (
-    <div className="max-h-80 overflow-y-auto bg-[#0f111a] custom-scrollbar">
+    <div className="max-h-80 overflow-y-auto bg-[#0F111A] custom-scrollbar">
       {rooms.map((room) => {
 
         // 🌟 核心修復 2：同樣從 roomId 切割出雙方的 UID
@@ -5530,7 +5461,7 @@ const ChatListContent = ({
         let target = vtubers.find((v) => v.id === targetId) || missingUsers[targetId];
 
         if (!target) return (
-          <div key={room.id} className="p-3 text-center text-gray-600 text-xs animate-pulse">
+          <div key={room.id} className="p-3 text-center text-gray-600 text-xs">
             載入對話資訊中...
           </div>
         );
@@ -5542,32 +5473,32 @@ const ChatListContent = ({
           <div
             key={room.id}
             onClick={() => onOpenChat(target)}
-            // 🌟 優化 1：加上 active:bg-gray-800，讓手機點擊時有按下去的視覺回饋
-            className="flex items-center gap-3 p-3 border-b border-gray-800 hover:bg-gray-800 active:bg-gray-800 cursor-pointer transition-colors group relative"
+            // 🌟 優化 1：加上 active:bg-[#181B25]，讓手機點擊時有按下去的視覺回饋
+            className="flex items-center gap-3 p-3 border-b border-[#2A2F3D] hover:bg-[#181B25] active:bg-[#181B25] cursor-pointer transition-colors group relative"
           >
             <div className="relative flex-shrink-0">
               <img
                 src={sanitizeUrl(target.avatar)}
-                className="w-10 h-10 rounded-full object-cover bg-gray-900 border border-gray-700 md:group-hover:border-purple-500 transition-colors"
+                className="w-10 h-10 rounded-full object-cover bg-[#0F111A] border border-[#2A2F3D] md:group-hover:border-[#8B5CF6] transition-colors"
               />
               {/* 🌟 綠點疊加在頭像右下角 */}
               {onlineUsers?.has(target.id) && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-900 rounded-full"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#22C55E] border border-gray-900 rounded-full"></div>
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center mb-1">
                 <span
-                  className={`text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-gray-300"}`}
+                  className={`text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-[#CBD5E1]"}`}
                 >
                   {target.name}
                 </span>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-[#64748B]">
                   {formatTime(room.lastTimestamp)}
                 </span>
               </div>
               <p
-                className={`text-xs truncate ${isUnread ? "text-purple-400 font-bold" : "text-gray-400"}`}
+                className={`text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}`}
               >
                 {room.lastMessage}
               </p>
@@ -5575,7 +5506,7 @@ const ChatListContent = ({
 
             <div className="flex items-center gap-2">
               {isUnread && (
-                <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
+                <div className="w-2 h-2 bg-[#EF4444] rounded-full shadow-sm"></div>
               )}
               <button
                 onClick={(e) => {
@@ -5584,7 +5515,7 @@ const ChatListContent = ({
                   // 🌟 修正：子元件接收的屬性名稱是 onDeleteChat，不是 handleDeleteChat！
                   onDeleteChat(e, room.id);
                 }}
-                className="relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 p-3 -mr-2 text-gray-500 hover:text-red-400 transition-all"
+                className="relative z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 p-3 -mr-2 text-[#64748B] hover:text-[#EF4444] transition-all"
                 title="移除此對話"
               >
                 <i className="fa-solid fa-trash-can text-sm"></i>
@@ -8246,10 +8177,9 @@ function App() {
     verificationStatus: "approved",
     showVerificationModal: "approved",
     rejectionCount: 0,
-    reviewEmailQueuedAt: Date.now(),
   };
 
-  // 審核結果信改由後端 Firestore Trigger 自動寄送，避免前端 callable / App Check / token 問題造成誤報失敗。
+  // 1. 審核資料更新：只有這一步失敗，才顯示審核失敗
   try {
     await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
@@ -8262,13 +8192,34 @@ function App() {
     });
 
     showToast("已通過審核！");
-    console.info("審核已通過，審核結果信將由後端自動處理", {
-      id,
-      name: targetVtuber?.name,
-    });
   } catch (err) {
     console.error("審核通過資料更新失敗:", err);
     showToast("❌ 審核失敗");
+    return;
+  }
+
+  // 2. 通知信寄送：失敗時不可覆蓋審核成功結果
+  try {
+    let emailToSend = targetVtuber?.publicEmail;
+
+    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
+    if (privSnap.exists()) {
+      const privData = privSnap.data();
+      emailToSend =
+        privData.contactEmail || privData.publicEmail || emailToSend;
+    }
+
+    if (emailToSend) {
+      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+      await sendSystemEmail({
+        to: emailToSend,
+        subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
+        text: `您好，${targetVtuber?.name || "創作者"}！恭喜您的名片已通過審核並正式上架，趕快回VNEXUS找新夥伴吧！https://www.vnexus2026.com/。`,
+      });
+    }
+  } catch (err) {
+    console.warn("審核已成功，但通知信寄送失敗:", err);
+    showToast("⚠️ 審核已通過，但通知信寄送失敗");
   }
 };
 
@@ -8303,10 +8254,9 @@ function App() {
     rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
     lastRejectedAt: now,
     updatedAt: now,
-    reviewEmailQueuedAt: now,
   };
 
-  // 退回審核結果信改由後端 Firestore Trigger 自動寄送，避免前端寄信失敗影響操作結果。
+  // 1. 退回審核資料更新：只有這一步失敗，才顯示退回失敗
   try {
     await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
 
@@ -8323,13 +8273,52 @@ function App() {
     });
 
     showToast("已退回審核");
-    console.info("審核已退回，審核結果信將由後端自動處理", {
-      id,
-      name: targetVtuber?.name,
-    });
   } catch (err) {
     console.error("退回審核資料更新失敗:", err);
     showToast("❌ 退回審核失敗");
+    return;
+  }
+
+  // 2. 通知信寄送：失敗時不可覆蓋退回成功結果
+  try {
+    let emailToSend = targetVtuber?.publicEmail;
+
+    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
+
+    if (privSnap.exists()) {
+      const privData = privSnap.data();
+      emailToSend =
+        privData.contactEmail ||
+        privData.publicEmail ||
+        emailToSend;
+    }
+
+    if (emailToSend && emailToSend.includes("@")) {
+      const sendSystemEmail = httpsCallable(
+        functionsInstance,
+        "sendSystemEmail"
+      );
+
+      await sendSystemEmail({
+        to: emailToSend,
+        subject: `[V-Nexus] 關於您的創作者名片審核結果通知`,
+        text:
+          `您好，${targetVtuber?.name || "創作者"}！\n\n` +
+          `很抱歉，您的創作者名片本次未通過審核。\n\n` +
+          `退回原因：\n${trimmedReason}\n\n` +
+          `請回到 V-Nexus 修改資料後再次送出審核：\n` +
+          `https://www.vnexus2026.com/\n\n` +
+          `V-Nexus 團隊`,
+      });
+    } else {
+      console.warn("退回審核已成功，但找不到可寄送的 Email:", {
+        id,
+        publicEmail: targetVtuber?.publicEmail,
+      });
+    }
+  } catch (err) {
+    console.warn("退回審核已成功，但通知信寄送失敗:", err);
+    showToast("⚠️ 已退回審核，但通知信寄送失敗");
   }
 };
 
@@ -9017,19 +9006,19 @@ function App() {
     <AppContext.Provider value={contextValue}>
       <div className="flex flex-col min-h-screen relative">
         {toastMsg && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-800 border border-purple-500 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.3)] flex items-center gap-3 font-bold text-sm">
-            <i className="fa-solid fa-circle-info text-purple-400"></i> {toastMsg}
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#181B25] border border-[#8B5CF6] text-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3 font-bold text-sm">
+            <i className="fa-solid fa-circle-info text-[#A78BFA]"></i> {toastMsg}
           </div>
         )}
 
-        <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0f111a]/95 border-b border-gray-800 shadow-xl">
+        <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0F111A]/95 border-b border-[#2A2F3D] shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="h-16 flex items-center justify-between">
               <div
                 className="flex items-center gap-2 cursor-pointer group"
                 onClick={() => navigate("home")}
               >
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-all">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-sm transition-all">
                   <i className="fa-solid fa-wand-magic-sparkles text-white"></i>
                 </div>
                 <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
@@ -9043,12 +9032,12 @@ function App() {
                       onClick={handleLogin}
                       className="flex items-center gap-2 bg-white text-gray-900 hover:bg-gray-200 px-4 py-1.5 rounded-full transition-colors font-bold text-sm"
                     >
-                      <i className="fa-brands fa-google text-red-500"></i> Google
+                      <i className="fa-brands fa-google text-[#EF4444]"></i> Google
                       登入
                     </button>
                     <button
                       onClick={handleLoginOther}
-                      className="hidden sm:block text-gray-400 hover:text-white text-xs font-bold transition-colors"
+                      className="hidden sm:block text-[#94A3B8] hover:text-white text-xs font-bold transition-colors"
                       title="使用其他 Google 帳號"
                     >
                       <i className="fa-solid fa-user-gear mr-1"></i> 切換帳號
@@ -9059,13 +9048,13 @@ function App() {
                     <div className="relative" ref={notifRef}>
                       <button
                         onClick={() => setIsNotifOpen(!isNotifOpen)}
-                        className="text-gray-300 hover:text-white p-2 text-xl relative transition-colors"
+                        className="text-[#CBD5E1] hover:text-white p-2 text-xl relative transition-colors"
                       >
                         <i className="fa-solid fa-bell"></i>
                         {unreadCount > 0 && (
                           <span className="absolute top-1 right-1 flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 text-[8px] text-white flex items-center justify-center">
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#EF4444] text-[8px] text-white flex items-center justify-center">
                               {unreadCount}
                             </span>
                           </span>
@@ -9073,15 +9062,15 @@ function App() {
                       </button>
                       {isNotifOpen && (
                         // 🌟 完美置中修復：改用 left-0 right-0 mx-auto，徹底避免與 animate-fade-in-up 的 transform 動畫衝突！
-                        <div className="fixed left-0 right-0 mx-auto top-16 mt-2 w-[90vw] sm:absolute sm:left-auto sm:right-0 sm:mx-0 sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in-up">
-                          <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-gray-800/50">
+                        <div className="fixed left-0 right-0 mx-auto top-16 mt-2 w-[90vw] sm:absolute sm:left-auto sm:right-0 sm:mx-0 sm:w-80 bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm z-50 overflow-hidden animate-fade-in-up">
+                          <div className="p-3 border-b border-[#2A2F3D] flex justify-between items-center bg-[#181B25]/50">
                             <span className="font-bold text-white text-sm">
                               站內小鈴鐺
                             </span>
                             {unreadCount > 0 && (
                               <button
                                 onClick={markAllAsRead}
-                                className="text-xs text-purple-400 hover:text-purple-300"
+                                className="text-xs text-[#A78BFA] hover:text-[#C4B5FD]"
                               >
                                 全部已讀
                               </button>
@@ -9089,7 +9078,7 @@ function App() {
                           </div>
                           <div className="max-h-80 overflow-y-auto">
                             {myNotifications.length === 0 ? (
-                              <div className="p-6 text-center text-gray-500 text-sm">
+                              <div className="p-6 text-center text-[#64748B] text-sm">
                                 目前沒有任何通知
                               </div>
                             ) : (
@@ -9097,18 +9086,18 @@ function App() {
                                 <div
                                   key={n.id}
                                   onClick={() => handleNotifClick(n)}
-                                  className={`p-3 border-b border-gray-800 flex gap-3 hover:bg-gray-800/50 cursor-pointer transition-colors ${!n.read ? "bg-purple-900/10" : ""}`}
+                                  className={`p-3 border-b border-[#2A2F3D] flex gap-3 hover:bg-[#181B25]/50 cursor-pointer transition-colors ${!n.read ? "bg-purple-900/10" : ""}`}
                                 >
                                   <img
                                     src={sanitizeUrl(
                                       n.fromUserAvatar ||
                                       "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
                                     )}
-                                    className="w-10 h-10 rounded-full bg-gray-800 object-cover flex-shrink-0"
+                                    className="w-10 h-10 rounded-full bg-[#181B25] object-cover flex-shrink-0"
                                   />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-gray-300 leading-snug">
-                                      <span className="font-bold text-white hover:text-purple-400 transition-colors">
+                                    <p className="text-xs text-[#CBD5E1] leading-snug">
+                                      <span className="font-bold text-white hover:text-[#A78BFA] transition-colors">
                                         {n.fromUserName}
                                       </span>{" "}
                                       {n.message}
@@ -9124,7 +9113,7 @@ function App() {
                                               true,
                                             );
                                           }}
-                                          className="flex-1 bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white text-[10px] font-bold py-1 rounded border border-green-600/30 transition-colors"
+                                          className="flex-1 bg-[#22C55E]/20 text-[#22C55E] hover:bg-[#22C55E] hover:text-white text-[10px] font-bold py-1 rounded border border-green-600/30 transition-colors"
                                         >
                                           可以試試
                                         </button>
@@ -9137,30 +9126,30 @@ function App() {
                                               false,
                                             );
                                           }}
-                                          className="flex-1 bg-gray-700/50 text-gray-400 hover:bg-gray-600 hover:text-white text-[10px] font-bold py-1 rounded border border-gray-600/50 transition-colors"
+                                          className="flex-1 bg-[#1D2130]/50 text-[#94A3B8] hover:bg-[#2A2F3D] hover:text-white text-[10px] font-bold py-1 rounded border border-[#2A2F3D]/50 transition-colors"
                                         >
                                           委婉拒絕
                                         </button>
                                       </div>
                                     )}
-                                    <p className="text-[10px] text-gray-500 mt-1">
+                                    <p className="text-[10px] text-[#64748B] mt-1">
                                       {formatTime(n.createdAt)}
                                     </p>
                                   </div>
                                   {!n.read && (
-                                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 flex-shrink-0"></div>
+                                    <div className="w-2 h-2 rounded-full bg-[#EF4444] mt-1.5 flex-shrink-0"></div>
                                   )}
                                 </div>
                               ))
                             )}
                           </div>
-                          <div className="p-2 border-t border-gray-800 bg-gray-800/80 text-center">
+                          <div className="p-2 border-t border-[#2A2F3D] bg-[#181B25]/80 text-center">
                             <button
                               onClick={() => {
                                 setIsNotifOpen(false);
                                 navigate("inbox");
                               }}
-                              className="text-xs text-purple-400 font-bold hover:text-purple-300 w-full py-1"
+                              className="text-xs text-[#A78BFA] font-bold hover:text-[#C4B5FD] w-full py-1"
                             >
                               前往專屬信箱查看完整通知{" "}
                               <i className="fa-solid fa-arrow-right ml-1"></i>
@@ -9171,7 +9160,7 @@ function App() {
                     </div>
                     <button
                       onClick={() => navigate("dashboard")}
-                      className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 px-3 py-1.5 rounded-full transition-colors relative whitespace-nowrap"
+                      className="flex items-center gap-2 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] px-3 py-1.5 rounded-full transition-colors relative whitespace-nowrap"
                     >
                       <img
                         src={sanitizeUrl(
@@ -9180,7 +9169,7 @@ function App() {
                         )}
                         className="w-5 h-5 rounded-full"
                       />
-                      <span className="text-gray-300 text-xs font-bold truncate max-w-[80px] hidden sm:block">
+                      <span className="text-[#CBD5E1] text-xs font-bold truncate max-w-[80px] hidden sm:block">
                         {user.displayName || "創作者"}
                       </span>
                       {realVtubers.find(
@@ -9188,13 +9177,13 @@ function App() {
                       ) && (
                           <span className="absolute -top-1 -right-1 flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#EF4444]"></span>
                           </span>
                         )}
                     </button>
                     <button
                       onClick={handleLogout}
-                      className="text-gray-500 hover:text-red-400 text-xs font-bold whitespace-nowrap"
+                      className="text-[#64748B] hover:text-[#EF4444] text-xs font-bold whitespace-nowrap"
                       title="登出"
                     >
                       <i className="fa-solid fa-right-from-bracket"></i>
@@ -9202,10 +9191,10 @@ function App() {
                   </div>
                 )}
                 {isAdmin && (
-                  <button onClick={() => navigate('admin')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap flex items-center ${currentView === 'admin' ? 'text-red-500 border-b-2 border-red-600' : 'text-red-400/70 hover:text-red-400'}`}>
+                  <button onClick={() => navigate('admin')} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap flex items-center ${currentView === 'admin' ? 'text-[#EF4444] border-b-2 border-[#DC2626]' : 'text-[#EF4444]/70 hover:text-[#EF4444]'}`}>
                     <i className="fa-solid fa-shield-halved mr-1"></i> 管理員
                     {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
-                      <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                      <span className="bg-[#EF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                         {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
                       </span>
                     )}
@@ -9213,7 +9202,7 @@ function App() {
                 )}
                 <button
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  className="lg:hidden text-gray-300 p-2 text-2xl ml-1"
+                  className="lg:hidden text-[#CBD5E1] p-2 text-2xl ml-1"
                 >
                   <i
                     className={`fa-solid ${isMobileMenuOpen ? "fa-xmark" : "fa-bars"}`}
@@ -9224,15 +9213,15 @@ function App() {
             <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
               <button
                 onClick={() => navigate("home")}
-                className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === "home" ? "text-purple-400 border-b-2 border-purple-500" : "text-gray-400 hover:text-white"}`}
+                className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === "home" ? "text-[#A78BFA] border-b-2 border-[#8B5CF6]" : "text-[#94A3B8] hover:text-white"}`}
               >
                 首頁介紹
               </button>
               <button
                 onClick={() => navigate("grid")}
                 className={`flex items-center gap-1.5 px-5 py-2 rounded-full font-bold transition-all text-sm whitespace-nowrap animate-glow-pulse ${currentView === "grid" || currentView === "profile"
-                  ? "bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-[0_0_25px_rgba(168,85,247,0.8)] scale-105 border border-white/30"
-                  : "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:scale-105 hover:shadow-[0_0_20px_rgba(168,85,247,0.6)]"
+                  ? "bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-sm scale-105 border border-white/30"
+                  : "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm hover:shadow-sm"
                   }`}
               >
                 <i className="fa-solid fa-magnifying-glass"></i> 尋找 VTuber 夥伴
@@ -9240,14 +9229,14 @@ function App() {
               {/* 🌟 互換：24H火速揪團大廳移到前面 */}
               <button
                 onClick={() => navigate("status_wall")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "status_wall" ? "bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]" : "bg-orange-600 text-white hover:bg-orange-500 shadow-md border border-orange-500/50"}`}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B] shadow-md border border-[#F59E0B]/50"}`}
               >
                 <i className="fa-solid fa-bolt"></i> 24H動態牆火速揪團
               </button>
 
               <button
                 onClick={() => navigate("bulletin")} // 直接跳轉
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.5)]" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-sm" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}`}
               >
                 <i className="fa-solid fa-bullhorn"></i> 揪團佈告欄
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
@@ -9255,19 +9244,19 @@ function App() {
 
               <button
                 onClick={() => navigate("collabs")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "collabs" ? "bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-red-600 text-white hover:bg-red-500 shadow-md border border-red-500/50"}`}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "collabs" ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#EF4444] text-white hover:bg-[#EF4444] shadow-md border border-[#EF4444]/50"}`}
               >
                 <i className="fa-solid fa-broadcast-tower"></i> 確定聯動
               </button>
-              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-blue-400 border-b-2 border-blue-500' : 'text-blue-400/70 hover:text-blue-400'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
+              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-[#38BDF8] border-b-2 border-[#38BDF8]' : 'text-[#38BDF8]/70 hover:text-[#38BDF8]'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {user && (
                 <button
                   onClick={() => navigate("inbox")}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "inbox" ? "bg-purple-500 text-white shadow-lg" : "bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700"}`}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "inbox" ? "bg-[#8B5CF6] text-white shadow-sm" : "bg-[#181B25] text-[#CBD5E1] hover:text-white hover:bg-[#1D2130]"}`}
                 >
                   <i className="fa-solid fa-envelope-open-text"></i> 我的信箱
                   {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
+                    <span className="bg-[#EF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
                       {unreadCount}
                     </span>
                   )}
@@ -9276,18 +9265,18 @@ function App() {
             </div>
           </div>
           {isMobileMenuOpen && (
-            <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0f111a]/95 backdrop-blur-md border-b border-gray-800 shadow-xl flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
+            <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0F111A]/95 backdrop-blur-md border-b border-[#2A2F3D] shadow-md flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
               <button
                 onClick={() => navigate("home")}
-                className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === "home" ? "bg-purple-600 text-white" : "text-gray-300 hover:bg-gray-800"}`}
+                className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === "home" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
               >
                 首頁介紹
               </button>
               <button
                 onClick={() => navigate("grid")}
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 transition-all ${currentView === "grid" || currentView === "profile"
-                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.5)]"
-                  : "bg-gradient-to-r from-purple-600/90 to-pink-600/90 text-white shadow-[0_0_10px_rgba(168,85,247,0.3)]"
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                  : "bg-gradient-to-r from-purple-600/90 to-pink-600/90 text-white shadow-sm"
                   }`}
               >
                 <i className="fa-solid fa-magnifying-glass w-5"></i> 尋找 VTuber
@@ -9295,7 +9284,7 @@ function App() {
               </button>
               <button
                 onClick={() => navigate("status_wall")}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "status_wall" ? "bg-orange-500 text-white shadow-lg" : "bg-orange-600 text-white hover:bg-orange-500"}`}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B]"}`}
               >
                 <i className="fa-solid fa-bolt w-5"></i> 24H動態牆火速揪團
               </button>
@@ -9307,14 +9296,14 @@ function App() {
                     navigate("dashboard");
                   } else navigate("bulletin");
                 }}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-lg" : "bg-rose-600 text-white hover:bg-rose-500"}`}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-sm" : "bg-rose-600 text-white hover:bg-rose-500"}`}
               >
                 <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
               </button>
 
               <button
                 onClick={() => navigate("collabs")}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "collabs" ? "bg-red-500 text-white shadow-lg" : "bg-red-600 text-white hover:bg-red-500"}`}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "collabs" ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#EF4444] text-white hover:bg-[#EF4444]"}`}
               >
                 <i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動
               </button>
@@ -9325,32 +9314,32 @@ function App() {
                     navigate("dashboard");
                   } else navigate("match");
                 }}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "match" ? "bg-purple-600 text-white" : "text-gray-300 hover:bg-gray-800"}`}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "match" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
               >
                 <i className="fa-solid fa-dice w-5"></i> 聯動隨機配對
               </button>
-              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-blue-400' : 'text-blue-400/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
+              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-[#38BDF8]' : 'text-[#38BDF8]/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {user && (
                 <button
                   onClick={() => navigate("inbox")}
-                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === "inbox" ? "bg-purple-600 text-white" : "text-gray-300 hover:bg-gray-800"}`}
+                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === "inbox" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
                 >
                   <div className="flex items-center gap-3">
                     <i className="fa-solid fa-envelope-open-text w-5"></i>{" "}
                     我的信箱
                   </div>
                   {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+                    <span className="bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full">
                       {unreadCount}
                     </span>
                   )}
                 </button>
               )}
               {isAdmin && (
-                <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 flex items-center justify-between`}>
+                <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-[#EF4444] hover:bg-[#EF4444]/10 flex items-center justify-between`}>
                   <div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div>
                   {(pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (
-                    <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                    <span className="bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full">
                       {pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length}
                     </span>
                   )}
@@ -9416,24 +9405,24 @@ function App() {
             <div className="max-w-3xl mx-auto px-4 py-10 animate-fade-in-up">
               <div className="text-center mb-8">
                 <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-3">
-                  <i className="fa-solid fa-user-circle text-purple-400"></i>{" "}
+                  <i className="fa-solid fa-user-circle text-[#A78BFA]"></i>{" "}
                   創作者中心：編輯名片
                 </h2>
 
                 {user && realVtubers.find((v) => v.id === user.uid) ? (
                   realVtubers.find((v) => v.id === user.uid).isVerified ? (
-                    <p className="text-green-400 mt-3 text-sm font-bold bg-green-500/10 inline-block px-4 py-1 rounded-full">
+                    <p className="text-[#22C55E] mt-3 text-sm font-bold bg-[#22C55E]/10 inline-block px-4 py-1 rounded-full">
                       <i className="fa-solid fa-circle-check mr-1"></i>{" "}
                       名片已認證上線
                     </p>
                   ) : (
-                    <p className="text-yellow-400 mt-3 text-sm font-bold bg-yellow-500/10 inline-block px-4 py-1 rounded-full">
+                    <p className="text-[#F59E0B] mt-3 text-sm font-bold bg-[#F59E0B]/10 inline-block px-4 py-1 rounded-full">
                       <i className="fa-solid fa-user-clock mr-1"></i>{" "}
                       名片審核中，通過後將自動公開
                     </p>
                   )
                 ) : (
-                  <p className="text-gray-400 mt-2">
+                  <p className="text-[#94A3B8] mt-2">
                     填寫完成後請等待管理員審核，確保社群品質！
                   </p>
                 )}
@@ -9447,7 +9436,7 @@ function App() {
                           setSelectedVTuber(myProfile);
                           navigate(`profile/${myProfile.id}`);
                         }}
-                        className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2"
+                        className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-5 py-2 rounded-xl text-sm font-bold shadow-sm transition-transform inline-flex items-center gap-2"
                       >
                         <i className="fa-solid fa-eye"></i> 預覽我的公開名片
                       </button>
@@ -9456,7 +9445,7 @@ function App() {
                     <button
                       type="button"
                       onClick={handleEnableNotifications}
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-105 inline-flex items-center gap-2"
+                      className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-5 py-2 rounded-xl text-sm font-bold shadow-sm transition-transform inline-flex items-center gap-2"
                     >
                       <i className="fa-solid fa-bell"></i> 啟動手機推播通知
                     </button>
@@ -9467,7 +9456,7 @@ function App() {
                 {/* ▲▲▲ 按鈕區塊結束 ▲▲▲ */}
               </div>{" "}
               {/* <-- 注意：這裡才是原本 text-center mb-8 關閉的地方 */}
-              <div className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-10 shadow-2xl">
+              <div className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 sm:p-10 shadow-sm">
                 <ProfileEditorForm
                   form={profileForm}
                   updateForm={(updates) =>
@@ -9489,8 +9478,8 @@ function App() {
                 displayBulletins.filter((b) => b.userId === user.uid).length >
                 0 && (
                   <div className="mt-16 animate-fade-in-up">
-                    <h3 className="text-2xl font-extrabold text-white mb-6 border-b border-gray-700 pb-3 flex items-center">
-                      <i className="fa-solid fa-bullhorn text-purple-400 mr-3"></i>
+                    <h3 className="text-2xl font-extrabold text-white mb-6 border-b border-[#2A2F3D] pb-3 flex items-center">
+                      <i className="fa-solid fa-bullhorn text-[#A78BFA] mr-3"></i>
                       我的招募管理 (可在此查看誰有意願)
                     </h3>
                     <div className="grid grid-cols-1 gap-6">
@@ -9538,44 +9527,44 @@ function App() {
                 className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
               >
                 <div className="hidden lg:block relative">
-                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                  <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
                   <input
                     type="text"
                     placeholder="搜尋 VTuber..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-purple-500"
+                    className="w-full bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-[#8B5CF6]"
                   />
                 </div>
-                <div className="bg-gray-800/30 border border-gray-800 rounded-xl p-5 space-y-5">
-                  <h3 className="font-bold border-b border-gray-700 pb-2 text-gray-300">
+                <div className="bg-[#181B25]/30 border border-[#2A2F3D] rounded-xl p-5 space-y-5">
+                  <h3 className="font-bold border-b border-[#2A2F3D] pb-2 text-[#CBD5E1]">
                     <i className="fa-solid fa-filter mr-2"></i>進階篩選
                   </h3>
                   {/* 手機版專用關鍵字搜尋框 */}
                   <div className="lg:hidden mb-4">
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-[#64748B] mb-2">
                       關鍵字搜尋 (如: ASMR、歌回、企劃)
                     </p>
                     <div className="relative">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
                       <input
                         type="text"
                         placeholder="搜尋名片內任何文字..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-purple-500 shadow-inner"
+                        className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-[#8B5CF6] shadow-inner"
                       />
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">所屬勢力</p>
-                    <div className="grid grid-cols-2 gap-1 bg-gray-900 rounded-lg p-1 border border-gray-700">
+                    <p className="text-xs text-[#64748B] mb-2">所屬勢力</p>
+                    <div className="grid grid-cols-2 gap-1 bg-[#0F111A] rounded-lg p-1 border border-[#2A2F3D]">
                       {["All", "個人勢", "企業勢", "社團勢", "合作勢"].map(
                         (a) => (
                           <button
                             key={a}
                             onClick={() => setSelectedAgency(a)}
-                            className={`w-full py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"}`}
+                            className={`w-full py-1.5 text-xs font-bold rounded-md ${selectedAgency === a ? "bg-[#8B5CF6] text-white" : "text-[#94A3B8] hover:text-white"}`}
                           >
                             {a === "All" ? "全部" : a}
                           </button>
@@ -9584,13 +9573,13 @@ function App() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">主要平台</p>
-                    <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+                    <p className="text-xs text-[#64748B] mb-2">主要平台</p>
+                    <div className="flex bg-[#0F111A] rounded-lg p-1 border border-[#2A2F3D]">
                       {["All", "YouTube", "Twitch"].map((p) => (
                         <button
                           key={p}
                           onClick={() => setSelectedPlatform(p)}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? "bg-purple-600 text-white" : "text-gray-400"}`}
+                          className={`flex-1 py-1.5 text-xs font-bold rounded-md ${selectedPlatform === p ? "bg-[#8B5CF6] text-white" : "text-[#94A3B8]"}`}
                         >
                           {p === "All" ? "全部" : p}
                         </button>
@@ -9599,11 +9588,11 @@ function App() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">國籍</p>
+                      <p className="text-xs text-[#64748B] mb-2">國籍</p>
                       <select
                         value={selectedNationality} // 語言、時段、色系也一樣
                         onChange={(e) => setSelectedNationality(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                        className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                       >
                         {dynamicNationalities.map((n) => (
                           <option key={n} value={n}>
@@ -9613,11 +9602,11 @@ function App() {
                       </select>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">主要語言</p>
+                      <p className="text-xs text-[#64748B] mb-2">主要語言</p>
                       <select
                         value={selectedLanguage}
                         onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                        className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                       >
                         {dynamicLanguages.map((l) => (
                           <option key={l} value={l}>
@@ -9628,15 +9617,15 @@ function App() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">可聯動時段</p>
+                    <p className="text-xs text-[#64748B] mb-2">可聯動時段</p>
                     <select
                       value={selectedSchedule}
                       onChange={(e) => setSelectedSchedule(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                      className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
                       {dynamicSchedules.map((d) => (
-                        // 🌟 優化：加上 bg-gray-900 text-white
-                        <option key={d} value={d} className="bg-gray-900 text-white">
+                        // 🌟 優化：加上 bg-[#0F111A] text-white
+                        <option key={d} value={d} className="bg-[#0F111A] text-white">
                           {d === "All" ? "全部" : d}
                         </option>
                       ))}
@@ -9644,16 +9633,16 @@ function App() {
                   </div>
                   {/* 新增：色系篩選 */}
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">代表色系</p>
+                    <p className="text-xs text-[#64748B] mb-2">代表色系</p>
                     <select
                       value={selectedColor}
                       onChange={(e) => setSelectedColor(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                      className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
-                      {/* 🌟 優化：加上 bg-gray-900 text-white */}
-                      <option value="All" className="bg-gray-900 text-white">全部色系</option>
+                      {/* 🌟 優化：加上 bg-[#0F111A] text-white */}
+                      <option value="All" className="bg-[#0F111A] text-white">全部色系</option>
                       {COLOR_OPTIONS.map((c) => (
-                        <option key={c} value={c} className="bg-gray-900 text-white">
+                        <option key={c} value={c} className="bg-[#0F111A] text-white">
                           {c}
                         </option>
                       ))}
@@ -9661,15 +9650,15 @@ function App() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">星座</p>
+                    <p className="text-xs text-[#64748B] mb-2">星座</p>
                     <select
                       value={selectedZodiac}
                       onChange={(e) => setSelectedZodiac(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
+                      className="w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal"
                     >
-                      <option value="All" className="bg-gray-900 text-white">全部星座</option>
+                      <option value="All" className="bg-[#0F111A] text-white">全部星座</option>
                       {ZODIAC_SIGNS.map((z) => (
-                        <option key={z} value={z} className="bg-gray-900 text-white">
+                        <option key={z} value={z} className="bg-[#0F111A] text-white">
                           {z}
                         </option>
                       ))}
@@ -9677,7 +9666,7 @@ function App() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <p className="w-full text-xs text-gray-500 mb-1">
+                    <p className="w-full text-xs text-[#64748B] mb-1">
                       想找什麼聯動？
                     </p>
                     {dynamicCollabTypes.map((tag) => (
@@ -9704,14 +9693,14 @@ function App() {
                               v.isBlacklisted ||
                               v.activityStatus !== "active"),
                         ) && (
-                          <span className="text-xs font-normal text-yellow-400 bg-yellow-500/10 px-3 py-1 rounded-full">
+                          <span className="text-xs font-normal text-[#F59E0B] bg-[#F59E0B]/10 px-3 py-1 rounded-full">
                             <i className="fa-solid fa-eye-slash mr-1"></i>隱藏中
                           </span>
                         )}
                     </h2>
                     <button
                       onClick={() => setIsTipsModalOpen(true)}
-                      className="bg-yellow-500/10 text-yellow-400 px-3 py-1.5 rounded-lg text-sm font-bold"
+                      className="bg-[#F59E0B]/10 text-[#F59E0B] px-3 py-1.5 rounded-lg text-sm font-bold"
                     >
                       <i className="fa-solid fa-lightbulb"></i> 邀約小技巧
                     </button>
@@ -9727,7 +9716,7 @@ function App() {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                         showToast("🎲 已重新洗牌名片順序！");
                       }}
-                      className="bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-purple-500/20"
+                      className="bg-[#8B5CF6]/10 text-[#A78BFA] hover:bg-[#8B5CF6] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#8B5CF6]/20"
                     >
                       <i className="fa-solid fa-shuffle mr-1"></i> 重新洗牌
                     </button>
@@ -9747,25 +9736,25 @@ function App() {
                       <i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對 {!isVerifiedUser && " 🔒"}
                     </button>
 
-                    <button onClick={() => navigate('blacklist')} className="bg-red-900/50 text-red-400 hover:bg-red-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-red-500/50">
+                    <button onClick={() => navigate('blacklist')} className="bg-[#3B171D]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#EF4444]/50">
                       <i className="fa-solid fa-ban mr-1"></i> 黑單避雷區
                     </button>
                     <button
                       onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-                      className="lg:hidden bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
+                      className="lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <i className="fa-solid fa-filter"></i> 篩選
                     </button>
                   </div>
                   <div className="flex flex-col gap-3 w-full sm:w-auto">
                     <div className="block lg:hidden relative w-full">
-                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                      <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
                       <input
                         type="text"
                         placeholder="搜尋 VTuber..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-gray-800/50 border border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-purple-500"
+                        className="w-full bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-[#8B5CF6]"
                       />
                     </div>
                     <select
@@ -9777,7 +9766,7 @@ function App() {
                           setShuffleSeed(Date.now());
                         }
                       }}
-                      className="bg-gray-800 border border-gray-700 rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-purple-500 outline-none w-full sm:w-auto"
+                      className="bg-[#181B25] border border-[#2A2F3D] rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (直播中/更新)</option>
 
@@ -9793,11 +9782,11 @@ function App() {
                   </div>
                 </div>
                 {isLoading ? (
-                  <div className="text-center text-gray-500 py-10">
+                  <div className="text-center text-[#64748B] py-10">
                     <i className="fa-solid fa-spinner fa-spin text-2xl"></i>
                   </div>
                 ) : filteredVTubers.length === 0 ? (
-                  <p className="text-center text-gray-500 mt-20">
+                  <p className="text-center text-[#64748B] mt-20">
                     目前無公開名片
                   </p>
                 ) : (
@@ -9822,18 +9811,18 @@ function App() {
                         <button
                           onClick={() => handlePageChange(currentPage - 1)}
                           disabled={currentPage === 1}
-                          className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center ${currentPage === 1 ? "bg-gray-800/50 text-gray-600 cursor-not-allowed border border-gray-800" : "bg-gray-800 hover:bg-purple-600 text-white border border-gray-700 hover:border-purple-500"}`}
+                          className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center ${currentPage === 1 ? "bg-[#181B25]/50 text-gray-600 cursor-not-allowed border border-[#2A2F3D]" : "bg-[#181B25] hover:bg-[#8B5CF6] text-white border border-[#2A2F3D] hover:border-[#8B5CF6]"}`}
                         >
                           <i className="fa-solid fa-chevron-left mr-2"></i> 上一頁
                         </button>
-                        <div className="flex items-center gap-2 text-gray-300 font-bold bg-gray-900/50 px-4 py-2.5 rounded-xl border border-gray-700">
+                        <div className="flex items-center gap-2 text-[#CBD5E1] font-bold bg-[#0F111A]/50 px-4 py-2.5 rounded-xl border border-[#2A2F3D]">
                           <span>第</span>
                           <select
                             value={currentPage}
                             onChange={(e) =>
                               handlePageChange(Number(e.target.value))
                             }
-                            className="bg-gray-800 border border-gray-600 rounded-lg px-2 py-1 text-white outline-none cursor-pointer"
+                            className="bg-[#181B25] border border-[#2A2F3D] rounded-lg px-2 py-1 text-white outline-none cursor-pointer"
                           >
                             {[...Array(totalPages).keys()].map((n) => (
                               <option key={n + 1} value={n + 1}>
@@ -9846,7 +9835,7 @@ function App() {
                         <button
                           onClick={() => handlePageChange(currentPage + 1)}
                           disabled={currentPage === totalPages}
-                          className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center ${currentPage === totalPages ? "bg-gray-800/50 text-gray-600 cursor-not-allowed border border-gray-800" : "bg-gray-800 hover:bg-purple-600 text-white border border-gray-700 hover:border-purple-500"}`}
+                          className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm flex items-center ${currentPage === totalPages ? "bg-[#181B25]/50 text-gray-600 cursor-not-allowed border border-[#2A2F3D]" : "bg-[#181B25] hover:bg-[#8B5CF6] text-white border border-[#2A2F3D] hover:border-[#8B5CF6]"}`}
                         >
                           下一頁{" "}
                           <i className="fa-solid fa-chevron-right ml-2"></i>
@@ -9861,8 +9850,8 @@ function App() {
 
           {currentView === "profile" && !selectedVTuber && isLoading && (
             <div className="max-w-4xl mx-auto px-4 py-20 text-center animate-fade-in-up">
-              <i className="fa-solid fa-spinner fa-spin text-4xl text-purple-500 mb-4"></i>
-              <p className="text-gray-400 font-bold text-lg">載入專屬名片中...</p>
+              <i className="fa-solid fa-spinner fa-spin text-4xl text-[#8B5CF6] mb-4"></i>
+              <p className="text-[#94A3B8] font-bold text-lg">載入專屬名片中...</p>
             </div>
           )}
 
@@ -9917,7 +9906,7 @@ function App() {
                         href={sanitizeUrl(selectedVTuber.mainPlatform === "Twitch" ? selectedVTuber.twitchUrl : selectedVTuber.youtubeUrl) || '#'}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`text-white text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-xl ring-1 ring-white/20 shadow-md transition-all hover:scale-105 ${selectedVTuber.mainPlatform === "Twitch" ? "bg-purple-600/80 hover:bg-purple-500/90 shadow-[0_0_10px_rgba(147,51,234,0.5)]" : "bg-red-600/80 hover:bg-red-500/90 shadow-[0_0_10px_rgba(220,38,38,0.5)]"}`}
+                        className={`text-white text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 backdrop-blur-xl ring-1 ring-white/20 shadow-md transition-all ${selectedVTuber.mainPlatform === "Twitch" ? "bg-[#8B5CF6]/80 hover:bg-[#8B5CF6]/90 shadow-sm" : "bg-[#EF4444]/80 hover:bg-[#EF4444]/90 shadow-sm"}`}
                       >
                         <i className={`fa-brands fa-${selectedVTuber.mainPlatform === "Twitch" ? "twitch" : "youtube"}`}></i>
                         主要直播平台: {selectedVTuber.mainPlatform || "YouTube"}
@@ -9934,7 +9923,7 @@ function App() {
 
                       <div className="relative">
                         {/* 頭像 (尺寸適度放大，增強角色存在感) */}
-                        <div className="p-2 bg-[#0f1016] rounded-[1.75rem] shadow-xl inline-block relative z-20">
+                        <div className="p-2 bg-[#0f1016] rounded-[1.75rem] shadow-md inline-block relative z-20">
                           <LazyImage
                             src={sanitizeUrl(selectedVTuber.avatar)}
                             containerCls="w-28 h-28 sm:w-36 sm:h-36 rounded-[1.5rem] bg-slate-800 flex-shrink-0 relative transform transition-transform hover:scale-[1.02] overflow-hidden"
@@ -9943,7 +9932,7 @@ function App() {
                         {/* 在線狀態圓點 (配合放大的頭像微調位置與大小) */}
                         {onlineUsers?.has(selectedVTuber.id) && (
                           <div className="absolute bottom-4 -right-1 z-30 bg-[#0f1016] rounded-full p-1 shadow-md">
-                            <div className="w-3.5 h-3.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.8)]"></div>
+                            <div className="w-3.5 h-3.5 bg-green-400 rounded-full shadow-sm"></div>
                           </div>
                         )}
                       </div>
@@ -9954,23 +9943,23 @@ function App() {
                           <>
                             <button
                               onClick={() => handleOpenCollabModal(selectedVTuber)}
-                              className="flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_5px_15px_rgba(124,58,237,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_5px_15px_rgba(124,58,237,0.3)] transition-all flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
                             >
                               <i className="fa-solid fa-handshake-angle"></i>
                               邀約聯動
                             </button>
                             <button
                               onClick={() => setChatTarget(selectedVTuber)}
-                              className="flex-1 sm:flex-none bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all hover:-translate-y-0.5 backdrop-blur-md ring-1 ring-white/10 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
+                              className="flex-1 sm:flex-none bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all backdrop-blur-md ring-1 ring-white/10 flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap"
                             >
                               <i className="fa-regular fa-comment-dots text-cyan-400"></i>
                               即時私訊
                             </button>
                             <button
                               onClick={() => handleBraveInvite(selectedVTuber)}
-                              className="flex-1 sm:flex-none bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_5px_15px_rgba(244,63,94,0.4)] transition-all hover:-translate-y-0.5 flex items-center justify-center gap-1 sm:gap-1.5 group whitespace-nowrap"
+                              className="flex-1 sm:flex-none bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white px-2 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-[0_5px_15px_rgba(244,63,94,0.4)] transition-all flex items-center justify-center gap-1 sm:gap-1.5 group whitespace-nowrap"
                             >
-                              <i className="fa-solid fa-heart group-hover:scale-110 transition-transform text-white"></i>
+                              <i className="fa-solid fa-heart group-hover:scale-[1.01] transition-transform text-white"></i>
                               勇敢邀請
                             </button>
                           </>
@@ -9987,7 +9976,7 @@ function App() {
                           <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 tracking-tight flex items-center gap-3">
                             {selectedVTuber.name}
                             {selectedVTuber.isVerified && (
-                              <i className="fa-solid fa-badge-check text-cyan-400 text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.4)]"></i>
+                              <i className="fa-solid fa-badge-check text-cyan-400 text-2xl drop-shadow-sm"></i>
                             )}
                           </h1>
                         </div>
@@ -10054,7 +10043,7 @@ function App() {
                           )}
                           {(selectedVTuber.twitchUrl || selectedVTuber.twitchFollowers) && (
                             <a href={sanitizeUrl(selectedVTuber.twitchUrl || '#')} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center justify-center gap-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 px-3 h-9 rounded-lg text-xs sm:text-sm font-bold transition-colors">
+                              className="flex items-center justify-center gap-1.5 bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 text-[#A78BFA] px-3 h-9 rounded-lg text-xs sm:text-sm font-bold transition-colors">
                               <i className="fa-brands fa-twitch text-base"></i>
                               <span>{(selectedVTuber.twitchFollowers || 'Twitch')}</span>
                             </a>
@@ -10095,10 +10084,10 @@ function App() {
                     {/* 限時動態 (高度縮減，間距收緊) */}
                     {selectedVTuber.statusMessage && selectedVTuber.statusMessageUpdatedAt &&
                       (Date.now() - selectedVTuber.statusMessageUpdatedAt < (selectedVTuber.statusMessage.includes('🔴') ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)) && (
-                        <div className={`mb-6 relative overflow-hidden rounded-2xl p-4 flex items-center gap-4 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/10 ring-1 ring-red-500/30' : 'bg-orange-500/10 ring-1 ring-orange-500/30'} backdrop-blur-sm`}>
-                          <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)]' : 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]'}`}></div>
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                            <i className={`fa-solid text-lg ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish animate-pulse' : 'fa-comment-dots animate-bounce'}`}></i>
+                        <div className={`mb-6 relative overflow-hidden rounded-2xl p-4 flex items-center gap-4 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-[#EF4444]/10 ring-1 ring-red-500/30' : 'bg-[#F59E0B]/10 ring-1 ring-orange-500/30'} backdrop-blur-sm`}>
+                          <div className={`absolute left-0 top-0 bottom-0 w-1 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-[#EF4444] shadow-sm' : 'bg-[#F59E0B] shadow-sm'}`}></div>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${selectedVTuber.statusMessage.includes('🔴') ? 'bg-[#EF4444]/20 text-[#EF4444]' : 'bg-[#F59E0B]/20 text-[#F59E0B]'}`}>
+                            <i className={`fa-solid text-lg ${selectedVTuber.statusMessage.includes('🔴') ? 'fa-satellite-dish' : 'fa-comment-dots animate-bounce'}`}></i>
                           </div>
                           <div className="flex-1">
                             <p className="text-[10px] sm:text-xs text-slate-400 mb-0.5 uppercase tracking-wider font-semibold">
@@ -10118,7 +10107,7 @@ function App() {
                       <div className="lg:col-span-2 space-y-5">
 
                         {/* 關於我卡片 (內部 Padding 縮小) */}
-                        <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5 relative overflow-hidden">
+                        <div className="bg-white/[0.02] rounded-2xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5 relative overflow-hidden">
                           <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
 
                           <div className="relative z-10">
@@ -10129,13 +10118,13 @@ function App() {
                                 </div>
                                 <h3 className="text-xl font-bold text-white tracking-wide">關於我</h3>
                                 {selectedVTuber.zodiacSign && (
-                                  <span className="bg-yellow-500/10 text-yellow-400 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold ring-1 ring-yellow-500/40 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-star text-[10px] text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"></i> {selectedVTuber.zodiacSign}
+                                  <span className="bg-[#F59E0B]/10 text-[#F59E0B] px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold ring-1 ring-yellow-500/40 flex items-center gap-1.5">
+                                    <i className="fa-solid fa-star text-[10px] text-[#F59E0B] drop-shadow-sm"></i> {selectedVTuber.zodiacSign}
                                   </span>
                                 )}
                                 {selectedVTuber.streamStyleUrl && (
                                   <a href={sanitizeUrl(selectedVTuber.streamStyleUrl)} target="_blank" rel="noopener noreferrer"
-                                    className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-all ring-1 ring-blue-500/40 flex items-center gap-1.5 ml-1">
+                                    className="bg-[#38BDF8]/10 hover:bg-[#38BDF8]/20 text-[#38BDF8] hover:text-[#7DD3FC] px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-bold transition-all ring-1 ring-blue-500/40 flex items-center gap-1.5 ml-1">
                                     <i className="fa-solid fa-video"></i> 觀看我的直播風格
                                   </a>
                                 )}
@@ -10163,7 +10152,7 @@ function App() {
 
                         {/* 內容標籤卡片 */}
                         {selectedVTuber.tags && selectedVTuber.tags.length > 0 && (
-                          <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5">
+                          <div className="bg-white/[0.02] rounded-2xl p-6 sm:p-8 backdrop-blur-xl ring-1 ring-white/5">
                             <div className="flex items-center gap-3 mb-4">
                               <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
                                 <i className="fa-solid fa-hashtag text-base"></i>
@@ -10186,7 +10175,7 @@ function App() {
                       <div className="space-y-5">
 
                         {/* 演出型態 & 聯動意願 */}
-                        <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl relative overflow-hidden">
+                        <div className="bg-white/[0.02] rounded-2xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl relative overflow-hidden">
                           <div className="relative z-10 space-y-6">
                             <div>
                               <h4 className="font-bold text-violet-300 mb-2 flex items-center gap-2 text-xs uppercase tracking-wider">
@@ -10205,7 +10194,7 @@ function App() {
                                 {(selectedVTuber.collabTypes || []).length > 0 ? (
                                   selectedVTuber.collabTypes.map((t) => (
                                     <div key={t} className="bg-white/5 px-3 py-2 rounded-lg text-xs font-medium text-slate-200 flex items-center gap-2.5">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
+                                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-sm"></div>
                                       {t}
                                     </div>
                                   ))
@@ -10218,7 +10207,7 @@ function App() {
                         </div>
 
                         {/* 時段卡片 */}
-                        <div className="bg-white/[0.02] rounded-3xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl">
+                        <div className="bg-white/[0.02] rounded-2xl p-6 sm:p-8 ring-1 ring-white/5 backdrop-blur-xl">
                           <h4 className="font-bold text-amber-300/80 mb-3 flex items-center gap-2 text-xs uppercase tracking-wider">
                             <i className="fa-regular fa-calendar-check"></i> 可聯動時段
                           </h4>
@@ -10240,12 +10229,12 @@ function App() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
                   <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                    <i className="fa-solid fa-bullhorn text-purple-400"></i>
+                    <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
-                  <p className="text-gray-400 mt-2 text-sm">
+                  <p className="text-[#94A3B8] mt-2 text-sm">
                     在這裡發布您的聯動企劃，或是尋找有興趣的邀請吧！
-                    <span className="text-yellow-400 font-bold ml-2">
+                    <span className="text-[#F59E0B] font-bold ml-2">
                       (注意：揪團時間截止前，發起人必須進入信箱發送正式邀請才算成功)
                     </span>
                   </p>
@@ -10253,7 +10242,7 @@ function App() {
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <button
                     onClick={() => setIsLeaderboardModalOpen(true)}
-                    className="bg-yellow-600 hover:bg-yellow-500 text-white px-5 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(202,138,4,0.4)] flex items-center justify-center transition-transform hover:-translate-y-1"
+                    className="bg-[#D97706] hover:bg-[#F59E0B] text-[#0F111A] px-5 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-transform"
                   >
                     <i className="fa-solid fa-trophy mr-2"></i>揪團成功排行榜
                   </button>
@@ -10273,7 +10262,7 @@ function App() {
                       }
                       setIsBulletinFormOpen(!isBulletinFormOpen);
                     }}
-                    className={`${isBulletinFormOpen ? "bg-gray-700" : "bg-gradient-to-r from-purple-600 to-pink-600"} text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center justify-center transition-all hover:-translate-y-1`}
+                    className={`${isBulletinFormOpen ? "bg-[#1D2130]" : "bg-gradient-to-r from-purple-600 to-pink-600"} text-white px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-all`}
                   >
                     <i
                       className={`fa-solid ${isBulletinFormOpen ? "fa-chevron-up" : "fa-pen-nib"} mr-2`}
@@ -10286,23 +10275,23 @@ function App() {
               {isBulletinFormOpen && (
                 <div
                   id="bulletin-form"
-                  className="bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-8 shadow-2xl mb-10 animate-fade-in-up"
+                  className="bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm mb-10 animate-fade-in-up"
                 >
-                  <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-3">
+                  <div className="flex justify-between items-center mb-6 border-b border-[#2A2F3D] pb-3">
                     <h3 className="text-xl font-bold text-white">
                       {newBulletin.id ? "編輯揪團文" : "發布新揪團"}
                     </h3>
                     <button
                       onClick={() => setIsBulletinFormOpen(false)}
-                      className="text-gray-500 hover:text-white"
+                      className="text-[#64748B] hover:text-white"
                     >
                       <i className="fa-solid fa-xmark"></i>
                     </button>
                   </div>
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-bold text-gray-300 mb-2">
-                        揪團內容說明 <span className="text-red-400">*</span>
+                      <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                        揪團內容說明 <span className="text-[#EF4444]">*</span>
                       </label>
                       <textarea
                         required
@@ -10320,8 +10309,8 @@ function App() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                       <div>
-                        <label className="block text-sm font-bold text-gray-300 mb-2">
-                          聯動類型 <span className="text-red-400">*</span>
+                        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                          聯動類型 <span className="text-[#EF4444]">*</span>
                         </label>
                         <select
                           value={newBulletin.collabType}
@@ -10357,8 +10346,8 @@ function App() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-gray-300 mb-2">
-                          預估人數 <span className="text-red-400">*</span>
+                        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                          預估人數 <span className="text-[#EF4444]">*</span>
                         </label>
                         <select
                           value={newBulletin.collabSize}
@@ -10381,8 +10370,8 @@ function App() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-gray-300 mb-2">
-                          預計聯動時間 <span className="text-red-400">*</span>
+                        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                          預計聯動時間 <span className="text-[#EF4444]">*</span>
                         </label>
                         {/* 🌟 替換為 DateTimePicker */}
                         <DateTimePicker
@@ -10397,8 +10386,8 @@ function App() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold text-gray-300 mb-2">
-                          揪團截止時間 <span className="text-red-400">*</span>
+                        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                          揪團截止時間 <span className="text-[#EF4444]">*</span>
                         </label>
                         {/* 🌟 替換為 DateTimePicker */}
                         <DateTimePicker
@@ -10415,9 +10404,9 @@ function App() {
                     </div>
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2 mt-2">
                       <div className="flex-1 min-w-0">
-                        <label className="block text-sm font-bold text-gray-300 mb-2">
+                        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                           選擇預設圖 或 自行上傳{" "}
-                          <span className="text-red-400">* (必選)</span>
+                          <span className="text-[#EF4444]">* (必選)</span>
                         </label>
                         <div className="flex flex-col gap-3">
                           {defaultBulletinImages.length > 0 && (
@@ -10429,7 +10418,7 @@ function App() {
                                   onClick={() =>
                                     setNewBulletin((p) => ({ ...p, image: img }))
                                   }
-                                  className={`w-28 h-16 rounded-lg object-cover cursor-pointer border-2 transition-all flex-shrink-0 ${newBulletin.image === img ? "border-purple-500 scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] opacity-100" : "border-transparent hover:border-gray-500 opacity-50 hover:opacity-100"}`}
+                                  className={`w-28 h-16 rounded-lg object-cover cursor-pointer border transition-all flex-shrink-0 ${newBulletin.image === img ? "border-[#8B5CF6] scale-105 shadow-sm opacity-100" : "border-transparent hover:border-gray-500 opacity-50 hover:opacity-100"}`}
                                   title="點擊套用此預設圖"
                                 />
                               ))}
@@ -10443,14 +10432,14 @@ function App() {
                                 <div className="relative">
                                   <img
                                     src={sanitizeUrl(newBulletin.image)}
-                                    className="w-12 h-12 rounded-lg object-cover border border-gray-600"
+                                    className="w-12 h-12 rounded-lg object-cover border border-[#2A2F3D]"
                                   />
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setNewBulletin((p) => ({ ...p, image: "" }))
                                     }
-                                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]"
+                                    className="absolute -top-2 -right-2 bg-[#EF4444] text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]"
                                   >
                                     <i className="fa-solid fa-xmark"></i>
                                   </button>
@@ -10465,7 +10454,7 @@ function App() {
                               />
                               <button
                                 type="button"
-                                className="w-full sm:w-auto px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm py-2 rounded-xl border border-gray-600 transition-colors flex items-center justify-center gap-2"
+                                className="w-full sm:w-auto px-4 bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] text-sm py-2 rounded-xl border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2"
                               >
                                 <i className="fa-solid fa-cloud-arrow-up"></i>{" "}
                                 自行上傳圖片
@@ -10477,7 +10466,7 @@ function App() {
                                 onClick={() =>
                                   setNewBulletin((p) => ({ ...p, image: "" }))
                                 }
-                                className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 bg-red-500/10 px-3 py-2 rounded-lg font-bold transition-colors"
+                                className="text-xs text-[#EF4444] hover:text-red-300 border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 rounded-lg font-bold transition-colors"
                               >
                                 取消選取圖片
                               </button>
@@ -10488,13 +10477,13 @@ function App() {
                       <div className="flex gap-3">
                         <button
                           onClick={() => setIsBulletinFormOpen(false)}
-                          className="px-6 py-3 text-gray-400 hover:text-white font-bold"
+                          className="px-6 py-3 text-[#94A3B8] hover:text-white font-bold"
                         >
                           取消
                         </button>
                         <button
                           onClick={handlePostBulletin}
-                          className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 h-fit whitespace-nowrap"
+                          className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-8 py-3 rounded-xl font-bold shadow-sm transition-transform h-fit whitespace-nowrap"
                         >
                           {newBulletin.id ? "儲存修改" : "發布揪團"}
                         </button>
@@ -10504,10 +10493,10 @@ function App() {
                 </div>
               )}
 
-              <div className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-gray-700">
+              <div className="flex gap-2 overflow-x-auto pb-4 mb-6 border-b border-[#2A2F3D]">
                 <button
                   onClick={() => setBulletinFilter("All")}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === "All" ? "bg-purple-600 text-white shadow-lg" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                  className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === "All" ? "bg-[#8B5CF6] text-white shadow-sm" : "bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]"}`}
                 >
                   全部揪團
                 </button>
@@ -10515,7 +10504,7 @@ function App() {
                   <button
                     key={t}
                     onClick={() => setBulletinFilter(t)}
-                    className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === t ? "bg-purple-600 text-white shadow-lg" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                    className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-colors ${bulletinFilter === t ? "bg-[#8B5CF6] text-white shadow-sm" : "bg-[#181B25] text-[#94A3B8] hover:bg-[#1D2130]"}`}
                   >
                     {t}
                   </button>
@@ -10530,7 +10519,7 @@ function App() {
                   ))}
                 </div>
               ) : filteredDisplayBulletins.length === 0 ? (
-                <p className="text-center text-gray-500 mt-20">
+                <p className="text-center text-[#64748B] mt-20">
                   目前沒有相關的招募文喔！
                 </p>
               ) : (
@@ -10569,9 +10558,9 @@ function App() {
 
           {currentView === "collabs" && (
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
-              <div className="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+              <div className="flex justify-between items-center mb-8 border-b border-[#2A2F3D] pb-4">
                 <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                  <i className="fa-solid fa-broadcast-tower text-red-400"></i>{" "}
+                  <i className="fa-solid fa-broadcast-tower text-[#EF4444]"></i>{" "}
                   確定聯動表
                 </h2>
                 {isVerifiedUser && (
@@ -10581,7 +10570,7 @@ function App() {
                         .getElementById("public-collab-form")
                         ?.classList.toggle("hidden");
                     }}
-                    className="bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg transition-transform hover:-translate-y-1"
+                    className="bg-[#EF4444] hover:bg-[#EF4444] text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-transform"
                   >
                     <i className="fa-solid fa-plus mr-2"></i>發布聯動
                   </button>
@@ -10591,16 +10580,16 @@ function App() {
               {isVerifiedUser && (
                 <div
                   id="public-collab-form"
-                  className="hidden bg-gray-800/40 border border-gray-700 rounded-3xl p-6 sm:p-8 shadow-2xl mb-10 animate-fade-in-up"
+                  className="hidden bg-[#181B25]/40 border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm mb-10 animate-fade-in-up"
                 >
-                  <h3 className="text-xl font-bold text-white mb-6 border-b border-gray-700 pb-3">
+                  <h3 className="text-xl font-bold text-white mb-6 border-b border-[#2A2F3D] pb-3">
                     發布新的聯動行程
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                     <div>
-                      <label className="text-sm font-bold text-gray-300 mb-2 block">
-                        聯動類別 <span className="text-red-400">*</span>
+                      <label className="text-sm font-bold text-[#CBD5E1] mb-2 block">
+                        聯動類別 <span className="text-[#EF4444]">*</span>
                       </label>
                       <select
                         value={publicCollabForm.category}
@@ -10620,8 +10609,8 @@ function App() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm font-bold text-gray-300 mb-2 block">
-                        聯動時間 <span className="text-red-400">*</span>
+                      <label className="text-sm font-bold text-[#CBD5E1] mb-2 block">
+                        聯動時間 <span className="text-[#EF4444]">*</span>
                       </label>
                       {/* 🌟 替換為 DateTimePicker */}
                       <DateTimePicker
@@ -10636,9 +10625,9 @@ function App() {
                       />
                     </div>
                     <div className="relative">
-                      <label className="text-sm font-bold text-gray-300 mb-2 block">
+                      <label className="text-sm font-bold text-[#CBD5E1] mb-2 block">
                         直播連結 (可自動抓圖){" "}
-                        <span className="text-red-400">*</span>
+                        <span className="text-[#EF4444]">*</span>
                       </label>
                       <div className="flex gap-2">
                         <input
@@ -10668,7 +10657,7 @@ function App() {
                               showToast,
                             )
                           }
-                          className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-xl text-xs font-bold transition-colors"
+                          className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 rounded-xl text-xs font-bold transition-colors"
                         >
                           <i className="fa-solid fa-wand-magic-sparkles"></i>
                         </button>
@@ -10678,8 +10667,8 @@ function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                     <div>
-                      <label className="text-sm font-bold text-gray-300 mb-2 block">
-                        聯動標題 <span className="text-red-400">*</span>
+                      <label className="text-sm font-bold text-[#CBD5E1] mb-2 block">
+                        聯動標題 <span className="text-[#EF4444]">*</span>
                       </label>
                       <input
                         type="text"
@@ -10695,7 +10684,7 @@ function App() {
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-bold text-gray-300 mb-2 block">
+                      <label className="text-sm font-bold text-[#CBD5E1] mb-2 block">
                         封面圖網址
                       </label>
                       <input
@@ -10714,8 +10703,8 @@ function App() {
                   </div>
 
                   {/* 搜尋成員區塊 */}
-                  <div className="bg-gray-900/80 p-4 rounded-2xl border border-purple-500/30 mb-6">
-                    <label className="block text-sm font-bold text-purple-400 mb-3">
+                  <div className="bg-[#0F111A]/80 p-4 rounded-2xl border border-white/10 mb-6">
+                    <label className="block text-sm font-bold text-[#A78BFA] mb-3">
                       <i className="fa-solid fa-users-plus mr-2"></i> 加入聯動成員
                       (※加入成員，成員將會在聯動24小時前被系統自動發信提醒，功能超實用真的要填一下。)
                     </label>
@@ -10727,7 +10716,7 @@ function App() {
                         return vt ? (
                           <div
                             key={uid}
-                            className="flex items-center gap-2 bg-purple-600/20 border border-purple-500/50 px-2 py-1 rounded-lg"
+                            className="flex items-center gap-2 bg-[#8B5CF6]/20 border border-white/10 px-2 py-1 rounded-lg"
                           >
                             <img
                               src={sanitizeUrl(vt.avatar)}
@@ -10746,7 +10735,7 @@ function App() {
                                   ),
                                 }))
                               }
-                              className="text-red-400 hover:text-red-300"
+                              className="text-[#EF4444] hover:text-red-300"
                             >
                               <i className="fa-solid fa-xmark"></i>
                             </button>
@@ -10762,10 +10751,10 @@ function App() {
                         placeholder="輸入成員名稱搜尋..."
                         value={pSearch}
                         onChange={(e) => setPSearch(e.target.value)}
-                        className={inputCls + " !bg-gray-800"}
+                        className={inputCls + " !bg-[#181B25]"}
                       />
                       {pSearch && (
-                        <div className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-h-40 overflow-y-auto">
+                        <div className="absolute z-50 w-full mt-1 bg-[#181B25] border border-[#2A2F3D] rounded-xl shadow-sm max-h-40 overflow-y-auto">
                           {realVtubers
                             .filter(
                               (v) =>
@@ -10791,7 +10780,7 @@ function App() {
                                   }));
                                   setPSearch("");
                                 }}
-                                className="flex items-center gap-3 p-2 hover:bg-purple-600/20 cursor-pointer border-b border-gray-700 last:border-0"
+                                className="flex items-center gap-3 p-2 hover:bg-[#8B5CF6]/20 cursor-pointer border-b border-[#2A2F3D] last:border-0"
                               >
                                 <img
                                   src={sanitizeUrl(v.avatar)}
@@ -10887,7 +10876,7 @@ function App() {
                           showToast("❌ 發布失敗");
                         }
                       }}
-                      className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                      className="bg-[#EF4444] hover:bg-[#EF4444] text-white px-8 py-3 rounded-xl font-bold shadow-sm transition-transform"
                     >
                       送出發布
                     </button>
@@ -10900,7 +10889,7 @@ function App() {
                   <button
                     key={cat}
                     onClick={() => setCollabCategoryTab(cat)}
-                    className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${collabCategoryTab === cat ? "bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+                    className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${collabCategoryTab === cat ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#181B25] text-[#94A3B8] hover:text-white"}`}
                   >
                     {cat === "All" ? "全部" : cat}
                   </button>
@@ -10908,8 +10897,8 @@ function App() {
               </div>
 
               {filteredDisplayCollabs.length === 0 ? (
-                <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-700">
-                  <p className="text-gray-500 font-bold text-lg">
+                <div className="text-center py-20 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
+                  <p className="text-[#64748B] font-bold text-lg">
                     <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
                     目前沒有即將到來的聯動行程
                   </p>
@@ -10956,18 +10945,18 @@ function App() {
                   // 2. 延遲 400 毫秒等滾動差不多到了，自動對焦輸入框讓手機跳出鍵盤！
                   setTimeout(() => document.getElementById('story-input')?.focus(), 400);
                 }}
-                className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(249,115,22,0.6)] transition-transform hover:scale-105 flex items-center gap-2 border border-orange-400/50"
+                className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full font-bold shadow-sm transition-transform flex items-center gap-2 border border-[#FBBF24]/50"
               >
                 <i className="fa-solid fa-arrow-up"></i> 去發布限動！
               </button>
 
               {/* 頂部標題與按鈕 */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-gray-700 pb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[#2A2F3D] pb-4">
                 <div>
                   <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                    <i className="fa-solid fa-bolt text-orange-400"></i> 24H 動態牆
+                    <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 24H 動態牆
                   </h2>
-                  <p className="text-gray-400 mt-2 text-sm">
+                  <p className="text-[#94A3B8] mt-2 text-sm">
                     掌握 V 圈最新脈動！這裡顯示所有人 24 小時內的最新動態。
                   </p>
                 </div>
@@ -10976,7 +10965,7 @@ function App() {
 
               {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
               {isVerifiedUser && myProfile ? (
-                <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border border-orange-500/40 rounded-xl p-5 mb-8 shadow-inner">
+                <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border border-[#F59E0B]/40 rounded-xl p-5 mb-8 shadow-inner">
                   <h3 className="text-orange-300 font-bold mb-3 flex items-center gap-2">
                     <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
                   </h3>
@@ -10989,10 +10978,10 @@ function App() {
                         value={storyInput}
                         onChange={(e) => setStoryInput(e.target.value)}
                         // 🌟 修正：將 p-3 改為 px-4 h-[50px]，強制固定高度並讓文字垂直置中
-                        className="w-full min-w-0 box-border bg-gray-900 border border-gray-700 rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
+                        className="w-full min-w-0 box-border bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
                         placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
                       />
-                      <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-red-400 font-bold' : 'text-gray-400'}`}>
+                      <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-[#EF4444] font-bold' : 'text-[#94A3B8]'}`}>
                         {storyInput.length} / 40
                       </div>
                     </div>
@@ -11002,7 +10991,7 @@ function App() {
                         type="submit"
                         disabled={!storyInput.trim()}
                         // 🌟 修正：加入 h-[50px] 強制與輸入框等高
-                        className={`flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-orange-600 hover:bg-orange-500 text-white hover:scale-105' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                        className={`flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-[#F59E0B] hover:bg-[#F59E0B] text-[#0F111A]' : 'bg-[#181B25] text-[#64748B] cursor-not-allowed'}`}
                       >
                         <i className="fa-solid fa-paper-plane"></i> 發布限動
                       </button>
@@ -11010,7 +10999,7 @@ function App() {
                         type="button"
                         onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
                         // 🌟 修正：加入 h-[50px] 強制與輸入框等高
-                        className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 text-white hover:scale-105 animate-pulse"
+                        className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-[#EF4444] hover:bg-[#EF4444] text-white"
                       >
                         <i className="fa-solid fa-satellite-dish"></i> 我在直播
                       </button>
@@ -11019,7 +11008,7 @@ function App() {
                         <button
                           type="button"
                           onClick={(e) => handlePostStory(e, "", false)}
-                          className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-lg transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white hover:scale-105"
+                          className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-[#1D2130] hover:bg-[#2A2F3D] text-white"
                         >
                           <i className="fa-solid fa-eraser"></i> 清除動態
                         </button>
@@ -11028,12 +11017,12 @@ function App() {
                   </form>
                 </div>
               ) : (
-                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 mb-8 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <p className="text-gray-400 text-sm">
+                <div className="bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl p-4 mb-8 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <p className="text-[#94A3B8] text-sm">
                     <i className="fa-solid fa-lock mr-2"></i>
                     需通過名片認證才能發布限時動態喔！
                   </p>
-                  <button onClick={() => navigate("dashboard")} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                  <button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
                     前往認證名片
                   </button>
                 </div>
@@ -11059,8 +11048,8 @@ function App() {
 
                   if (allActiveStatuses.length === 0) {
                     return (
-                      <div className="text-center py-20 bg-gray-800/30 rounded-3xl border border-gray-700">
-                        <p className="text-gray-500 font-bold text-lg">
+                      <div className="text-center py-20 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
+                        <p className="text-[#64748B] font-bold text-lg">
                           <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
                           目前沒有任何限時動態喔！
                         </p>
@@ -11079,7 +11068,7 @@ function App() {
                           setSelectedVTuber(v);
                           navigate(`profile/${v.id}`);
                         }}
-                        className={`bg-gray-800/60 border ${isLiveMsg ? 'border-red-500/80 hover:border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'border-gray-700 hover:border-orange-500/50'} rounded-3xl p-5 sm:p-6 cursor-pointer transition-all hover:-translate-y-1 shadow-lg group flex flex-col relative`}
+                        className={`bg-[#181B25]/60 border ${isLiveMsg ? 'border-[#EF4444]/80 hover:border-red-400 shadow-sm' : 'border-[#2A2F3D] hover:border-[#F59E0B]/50'} rounded-2xl p-5 sm:p-6 cursor-pointer transition-all shadow-sm group flex flex-col relative`}
                       >
                         {/* 頂部：頭像、名字、社群、時間與右側按鈕 */}
                         <div className="flex justify-between items-start w-full mb-4 gap-4">
@@ -11088,36 +11077,36 @@ function App() {
                             <div className="relative flex-shrink-0">
                               <img
                                 src={sanitizeUrl(v.avatar)}
-                                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 ${isLiveMsg ? 'border-red-500 ring-4 ring-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.6)]' : 'border-orange-500 ring-4 ring-orange-500/40 shadow-[0_0_20px_rgba(249,115,22,0.6)]'} group-hover:scale-105 transition-transform`}
+                                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-4 ring-red-500/40 shadow-sm' : 'border-[#F59E0B] ring-4 ring-orange-500/40 shadow-sm'} group-transition-transform`}
                               />
-                              <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-red-600' : 'bg-orange-500'} w-5 h-5 rounded-full border-2 border-gray-900 flex items-center justify-center z-10`}>
-                                <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse' : 'fa-bolt'} text-[10px] text-white`}></i>
+                              <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]'} w-5 h-5 rounded-full border border-gray-900 flex items-center justify-center z-10`}>
+                                <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish' : 'fa-bolt'} text-[10px] text-white`}></i>
                               </div>
                             </div>
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center gap-2 min-w-0">
-                                <h4 className={`text-white font-bold truncate text-base transition-colors ${isLiveMsg ? 'group-hover:text-red-400' : 'group-hover:text-orange-400'}`}>
+                                <h4 className={`text-white font-bold truncate text-base transition-colors ${isLiveMsg ? 'group-hover:text-[#EF4444]' : 'group-hover:text-[#F59E0B]'}`}>
                                   {v.name}
                                 </h4>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
-                                    <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-red-400 bg-red-500/10 hover:bg-red-500/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 YouTube">
+                                    <a href={sanitizeUrl(v.youtubeUrl || v.channelUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 hover:text-red-300 w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 YouTube">
                                       <i className="fa-brands fa-youtube text-[10px]"></i>
                                     </a>
                                   )}
                                   {v.twitchUrl && v.twitchUrl !== "#" && (
-                                    <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 hover:text-purple-300 w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 Twitch">
+                                    <a href={sanitizeUrl(v.twitchUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-[#A78BFA] bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/20 hover:text-[#C4B5FD] w-5 h-5 rounded flex items-center justify-center transition-colors" title="前往 Twitch">
                                       <i className="fa-brands fa-twitch text-[10px]"></i>
                                     </a>
                                   )}
                                 </div>
                               </div>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-[#94A3B8] mt-1">
                                 {formatRelativeTime(v.statusMessageUpdatedAt)}
                               </p>
 
                               {/* 🌟 優化：將微互動按鈕移到這裡，並縮小為精緻的徽章尺寸 */}
-                              <div className="border-t border-gray-700/50 pt-4 flex flex-col gap-3 w-full z-20">
+                              <div className="border-t border-[#2A2F3D]/50 pt-4 flex flex-col gap-3 w-full z-20">
 
                                 {/* 互動按鈕區 (自己不能按自己的) */}
                                 {(!user || v.id !== user?.uid) && (
@@ -11126,19 +11115,19 @@ function App() {
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
                                       // 🌟 優化 2：加入 whitespace-nowrap 強制不換行，並縮小手機版 padding (px-1.5) 與字體 (text-[11px])
-                                      className="flex-1 sm:flex-none bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(168,85,247,0.5)] whitespace-nowrap"
+                                      className="flex-1 sm:flex-none bg-[#8B5CF6]/20 hover:bg-[#8B5CF6] text-[#C4B5FD] hover:text-white border border-white/10 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-sm whitespace-nowrap"
                                     >
                                       👋 +1 {v.statusReactions?.plus_one?.length > 0 && <span className="bg-purple-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.plus_one.length}</span>}
                                     </button>
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'watching')}
-                                      className="flex-1 sm:flex-none bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(37,99,235,0.5)] whitespace-nowrap"
+                                      className="flex-1 sm:flex-none bg-[#38BDF8]/20 hover:bg-[#38BDF8] text-[#7DD3FC] hover:text-white border border-[#38BDF8]/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-sm whitespace-nowrap"
                                     >
                                       👀 觀望中 {v.statusReactions?.watching?.length > 0 && <span className="bg-blue-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.watching.length}</span>}
                                     </button>
                                     <button
                                       onClick={(e) => handleStatusReaction(e, v, 'fire')}
-                                      className="flex-1 sm:flex-none bg-orange-600/20 hover:bg-orange-600 text-orange-300 hover:text-white border border-orange-500/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-[0_0_10px_rgba(249,115,22,0.5)] whitespace-nowrap"
+                                      className="flex-1 sm:flex-none bg-[#F59E0B]/20 hover:bg-[#F59E0B] text-orange-300 hover:text-white border border-[#F59E0B]/30 px-1.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-sm hover:shadow-sm whitespace-nowrap"
                                     >
                                       🔥 幫推 {v.statusReactions?.fire?.length > 0 && <span className="bg-orange-900/80 text-white px-1.5 py-0.5 rounded-md text-[10px] ml-0.5 sm:ml-1">{v.statusReactions.fire.length}</span>}
                                     </button>
@@ -11155,7 +11144,7 @@ function App() {
 
                                   return (
                                     <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-[10px] text-gray-400 font-medium">互動者：</span>
+                                      <span className="text-[10px] text-[#94A3B8] font-medium">互動者：</span>
                                       <div className="flex -space-x-2">
                                         {allReactors.slice(0, 8).map(uid => {
                                           const reactor = realVtubers.find(rv => rv.id === uid);
@@ -11164,13 +11153,13 @@ function App() {
                                             <img
                                               key={uid}
                                               src={sanitizeUrl(reactor.avatar)}
-                                              className="w-6 h-6 rounded-full border-2 border-gray-800 object-cover hover:scale-110 transition-transform relative z-10 hover:z-20"
+                                              className="w-6 h-6 rounded-full border border-[#2A2F3D] object-cover hover:scale-110 transition-transform relative z-10 hover:z-20"
                                               title={reactor.name}
                                             />
                                           );
                                         })}
                                         {allReactors.length > 8 && (
-                                          <div className="w-6 h-6 rounded-full bg-gray-700 border-2 border-gray-800 flex items-center justify-center text-[8px] text-white font-bold relative z-0">
+                                          <div className="w-6 h-6 rounded-full bg-[#1D2130] border border-[#2A2F3D] flex items-center justify-center text-[8px] text-white font-bold relative z-0">
                                             +{allReactors.length - 8}
                                           </div>
                                         )}
@@ -11185,11 +11174,11 @@ function App() {
                           {/* 右上角按鈕 (清除/私訊) */}
                           <div className="flex-shrink-0 z-20">
                             {user && v.id === user.uid ? (
-                              <button onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }} className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5">
+                              <button onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-transform flex items-center justify-center gap-1.5">
                                 <i className="fa-solid fa-eraser"></i><span className="hidden sm:inline">清除</span>
                               </button>
                             ) : (
-                              <button onClick={(e) => { e.stopPropagation(); if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！"); setChatTarget(v); }} className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-1.5">
+                              <button onClick={(e) => { e.stopPropagation(); if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！"); setChatTarget(v); }} className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-transform flex items-center justify-center gap-1.5">
                                 <i className="fa-solid fa-comment-dots"></i><span className="hidden sm:inline">私訊</span>
                               </button>
                             )}
@@ -11197,8 +11186,8 @@ function App() {
                         </div>
 
                         {/* 中間：動態訊息 */}
-                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full mb-4 ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-red-500/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20'}`}>
-                          <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish animate-pulse text-red-400/20' : 'fa-quote-left text-orange-500/10'} absolute top-2 right-2 text-4xl`}></i>
+                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full mb-4 ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-[#EF4444]/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-[#F59E0B]/20'}`}>
+                          <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish text-[#EF4444]/20' : 'fa-quote-left text-[#F59E0B]/10'} absolute top-2 right-2 text-4xl`}></i>
                           <p className={`text-sm sm:text-base leading-relaxed relative z-10 whitespace-pre-wrap ${isLiveMsg ? 'text-white font-bold tracking-wide' : 'text-orange-100 font-medium'}`}>
                             {v.statusMessage}
                           </p>
@@ -11226,10 +11215,10 @@ function App() {
 
           {currentView === "blacklist" && (
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
-              <div className="bg-red-950/30 border border-red-900 rounded-3xl p-8 sm:p-12 text-center shadow-2xl relative overflow-hidden">
+              <div className="bg-[#2A1418]/30 border border-red-900 rounded-2xl p-8 sm:p-12 text-center shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 via-orange-600 to-red-600"></div>
-                <i className="fa-solid fa-skull-crossbones text-6xl text-red-500 mb-6 drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]"></i>
-                <h2 className="text-3xl sm:text-4xl font-black text-red-400 mb-4 tracking-widest">
+                <i className="fa-solid fa-skull-crossbones text-6xl text-[#EF4444] mb-6 drop-shadow-sm"></i>
+                <h2 className="text-3xl sm:text-4xl font-black text-[#EF4444] mb-4 tracking-widest">
                   黑名單避雷區
                 </h2>
                 <p className="text-red-200/80 mb-8 max-w-2xl mx-auto leading-relaxed font-medium">
@@ -11237,22 +11226,22 @@ function App() {
                   <br className="hidden sm:block" />
                   在此區的名片無法被一般使用者看見，也無法再發送任何邀約。
                   <br />
-                  <span className="text-yellow-400 text-sm mt-2 block">
+                  <span className="text-[#F59E0B] text-sm mt-2 block">
                     如果發現有惡意洗倒讚的行為，請聯絡官方處理。
                   </span>
                 </p>
                 <div className="inline-block bg-black/50 border border-red-900 px-6 py-3 rounded-xl">
-                  <span className="text-gray-400 font-bold mr-2">
+                  <span className="text-[#94A3B8] font-bold mr-2">
                     目前黑單數量：
                   </span>
-                  <span className="text-2xl font-black text-red-500">
+                  <span className="text-2xl font-black text-[#EF4444]">
                     {
                       realVtubers.filter(
                         (v) => v.isBlacklisted || v.dislikes >= 10,
                       ).length
                     }
                   </span>
-                  <span className="text-gray-500 text-sm ml-1">人</span>
+                  <span className="text-[#64748B] text-sm ml-1">人</span>
                 </div>
               </div>
             </div>
@@ -11327,18 +11316,18 @@ function App() {
             onClick={() => setIsCollabModalOpen(false)}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md overflow-hidden shadow-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-6 flex flex-col items-center border-b border-gray-800">
+              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-6 flex flex-col items-center border-b border-[#2A2F3D]">
                 <img
                   src={sanitizeUrl(selectedVTuber.avatar)}
-                  className="w-20 h-20 rounded-full border-4 border-gray-900 mb-3 object-cover shadow-lg"
+                  className="w-20 h-20 rounded-full border-4 border-gray-900 mb-3 object-cover shadow-sm"
                 />
                 <h3 className="text-xl font-bold text-white mb-1">
                   邀請 {selectedVTuber.name} 聯動
                 </h3>
-                <p className="text-xs text-purple-300 bg-purple-900/40 px-3 py-1 rounded-full">
+                <p className="text-xs text-[#C4B5FD] bg-purple-900/40 px-3 py-1 rounded-full">
                   對方主要時段：{formatSchedule(selectedVTuber)}
                 </p>
               </div>
@@ -11353,7 +11342,7 @@ function App() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setIsCollabModalOpen(false)}
-                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-xl font-bold transition-colors"
+                    className="flex-1 bg-[#181B25] hover:bg-[#1D2130] text-white py-3 rounded-xl font-bold transition-colors"
                   >
                     取消
                   </button>
@@ -11411,7 +11400,7 @@ function App() {
                         setIsSendingInvite(false); // 🌟 發送結束，解除鎖定
                       }
                     }}
-                    className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-lg transition-all ${isSendingInvite ? "bg-purple-800 cursor-not-allowed opacity-70" : "bg-purple-600 hover:bg-purple-500 hover:scale-105"}`}
+                    className={`flex-[2] text-white py-3 rounded-xl font-bold shadow-sm transition-all ${isSendingInvite ? "bg-purple-800 cursor-not-allowed opacity-70" : "bg-[#8B5CF6] hover:bg-[#8B5CF6]"}`}
                   >
                     {isSendingInvite ? (
                       <><i className="fa-solid fa-spinner fa-spin mr-2"></i>發送中...</>
@@ -11433,31 +11422,31 @@ function App() {
             onClick={() => setIsRulesModalOpen(false)}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-lg shadow-sm overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-red-900/30 p-5 border-b border-red-900/50 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-red-400 flex items-center gap-2">
+              <div className="bg-[#3B171D]/30 p-5 border-b border-red-900/50 flex justify-between items-center">
+                <h3 className="text-xl font-bold text-[#EF4444] flex items-center gap-2">
                   <i className="fa-solid fa-triangle-exclamation"></i> 聯動規範
                 </h3>
                 <button
                   onClick={() => setIsRulesModalOpen(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
               </div>
 
               <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm">
+                <div className="text-[#CBD5E1] leading-relaxed whitespace-pre-wrap text-sm">
                   {realRules}
                 </div>
               </div>
 
-              <div className="p-4 border-t border-gray-800 text-center">
+              <div className="p-4 border-t border-[#2A2F3D] text-center">
                 <button
                   onClick={() => setIsRulesModalOpen(false)}
-                  className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto"
+                  className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto"
                 >
                   我了解了
                 </button>
@@ -11473,29 +11462,29 @@ function App() {
             onClick={() => setIsTipsModalOpen(false)}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-lg shadow-sm overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                <h3 className="text-xl font-bold text-[#F59E0B] flex items-center gap-2">
                   <i className="fa-solid fa-lightbulb"></i> 邀約小技巧
                 </h3>
                 <button
                   onClick={() => setIsTipsModalOpen(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
               </div>
               <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                <div className="text-gray-300 leading-relaxed whitespace-pre-wrap text-sm mb-6">
+                <div className="text-[#CBD5E1] leading-relaxed whitespace-pre-wrap text-sm mb-6">
                   {realTips}
                 </div>
-                <div className="bg-gray-800/80 p-4 rounded-xl border border-gray-700">
-                  <p className="text-xs text-gray-500 mb-2 font-bold">
+                <div className="bg-[#181B25]/80 p-4 rounded-xl border border-[#2A2F3D]">
+                  <p className="text-xs text-[#64748B] mb-2 font-bold">
                     複製公版邀約詞 (可自行修改)
                   </p>
-                  <div className="bg-black/50 p-3 rounded-lg text-sm text-gray-300 font-mono mb-3 select-all">
+                  <div className="bg-black/50 p-3 rounded-lg text-sm text-[#CBD5E1] font-mono mb-3 select-all">
                     您好，我是 OOO！\n近期想規劃一個 [遊戲/企劃]
                     的聯動，\n想請問是否有榮幸能邀請您一起參與呢？\n時間預計在
                     OO/OO，詳細企劃案如下...\n期待您的回覆！
@@ -11508,7 +11497,7 @@ function App() {
                       setCopiedTemplate(true);
                       setTimeout(() => setCopiedTemplate(false), 2000);
                     }}
-                    className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg font-bold transition-colors text-sm"
+                    className="w-full bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white py-2 rounded-lg font-bold transition-colors text-sm"
                   >
                     {copiedTemplate ? "✅ 已複製！" : "📋 點擊複製"}
                   </button>
@@ -11529,11 +11518,11 @@ function App() {
             }}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-lg shadow-sm overflow-hidden flex flex-col max-h-[80vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-blue-900/30 p-5 border-b border-blue-900/50 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-blue-400 flex items-center gap-2">
+                <h3 className="text-xl font-bold text-[#38BDF8] flex items-center gap-2">
                   <i className="fa-solid fa-bullhorn"></i> 最新消息與功能發布
                 </h3>
                 <button
@@ -11541,7 +11530,7 @@ function App() {
                     setIsUpdatesModalOpen(false);
                     handleMarkAllUpdatesRead();
                   }}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
@@ -11549,20 +11538,20 @@ function App() {
 
               <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
                 {realUpdates.length === 0 ? (
-                  <p className="text-center text-gray-500">目前沒有新消息。</p>
+                  <p className="text-center text-[#64748B]">目前沒有新消息。</p>
                 ) : (
                   realUpdates.map((u) => (
                     <div key={u.id} className="relative">
                       {!readUpdateIds.includes(u.id) && (
-                        <span className="absolute -left-2 top-1.5 w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        <span className="absolute -left-2 top-1.5 w-2 h-2 rounded-full bg-[#EF4444]"></span>
                       )}
                       <h4 className="font-bold text-white text-lg mb-1">
                         {u.title}
                       </h4>
-                      <p className="text-xs text-blue-400 mb-2 font-mono">
+                      <p className="text-xs text-[#38BDF8] mb-2 font-mono">
                         {u.date}
                       </p>
-                      <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                      <p className="text-[#CBD5E1] text-sm leading-relaxed whitespace-pre-wrap">
                         {u.content}
                       </p>
                     </div>
@@ -11570,13 +11559,13 @@ function App() {
                 )}
               </div>
 
-              <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center">
+              <div className="p-4 border-t border-[#2A2F3D] bg-[#0F111A]/90 text-center">
                 <button
                   onClick={() => {
                     setIsUpdatesModalOpen(false);
                     handleMarkAllUpdatesRead();
                   }}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg"
+                  className="bg-[#38BDF8] hover:bg-[#38BDF8] text-[#0F111A] px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-sm"
                 >
                   知道了
                 </button>
@@ -11588,14 +11577,14 @@ function App() {
         {/* 審核結果通知 Modal */}
         {user && myProfile && myProfile.showVerificationModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <div className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md p-8 text-center shadow-2xl relative">
+            <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md p-8 text-center shadow-sm relative">
               <div
                 className={`absolute top-0 left-0 w-full h-2 ${myProfile.showVerificationModal === "approved" ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-red-500 to-orange-500"}`}
               ></div>
 
               <div className="mb-6">
                 <div
-                  className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${myProfile.showVerificationModal === "approved" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}
+                  className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${myProfile.showVerificationModal === "approved" ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}
                 >
                   <i
                     className={`fa-solid ${myProfile.showVerificationModal === "approved" ? "fa-check text-4xl" : "fa-xmark text-5xl"}`}
@@ -11610,13 +11599,13 @@ function App() {
               </h2>
 
               {myProfile.showVerificationModal === "approved" ? (
-                <p className="text-gray-200 text-lg font-bold leading-relaxed mb-8">
+                <p className="text-[#E2E8F0] text-lg font-bold leading-relaxed mb-8">
                   恭喜你審核通過！
                   <br />
                   開始尋找聯動夥伴吧！
                 </p>
               ) : (
-                <p className="text-gray-300 text-sm leading-relaxed mb-8 text-left">
+                <p className="text-[#CBD5E1] text-sm leading-relaxed mb-8 text-left">
                   很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上你都有達到，那就是你沒有將「V-Nexus審核中」字樣放入你的X或YT簡介內，無法審核成功喔！
                   <br />
                   <br />
@@ -11664,8 +11653,8 @@ function App() {
                   }}
                   className={`${myProfile.showVerificationModal === "approved"
                     ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500"
-                    : "bg-gray-800 hover:bg-gray-700 border border-gray-600"
-                    } text-white px-8 py-3 rounded-xl font-bold shadow-lg w-full transition-all`}
+                    : "bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D]"
+                    } text-white px-8 py-3 rounded-xl font-bold shadow-sm w-full transition-all`}
                 >
                   {myProfile.showVerificationModal === "approved"
                     ? "開始找夥伴"
@@ -11683,23 +11672,23 @@ function App() {
             onClick={() => setIsLeaderboardModalOpen(false)}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md shadow-sm overflow-hidden flex flex-col max-h-[80vh]"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-yellow-400 flex items-center gap-2">
+                <h3 className="text-xl font-bold text-[#F59E0B] flex items-center gap-2">
                   <i className="fa-solid fa-trophy"></i> 揪團成功排行榜
                 </h3>
                 <button
                   onClick={() => setIsLeaderboardModalOpen(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
               </div>
               <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-3">
                 {leaderboardData.length === 0 ? (
-                  <p className="text-center text-gray-500 py-10">
+                  <p className="text-center text-[#64748B] py-10">
                     目前還沒有人達成招募目標喔！
                     <br />
                     趕快成為第一個吧！
@@ -11708,49 +11697,49 @@ function App() {
                   leaderboardData.map((vt, idx) => (
                     <div
                       key={vt.id || idx}
-                      className={`flex items-center gap-4 p-3 rounded-xl border ${idx === 0 ? "bg-yellow-500/20 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.3)]" : idx === 1 ? "bg-gray-300/20 border-gray-300/50 shadow-[0_0_10px_rgba(209,213,219,0.2)]" : idx === 2 ? "bg-orange-500/20 border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.2)]" : "bg-gray-800/50 border-gray-700"}`}
+                      className={`flex items-center gap-4 p-3 rounded-xl border ${idx === 0 ? "bg-[#F59E0B]/20 border-[#F59E0B]/50 shadow-sm" : idx === 1 ? "bg-gray-300/20 border-gray-300/50 shadow-sm" : idx === 2 ? "bg-[#F59E0B]/20 border-[#F59E0B]/50 shadow-sm" : "bg-[#181B25]/50 border-[#2A2F3D]"}`}
                     >
                       <div className="w-8 text-center flex-shrink-0">
                         {idx === 0 ? (
-                          <i className="fa-solid fa-crown text-2xl text-yellow-400"></i>
+                          <i className="fa-solid fa-crown text-2xl text-[#F59E0B]"></i>
                         ) : idx === 1 ? (
-                          <i className="fa-solid fa-medal text-xl text-gray-300"></i>
+                          <i className="fa-solid fa-medal text-xl text-[#CBD5E1]"></i>
                         ) : idx === 2 ? (
-                          <i className="fa-solid fa-award text-xl text-orange-400"></i>
+                          <i className="fa-solid fa-award text-xl text-[#F59E0B]"></i>
                         ) : (
-                          <span className="text-gray-500 font-bold">
+                          <span className="text-[#64748B] font-bold">
                             {idx + 1}
                           </span>
                         )}
                       </div>
                       <img
                         src={sanitizeUrl(vt.avatar)}
-                        className={`w-12 h-12 rounded-full object-cover flex-shrink-0 border-2 ${idx === 0 ? "border-yellow-400" : idx === 1 ? "border-gray-300" : idx === 2 ? "border-orange-400" : "border-gray-600"}`}
+                        className={`w-12 h-12 rounded-full object-cover flex-shrink-0 border ${idx === 0 ? "border-yellow-400" : idx === 1 ? "border-gray-300" : idx === 2 ? "border-[#FBBF24]" : "border-[#2A2F3D]"}`}
                       />
                       <div className="flex-1 min-w-0">
                         <p
-                          className={`font-bold truncate ${idx === 0 ? "text-yellow-400 text-lg" : idx === 1 ? "text-gray-200 text-base" : idx === 2 ? "text-orange-300 text-base" : "text-gray-300 text-sm"}`}
+                          className={`font-bold truncate ${idx === 0 ? "text-[#F59E0B] text-lg" : idx === 1 ? "text-[#E2E8F0] text-base" : idx === 2 ? "text-orange-300 text-base" : "text-[#CBD5E1] text-sm"}`}
                         >
                           {vt.name}
                         </p>
-                        <p className="text-xs text-gray-500">累積成功次數</p>
+                        <p className="text-xs text-[#64748B]">累積成功次數</p>
                       </div>
                       <div className="flex-shrink-0 text-right">
                         <span
-                          className={`font-black text-2xl ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-400"}`}
+                          className={`font-black text-2xl ${idx === 0 ? "text-[#F59E0B]" : idx === 1 ? "text-[#CBD5E1]" : idx === 2 ? "text-[#F59E0B]" : "text-[#94A3B8]"}`}
                         >
                           {vt.successCount}
                         </span>
-                        <span className="text-xs text-gray-500 ml-1">次</span>
+                        <span className="text-xs text-[#64748B] ml-1">次</span>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-              <div className="p-4 border-t border-gray-800 bg-gray-900/90 text-center">
+              <div className="p-4 border-t border-[#2A2F3D] bg-[#0F111A]/90 text-center">
                 <button
                   onClick={() => setIsLeaderboardModalOpen(false)}
-                  className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-lg"
+                  className="bg-[#181B25] hover:bg-[#1D2130] text-white px-8 py-2.5 rounded-xl font-bold transition-colors w-full sm:w-auto shadow-sm"
                 >
                   關閉
                 </button>
@@ -11766,14 +11755,14 @@ function App() {
             onClick={() => setConfirmDislikeData(null)}
           >
             <div
-              className="bg-gray-900 border border-red-500/50 rounded-3xl w-full max-w-md p-8 text-center shadow-2xl"
+              className="bg-[#0F111A] border border-[#EF4444]/50 rounded-2xl w-full max-w-md p-8 text-center shadow-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <i className="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+              <i className="fa-solid fa-triangle-exclamation text-5xl text-[#EF4444] mb-4"></i>
               <h3 className="text-xl font-bold text-white mb-2">
                 確定要對 {confirmDislikeData.name} 送出倒讚？
               </h3>
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-[#94A3B8] text-sm mb-6">
                 倒讚功能僅用於檢舉「負面行為」或「惡意騷擾」。
                 <br />
                 若該名片累積超過 10 個倒讚將自動下架。
@@ -11781,13 +11770,13 @@ function App() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDislikeData(null)}
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-xl font-bold transition-colors"
+                  className="flex-1 bg-[#181B25] hover:bg-[#1D2130] text-white py-3 rounded-xl font-bold transition-colors"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleConfirmDislike}
-                  className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105"
+                  className="flex-1 bg-[#EF4444] hover:bg-[#EF4444] text-white py-3 rounded-xl font-bold shadow-sm transition-transform"
                 >
                   確定送出
                 </button>
@@ -11802,17 +11791,17 @@ function App() {
             onClick={() => setViewParticipantsCollab(null)}
           >
             <div
-              className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-2xl"
+              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 bg-gray-900/95 backdrop-blur px-6 py-4 border-b border-gray-800 flex justify-between items-center z-10">
+              <div className="sticky top-0 bg-[#0F111A]/95 backdrop-blur px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center z-10">
                 <h3 className="font-bold text-white flex items-center gap-2">
-                  <i className="fa-solid fa-users text-purple-400"></i>{" "}
+                  <i className="fa-solid fa-users text-[#A78BFA]"></i>{" "}
                   聯動參與成員
                 </h3>
                 <button
                   onClick={() => setViewParticipantsCollab(null)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-[#94A3B8] hover:text-white"
                 >
                   <i className="fa-solid fa-xmark text-xl"></i>
                 </button>
@@ -11827,7 +11816,7 @@ function App() {
                   return (
                     <div
                       key={vt.id}
-                      className="flex items-center justify-between bg-gray-800/50 p-3 rounded-xl border border-gray-700 hover:border-purple-500/50 transition-all cursor-pointer group"
+                      className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-all cursor-pointer group"
                       onClick={() => {
                         setSelectedVTuber(vt);
                         navigate(`profile/${vt.id}`);
@@ -11837,18 +11826,18 @@ function App() {
                       <div className="flex items-center gap-4">
                         <img
                           src={sanitizeUrl(vt.avatar)}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-700 group-hover:border-purple-400 transition-colors"
+                          className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] group-hover:border-[#A78BFA] transition-colors"
                         />
                         <div>
-                          <p className="font-bold text-white text-sm group-hover:text-purple-300 transition-colors">
+                          <p className="font-bold text-white text-sm group-hover:text-[#C4B5FD] transition-colors">
                             {vt.name}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-1">
+                          <p className="text-[10px] text-[#94A3B8] mt-1">
                             {vt.agency} | 點擊查看名片
                           </p>
                         </div>
                       </div>
-                      <i className="fa-solid fa-chevron-right text-gray-600 group-hover:text-purple-400 transition-colors"></i>
+                      <i className="fa-solid fa-chevron-right text-gray-600 group-hover:text-[#A78BFA] transition-colors"></i>
                     </div>
                   );
                 })}
@@ -11859,14 +11848,14 @@ function App() {
         {user && !chatTarget && (
           <div className="fixed bottom-4 right-4 z-[90]">
             {isChatListOpen && (
-              <div className="absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-gray-900 border border-gray-700 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.8)] overflow-hidden animate-fade-in-up">
-                <div className="bg-purple-600 p-3 flex justify-between items-center text-white shadow-md">
+              <div className="absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden animate-fade-in-up">
+                <div className="bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-md">
                   <span className="font-bold text-sm flex items-center gap-2">
                     <i className="fa-solid fa-comments"></i> 訊息列表
                   </span>
                   <button
                     onClick={() => setIsChatListOpen(false)}
-                    className="hover:bg-purple-700 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+                    className="hover:bg-[#7C3AED] w-6 h-6 rounded-full flex items-center justify-center transition-colors"
                   >
                     <i className="fa-solid fa-xmark"></i>
                   </button>
@@ -11882,7 +11871,7 @@ function App() {
             )}
             <button
               onClick={() => setIsChatListOpen(!isChatListOpen)}
-              className="bg-purple-600 hover:bg-purple-500 text-white w-14 h-14 rounded-full shadow-[0_0_20px_rgba(168,85,247,0.4)] flex items-center justify-center transition-transform hover:scale-105 border-2 border-purple-400/30 relative"
+              className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative"
             >
               <i
                 className={`fa-solid ${isChatListOpen ? "fa-xmark text-xl" : "fa-message text-2xl"}`}
@@ -11892,7 +11881,7 @@ function App() {
               {!isChatListOpen && hasUnreadChat && (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-red-600 border-2 border-gray-900 flex items-center justify-center">
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-[#EF4444] border border-gray-900 flex items-center justify-center">
                     <span className="text-[10px] text-white font-bold">!</span>
                   </span>
                 </span>
@@ -11926,7 +11915,7 @@ function App() {
           />
         )}
 
-        <footer className="py-6 border-t border-gray-800 text-center text-gray-500 text-sm">
+        <footer className="py-6 border-t border-[#2A2F3D] text-center text-[#64748B] text-sm">
           <p>
             © {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。
           </p>
