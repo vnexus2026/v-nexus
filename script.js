@@ -80,6 +80,25 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// ✅ App Check 必須盡量在 Auth / Firestore / Storage / Functions 初始化前啟動。
+// 本地開發時，請在 Firebase Console → App Check → Web App → Manage debug tokens 加入 Console 顯示的 token。
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+}
+
+try {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(
+      "6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M",
+    ),
+    isTokenAutoRefreshEnabled: true,
+  });
+  console.info("✅ App Check 已初始化");
+} catch (error) {
+  console.warn("App Check:", error);
+}
+
 const auth = getAuth(app);
 
 // 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
@@ -128,16 +147,6 @@ try {
   console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
 }
 
-try {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(
-      "6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M",
-    ),
-    isTokenAutoRefreshEnabled: true,
-  });
-} catch (error) {
-  console.warn("App Check:", error);
-}
 
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
@@ -458,13 +467,7 @@ const sanitizeUrl = (url) => {
     return "about:blank";
   }
 
-  // 🌟 終極優化：Firebase Token 免疫機制
-  // 因為 Storage 規則已設定為公開 (allow read: if true)，讀取根本不需要 Token。
-  // 我們直接把網址裡的 &token=... 拔掉，徹底解決舊 Token 失效導致的 403 破圖問題！
-  if (u.includes("firebasestorage.googleapis.com") && u.includes("&token=")) {
-    // 使用正規表達式拔除 token 參數
-    return u.replace(/&token=[a-zA-Z0-9-]+/, "");
-  }
+  // ✅ Storage / App Check 相容：保留 Firebase Storage download token，避免圖片 403。
 
   return u;
 };
@@ -902,6 +905,31 @@ const isVisible = (v, currentUser) => {
   return true;
 };
 
+const getActivityStatusMeta = (status) => {
+  switch (status) {
+    case "sleep":
+      return { label: "暫時休息", emoji: "🌙", cls: "bg-[#94A3B8]/10 text-[#CBD5E1] border-[#94A3B8]/30" };
+    case "graduated":
+      return { label: "已畢業", emoji: "🕊️", cls: "bg-[#64748B]/10 text-[#94A3B8] border-[#64748B]/30" };
+    case "active":
+    default:
+      return { label: "開放聯動", emoji: "🟢", cls: "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30" };
+  }
+};
+
+const getReviewStatusMeta = (v = {}) => {
+  if (v.isBlacklisted) return { label: "暫停顯示", emoji: "⛔", cls: "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30" };
+  if (v.isVerified) return { label: "已認證", emoji: "✅", cls: "bg-[#38BDF8]/10 text-[#38BDF8] border-[#38BDF8]/30" };
+  return { label: "待審核", emoji: "🟡", cls: "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30" };
+};
+
+const StatusPill = ({ meta, className = "" }) => (
+  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold whitespace-nowrap ${meta.cls} ${className}`}>
+    <span aria-hidden="true">{meta.emoji}</span>
+    {meta.label}
+  </span>
+);
+
 const TagBadge = ({ text, onClick, selected }) => (
   <span
     onClick={onClick}
@@ -1141,20 +1169,20 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
     if (v.activityStatus === 'sleep') {
       return {
         label: '暫時休息',
-        cls: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
-        dot: 'bg-slate-400',
+        cls: 'bg-[#94A3B8]/10 text-[#CBD5E1] border-[#94A3B8]/30',
+        dot: 'bg-[#94A3B8]',
       };
     }
     if (v.activityStatus === 'graduated') {
       return {
         label: '已畢業',
-        cls: 'bg-slate-600/10 text-slate-400 border-slate-600/30',
-        dot: 'bg-slate-500',
+        cls: 'bg-[#64748B]/10 text-[#94A3B8] border-[#64748B]/30',
+        dot: 'bg-[#64748B]',
       };
     }
     if (isOnline) {
       return {
-        label: '線上',
+        label: '開放聯動',
         cls: 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30',
         dot: 'bg-[#22C55E]',
       };
@@ -2476,260 +2504,490 @@ const ProfileEditorForm = ({
     }
   };
 
+
+  const editorSteps = [
+    { id: "basic", label: "基本資料", icon: "fa-id-card" },
+    { id: "platform", label: "直播平台", icon: "fa-satellite-dish" },
+    { id: "collab", label: "聯動偏好", icon: "fa-handshake-angle" },
+    { id: "schedule", label: "可聯動時間", icon: "fa-calendar-days" },
+    { id: "contact", label: "信箱與通知", icon: "fa-envelope" },
+    { id: "preview", label: "預覽", icon: "fa-eye" },
+  ];
+  const [activeStep, setActiveStep] = useState(0);
+  const currentStepId = editorSteps[activeStep]?.id || "basic";
+  const isFirstStep = activeStep === 0;
+  const isLastStep = activeStep === editorSteps.length - 1;
+  const goPrevStep = () => setActiveStep((prev) => Math.max(0, prev - 1));
+  const goNextStep = () => setActiveStep((prev) => Math.min(editorSteps.length - 1, prev + 1));
+  const profileCompletion = useMemo(() => {
+    const checks = [
+      !!String(form.name || "").trim(),
+      !!String(form.description || "").trim(),
+      !!String(form.avatar || "").trim(),
+      !!String(form.banner || "").trim(),
+      Array.isArray(form.collabTypes) && form.collabTypes.length > 0,
+      !!form.isScheduleAnytime || !!form.isScheduleCustom || (Array.isArray(form.scheduleSlots) && form.scheduleSlots.length > 0),
+      !!String(form.youtubeUrl || form.twitchUrl || "").trim(),
+      Array.isArray(form.tags) ? form.tags.length > 0 : !!String(form.tags || "").trim(),
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [form]);
+
+  const panelCls = "bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 space-y-5";
+  const stepTitleCls = "text-white font-bold text-lg flex items-center gap-2";
+  const primaryBtn = "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 px-5 rounded-xl font-bold shadow-sm transition-colors flex justify-center items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
+  const secondaryBtn = "bg-[#1D2130] hover:bg-[#2A2F3D] text-[#F8FAFC] py-3 px-5 rounded-xl font-bold border border-[#2A2F3D] transition-colors flex justify-center items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed";
+  const ghostBtn = "text-[#94A3B8] hover:text-[#F8FAFC] py-3 px-4 rounded-xl font-bold transition-colors flex justify-center items-center gap-2 whitespace-nowrap";
+  const dangerBtn = "bg-[#EF4444]/10 hover:bg-[#EF4444] text-[#EF4444] hover:text-white py-3 px-5 rounded-xl font-bold border border-[#EF4444]/30 transition-colors flex justify-center items-center gap-2 whitespace-nowrap";
+  const successBtn = "bg-[#22C55E] hover:bg-[#16A34A] text-white py-3 px-5 rounded-xl font-bold shadow-sm transition-colors flex justify-center items-center gap-2 whitespace-nowrap";
+
   return (
-
     <form onSubmit={onSubmit} className="space-y-6">
-
-      <div className="bg-purple-900/20 border border-white/10 rounded-xl p-5">
-        <h3 className="text-[#A78BFA] font-bold mb-3 flex items-center gap-2">
-          <i className="fa-solid fa-power-off"></i> 名片顯示狀態
-        </h3>
-        <select
-          value={form.activityStatus}
-          onChange={(e) => updateForm({ activityStatus: e.target.value })}
-          className={inputCls + " font-normal"}
-        >
-          <option value="active">🟢 活躍連動中</option>
-          <option value="sleep">🟡 暫休眠</option>
-          <option value="graduated">⚫ 已畢業</option>
-        </select>
-      </div>
-      {/* 第一排：VTuber 名稱 (左) 與 專屬網址 ID (右) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* 左側：VTuber 名稱 */}
-        <div className="flex flex-col justify-center">
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            VTuber 名稱 <span className="text-[#EF4444]">*</span>
-          </label>
-          <input
-            required
-            type="text"
-            value={form.name}
-            onChange={(e) => updateForm({ name: e.target.value })}
-            className={inputCls}
-            placeholder="請輸入您的名稱"
-          />
-        </div>
-
-        {/* 右側：專屬網址 ID */}
-        <div className="bg-[#8B5CF6]/5 border border-[#8B5CF6]/20 p-4 rounded-xl flex flex-col justify-center">
-          <label className="block text-sm font-bold text-[#C4B5FD] mb-2">
-            <i className="fa-solid fa-link mr-1"></i> 設定專屬網址 ID
-          </label>
-          <div className="flex items-center gap-1">
-            <span className="text-[#64748B] text-[10px] font-mono hidden sm:inline">
-              #profile/
-            </span>
-            <input
-              type="text"
-              placeholder="例如: daxiong"
-              value={form.slug || ""}
-              onChange={(e) =>
-                updateForm({
-                  slug: e.target.value
-                    .replace(/[^a-zA-Z0-9_-]/g, "")
-                    .toLowerCase(),
-                })
-              }
-              className={inputCls + " font-mono text-[#A78BFA] !p-2"}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 第二排：所屬勢力與演出型態 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="grid grid-cols-2 gap-2">
+      <div className="bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
           <div>
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              所屬勢力
-            </label>
-            <select
-              value={form.agency}
-              onChange={(e) => updateForm({ agency: e.target.value })}
-              className={inputCls}
-            >
-              <option>個人勢</option>
-              <option>企業勢</option>
-              <option>社團勢</option>
-              <option>合作勢</option>
-            </select>
+            <p className="text-[#94A3B8] text-xs font-bold tracking-widest uppercase mb-1">Profile editor</p>
+            <h3 className="text-xl font-extrabold text-white">完成你的 V-Nexus 名片</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">每次只填一段，最後到「預覽」確認後再儲存。</p>
           </div>
+          <div className="min-w-[180px]">
+            <div className="flex items-center justify-between text-xs text-[#94A3B8] mb-1">
+              <span>完成度</span>
+              <span className="text-white font-bold">{profileCompletion}%</span>
+            </div>
+            <div className="h-2 bg-[#0F111A] rounded-full overflow-hidden border border-[#2A2F3D]">
+              <div className="h-full bg-[#8B5CF6] transition-all" style={{ width: `${profileCompletion}%` }}></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {editorSteps.map((step, idx) => (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => setActiveStep(idx)}
+              className={`px-3 py-2 rounded-xl border text-xs font-bold transition-colors flex items-center justify-center gap-2 whitespace-nowrap ${activeStep === idx ? "bg-[#8B5CF6] border-[#8B5CF6] text-white" : idx < activeStep ? "bg-[#22C55E]/10 border-[#22C55E]/30 text-[#22C55E]" : "bg-[#0F111A] border-[#2A2F3D] text-[#94A3B8] hover:bg-[#1D2130] hover:text-white"}`}
+            >
+              <i className={`fa-solid ${step.icon}`}></i>
+              <span>{step.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {currentStepId === "basic" && (
+        <div className={panelCls}>
           <div>
+            <h3 className={stepTitleCls}><i className="fa-solid fa-id-card text-[#8B5CF6]"></i> 基本資料</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">先讓大家知道你是誰、目前是否開放聯動。</p>
+          </div>
+
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
             <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              演出型態
+              名片顯示狀態
             </label>
             <select
-              value={form.streamingStyle}
-              onChange={(e) => updateForm({ streamingStyle: e.target.value })}
-              className={inputCls}
+              value={form.activityStatus}
+              onChange={(e) => updateForm({ activityStatus: e.target.value })}
+              className={inputCls + " font-normal"}
             >
-              <option>一般型態</option>
-              <option>男聲女皮 (Babiniku)</option>
-              <option>女聲男皮</option>
-              <option>無性別/人外</option>
-              <option>其他</option>
+              <option value="active">🟢 開放聯動</option>
+              <option value="sleep">🌙 暫時休息</option>
+              <option value="graduated">🕊️ 已畢業</option>
             </select>
           </div>
-        </div>
-        {/* 這裡可以留空或放其他欄位 */}
-        <div></div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            國籍 (所在地)
-          </label>
-          <div className="flex flex-wrap gap-3 mb-2">
-            {["台灣", "日本", "香港", "馬來西亞"].map((nat) => (
-              <label
-                key={nat}
-                className="flex items-center gap-2 cursor-pointer group"
-              >
-                <input
-                  type="checkbox"
-                  checked={(form.nationalities || []).includes(nat)}
-                  onChange={() => {
-                    let newNats = [...(form.nationalities || [])];
-                    if (newNats.includes(nat))
-                      newNats = newNats.filter((n) => n !== nat);
-                    else newNats.push(nat);
-                    updateForm({ nationalities: newNats });
-                  }}
-                  className="accent-purple-500 w-4 h-4"
-                />
-                <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
-                  {nat}
-                </span>
-              </label>
-            ))}
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={form.isOtherNationality}
-                onChange={() =>
-                  updateForm({ isOtherNationality: !form.isOtherNationality })
-                }
-                className="accent-purple-500 w-4 h-4"
-              />
-              <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
-                其他(自行新增)
-              </span>
-            </label>
-          </div>
-          {form.isOtherNationality && (
-            <input
-              type="text"
-              value={form.otherNationalityText || ""}
-              onChange={(e) =>
-                updateForm({ otherNationalityText: e.target.value })
-              }
-              placeholder="請輸入國籍/所在地"
-              className={inputCls}
-            />
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            使用語言
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {["國", "日", "英", "粵", "台語"].map((lang) => (
-              <label
-                key={lang}
-                className="flex items-center gap-2 cursor-pointer group"
-              >
-                <input
-                  type="checkbox"
-                  checked={(form.languages || []).includes(lang)}
-                  onChange={() => {
-                    let newLangs = [...(form.languages || [])];
-                    if (newLangs.includes(lang))
-                      newLangs = newLangs.filter((l) => l !== lang);
-                    else newLangs.push(lang);
-                    updateForm({ languages: newLangs });
-                  }}
-                  className="accent-purple-500 w-4 h-4"
-                />
-                <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
-                  {lang}
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
 
-
-      <div>
-        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-          介紹一下你自己吧！ <span className="text-[#EF4444]">*</span>
-        </label>
-        <textarea
-          required
-          rows="3"
-          value={form.description}
-          onChange={(e) => updateForm({ description: e.target.value })}
-          className={inputCls + " resize-none"}
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <div className="mb-6">
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              你是什麼人？
-            </label>
-            <select
-              value={form.personalityType || ""}
-              onChange={(e) => updateForm({ personalityType: e.target.value })}
-              className={inputCls}
-            >
-              <option value="">請選擇...</option>
-              <option value="我是I人">我是I人</option>
-              <option value="時I時E">時I時E</option>
-              <option value="我大E人">我大E人</option>
-              <option value="看心情">看心情</option>
-              <option value="其他">其他(自行新增)</option>
-            </select>
-            {form.personalityType === "其他" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                VTuber 名稱 <span className="text-[#EF4444]">*</span>
+              </label>
               <input
                 type="text"
-                value={form.personalityTypeOther || ""}
-                onChange={(e) =>
-                  updateForm({ personalityTypeOther: e.target.value })
-                }
-                placeholder="請輸入你是什麼人"
-                className={inputCls + " mt-2"}
+                value={form.name || ""}
+                onChange={(e) => updateForm({ name: e.target.value })}
+                className={inputCls}
+                placeholder="請輸入您的名稱"
               />
-            )}
+            </div>
+
+            <div className="bg-[#8B5CF6]/5 border border-[#8B5CF6]/20 p-4 rounded-xl">
+              <label className="block text-sm font-bold text-[#C4B5FD] mb-2">
+                <i className="fa-solid fa-link mr-1"></i> 設定專屬網址 ID
+              </label>
+              <div className="flex items-center gap-1">
+                <span className="text-[#64748B] text-[10px] font-mono hidden sm:inline">
+                  #profile/
+                </span>
+                <input
+                  type="text"
+                  placeholder="例如: daxiong"
+                  value={form.slug || ""}
+                  onChange={(e) =>
+                    updateForm({
+                      slug: e.target.value
+                        .replace(/[^a-zA-Z0-9_-]/g, "")
+                        .toLowerCase(),
+                    })
+                  }
+                  className={inputCls + " font-mono text-[#A78BFA] !p-2"}
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              你的星座
-            </label>
-            <select
-              value={form.zodiacSign || ""}
-              onChange={(e) => updateForm({ zodiacSign: e.target.value })}
-              className={inputCls}
-            >
-              <option value="">請選擇星座...</option>
-              {ZODIAC_SIGNS.map((z) => (
-                <option key={z} value={z}>{z}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                所屬勢力
+              </label>
+              <input
+                type="text"
+                value={form.agency || ""}
+                onChange={(e) => updateForm({ agency: e.target.value })}
+                className={inputCls}
+                placeholder="個人勢 / 團體名稱"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                演出型態
+              </label>
+              <select
+                value={form.streamingStyle || ""}
+                onChange={(e) => updateForm({ streamingStyle: e.target.value })}
+                className={inputCls}
+              >
+                <option value="">請選擇...</option>
+                <option value="一般型態">一般型態</option>
+                <option value="男聲女皮">男聲女皮</option>
+                <option value="女聲男皮">女聲男皮</option>
+                <option value="無性別/人外">無性別/人外</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
           </div>
-          {/* 新增：色系選擇 */}
-          <div className="mb-6">
+
+          <div>
             <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              你是什麼色系? (至多三項)
+              介紹一下你自己吧！ <span className="text-[#EF4444]">*</span>
             </label>
+            <textarea
+              rows="4"
+              value={form.description || ""}
+              onChange={(e) => updateForm({ description: e.target.value })}
+              className={inputCls + " resize-none"}
+              placeholder="簡單介紹你的頻道風格、個性、想找怎樣的聯動夥伴。"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                國籍 / 所在地
+              </label>
+              <div className="flex flex-wrap gap-3 bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
+                {["台灣", "香港", "日本", "海外"].map((n) => (
+                  <label key={n} className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={(form.nationalities || []).includes(n)}
+                      onChange={() => {
+                        let list = [...(form.nationalities || [])];
+                        list = list.includes(n) ? list.filter((x) => x !== n) : [...list, n];
+                        updateForm({ nationalities: list });
+                      }}
+                      className="accent-purple-500 w-4 h-4"
+                    />
+                    <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">{n}</span>
+                  </label>
+                ))}
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={!!form.isOtherNationality}
+                    onChange={() => updateForm({ isOtherNationality: !form.isOtherNationality })}
+                    className="accent-purple-500 w-4 h-4"
+                  />
+                  <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">其他</span>
+                </label>
+              </div>
+              {form.isOtherNationality && (
+                <input
+                  type="text"
+                  value={form.otherNationalityText || ""}
+                  onChange={(e) => updateForm({ otherNationalityText: e.target.value })}
+                  placeholder="請輸入國籍/所在地"
+                  className={inputCls + " mt-2"}
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                使用語言
+              </label>
+              <div className="flex flex-wrap gap-3 bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
+                {["國", "日", "英", "粵", "台語"].map((lang) => (
+                  <label key={lang} className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={(form.languages || []).includes(lang)}
+                      onChange={() => {
+                        let newLangs = [...(form.languages || [])];
+                        newLangs = newLangs.includes(lang)
+                          ? newLangs.filter((l) => l !== lang)
+                          : [...newLangs, lang];
+                        updateForm({ languages: newLangs });
+                      }}
+                      className="accent-purple-500 w-4 h-4"
+                    />
+                    <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">{lang}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                頭像網址 / 上傳
+              </label>
+              <div className="flex gap-3">
+                <img src={sanitizeUrl(form.avatar)} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-[#181B25]" />
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  <input
+                    type="text"
+                    value={form.avatar || ""}
+                    onChange={(e) => updateForm({ avatar: e.target.value })}
+                    className={inputCls}
+                    placeholder="可直接貼上圖片網址"
+                  />
+                  <div className="relative w-full">
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={(e) => handleImageUpload(e, "avatar", 300, 300)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <button type="button" className={secondaryBtn + " w-full text-xs py-2 relative z-0"}>
+                      <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳頭像
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                橫幅網址 / 上傳
+              </label>
+              <div className="flex gap-3">
+                <img src={sanitizeUrl(form.banner)} className="w-24 h-14 rounded-xl object-cover flex-shrink-0 bg-[#181B25]" />
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
+                  <input
+                    type="text"
+                    value={form.banner || ""}
+                    onChange={(e) => updateForm({ banner: e.target.value })}
+                    className={inputCls}
+                    placeholder="可直接貼上圖片網址"
+                  />
+                  <div className="relative w-full">
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={(e) => handleImageUpload(e, "banner", 800, 400)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <button type="button" className={secondaryBtn + " w-full text-xs py-2 relative z-0"}>
+                      <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳橫幅
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {currentStepId === "platform" && (
+        <div className={panelCls}>
+          <div>
+            <h3 className={stepTitleCls}><i className="fa-solid fa-satellite-dish text-[#38BDF8]"></i> 直播平台</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">填寫主要平台與社群連結，訂閱/追隨數會由後端安全抓取。</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
+                <span>YouTube 連結</span>
+                <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
+                  <input
+                    type="radio"
+                    value="YouTube"
+                    checked={form.mainPlatform === "YouTube"}
+                    onChange={(e) => updateForm({ mainPlatform: e.target.value })}
+                    className="accent-purple-500"
+                  />
+                  主平台
+                </label>
+              </label>
+              <input
+                type="url"
+                value={form.youtubeUrl || ""}
+                onChange={(e) => updateForm({ youtubeUrl: e.target.value })}
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
+                <span>Twitch 連結</span>
+                <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
+                  <input
+                    type="radio"
+                    value="Twitch"
+                    checked={form.mainPlatform === "Twitch"}
+                    onChange={(e) => updateForm({ mainPlatform: e.target.value })}
+                    className="accent-purple-500"
+                  />
+                  主平台
+                </label>
+              </label>
+              <input
+                type="url"
+                value={form.twitchUrl || ""}
+                onChange={(e) => updateForm({ twitchUrl: e.target.value })}
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">YouTube 訂閱數</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={form.youtubeSubscribers || ""}
+                  placeholder="系統將自動抓取"
+                  className={inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"}
+                />
+                <button
+                  type="button"
+                  onClick={handleAutoFetchSubscribers}
+                  disabled={isFetchingSubscribers || (Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)}
+                  className={secondaryBtn + " px-4 text-xs"}
+                >
+                  {isFetchingSubscribers ? <i className="fa-solid fa-spinner fa-spin"></i> : <><i className="fa-solid fa-wand-magic-sparkles"></i> 抓取</>}
+                </button>
+              </div>
+              <p className="text-[10px] text-[#A78BFA]/80 mt-1">每 24 小時限抓一次。</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">Twitch 追隨數</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={form.twitchFollowers || ""}
+                  placeholder="系統將自動抓取"
+                  className={inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"}
+                />
+                <button
+                  type="button"
+                  onClick={handleAutoFetchTwitch}
+                  disabled={isFetchingTwitch || (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)}
+                  className={secondaryBtn + " px-4 text-xs"}
+                >
+                  {isFetchingTwitch ? <i className="fa-solid fa-spinner fa-spin"></i> : <><i className="fa-solid fa-wand-magic-sparkles"></i> 抓取</>}
+                </button>
+              </div>
+              <p className="text-[10px] text-[#A78BFA]/80 mt-1">每 24 小時限抓一次。</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">X連結</label>
+              <input type="url" value={form.xUrl || ""} onChange={(e) => updateForm({ xUrl: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">Instagram</label>
+              <input type="url" value={form.igUrl || ""} onChange={(e) => updateForm({ igUrl: e.target.value })} className={inputCls} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">我的直播風格代表作</label>
+            <input
+              type="url"
+              value={form.streamStyleUrl || ""}
+              onChange={(e) => updateForm({ streamStyleUrl: e.target.value })}
+              className={inputCls}
+              placeholder="填入影片連結"
+            />
+          </div>
+        </div>
+      )}
+
+      {currentStepId === "collab" && (
+        <div className={panelCls}>
+          <div>
+            <h3 className={stepTitleCls}><i className="fa-solid fa-handshake-angle text-[#22C55E]"></i> 聯動偏好</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">讓其他創作者快速判斷你適合哪些企劃或遊戲。</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">主要願意連動類型 <span className="text-[#EF4444]">*</span></label>
+            <CollabTypesEditor formState={form} setFormState={updateForm} showToast={showToast} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">你是什麼人？</label>
+              <select
+                value={form.personalityType || ""}
+                onChange={(e) => updateForm({ personalityType: e.target.value })}
+                className={inputCls}
+              >
+                <option value="">請選擇...</option>
+                <option value="我是I人">我是I人</option>
+                <option value="時I時E">時I時E</option>
+                <option value="我大E人">我大E人</option>
+                <option value="看心情">看心情</option>
+                <option value="其他">其他(自行新增)</option>
+              </select>
+              {form.personalityType === "其他" && (
+                <input
+                  type="text"
+                  value={form.personalityTypeOther || ""}
+                  onChange={(e) => updateForm({ personalityTypeOther: e.target.value })}
+                  placeholder="請輸入你是什麼人"
+                  className={inputCls + " mt-2"}
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">你的星座</label>
+              <select value={form.zodiacSign || ""} onChange={(e) => updateForm({ zodiacSign: e.target.value })} className={inputCls}>
+                <option value="">請選擇星座...</option>
+                {ZODIAC_SIGNS.map((z) => <option key={z} value={z}>{z}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">你是什麼色系? (至多三項)</label>
             <div className="flex flex-wrap gap-3 bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
               {COLOR_OPTIONS.map((color) => (
-                <label
-                  key={color}
-                  className="flex items-center gap-2 cursor-pointer group"
-                >
+                <label key={color} className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={(form.colorSchemes || []).includes(color)}
@@ -2738,256 +2996,80 @@ const ProfileEditorForm = ({
                       if (newColors.includes(color)) {
                         newColors = newColors.filter((c) => c !== color);
                       } else {
-                        if (newColors.length >= 3)
-                          return showToast("色系至多只能選擇三項喔！");
+                        if (newColors.length >= 3) return showToast("色系至多只能選擇三項喔！");
                         newColors.push(color);
                       }
                       updateForm({ colorSchemes: newColors });
                     }}
                     className="accent-purple-500 w-4 h-4"
                   />
-                  <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">
-                    {color}
-                  </span>
+                  <span className="text-sm text-[#CBD5E1] group-hover:text-white transition-colors">{color}</span>
                 </label>
               ))}
             </div>
           </div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            內容標籤 (逗號分隔)
-          </label>
-          <input
-            type="text"
-            value={form.tags}
-            onChange={(e) => updateForm({ tags: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            主要願意連動類型 <span className="text-[#EF4444]">*</span>
-          </label>
-          <CollabTypesEditor
-            formState={form}
-            setFormState={updateForm}
-            showToast={showToast}
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-          可聯動時段 <span className="text-[#EF4444]">*</span>
-        </label>
-        <ScheduleEditor form={form} updateForm={updateForm} />
-      </div>
-      {isAdmin && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
           <div>
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              推薦數
-            </label>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">內容標籤 (逗號分隔)</label>
             <input
-              type="number"
-              value={form.likes}
-              onChange={(e) => updateForm({ likes: Number(e.target.value) })}
+              type="text"
+              value={Array.isArray(form.tags) ? form.tags.join(", ") : (form.tags || "")}
+              onChange={(e) => updateForm({ tags: e.target.value })}
               className={inputCls}
+              placeholder="例如：APEX, 雜談, 歌回"
             />
           </div>
+
+          {isAdmin && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">推薦數</label>
+                <input type="number" value={form.likes || 0} onChange={(e) => updateForm({ likes: Number(e.target.value) })} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">倒讚數</label>
+                <input type="number" value={form.dislikes || 0} onChange={(e) => updateForm({ dislikes: Number(e.target.value) })} className={inputCls} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentStepId === "schedule" && (
+        <div className={panelCls}>
           <div>
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              倒讚數
-            </label>
-            <input
-              type="number"
-              value={form.dislikes}
-              onChange={(e) => updateForm({ dislikes: Number(e.target.value) })}
-              className={inputCls}
-            />
+            <h3 className={stepTitleCls}><i className="fa-solid fa-calendar-days text-[#F59E0B]"></i> 可聯動時間</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">讓別人知道什麼時候比較適合邀請你。</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">可聯動時段 <span className="text-[#EF4444]">*</span></label>
+            <ScheduleEditor form={form} updateForm={updateForm} />
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            YouTube 訂閱數
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={form.youtubeSubscribers || ""}
-              placeholder="系統將自動抓取"
-              className={
-                inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"
-              }
-            />
-            <button
-              type="button"
-              onClick={handleAutoFetchSubscribers}
-              disabled={
-                isFetchingSubscribers ||
-                (Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin)
-              }
-              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 && !isAdmin ? "bg-[#181B25] text-[#64748B] cursor-not-allowed" : "bg-[#1D2130] hover:bg-[#2A2F3D] text-white"}`}
-            >
-              {isFetchingSubscribers ? (
-                <i className="fa-solid fa-spinner fa-spin"></i>
-              ) : Date.now() - lastFetchTime < 24 * 60 * 60 * 1000 &&
-                !isAdmin ? (
-                <>
-                  <i className="fa-solid fa-clock mr-1"></i>冷卻中
-                </>
-              ) : (
-                <>
-                  <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>
-                  手動抓取
-                </>
-              )}
-            </button>
-          </div>
-          <p className="text-[10px] text-[#A78BFA]/80 mt-1">
-            （填妥下方 YouTube 連結後會自動抓取，每24小時限抓一次）
-          </p>
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            Twitch 追隨數
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={form.twitchFollowers || ""}
-              placeholder="系統將自動抓取"
-              className={
-                inputCls + " bg-[#181B25] cursor-not-allowed text-[#94A3B8]"
-              }
-            />
-            <button
-              type="button"
-              onClick={handleAutoFetchTwitch}
-              disabled={
-                isFetchingTwitch ||
-                (Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 &&
-                  !isAdmin)
-              }
-              className={`px-4 rounded-xl text-xs font-bold transition-colors flex-shrink-0 flex items-center justify-center ${Date.now() - lastTwitchFetchTime < 6 * 60 * 60 * 1000 && !isAdmin ? "bg-[#181B25] text-[#64748B] cursor-not-allowed" : "bg-[#1D2130] hover:bg-[#2A2F3D] text-white"}`}
-            >
-              {isFetchingTwitch ? (
-                <i className="fa-solid fa-spinner fa-spin"></i>
-              ) : Date.now() - lastTwitchFetchTime < 24 * 60 * 60 * 1000 &&
-                !isAdmin ? (
-                <>
-                  <i className="fa-solid fa-clock mr-1"></i>冷卻中
-                </>
-              ) : (
-                <>
-                  <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>
-                  手動抓取
-                </>
-              )}
-            </button>
-          </div>
-          <p className="text-[10px] text-[#A78BFA]/80 mt-1">
-            （填妥下方 Twitch 連結後會自動抓取，每24小時限抓一次）
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
-            <span>YouTube 連結</span>
-            <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
-              <input
-                type="radio"
-                value="YouTube"
-                checked={form.mainPlatform === "YouTube"}
-                onChange={(e) => updateForm({ mainPlatform: e.target.value })}
-                className="accent-purple-500"
-              />
-              主平台
-            </label>
-          </label>
-          <input
-            type="url"
-            value={form.youtubeUrl}
-            onChange={(e) => updateForm({ youtubeUrl: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="flex items-center justify-between text-sm font-bold text-[#CBD5E1] mb-2">
-            <span>Twitch 連結</span>
-            <label className="flex items-center gap-1 text-xs cursor-pointer text-[#C4B5FD] font-normal">
-              <input
-                type="radio"
-                value="Twitch"
-                checked={form.mainPlatform === "Twitch"}
-                onChange={(e) => updateForm({ mainPlatform: e.target.value })}
-                className="accent-purple-500"
-              />
-              主平台
-            </label>
-          </label>
-          <input
-            type="url"
-            value={form.twitchUrl}
-            onChange={(e) => updateForm({ twitchUrl: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            X連結
-          </label>
-          <input
-            type="url"
-            value={form.xUrl}
-            onChange={(e) => updateForm({ xUrl: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            Instagram
-          </label>
-          <input
-            type="url"
-            value={form.igUrl}
-            onChange={(e) => updateForm({ igUrl: e.target.value })}
-            className={inputCls}
-          />
-        </div>
-      </div>
-
-      <div className="bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl p-5 mt-2">
-        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-          <i className="fa-solid fa-envelopes-bulk text-[#A78BFA]"></i>{" "}
-          聯絡信箱設定
-        </h3>
-        {/* 🌟 優化：改為單欄排版，完全移除私人信箱 */}
-        <div className="grid grid-cols-1 gap-6">
+      {currentStepId === "contact" && (
+        <div className={panelCls}>
           <div>
+            <h3 className={stepTitleCls}><i className="fa-solid fa-envelope text-[#38BDF8]"></i> 信箱與通知</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">設定公開工商信箱，才收得到 Email 邀約與提醒。</p>
+          </div>
+
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-5">
             <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
               公開工商信箱 (選填)
               <span className="text-[#F59E0B] text-xs font-normal ml-2">
                 (⚠️ 若您不驗證信箱，將無法在信箱收到任何邀約與提醒通知喔！請勿填寫私人信箱。)
               </span>
             </label>
-            <div className="flex gap-2 items-start">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
               <div className="flex-1">
                 <input
                   type="email"
                   value={form.publicEmail || ""}
                   onChange={(e) => {
-                    updateForm({
-                      publicEmail: e.target.value,
-                      publicEmailVerified: false,
-                    });
+                    updateForm({ publicEmail: e.target.value, publicEmailVerified: false });
                     setOtpStatus("idle");
                   }}
                   className={inputCls}
@@ -2999,196 +3081,142 @@ const ProfileEditorForm = ({
                   </p>
                 )}
               </div>
-              {!form.publicEmailVerified &&
-                form.publicEmail &&
-                form.publicEmail.includes("@") && (
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpStatus === "sending"}
-                    className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-3 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-colors border border-[#2A2F3D] flex-shrink-0"
-                  >
-                    {otpStatus === "sending" ? (
-                      <i className="fa-solid fa-spinner fa-spin"></i>
-                    ) : (
-                      "發送驗證信"
-                    )}
-                  </button>
-                )}
+              {!form.publicEmailVerified && form.publicEmail && form.publicEmail.includes("@") && (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={otpStatus === "sending"}
+                  className={secondaryBtn + " text-xs whitespace-nowrap"}
+                >
+                  {otpStatus === "sending" ? <i className="fa-solid fa-spinner fa-spin"></i> : "發送驗證信"}
+                </button>
+              )}
             </div>
+
             {otpStatus === "sent" && !form.publicEmailVerified && (
-              <div className="mt-2 flex gap-2 animate-fade-in-up">
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 animate-fade-in-up">
                 <input
                   type="text"
                   maxLength="6"
                   value={otpInput}
                   onChange={(e) => setOtpInput(e.target.value)}
                   placeholder="輸入6位數驗證碼"
-                  className={
-                    inputCls + " text-center tracking-widest font-bold py-2"
-                  }
+                  className={inputCls + " text-center tracking-widest font-bold py-2"}
                 />
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-5 rounded-xl text-sm font-bold whitespace-nowrap shadow-sm transition-transform"
-                >
+                <button type="button" onClick={handleVerifyOtp} className={successBtn + " whitespace-nowrap"}>
                   確認
                 </button>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 pt-2">
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-            我的直播風格代表作
-          </label>
-          <input
-            type="url"
-            value={form.streamStyleUrl}
-            onChange={(e) => updateForm({ streamStyleUrl: e.target.value })}
-            className={inputCls}
-            placeholder="填入影片連結"
-          />
-        </div>
-      </div>
-
-      {!isAdmin && (
-        <div className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded-xl p-5 mt-2">
-          <h3 className="text-[#38BDF8] font-bold mb-2 flex items-center gap-2">
-            <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用){" "}
-            <span className="text-[#EF4444]">*</span>
-          </h3>
-          <p className="text-xs text-[#CBD5E1] mb-4">
-            請將「
-            <span className="text-white font-bold bg-[#181B25] px-1 rounded">
-              V-Nexus審核中
-            </span>
-            」放入X或Youtube簡介中，管理員審核後即可刪除。
-            <br />
-            <span className="text-[#F59E0B] font-bold">
-              請在下方輸入您放入的平台 X 或 YT
-            </span>
-          </p>
-          <input
-            required
-            type="text"
-            value={form.verificationNote || ""}
-            placeholder="請說明您在哪個平台的簡介放入了驗證文字（例如：已放至 X 簡介）"
-            onChange={(e) => updateForm({ verificationNote: e.target.value })}
-            className={inputCls}
-          />
+          {!isAdmin && (
+            <div className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded-xl p-5">
+              <h3 className="text-[#38BDF8] font-bold mb-2 flex items-center gap-2">
+                <i className="fa-solid fa-shield-halved"></i> 真人身分驗證 (防冒用)
+                <span className="text-[#EF4444]">*</span>
+              </h3>
+              <p className="text-xs text-[#CBD5E1] mb-4">
+                請將「
+                <span className="text-white font-bold bg-[#181B25] px-1 rounded">V-Nexus審核中</span>
+                」放入X或Youtube簡介中，管理員審核後即可刪除。
+                <br />
+                <span className="text-[#F59E0B] font-bold">請在下方輸入您放入的平台 X 或 YT</span>
+              </p>
+              <input
+                type="text"
+                value={form.verificationNote || ""}
+                placeholder="請說明您在哪個平台的簡介放入了驗證文字（例如：已放至 X 簡介）"
+                onChange={(e) => updateForm({ verificationNote: e.target.value })}
+                className={inputCls}
+              />
+            </div>
+          )}
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <span>頭像網址 / 上傳</span>
-            <span className="text-xs text-[#A78BFA] font-normal">
-              建議: 300x300px
-            </span>
-          </label>
-          <div className="flex gap-3">
-            <img
-              src={sanitizeUrl(form.avatar)}
-              className="w-12 h-12 rounded-xl object-cover flex-shrink-0 bg-[#181B25]"
-            />
-            <div className="flex-1 flex flex-col gap-2 min-w-0">
-              <input
-                type="text"
-                value={form.avatar}
-                onChange={(e) => updateForm({ avatar: e.target.value })}
-                className={inputCls}
-                placeholder="可直接貼上圖片網址"
+
+      {currentStepId === "preview" && (
+        <div className={panelCls}>
+          <div>
+            <h3 className={stepTitleCls}><i className="fa-solid fa-eye text-[#8B5CF6]"></i> 預覽</h3>
+            <p className="text-sm text-[#94A3B8] mt-1">確認資料後即可儲存名片。</p>
+          </div>
+
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl overflow-hidden">
+            <div className="h-32 bg-[#11131C] relative z-0">
+              {form.banner && <img src={sanitizeUrl(form.banner)} className="w-full h-full object-cover opacity-80" />}
+            </div>
+            <div className="relative z-10 p-5 pt-0">
+              <img
+                src={sanitizeUrl(form.avatar)}
+                className="relative z-20 block w-20 h-20 rounded-2xl object-cover border-4 border-[#0F111A] bg-[#181B25] -mt-10 shadow-sm"
               />
-              <div className="relative w-full">
-                <input
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={(e) => handleImageUpload(e, "avatar", 300, 300)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <button
-                  type="button"
-                  className="w-full bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] text-xs py-2 rounded-lg border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2 relative z-0"
-                >
-                  <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片
-                  (自動壓縮省空間)
-                </button>
+              <div className="mt-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-xl font-extrabold text-white">{form.name || "尚未填寫名稱"}</h3>
+                  <span className="text-xs px-2 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30">
+                    {form.activityStatus === "sleep" ? "🌙 暫時休息" : form.activityStatus === "graduated" ? "🕊️ 已畢業" : "🟢 開放聯動"}
+                  </span>
+                </div>
+                <p className="text-sm text-[#94A3B8] mt-2 whitespace-pre-wrap">
+                  {form.description || "這裡會顯示你的自我介紹。"}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {(Array.isArray(form.collabTypes) ? form.collabTypes : []).slice(0, 4).map((tag) => (
+                    <span key={tag} className="text-xs px-2 py-1 rounded-full bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/20">
+                      {tag}
+                    </span>
+                  ))}
+                  {(Array.isArray(form.tags) ? form.tags : String(form.tags || "").split(",").map(t => t.trim()).filter(Boolean)).slice(0, 4).map((tag) => (
+                    <span key={tag} className="text-xs px-2 py-1 rounded-full bg-[#1D2130] text-[#CBD5E1] border border-[#2A2F3D]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div>
-          <label className="block text-sm font-bold text-[#CBD5E1] mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <span>橫幅網址 / 上傳</span>
-            <span className="text-xs text-[#A78BFA] font-normal">
-              建議: 800x400px
-            </span>
-          </label>
-          <div className="flex gap-3">
-            <img
-              src={sanitizeUrl(form.banner)}
-              className="w-20 h-12 rounded-xl object-cover flex-shrink-0 bg-[#181B25]"
-            />
-            <div className="flex-1 flex flex-col gap-2 min-w-0">
-              <input
-                type="text"
-                value={form.banner}
-                onChange={(e) => updateForm({ banner: e.target.value })}
-                className={inputCls}
-                placeholder="可直接貼上圖片網址"
-              />
-              <div className="relative w-full">
-                <input
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={(e) => handleImageUpload(e, "banner", 800, 400)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <button
-                  type="button"
-                  className="w-full bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] text-xs py-2 rounded-lg border border-[#2A2F3D] transition-colors flex items-center justify-center gap-2 relative z-0"
-                >
-                  <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳圖片
-                  (自動壓縮省空間)
-                </button>
-              </div>
-            </div>
+
+          <div className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded-xl p-4 text-sm text-[#BAE6FD]">
+            <i className="fa-solid fa-circle-info mr-2"></i>
+            儲存後如果是新名片或退回修改，會重新進入審核流程。
           </div>
         </div>
-      </div>
-      <div className="pt-6 border-t border-[#2A2F3D] flex sm:justify-end gap-3">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 sm:flex-none px-2 sm:px-4 py-3 text-[#94A3B8] hover:text-white transition-colors font-bold flex items-center justify-center"
-          >
-            取消
+      )}
+
+      <div className="sticky bottom-0 z-20 bg-[#0F111A]/95 backdrop-blur border border-[#2A2F3D] rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-xs text-[#94A3B8]">
+          目前步驟：<span className="text-white font-bold">{editorSteps[activeStep]?.label}</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:flex sm:flex-nowrap justify-end gap-2 w-full sm:w-auto">
+          {onCancel && (
+            <button type="button" onClick={onCancel} className={ghostBtn}>
+              取消
+            </button>
+          )}
+
+          {!isAdmin && onDeleteSelf && (
+            <button type="button" onClick={onDeleteSelf} className={dangerBtn}>
+              <i className="fa-solid fa-trash-can"></i> 刪除名片
+            </button>
+          )}
+
+          <button type="button" onClick={goPrevStep} disabled={isFirstStep} className={secondaryBtn}>
+            <i className="fa-solid fa-arrow-left"></i> 上一段
           </button>
-        )}
-        {!isAdmin && onDeleteSelf && (
-          <button
-            type="button"
-            onClick={onDeleteSelf}
-            // 🌟 加入 flex-1 讓手機版平分寬度，並確保內容置中 (justify-center)
-            className="flex-1 sm:flex-none px-2 sm:px-6 py-3 rounded-xl font-bold text-[#EF4444] border border-[#EF4444]/30 hover:bg-[#EF4444] hover:text-white transition-all flex items-center justify-center gap-2"
-          >
-            <i className="fa-solid fa-trash-can"></i> 刪除名片
+
+          {!isLastStep && (
+            <button type="button" onClick={goNextStep} className={primaryBtn}>
+              下一段 <i className="fa-solid fa-arrow-right"></i>
+            </button>
+          )}
+
+          <button type="submit" className={isLastStep ? successBtn : primaryBtn}>
+            <i className="fa-solid fa-floppy-disk"></i>
+            {isAdmin ? "強制儲存更新" : "儲存名片"}
           </button>
-        )}
-        <button
-          type="submit"
-          // 🌟 加入 flex-1 讓手機版平分寬度，並寫死樣式確保不受外部干擾
-          className="flex-1 sm:flex-none w-full sm:w-auto bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white py-3 px-2 sm:px-8 rounded-xl font-bold shadow-sm transition-transform flex justify-center items-center gap-2"
-        >
-          <i className="fa-solid fa-floppy-disk"></i>
-          {isAdmin ? "強制儲存更新" : "儲存名片"}
-        </button>
+        </div>
       </div>
     </form>
   );
@@ -4089,10 +4117,10 @@ const AdminVtuberList = ({
                     <p className="text-[10px] text-[#94A3B8] mt-1">
                       {v.agency} |{" "}
                       {v.activityStatus === "sleep"
-                        ? "休眠"
+                        ? "暫時休息"
                         : v.activityStatus === "graduated"
-                          ? "畢業"
-                          : "活躍"}{" "}
+                          ? "已畢業"
+                          : "開放聯動"}{" "}
                       | 推薦:{" "}
                       <span className="text-[#22C55E]">{v.likes || 0}</span> |
                       倒讚:{" "}
@@ -11277,7 +11305,7 @@ function App() {
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-red-600 via-orange-600 to-red-600"></div>
                 <i className="fa-solid fa-skull-crossbones text-6xl text-[#EF4444] mb-6 drop-shadow-sm"></i>
                 <h2 className="text-3xl sm:text-4xl font-black text-[#EF4444] mb-4 tracking-widest">
-                  黑名單避雷區
+                  暫停顯示名單
                 </h2>
                 <p className="text-red-200/80 mb-8 max-w-2xl mx-auto leading-relaxed font-medium">
                   只要倒讚數超過 10 個，該名片即會被系統自動移入此區並強制下架。
