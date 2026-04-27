@@ -8238,99 +8238,158 @@ function App() {
     }
   };
 
-  const handleVerifyVtuber = async (id) => {
-    try {
-      const updates = {
-        isVerified: true,
-        verificationStatus: "approved",
-        showVerificationModal: "approved",
-        // 🌟 新增：審核通過後，將退回次數歸零，重新計算
-        rejectionCount: 0,
-      };
-      // 1. 更新名片狀態
-      await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+ const handleVerifyVtuber = async (id) => {
+  const targetVtuber = realVtubers.find((v) => v.id === id);
 
-      setRealVtubers((prev) => {
-        const newList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
-        syncVtuberCache(newList);
-        return newList;
-      });
-      showToast("已通過審核！");
-
-      // 2. 取得 Email (直接從資料庫抓取，防止 State 延遲)
-      const targetVtuber = realVtubers.find((v) => v.id === id);
-      let emailToSend = targetVtuber?.publicEmail;
-
-      const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-      if (privSnap.exists()) {
-        const privData = privSnap.data();
-        emailToSend = privData.contactEmail || privData.publicEmail || emailToSend;
-      }
-
-      if (emailToSend) {
-        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-        // 務必使用 await
-        await sendSystemEmail({
-          to: emailToSend,
-          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
-          text: `您好，${targetVtuber?.name || '創作者'}！恭喜您的名片已通過審核並正式上架，趕快回VNEXUS找新夥伴吧！https://www.vnexus2026.com/。`,
-        });
-      }
-    } catch (err) {
-      console.error("審核通過處理出錯:", err);
-      showToast("❌ 審核失敗");
-    }
+  const updates = {
+    isVerified: true,
+    verificationStatus: "approved",
+    showVerificationModal: "approved",
+    rejectionCount: 0,
   };
+
+  // 1. 審核資料更新：只有這一步失敗，才顯示審核失敗
+  try {
+    await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+
+    setRealVtubers((prev) => {
+      const newList = prev.map((v) =>
+        v.id === id ? { ...v, ...updates } : v
+      );
+      syncVtuberCache(newList);
+      return newList;
+    });
+
+    showToast("已通過審核！");
+  } catch (err) {
+    console.error("審核通過資料更新失敗:", err);
+    showToast("❌ 審核失敗");
+    return;
+  }
+
+  // 2. 通知信寄送：失敗時不可覆蓋審核成功結果
+  try {
+    let emailToSend = targetVtuber?.publicEmail;
+
+    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
+    if (privSnap.exists()) {
+      const privData = privSnap.data();
+      emailToSend =
+        privData.contactEmail || privData.publicEmail || emailToSend;
+    }
+
+    if (emailToSend) {
+      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
+      await sendSystemEmail({
+        to: emailToSend,
+        subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
+        text: `您好，${targetVtuber?.name || "創作者"}！恭喜您的名片已通過審核並正式上架，趕快回VNEXUS找新夥伴吧！https://www.vnexus2026.com/。`,
+      });
+    }
+  } catch (err) {
+    console.warn("審核已成功，但通知信寄送失敗:", err);
+    showToast("⚠️ 審核已通過，但通知信寄送失敗");
+  }
+};
 
   const handleRejectVtuber = async (id) => {
-    if (!confirm("確定要退回/拒絕這張名片嗎？")) return;
-    try {
-      // 🌟 新增：取得目前的退回次數，並 +1
-      const targetVtuber = realVtubers.find((v) => v.id === id);
-      const currentRejectionCount = targetVtuber?.rejectionCount || 0;
+  const targetVtuber = realVtubers.find((v) => v.id === id);
 
-      const updates = {
-        isVerified: false,
-        verificationStatus: "rejected",
-        showVerificationModal: "rejected",
-        // 🌟 新增：寫入新的退回次數與退回時間
-        rejectionCount: currentRejectionCount + 1,
-        lastRejectedAt: Date.now(),
-      };
+  if (!targetVtuber) {
+    showToast("❌ 找不到該名片資料");
+    return;
+  }
 
-      // 1. 更新名片狀態
-      await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+  const reason = prompt("請輸入退回原因：", targetVtuber?.verificationNote || "");
 
-      setRealVtubers((prev) => {
-        const newList = prev.map((v) => (v.id === id ? { ...v, ...updates } : v));
-        syncVtuberCache(newList);
-        return newList;
-      });
+  if (reason === null) {
+    return;
+  }
 
-      showToast("🟠 已退回該名片至退回名單。");
+  const trimmedReason = reason.trim();
 
-      // 2. 取得 Email
-      let emailToSend = targetVtuber?.publicEmail;
+  if (!trimmedReason) {
+    showToast("❌ 請輸入退回原因");
+    return;
+  }
 
-      const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-      if (privSnap.exists()) {
-        const privData = privSnap.data();
-        emailToSend = privData.contactEmail || privData.publicEmail || emailToSend;
-      }
+  const now = Date.now();
 
-      if (emailToSend) {
-        const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-        await sendSystemEmail({
-          to: emailToSend,
-          subject: `[V-Nexus] 關於您的創作者名片審核結果通知 ⚠️`,
-          text: `您好，${targetVtuber?.name || '創作者'}！很抱歉，您的名片未能通過審核，請回VNEXUS查看原因並修改。https://www.vnexus2026.com/`,
-        });
-      }
-    } catch (err) {
-      console.error("審核退回處理出錯:", err);
-      showToast("❌ 操作失敗");
-    }
+  const updates = {
+    isVerified: false,
+    verificationStatus: "rejected",
+    showVerificationModal: "rejected",
+    verificationNote: trimmedReason,
+    rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
+    lastRejectedAt: now,
+    updatedAt: now,
   };
+
+  // 1. 退回審核資料更新：只有這一步失敗，才顯示退回失敗
+  try {
+    await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+
+    setRealVtubers((prev) => {
+      const newList = prev.map((v) =>
+        v.id === id ? { ...v, ...updates } : v
+      );
+
+      if (typeof syncVtuberCache === "function") {
+        syncVtuberCache(newList);
+      }
+
+      return newList;
+    });
+
+    showToast("已退回審核");
+  } catch (err) {
+    console.error("退回審核資料更新失敗:", err);
+    showToast("❌ 退回審核失敗");
+    return;
+  }
+
+  // 2. 通知信寄送：失敗時不可覆蓋退回成功結果
+  try {
+    let emailToSend = targetVtuber?.publicEmail;
+
+    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
+
+    if (privSnap.exists()) {
+      const privData = privSnap.data();
+      emailToSend =
+        privData.contactEmail ||
+        privData.publicEmail ||
+        emailToSend;
+    }
+
+    if (emailToSend && emailToSend.includes("@")) {
+      const sendSystemEmail = httpsCallable(
+        functionsInstance,
+        "sendSystemEmail"
+      );
+
+      await sendSystemEmail({
+        to: emailToSend,
+        subject: `[V-Nexus] 關於您的創作者名片審核結果通知`,
+        text:
+          `您好，${targetVtuber?.name || "創作者"}！\n\n` +
+          `很抱歉，您的創作者名片本次未通過審核。\n\n` +
+          `退回原因：\n${trimmedReason}\n\n` +
+          `請回到 V-Nexus 修改資料後再次送出審核：\n` +
+          `https://www.vnexus2026.com/\n\n` +
+          `V-Nexus 團隊`,
+      });
+    } else {
+      console.warn("退回審核已成功，但找不到可寄送的 Email:", {
+        id,
+        publicEmail: targetVtuber?.publicEmail,
+      });
+    }
+  } catch (err) {
+    console.warn("退回審核已成功，但通知信寄送失敗:", err);
+    showToast("⚠️ 已退回審核，但通知信寄送失敗");
+  }
+};
 
   const handleAdminUpdateVtuber = async (id, updatedData) => {
     try {
