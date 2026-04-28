@@ -1133,7 +1133,9 @@ const CollabCard = React.memo(({
 });
 
 const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
-  const { onlineUsers } = useContext(AppContext);
+  const { user, realVtubers, onlineUsers } = useContext(AppContext);
+  const myProfile = user ? realVtubers.find((item) => item.id === user.uid) : null;
+  const compatibilityScore = user && v.id !== user.uid ? calculateCompatibility(myProfile, v) : null;
 
   const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
   const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
@@ -1295,6 +1297,25 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
             <i className={`fa-brands fa-${platformLabel === 'Twitch' ? 'twitch' : 'youtube'} ${platformLabel === 'Twitch' ? 'text-[#8B5CF6]' : 'text-[#EF4444]'} w-4 text-center flex-shrink-0`}></i>
             <span className="truncate">主要平台：{platformLabel}</span>
           </div>
+
+          {compatibilityScore !== null && (
+            <div className="pt-2">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="font-bold text-[#F472B6] flex items-center gap-1.5">
+                  <i className="fa-solid fa-heart"></i> 契合度
+                </span>
+                <span className="font-extrabold text-[#F8FAFC]">
+                  {compatibilityScore}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-[#0F111A] border border-[#2A2F3D] overflow-hidden" aria-label={`契合度 ${compatibilityScore}%`}>
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#F472B6] to-[#EC4899]"
+                  style={{ width: `${Math.max(8, Math.min(100, compatibilityScore))}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
