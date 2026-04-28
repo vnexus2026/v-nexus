@@ -1453,13 +1453,11 @@ const BulletinCard = React.memo(({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showApplicants, setShowApplicants] = useState(false);
   const isAuthor = user?.uid === b.userId;
-  const hasApplied = Array.isArray(b.applicants)
-    ? b.applicants.includes(user?.uid)
-    : false;
-
+  const hasApplied = Array.isArray(b.applicants) ? b.applicants.includes(user?.uid) : false;
   const targetSize = parseInt(String(b.collabSize || "0").replace(/[^0-9]/g, ""), 10) || 0;
   const currentApplicants = b.applicantsData?.length || 0;
   const isReached = targetSize > 0 && currentApplicants >= targetSize;
+  const vtuber = b.vtuber || {};
 
   useEffect(() => {
     if (openModalId === b.id) {
@@ -1468,307 +1466,157 @@ const BulletinCard = React.memo(({
     }
   }, [openModalId, b.id]);
 
+  const statusText = isReached ? "已有足夠意願，可等待發起人挑選" : "正在找一起聯動的人";
+
   return (
-    <div className="h-full bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col hover:border-white/10 transition-all shadow-sm group">
-      {b.image && (
-        <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-[#2A2F3D] bg-[#0F111A]">
-          <LazyImage
-            src={sanitizeUrl(b.image)}
-            containerCls="absolute inset-0 w-full h-full"
-            imgCls="group-transition-transform duration-700"
-            alt="招募附圖"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent pointer-events-none z-10"></div>
+    <div className="h-full bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col hover:bg-[#1D2130] hover:border-white/10 transition-colors shadow-sm">
+      {b.image ? (
+        <div className="w-full h-40 sm:h-44 relative overflow-hidden flex-shrink-0 border-b border-[#2A2F3D] bg-[#0F111A]">
+          <LazyImage src={sanitizeUrl(b.image)} containerCls="absolute inset-0 w-full h-full" imgCls="" alt="揪團附圖" />
+        </div>
+      ) : (
+        <div className="h-16 bg-[#11131C] border-b border-[#2A2F3D] flex items-center px-5 text-[#94A3B8] text-xs">
+          沒有附圖，先看看揪團內容
         </div>
       )}
 
-      <div className="bg-[#0F111A]/80 p-5 border-b border-[#2A2F3D] flex items-start gap-4">
-        {/* ▼▼▼ 發起人頭像修改處 ▼▼▼ */}
-        <LazyImage
-          src={sanitizeUrl(b.vtuber.avatar)}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onNavigateProfile(b.vtuber, false);
-          }}
-          containerCls="w-14 h-14 rounded-full border border-white/10 flex-shrink-0 cursor-pointer transition-transform z-10"
-          imgCls="rounded-full"
-        />
-
-        <div className="flex-1 flex justify-between items-start gap-2">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-[#A78BFA] font-bold text-[10px] bg-[#8B5CF6]/10 px-2 py-0.5 rounded border border-[#8B5CF6]/20">
-                發起人
-              </span>
-              <span
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onNavigateProfile(b.vtuber, false);
-                }}
-                className="font-extrabold text-white text-lg hover:text-[#A78BFA] transition-colors cursor-pointer"
-              >
-                {b.vtuber.name}
-              </span>
-              {b.vtuber.isVerified && (
-                <i
-                  className="fa-solid fa-circle-check text-[#38BDF8] text-sm"
-                  title="已認證"
-                ></i>
-              )}
-              <span className="text-white font-bold text-xs bg-[#8B5CF6] px-2.5 py-1 rounded-lg ml-1 shadow-sm border border-[#8B5CF6]">
-                {b.collabType || "未指定"}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[10px] text-[#94A3B8]">
-                {b.vtuber.agency}
-              </span>
-              <span className="text-gray-600 text-[10px]">•</span>
-              <span className="text-[10px] text-[#94A3B8]">
-                {b.postedAt} 發布
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="p-6 flex-1 flex flex-col">
-        {/* 找到 BulletinCard 內部的這個區塊並完整替換 */}
-        <div className="mb-4">
-          {/* 將 line-clamp-[10] 改為 line-clamp-4，讓未展開時更簡潔 */}
-          <div
-            className={`text-[#CBD5E1] whitespace-pre-wrap text-sm leading-relaxed transition-all duration-300 ${isExpanded ? "" : "line-clamp-4"}`}
-          >
-            {b.content}
-          </div>
-
-          {/* 移除原本的長度判斷條件，讓所有卡片都顯示按鈕 */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
+      <div className="p-5 flex-1 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <LazyImage
+            src={sanitizeUrl(vtuber.avatar)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (vtuber.id) onNavigateProfile(vtuber, false);
             }}
-            className="text-[#A78BFA] hover:text-[#C4B5FD] text-xs font-bold mt-2 flex items-center gap-1 transition-colors bg-[#8B5CF6]/10 px-3 py-1.5 rounded-lg w-full justify-center"
-          >
-            {isExpanded ? (
-              <>
-                收起文案
-              </>
-            ) : (
-              <>
-                點擊查看完整文案
-              </>
-            )}
-          </button>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
-          <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-[#64748B] mb-1">
-              人數
-            </span>
-            <span className="text-sm font-bold text-[#E2E8F0]">
-              {b.collabSize || "未指定"}
-            </span>
-          </div>
-          <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
-            <span className="text-[10px] text-[#64748B] mb-1">
-              時間
-            </span>
-            <span className="text-sm font-bold text-[#E2E8F0]">
-              {formatDateTimeLocalStr(b.collabTime)}
-            </span>
-          </div>
-          <div className="bg-[#EF4444]/5 p-3 rounded-xl border border-[#EF4444]/20 flex flex-col col-span-2">
-            <span className="text-[10px] text-[#EF4444]/80 mb-1">
-              截止
-            </span>
-            <span className="text-sm font-bold text-red-300">
-              {b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}
-            </span>
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-[#2A2F3D]/50">
-          {isAuthor ? (
-            <div className="flex flex-col gap-3">
-              {/* 🌟 給發起人看的達標提示 */}
-              {isReached && (
-                <div className="text-xs text-[#22C55E] font-bold flex items-center gap-1.5 bg-[#22C55E]/10 px-3 py-1.5 rounded-lg w-fit border border-[#22C55E]/20">
-                  <i className="fa-solid fa-circle-check"></i> 意願人數已達標！您可以開始挑選夥伴囉
-                </div>
-              )}
-              <div
-                className="flex items-center justify-between bg-[#181B25]/40 hover:bg-[#181B25] p-3 rounded-xl border border-[#2A2F3D] cursor-pointer transition-colors"
-                onClick={() => setShowApplicants(true)}
+            containerCls="w-12 h-12 rounded-full border border-white/10 flex-shrink-0 cursor-pointer bg-[#1D2130]"
+            imgCls="rounded-full"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (vtuber.id) onNavigateProfile(vtuber, false);
+                }}
+                className="font-bold text-[#F8FAFC] text-sm truncate hover:text-[#A78BFA] transition-colors text-left"
               >
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#8B5CF6]/20 w-8 h-8 rounded-full flex items-center justify-center text-[#A78BFA]">
-                    <i className="fa-solid fa-users"></i>
-                  </div>
-                  <span className="text-sm font-bold text-white">
-                    查看有意願的Vtuber ({b.applicantsData?.length || 0})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex -space-x-2">
-                    {b.applicantsData?.slice(0, 3).map((a) => (
-                      <img
-                        key={a.id}
-                        src={sanitizeUrl(a.avatar)}
-                        className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
-                      />
-                    ))}
-                    {b.applicantsData?.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#181B25] ring-2 ring-gray-900 text-[10px] text-[#CBD5E1]">
-                        +{b.applicantsData.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <i className="fa-solid fa-chevron-right text-[#64748B] text-xs ml-2"></i>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#2A2F3D]/50">
-                <button
-                  onClick={() => onEditBulletin && onEditBulletin(b)}
-                  className="text-[10px] font-bold bg-[#38BDF8]/80 hover:bg-[#38BDF8] text-[#0F111A] px-3 py-1.5 rounded shadow transition-colors flex items-center"
-                >
-                  編輯招募
-                </button>
-                <button
-                  onClick={() => onDeleteBulletin && onDeleteBulletin(b.id)}
-                  className="text-[10px] font-bold bg-[#EF4444]/80 hover:bg-[#EF4444] text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
-                >
-                  刪除招募
-                </button>
-              </div>
+                {vtuber.name || "匿名創作者"}
+              </button>
+              {vtuber.isVerified && <span className="text-[#38BDF8] text-xs" title="已認證">✅</span>}
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {/* 🌟 給報名者看的達標提示 (用橘色火焰吸引目光，並強調仍可報名) */}
-              {isReached && !hasApplied && (
-                <div className="text-[10px] text-[#F59E0B] font-bold flex items-center gap-1 bg-[#F59E0B]/10 px-2 py-1 rounded-lg w-fit border border-[#F59E0B]/20">
-                  <i className="fa-solid fa-fire"></i> 意願人數達標！(發起人挑選中，仍可報名)
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <div
-                  className="flex items-center gap-2 cursor-pointer group/apply hover:bg-[#181B25]/50 p-2 -ml-2 rounded-lg transition-colors"
-                  onClick={() => setShowApplicants(true)}
-                >
-                  <span className="text-xs text-[#94A3B8] group-hover/apply:text-white transition-colors">
-                    目前 {b.applicantsData?.length || 0} 人有意願
-                  </span>
-                  <div className="flex -space-x-2">
-                    {b.applicantsData?.slice(0, 3).map((a) => (
-                      <img
-                        key={a.id}
-                        src={sanitizeUrl(a.avatar)}
-                        className="w-6 h-6 rounded-full ring-2 ring-gray-800 object-cover"
-                      />
-                    ))}
-                    {b.applicantsData?.length > 3 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#181B25] ring-2 ring-gray-900 text-[10px] text-[#CBD5E1]">
-                        +{b.applicantsData.length - 3}
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-[#A78BFA] opacity-0 group-hover/apply:opacity-100 transition-opacity ml-1">
-                    點擊展開
-                  </span>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onApply(b.id, !hasApplied, b.userId);
-                  }}
-                  className={`text-xs font-bold px-4 py-2 rounded-xl transition-transform ${hasApplied ? "bg-[#1D2130] text-[#CBD5E1] hover:bg-[#2A2F3D]" : "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6] shadow-sm"}`}
-                >
-                  {hasApplied ? "收回意願" : "✋ 我有意願"}
-                </button>
-              </div>
-            </div>
+            <p className="text-[11px] text-[#94A3B8] mt-0.5 truncate">{vtuber.agency || "個人勢"} · {b.postedAt} 發布</p>
+          </div>
+          <span className="flex-shrink-0 bg-[#8B5CF6]/12 text-[#C4B5FD] border border-[#8B5CF6]/25 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            {b.collabType || "未指定"}
+          </span>
+        </div>
+
+        <div className="bg-[#0F111A]/60 border border-[#2A2F3D] rounded-2xl p-4">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="text-[#F8FAFC] font-bold text-base">這團在找什麼？</p>
+            <span className={`text-[11px] font-bold px-2 py-1 rounded-full border ${isReached ? 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25' : 'text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/25'}`}>
+              {isReached ? '挑選中' : '開放報名'}
+            </span>
+          </div>
+          <div className={`text-[#CBD5E1] whitespace-pre-wrap text-sm leading-relaxed ${isExpanded ? "" : "line-clamp-4"}`}>
+            {b.content || "發起人還沒有補充詳細內容。"}
+          </div>
+          {(b.content || "").length > 90 && (
+            <button
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+              className="text-[#A78BFA] hover:text-[#C4B5FD] text-xs font-bold mt-3"
+            >
+              {isExpanded ? "收起內容" : "看完整揪團內容"}
+            </button>
           )}
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-3">
+            <p className="text-[10px] text-[#94A3B8] mb-1">想找人數</p>
+            <p className="text-[#F8FAFC] font-bold truncate">{b.collabSize || "未指定"}</p>
+          </div>
+          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-3">
+            <p className="text-[10px] text-[#94A3B8] mb-1">預計時間</p>
+            <p className="text-[#F8FAFC] font-bold truncate">{formatDateTimeLocalStr(b.collabTime)}</p>
+          </div>
+          <div className="bg-[#11131C] border border-[#EF4444]/25 rounded-xl p-3">
+            <p className="text-[10px] text-[#EF4444]/80 mb-1">報名截止</p>
+            <p className="text-red-200 font-bold truncate">{b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}</p>
+          </div>
+        </div>
+
+        <div className="mt-auto pt-4 border-t border-[#2A2F3D] space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowApplicants(true); }} className="min-w-0 flex items-center gap-2 text-left rounded-xl hover:bg-[#11131C] transition-colors p-2 -m-2">
+              <div className="flex -space-x-2 flex-shrink-0">
+                {b.applicantsData?.slice(0, 3).map((a) => (
+                  <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                ))}
+                {(!b.applicantsData || b.applicantsData.length === 0) && <div className="w-7 h-7 rounded-full bg-[#1D2130] ring-2 ring-[#181B25]"></div>}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-[#F8FAFC] font-bold truncate">{currentApplicants} 人有意願</p>
+                <p className="text-[10px] text-[#94A3B8] truncate">{statusText}</p>
+              </div>
+            </button>
+
+            {isAuthor ? (
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => onEditBulletin && onEditBulletin(b)} className="bg-[#38BDF8]/15 hover:bg-[#38BDF8]/25 text-[#38BDF8] border border-[#38BDF8]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors">編輯</button>
+                <button onClick={() => onDeleteBulletin && onDeleteBulletin(b.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors">刪除</button>
+              </div>
+            ) : (
+              <button
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onApply(b.id, !hasApplied, b.userId);
+                }}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-colors ${hasApplied ? "bg-[#1D2130] text-[#CBD5E1] hover:bg-[#2A2F3D]" : "bg-[#8B5CF6] text-white hover:bg-[#7C3AED]"}`}
+              >
+                {hasApplied ? "收回意願" : "我想參加"}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {showApplicants &&
-        currentView !== "profile" &&
-        ReactDOM.createPortal(
-          <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowApplicants(false);
-            }}
-          >
-            <div
-              className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-sm cursor-default"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="sticky top-0 bg-[#0F111A]/95 backdrop-blur px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center z-10">
-                <h3 className="font-bold text-white flex items-center gap-2">
-                  <i className="fa-solid fa-users text-[#A78BFA]"></i>{" "}
-                  有意願的Vtuber ({b.applicantsData?.length || 0})
-                </h3>
-                <button
-                  onClick={() => setShowApplicants(false)}
-                  className="text-[#94A3B8] hover:text-white"
-                >
-                  <i className="fa-solid fa-xmark text-xl"></i>
-                </button>
-              </div>
-              <div className="p-4 overflow-y-auto space-y-3">
-                {b.applicantsData?.length > 0 ? (
-                  b.applicantsData.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-all cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowApplicants(false);
-                        onNavigateProfile(a, true);
-                      }}
-                    >
-                      <div className="flex items-center gap-4">
-                        <img
-                          src={sanitizeUrl(a.avatar)}
-                          className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] group-hover:border-[#A78BFA] transition-colors"
-                        />
-                        <div>
-                          <p className="font-bold text-white text-sm group-hover:text-[#C4B5FD] transition-colors">
-                            {a.name}
-                          </p>
-                          <p className="text-[10px] text-[#94A3B8] mt-1">
-                            點擊查看名片
-                          </p>
-                        </div>
-                      </div>
-                      {isAuthor && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowApplicants(false);
-                            onInvite(a);
-                          }}
-                          className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-xs text-white px-4 py-2 rounded-lg shadow-sm transition-transform font-bold"
-                        >
-                          發送邀約
-                        </button>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-[#64748B] text-center py-6">
-                    目前還沒有人表達意願喔！
-                  </p>
-                )}
-              </div>
+      {showApplicants && currentView !== "profile" && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75" onClick={(event) => { event.stopPropagation(); setShowApplicants(false); }}>
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-2xl w-full max-w-md flex flex-col max-h-[80vh] shadow-sm cursor-default" onClick={(event) => event.stopPropagation()}>
+            <div className="sticky top-0 bg-[#0F111A] px-6 py-4 border-b border-[#2A2F3D] flex justify-between items-center z-10">
+              <h3 className="font-bold text-white">有意願的 Vtuber ({b.applicantsData?.length || 0})</h3>
+              <button onClick={() => setShowApplicants(false)} className="text-[#94A3B8] hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
             </div>
-          </div>,
-          document.body,
-        )}
+            <div className="p-4 overflow-y-auto space-y-3">
+              {b.applicantsData?.length > 0 ? b.applicantsData.map((a) => (
+                <div key={a.id} className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-colors cursor-pointer group" onClick={(event) => { event.stopPropagation(); setShowApplicants(false); onNavigateProfile(a, true); }}>
+                  <div className="flex items-center gap-4 min-w-0">
+                    <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                    <div className="min-w-0">
+                      <p className="font-bold text-white text-sm truncate group-hover:text-[#C4B5FD] transition-colors">{a.name}</p>
+                      <p className="text-[10px] text-[#94A3B8] mt-1">點擊查看名片</p>
+                    </div>
+                  </div>
+                  {isAuthor && <button onClick={(event) => { event.stopPropagation(); setShowApplicants(false); onInvite(a); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-xs text-white px-4 py-2 rounded-lg shadow-sm transition-colors font-bold flex-shrink-0">發送邀約</button>}
+                </div>
+              )) : (
+                <div className="text-center py-8">
+                  <p className="text-[#F8FAFC] font-bold">還沒有人表達意願</p>
+                  <p className="text-sm text-[#94A3B8] mt-1">再等等，或把揪團內容寫得更具體一點。</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>, document.body
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -5777,6 +5625,7 @@ function App() {
   // 🌟 新增：限時動態 (Stories) 狀態
   const [realStories, setRealStories] = useState([]);
   const [storyInput, setStoryInput] = useState("");
+  const [isStoryComposerOpen, setIsStoryComposerOpen] = useState(false);
 
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -11205,100 +11054,7 @@ function App() {
           {/* 🌟 全新：24H 動態牆頁面 */}
           {currentView === "status_wall" && (
             <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in-up">
-
-              {/* 🌟 新增：浮動發布按鈕 (固定在畫面正下方) */}
-              <button
-                onClick={() => {
-                  // 1. 平滑滾動到最上方
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                  // 2. 延遲 400 毫秒等滾動差不多到了，自動對焦輸入框讓手機跳出鍵盤！
-                  setTimeout(() => document.getElementById('story-input')?.focus(), 400);
-                }}
-                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center gap-2 border border-[#FBBF24]/50"
-              >
-                <i className="fa-solid fa-pen"></i> 發布限動
-              </button>
-
-              {/* 頂部標題與按鈕 */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[#2A2F3D] pb-4">
-                <div>
-                  <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
-                    <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 24H 動態牆
-                  </h2>
-                  <p className="text-[#94A3B8] mt-2 text-sm">
-                    看看誰正在找人、直播中，或想揪團。發布一則簡短動態，讓大家更容易找你互動。
-                  </p>
-                </div>
-                {/* (原本在這裡的去頂部按鈕已經刪除，因為我們有浮動按鈕了) */}
-              </div>
-
-              {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
-              {isVerifiedUser && myProfile ? (
-                <div className="bg-[#181B25] border border-[#F59E0B]/30 rounded-2xl p-5 mb-6 shadow-sm">
-                  <h3 className="text-orange-300 font-bold mb-1 flex items-center gap-2">
-                    <i className="fa-solid fa-stopwatch"></i> 讓大家知道你現在想做什麼
-                  </h3>
-                  <p className="text-[#94A3B8] text-xs mb-4">一句話就好：想揪團、找練習、開台中，都可以讓其他創作者更快看到你。</p>
-                  <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1 flex flex-col">
-                      <input
-                        id="story-input"
-                        type="text"
-                        maxLength="40"
-                        value={storyInput}
-                        onChange={(e) => setStoryInput(e.target.value)}
-                        // 🌟 修正：將 p-3 改為 px-4 h-[50px]，強制固定高度並讓文字垂直置中
-                        className="w-full min-w-0 box-border bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
-                        placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
-                      />
-                      <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-[#EF4444] font-bold' : 'text-[#94A3B8]'}`}>
-                        {storyInput.length} / 40
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0 items-start">
-                      <button
-                        type="submit"
-                        disabled={!storyInput.trim()}
-                        // 🌟 修正：加入 h-[50px] 強制與輸入框等高
-                        className={`flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-[#F59E0B] hover:bg-[#F59E0B] text-[#0F111A]' : 'bg-[#181B25] text-[#64748B] cursor-not-allowed'}`}
-                      >
-                        <i className="fa-solid fa-paper-plane"></i> 發布限動
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handlePostStory(e, "🔴 我在直播中！快來找我玩！", true)}
-                        // 🌟 修正：加入 h-[50px] 強制與輸入框等高
-                        className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-[#EF4444] hover:bg-[#EF4444] text-white"
-                      >
-                        <i className="fa-solid fa-satellite-dish"></i> 我在直播
-                      </button>
-                      {/* 🌟 修正：清除按鈕也加入 h-[50px] */}
-                      {myProfile.statusMessage && (
-                        <button
-                          type="button"
-                          onClick={(e) => handlePostStory(e, "", false)}
-                          className="flex-1 sm:flex-none h-[50px] px-2 sm:px-6 rounded-xl text-sm font-bold shadow-sm transition-transform whitespace-nowrap flex items-center justify-center gap-1.5 bg-[#1D2130] hover:bg-[#2A2F3D] text-white"
-                        >
-                          <i className="fa-solid fa-eraser"></i> 清除動態
-                        </button>
-                      )}
-                    </div>
-                  </form>
-                </div>
-              ) : (
-                <div className="bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl p-4 mb-8 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <p className="text-[#94A3B8] text-sm">
-                    <i className="fa-solid fa-lock mr-2"></i>
-                    需通過名片認證才能發布限時動態喔！
-                  </p>
-                  <button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-                    前往認證名片
-                  </button>
-                </div>
-              )}
-
-              {/* 限動快速列：像社群動態一樣一眼看出誰有發布 */}
+              {/* 最上方：限動快速列，像 IG 一樣一眼看出誰有發布 */}
               <div className="mb-6 bg-[#181B25]/70 border border-[#2A2F3D] rounded-2xl p-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
@@ -11307,10 +11063,7 @@ function App() {
                   </div>
                   {isVerifiedUser && (
                     <button
-                      onClick={() => {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        setTimeout(() => document.getElementById('story-input')?.focus(), 350);
-                      }}
+                      onClick={() => setIsStoryComposerOpen(true)}
                       className="hidden sm:inline-flex items-center gap-1.5 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                     >
                       <i className="fa-solid fa-plus"></i> 我也要發
@@ -11320,7 +11073,7 @@ function App() {
                 <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
                   {isVerifiedUser && myProfile && (
                     <button
-                      onClick={() => document.getElementById('story-input')?.focus()}
+                      onClick={() => setIsStoryComposerOpen(true)}
                       className="flex-shrink-0 w-20 text-center group"
                     >
                       <div className="w-16 h-16 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
@@ -11372,6 +11125,110 @@ function App() {
                 </div>
               </div>
 
+
+              {/* 🌟 新增：浮動發布按鈕 (固定在畫面正下方) */}
+              <button
+                onClick={() => setIsStoryComposerOpen(true)}
+                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center gap-2 border border-[#FBBF24]/50"
+              >
+                <i className="fa-solid fa-pen"></i> 發布限動
+              </button>
+
+              {/* 頂部標題與按鈕 */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[#2A2F3D] pb-4">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
+                    <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 24H 動態牆
+                  </h2>
+                  <p className="text-[#94A3B8] mt-2 text-sm">
+                    看看誰正在找人、直播中，或想揪團。發布一則簡短動態，讓大家更容易找你互動。
+                  </p>
+                </div>
+                {/* (原本在這裡的去頂部按鈕已經刪除，因為我們有浮動按鈕了) */}
+              </div>
+
+              {/* 發布限動彈窗：無特效，降低卡頓 */}
+              {isStoryComposerOpen && (
+                <div
+                  className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70"
+                  onClick={() => setIsStoryComposerOpen(false)}
+                >
+                  <div
+                    className="w-full max-w-lg bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-5 py-4 border-b border-[#2A2F3D] flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-[#F8FAFC] font-bold text-lg">讓大家知道你現在想做什麼</h3>
+                        <p className="text-[#94A3B8] text-xs mt-1">一句話就好：想揪團、找練習、開台中，都可以讓其他創作者更快看到你。</p>
+                      </div>
+                      <button type="button" onClick={() => setIsStoryComposerOpen(false)} className="w-9 h-9 rounded-lg bg-[#181B25] hover:bg-[#1D2130] text-[#94A3B8] hover:text-white transition-colors flex-shrink-0" aria-label="關閉">
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+
+                    {isVerifiedUser && myProfile ? (
+                      <form
+                        onSubmit={async (e) => {
+                          const willPost = storyInput.trim();
+                          await handlePostStory(e);
+                          if (willPost) setIsStoryComposerOpen(false);
+                        }}
+                        className="p-5 space-y-4"
+                      >
+                        <div>
+                          <input
+                            id="story-input"
+                            type="text"
+                            maxLength="40"
+                            value={storyInput}
+                            onChange={(e) => setStoryInput(e.target.value)}
+                            className="w-full min-w-0 box-border bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
+                            placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+                            autoFocus
+                          />
+                          <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-[#EF4444] font-bold' : 'text-[#94A3B8]'}`}>
+                            {storyInput.length} / 40
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <button type="submit" disabled={!storyInput.trim()} className={`h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A]' : 'bg-[#181B25] text-[#64748B] cursor-not-allowed'}`}>
+                            發布限動
+                          </button>
+                          <button type="button" onClick={async (e) => { await handlePostStory(e, "🔴 我在直播中！快來找我玩！", true); setIsStoryComposerOpen(false); }} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#EF4444] hover:bg-red-500 text-white">
+                            我在直播
+                          </button>
+                          {myProfile.statusMessage ? (
+                            <button type="button" onClick={async (e) => { await handlePostStory(e, "", false); setIsStoryComposerOpen(false); }} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white">
+                              清除動態
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => setIsStoryComposerOpen(false)} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white">
+                              取消
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="p-5 text-center">
+                        <p className="text-[#94A3B8] text-sm mb-4">需通過名片認證才能發布限時動態喔！</p>
+                        <button onClick={() => { setIsStoryComposerOpen(false); navigate("dashboard"); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                          前往認證名片
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!isVerifiedUser && (
+                <div className="bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl p-4 mb-6 text-center flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <p className="text-[#94A3B8] text-sm">需通過名片認證才能發布限時動態喔！</p>
+                  <button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                    前往認證名片
+                  </button>
+                </div>
+              )}
               {/* 動態列表 (垂直排列，依時間排序) */}
               <div className="flex flex-col gap-6 pb-28">
                 {(() => {
@@ -11400,7 +11257,7 @@ function App() {
                         <p className="text-[#94A3B8] text-sm mt-2 mb-5">想找人直播、揪團或分享近況嗎？發布一句話，讓大家更容易看見你。</p>
                         {isVerifiedUser && (
                           <button
-                            onClick={() => document.getElementById('story-input')?.focus()}
+                            onClick={() => setIsStoryComposerOpen(true)}
                             className="bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-xl text-sm font-bold transition-colors"
                           >
                             發布第一則限動
