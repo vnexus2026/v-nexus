@@ -3675,21 +3675,22 @@ const HomePage = ({
     <section className="pt-10 md:pt-14 pb-20 px-4 max-w-6xl mx-auto animate-fade-in-up">
       {/* 1. 簡短 Hero：社群入口，而不是產品宣傳頁 */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-6 items-stretch mb-10">
-        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5">
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-center lg:text-left">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5 mx-auto lg:mx-0">
             <i className="fa-solid fa-link"></i>
             <span>專為 VTuber 打造的聯動社群</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#F8FAFC] mb-5">
-            為你的 Vtuber 生涯加一點朋友！
+            <span className="block">為你的 Vtuber 生涯</span>
+            <span className="block">加一點朋友！</span>
           </h1>
-          <p className="text-[#CBD5E1] text-lg md:text-xl leading-relaxed max-w-2xl mb-3">
+          <p className="text-[#CBD5E1] text-lg md:text-xl leading-relaxed max-w-2xl mx-auto lg:mx-0 mb-3">
             找聯動、發企劃、認識適合一起創作的 VTuber。
           </p>
-          <p className="text-[#94A3B8] text-sm md:text-base leading-relaxed max-w-2xl">
+          <p className="text-[#94A3B8] text-sm md:text-base leading-relaxed max-w-2xl mx-auto lg:mx-0">
             大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？註冊你的名片，找尋你的夥伴吧！
           </p>
-          <p className="text-[#F59E0B] text-xs md:text-sm font-bold mt-5 leading-relaxed max-w-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-xl px-4 py-3">
+          <p className="text-[#F59E0B] text-xs md:text-sm font-bold mt-5 leading-relaxed max-w-2xl mx-auto lg:mx-0 bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-xl px-4 py-3">
             目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。
           </p>
 
@@ -3705,7 +3706,7 @@ const HomePage = ({
               onClick={() => navigate("grid")}
               className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
             >
-              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>探索創作者
+              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>探索Vtuber
             </button>
             <button
               onClick={onOpenUpdates}
@@ -3810,14 +3811,14 @@ const HomePage = ({
         <SectionHeader
           icon="fa-bullhorn"
           iconColor="text-[#8B5CF6]"
-          title="最近招募"
+          title="最近揪團"
           desc="正在尋找夥伴的企劃，或許就有你感興趣的。"
           action={
             <button
               onClick={goToBulletin}
               className="hidden sm:flex bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap"
             >
-              發現招募 <i className="fa-solid fa-arrow-right"></i>
+              找看看誰在揪團 <i className="fa-solid fa-arrow-right"></i>
             </button>
           }
         />
