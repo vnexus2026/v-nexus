@@ -296,7 +296,9 @@ const FloatingChat = ({
     ? { label: "暫時休息", dot: "bg-[#94A3B8]", text: "text-[#CBD5E1]" }
     : targetVtuber.activityStatus === "graduated"
       ? { label: "已畢業", dot: "bg-[#64748B]", text: "text-[#94A3B8]" }
-      : { label: "開放聯動", dot: "bg-[#22C55E]", text: "text-[#22C55E]" };
+      : targetVtuber.activityStatus === "creator"
+        ? { label: "我是繪師 / 建模師 / 剪輯師", dot: "bg-[#38BDF8]", text: "text-[#38BDF8]" }
+        : { label: "開放聯動", dot: "bg-[#22C55E]", text: "text-[#22C55E]" };
 
   const collabPreview = Array.isArray(targetVtuber.collabTypes) && targetVtuber.collabTypes.length > 0
     ? targetVtuber.collabTypes.slice(0, 3).join("、")
@@ -1060,6 +1062,8 @@ const getActivityStatusMeta = (status) => {
       return { label: "暫時休息", emoji: "🌙", cls: "bg-[#94A3B8]/10 text-[#CBD5E1] border-[#94A3B8]/30" };
     case "graduated":
       return { label: "已畢業", emoji: "🕊️", cls: "bg-[#64748B]/10 text-[#94A3B8] border-[#64748B]/30" };
+    case "creator":
+      return { label: "我是繪師 / 建模師 / 剪輯師", emoji: "🎨", cls: "bg-[#38BDF8]/10 text-[#38BDF8] border-[#38BDF8]/30" };
     case "active":
     default:
       return { label: "開放聯動", emoji: "🟢", cls: "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30" };
@@ -1329,6 +1333,13 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         label: '已畢業',
         cls: 'bg-[#64748B]/10 text-[#94A3B8] border-[#64748B]/30',
         dot: 'bg-[#64748B]',
+      };
+    }
+    if (v.activityStatus === 'creator') {
+      return {
+        label: '繪師 / 建模師 / 剪輯師',
+        cls: 'bg-[#38BDF8]/10 text-[#38BDF8] border-[#38BDF8]/30',
+        dot: 'bg-[#38BDF8]',
       };
     }
     if (isOnline) {
@@ -2631,6 +2642,7 @@ const ProfileEditorForm = ({
               className={inputCls + " font-normal"}
             >
               <option value="active">🟢 開放聯動</option>
+              <option value="creator">🎨 我是繪師 / 建模師 / 剪輯師</option>
               <option value="sleep">🌙 暫時休息</option>
               <option value="graduated">🕊️ 已畢業</option>
             </select>
@@ -2754,7 +2766,6 @@ const ProfileEditorForm = ({
                 );
               })}
             </div>
-            <p className="text-xs text-[#94A3B8] mt-3">未來會用於繪師與建模師交流專區，讓其他 VTuber 更容易找到合適的創作者。</p>
             <div className="mt-4">
               <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                 作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
@@ -3243,7 +3254,7 @@ const ProfileEditorForm = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-xl font-extrabold text-white">{form.name || "尚未填寫名稱"}</h3>
                   <span className="text-xs px-2 py-1 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30">
-                    {form.activityStatus === "sleep" ? "🌙 暫時休息" : form.activityStatus === "graduated" ? "🕊️ 已畢業" : "🟢 開放聯動"}
+                    {form.activityStatus === "sleep" ? "🌙 暫時休息" : form.activityStatus === "graduated" ? "🕊️ 已畢業" : form.activityStatus === "creator" ? "🎨 繪師 / 建模師 / 剪輯師" : "🟢 開放聯動"}
                   </span>
                 </div>
                 <p className="text-sm text-[#94A3B8] mt-2 whitespace-pre-wrap">
@@ -3510,7 +3521,13 @@ const InboxPage = ({
 
 const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat }) => {
   const [activeRoleFilter, setActiveRoleFilter] = useState("All");
+  const [commissionPage, setCommissionPage] = useState(1);
   const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
+  const COMMISSION_PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setCommissionPage(1);
+  }, [activeRoleFilter]);
 
   const creatorList = (Array.isArray(realVtubers) ? realVtubers : [])
     .filter((v) =>
@@ -3526,6 +3543,13 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const filteredCreatorList = activeRoleFilter === "All"
     ? creatorList
     : creatorList.filter((v) => Array.isArray(v.creatorRoles) && v.creatorRoles.includes(activeRoleFilter));
+
+  const totalCommissionPages = Math.max(1, Math.ceil(filteredCreatorList.length / COMMISSION_PAGE_SIZE));
+  const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
+  const pagedCreatorList = filteredCreatorList.slice(
+    (safeCommissionPage - 1) * COMMISSION_PAGE_SIZE,
+    safeCommissionPage * COMMISSION_PAGE_SIZE,
+  );
 
   const openProfile = (v) => {
     if (onNavigateProfile) onNavigateProfile(v);
@@ -3591,8 +3615,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             <p className="text-[#94A3B8] text-sm">可以切換篩選條件，或之後再回來看看新的委託名片。</p>
           </div>
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {filteredCreatorList.map((v) => {
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {pagedCreatorList.map((v) => {
             const showcase = sanitizeUrl(v.banner || v.avatar || "");
             const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
             return (
@@ -3670,7 +3695,29 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               </article>
             );
           })}
-        </div>
+          </div>
+          {filteredCreatorList.length > COMMISSION_PAGE_SIZE && (
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <button
+                onClick={() => setCommissionPage((p) => Math.max(1, p - 1))}
+                disabled={safeCommissionPage === 1}
+                className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
+              >
+                上一頁
+              </button>
+              <span className="text-[#94A3B8] text-sm font-bold">
+                第 {safeCommissionPage} / {totalCommissionPages} 頁
+              </span>
+              <button
+                onClick={() => setCommissionPage((p) => Math.min(totalCommissionPages, p + 1))}
+                disabled={safeCommissionPage === totalCommissionPages}
+                className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === totalCommissionPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
+              >
+                下一頁
+              </button>
+            </div>
+          )}
+        </>
       )
       )}
     </div>
@@ -4456,7 +4503,9 @@ const AdminVtuberList = ({
                         ? "暫時休息"
                         : v.activityStatus === "graduated"
                           ? "已畢業"
-                          : "開放聯動"}{" "}
+                          : v.activityStatus === "creator"
+                            ? "繪師/建模師/剪輯師"
+                            : "開放聯動"}{" "}
                       | 推薦:{" "}
                       <span className="text-[#22C55E]">{v.likes || 0}</span> |
                       倒讚:{" "}
@@ -10583,8 +10632,8 @@ function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                       <div className="bg-[#1D2130] border border-[#2A2F3D] rounded-2xl p-4">
                         <p className="text-[11px] text-[#94A3B8] font-bold mb-1">目前狀態</p>
-                        <p className={`text-sm font-bold ${selectedVTuber.activityStatus === "sleep" ? "text-[#F59E0B]" : selectedVTuber.activityStatus === "graduated" ? "text-[#94A3B8]" : "text-[#22C55E]"}`}>
-                          {selectedVTuber.activityStatus === "sleep" ? "🌙 暫時休息" : selectedVTuber.activityStatus === "graduated" ? "🕊️ 已畢業" : "🟢 開放聯動"}
+                        <p className={`text-sm font-bold ${selectedVTuber.activityStatus === "sleep" ? "text-[#F59E0B]" : selectedVTuber.activityStatus === "graduated" ? "text-[#94A3B8]" : selectedVTuber.activityStatus === "creator" ? "text-[#38BDF8]" : "text-[#22C55E]"}`}>
+                          {selectedVTuber.activityStatus === "sleep" ? "🌙 暫時休息" : selectedVTuber.activityStatus === "graduated" ? "🕊️ 已畢業" : selectedVTuber.activityStatus === "creator" ? "🎨 繪師 / 建模師 / 剪輯師" : "🟢 開放聯動"}
                         </p>
                       </div>
                       <div className="bg-[#1D2130] border border-[#2A2F3D] rounded-2xl p-4">
@@ -11516,7 +11565,7 @@ function App() {
                             </div>
                           </div>
                           <p className="text-[11px] text-[#F8FAFC] mt-2 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
-                          <p className="text-[10px] text-[#94A3B8] truncate">{isLiveMsg ? '直播中' : '限動'}</p>
+                          <p className="text-[10px] text-[#94A3B8] truncate">{String((v.statusMessage || '').replace('🔴', '').trim()).slice(0, 10) || (isLiveMsg ? '直播中' : '限動')}</p>
                         </button>
                       );
                     });
