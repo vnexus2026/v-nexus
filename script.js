@@ -586,7 +586,12 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
 
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayList.length === 0 ? <p className="text-[#64748B] col-span-3 text-center py-10">目前尚無分類文章</p> : displayList.map(a => {
+            {displayList.length === 0 ? (
+              <div className="col-span-3 text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
+                <p className="text-[#F8FAFC] font-bold text-lg">這個分類還沒有文章</p>
+                <p className="text-[#94A3B8] text-sm mt-2">分享你的經驗，讓下一位創作者少走一點彎路。</p>
+              </div>
+            ) : displayList.map(a => {
               const author = realVtubers.find(v => v.id === a.userId);
               return (
                 <div key={a.id} onClick={() => { setSelectedArticle(a); setActiveTab('read'); if (onIncrementView) onIncrementView(a.id); }} className="bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden hover:border-[#38BDF8]/50 hover:shadow-sm cursor-pointer transition-all flex flex-col h-full group">
@@ -651,7 +656,12 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
 
       {activeTab === 'mine' && (
         <div className="space-y-4">
-          {myArticles.length === 0 ? <p className="text-center text-[#64748B] py-10 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]">您尚未發表任何文章</p> : myArticles.map(a => (
+          {myArticles.length === 0 ? (
+            <div className="text-center py-12 px-6 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]">
+              <p className="text-[#F8FAFC] font-bold text-lg">你還沒有發表文章</p>
+              <p className="text-[#94A3B8] text-sm mt-2">把你的直播經驗、企劃心得或踩雷筆記分享給大家吧。</p>
+            </div>
+          ) : myArticles.map(a => (
             <div key={a.id} className="bg-[#181B25] border border-[#2A2F3D] p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-[#38BDF8]/30 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
@@ -1404,7 +1414,7 @@ const BulletinCard = React.memo(({
   }, [openModalId, b.id]);
 
   return (
-    <div className="bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col hover:border-white/10 transition-all shadow-sm group">
+    <div className="h-full bg-[#181B25]/60 border border-[#2A2F3D] rounded-2xl overflow-hidden flex flex-col hover:border-white/10 transition-all shadow-sm group">
       {b.image && (
         <div className="w-full h-48 sm:h-56 relative overflow-hidden flex-shrink-0 border-b border-[#2A2F3D] bg-[#0F111A]">
           <LazyImage
@@ -1489,11 +1499,11 @@ const BulletinCard = React.memo(({
           >
             {isExpanded ? (
               <>
-                <i className="fa-solid fa-chevron-up"></i> 收起文案
+                收起文案
               </>
             ) : (
               <>
-                <i className="fa-solid fa-chevron-down"></i> 點擊查看完整文案
+                點擊查看完整文案
               </>
             )}
           </button>
@@ -1501,7 +1511,7 @@ const BulletinCard = React.memo(({
         <div className="grid grid-cols-2 gap-3 mt-auto mb-4">
           <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
             <span className="text-[10px] text-[#64748B] mb-1">
-              <i className="fa-solid fa-users"></i> 人數
+              人數
             </span>
             <span className="text-sm font-bold text-[#E2E8F0]">
               {b.collabSize || "未指定"}
@@ -1509,7 +1519,7 @@ const BulletinCard = React.memo(({
           </div>
           <div className="bg-[#0F111A]/50 p-3 rounded-xl flex flex-col">
             <span className="text-[10px] text-[#64748B] mb-1">
-              <i className="fa-regular fa-calendar"></i> 時間
+              時間
             </span>
             <span className="text-sm font-bold text-[#E2E8F0]">
               {formatDateTimeLocalStr(b.collabTime)}
@@ -1517,7 +1527,7 @@ const BulletinCard = React.memo(({
           </div>
           <div className="bg-[#EF4444]/5 p-3 rounded-xl border border-[#EF4444]/20 flex flex-col col-span-2">
             <span className="text-[10px] text-[#EF4444]/80 mb-1">
-              <i className="fa-solid fa-hourglass-half"></i> 截止
+              截止
             </span>
             <span className="text-sm font-bold text-red-300">
               {b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}
@@ -1568,13 +1578,13 @@ const BulletinCard = React.memo(({
                   onClick={() => onEditBulletin && onEditBulletin(b)}
                   className="text-[10px] font-bold bg-[#38BDF8]/80 hover:bg-[#38BDF8] text-[#0F111A] px-3 py-1.5 rounded shadow transition-colors flex items-center"
                 >
-                  <i className="fa-solid fa-pen mr-1.5"></i>編輯招募
+                  編輯招募
                 </button>
                 <button
                   onClick={() => onDeleteBulletin && onDeleteBulletin(b.id)}
                   className="text-[10px] font-bold bg-[#EF4444]/80 hover:bg-[#EF4444] text-white px-3 py-1.5 rounded shadow transition-colors flex items-center"
                 >
-                  <i className="fa-solid fa-trash mr-1.5"></i>刪除招募
+                  刪除招募
                 </button>
               </div>
             </div>
@@ -3824,9 +3834,9 @@ const HomePage = ({
         />
 
         {randomBulletins.length > 0 ? (
-          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
+          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
             {randomBulletins.map((b) => (
-              <div key={b.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+              <div key={b.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full">
                 <BulletinCard
                   b={b}
                   user={user}
@@ -3845,9 +3855,15 @@ const HomePage = ({
             />
           </div>
         ) : (
-          <div className="text-center py-12 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
-            <p className="text-[#94A3B8] font-bold text-lg">目前暫無招募中的企劃</p>
-            <p className="text-[#64748B] text-sm mt-2">成為第一個發起聯動企劃的人吧。</p>
+          <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
+            <p className="text-[#F8FAFC] font-bold text-lg">還沒有揪團企劃</p>
+            <p className="text-[#94A3B8] text-sm mt-2">成為第一個發起聯動的人吧，讓其他 VTuber 知道你正在找夥伴。</p>
+            <button
+              onClick={goToBulletin}
+              className="mt-5 inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors"
+            >
+              發起揪團
+            </button>
           </div>
         )}
       </div>
@@ -3872,7 +3888,7 @@ const HomePage = ({
         {randomCollabs.length > 0 ? (
           <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full">
             {randomCollabs.map((c) => (
-              <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left">
+              <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full">
                 <CollabCard
                   c={c}
                   isLive={
@@ -3898,11 +3914,15 @@ const HomePage = ({
             />
           </div>
         ) : (
-          <div className="text-center py-12 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
-            <p className="text-[#94A3B8] font-bold text-lg">
-              <i className="fa-solid fa-ghost mb-4 text-3xl block text-[#64748B]"></i>
-              目前沒有即將到來的聯動行程
-            </p>
+          <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
+            <p className="text-[#F8FAFC] font-bold text-lg">還沒有即將公開的聯動行程</p>
+            <p className="text-[#94A3B8] text-sm mt-2">安排好合作後，把待機室放上來，大家就能一起來支持。</p>
+            <button
+              onClick={() => navigate("collabs")}
+              className="mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors"
+            >
+              查看聯動表
+            </button>
           </div>
         )}
       </div>
@@ -4151,9 +4171,10 @@ const AdminVtuberList = ({
       </div>
 
       {filteredList.length === 0 ? (
-        <p className="text-[#64748B] text-sm py-4 text-center bg-[#0F111A]/50 rounded-xl border border-dashed border-[#2A2F3D]">
-          目前無符合條件的資料
-        </p>
+        <div className="text-[#94A3B8] text-sm py-6 px-4 text-center bg-[#0F111A]/50 rounded-xl border border-dashed border-[#2A2F3D]">
+          <p className="text-[#F8FAFC] font-bold">這裡目前沒有需要處理的項目</p>
+          <p className="text-[#64748B] mt-1">換個篩選條件，或稍後再回來看看。</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {displayList.map((v) => (
@@ -5590,8 +5611,9 @@ const ChatListContent = ({
 
   if (rooms.length === 0)
     return (
-      <div className="p-4 text-center text-[#64748B] text-sm">
-        目前沒有任何私訊紀錄
+      <div className="p-6 text-center text-[#94A3B8] text-sm">
+        <p className="text-[#F8FAFC] font-bold mb-1">這裡還沒有訊息</p>
+        <p>打聲招呼，或先看看對方的名片再開始聊吧。</p>
       </div>
     );
 
@@ -9226,8 +9248,9 @@ function App() {
                           </div>
                           <div className="max-h-80 overflow-y-auto">
                             {myNotifications.length === 0 ? (
-                              <div className="p-6 text-center text-[#64748B] text-sm">
-                                目前沒有任何通知
+                              <div className="p-6 text-center text-[#94A3B8] text-sm">
+                                <p className="text-[#F8FAFC] font-bold mb-1">目前沒有新的通知</p>
+                                <p>有邀請、私訊或審核結果時，會出現在這裡。</p>
                               </div>
                             ) : (
                               myNotifications.slice(0, 5).map((n) => (
@@ -10668,7 +10691,7 @@ function App() {
                 </div>
               ) : filteredDisplayBulletins.length === 0 ? (
                 <p className="text-center text-[#64748B] mt-20">
-                  目前沒有相關的招募文喔！
+                  還沒有相關揪團。想找同好一起玩，就先發起一個企劃吧。
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -11048,7 +11071,7 @@ function App() {
                 <div className="text-center py-20 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
                   <p className="text-[#64748B] font-bold text-lg">
                     <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
-                    目前沒有即將到來的聯動行程
+                    還沒有即將公開的聯動行程
                   </p>
                 </div>
               ) : (
@@ -11199,7 +11222,7 @@ function App() {
                       <div className="text-center py-20 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
                         <p className="text-[#64748B] font-bold text-lg">
                           <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
-                          目前沒有任何限時動態喔！
+                          目前還沒有創作者發布限時動態。
                         </p>
                       </div>
                     );
@@ -11686,7 +11709,7 @@ function App() {
 
               <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-6">
                 {realUpdates.length === 0 ? (
-                  <p className="text-center text-[#64748B]">目前沒有新消息。</p>
+                  <div className="text-center text-[#94A3B8] py-8"><p className="text-[#F8FAFC] font-bold mb-1">目前沒有新消息</p><p className="text-sm">有平台公告或重要提醒時，會整理在這裡。</p></div>
                 ) : (
                   realUpdates.map((u) => (
                     <div key={u.id} className="relative">
