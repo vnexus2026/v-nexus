@@ -2257,6 +2257,16 @@ const ProfileEditorForm = ({
     form.lastTwitchFetchTime || 0,
   );
 
+  // ✅ 名片編輯分段導覽：切換步驟後自動回到表單頂部，避免手機版停在頁尾找不到下一段內容。
+  const editorTopRef = useRef(null);
+  const didMountEditorRef = useRef(false);
+  const scrollEditorToTop = () => {
+    const el = editorTopRef.current;
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - 88;
+    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  };
+
   const handleImageUpload = (e, field, maxWidth, maxHeight) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -2541,6 +2551,15 @@ const ProfileEditorForm = ({
   const isLastStep = activeStep === editorSteps.length - 1;
   const goPrevStep = () => setActiveStep((prev) => Math.max(0, prev - 1));
   const goNextStep = () => setActiveStep((prev) => Math.min(editorSteps.length - 1, prev + 1));
+
+  useEffect(() => {
+    if (!didMountEditorRef.current) {
+      didMountEditorRef.current = true;
+      return;
+    }
+    const timer = setTimeout(scrollEditorToTop, 80);
+    return () => clearTimeout(timer);
+  }, [activeStep]);
   const profileCompletion = useMemo(() => {
     const checks = [
       !!String(form.name || "").trim(),
@@ -2564,7 +2583,7 @@ const ProfileEditorForm = ({
   const successBtn = "bg-[#22C55E] hover:bg-[#16A34A] text-white py-3 px-5 rounded-xl font-bold shadow-sm transition-colors flex justify-center items-center gap-2 whitespace-nowrap";
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form ref={editorTopRef} onSubmit={onSubmit} className="space-y-6 scroll-mt-24">
       <div className="bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
           <div>
@@ -3206,38 +3225,58 @@ const ProfileEditorForm = ({
         </div>
       )}
 
-      <div className="sticky bottom-0 z-20 bg-[#0F111A]/95 backdrop-blur border border-[#2A2F3D] rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="text-xs text-[#94A3B8]">
-          目前步驟：<span className="text-white font-bold">{editorSteps[activeStep]?.label}</span>
-        </div>
+      <div className="sticky bottom-3 z-20 bg-[#0F111A]/95 backdrop-blur border border-[#2A2F3D] rounded-2xl p-3 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-[#94A3B8] font-bold tracking-wide uppercase">名片編輯</p>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-white font-bold whitespace-nowrap">第 {activeStep + 1} / {editorSteps.length} 步</span>
+              <span className="text-[#94A3B8] truncate">{editorSteps[activeStep]?.label}</span>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:flex-nowrap justify-end gap-2 w-full sm:w-auto">
-          {onCancel && (
-            <button type="button" onClick={onCancel} className={ghostBtn}>
-              取消
-            </button>
-          )}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+            <div className="flex items-center gap-2 order-2 sm:order-1">
+              {onCancel && (
+                <button type="button" onClick={onCancel} className={ghostBtn + " flex-1 sm:flex-none text-sm px-3"}>
+                  取消
+                </button>
+              )}
 
-          {!isAdmin && onDeleteSelf && (
-            <button type="button" onClick={onDeleteSelf} className={dangerBtn}>
-              <i className="fa-solid fa-trash-can"></i> 刪除名片
-            </button>
-          )}
+              {!isAdmin && onDeleteSelf && (
+                <button type="button" onClick={onDeleteSelf} className={dangerBtn + " flex-1 sm:flex-none text-sm px-3"}>
+                  <i className="fa-solid fa-trash-can"></i>
+                  <span className="hidden sm:inline">刪除名片</span>
+                  <span className="sm:hidden">刪除</span>
+                </button>
+              )}
+            </div>
 
-          <button type="button" onClick={goPrevStep} disabled={isFirstStep} className={secondaryBtn}>
-            <i className="fa-solid fa-arrow-left"></i> 上一段
-          </button>
+            <div className="grid grid-cols-3 gap-2 order-1 sm:order-2 w-full sm:w-auto">
+              <button type="button" onClick={goPrevStep} disabled={isFirstStep} className={secondaryBtn + " text-sm px-2 sm:px-4 min-w-0"}>
+                <i className="fa-solid fa-arrow-left"></i>
+                <span>上一段</span>
+              </button>
 
-          {!isLastStep && (
-            <button type="button" onClick={goNextStep} className={primaryBtn}>
-              下一段 <i className="fa-solid fa-arrow-right"></i>
-            </button>
-          )}
+              <button type="submit" className={(isLastStep ? successBtn : secondaryBtn) + " text-sm px-2 sm:px-4 min-w-0"}>
+                <i className="fa-solid fa-floppy-disk"></i>
+                <span className="hidden sm:inline">{isAdmin ? "強制儲存更新" : "儲存名片"}</span>
+                <span className="sm:hidden">儲存</span>
+              </button>
 
-          <button type="submit" className={isLastStep ? successBtn : primaryBtn}>
-            <i className="fa-solid fa-floppy-disk"></i>
-            {isAdmin ? "強制儲存更新" : "儲存名片"}
-          </button>
+              {!isLastStep ? (
+                <button type="button" onClick={goNextStep} className={primaryBtn + " text-sm px-2 sm:px-4 min-w-0"}>
+                  <span>下一段</span>
+                  <i className="fa-solid fa-arrow-right"></i>
+                </button>
+              ) : (
+                <button type="button" disabled className={secondaryBtn + " text-sm px-2 sm:px-4 min-w-0 opacity-50 cursor-not-allowed"}>
+                  <i className="fa-solid fa-check"></i>
+                  <span>完成</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </form>
