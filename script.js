@@ -218,6 +218,16 @@ const FloatingChat = ({
   const scrollRef = useRef();
   const roomId = generateRoomId(currentUser.uid, targetVtuber.id);
 
+  const targetStatus = targetVtuber.activityStatus === "sleep"
+    ? { label: "暫時休息", dot: "bg-[#94A3B8]", text: "text-[#CBD5E1]" }
+    : targetVtuber.activityStatus === "graduated"
+      ? { label: "已畢業", dot: "bg-[#64748B]", text: "text-[#94A3B8]" }
+      : { label: "開放聯動", dot: "bg-[#22C55E]", text: "text-[#22C55E]" };
+
+  const collabPreview = Array.isArray(targetVtuber.collabTypes) && targetVtuber.collabTypes.length > 0
+    ? targetVtuber.collabTypes.slice(0, 3).join("、")
+    : "尚未填寫聯動偏好";
+
   useEffect(() => {
     // 改為：依照時間倒序排 (最新的在前面)，並且限制最多只拿最新 50 筆
     const q = query(
@@ -253,6 +263,14 @@ const FloatingChat = ({
       }).catch((e) => console.error("自動清除未讀失敗:", e));
     }
   }, [messages, currentUser.uid]);
+
+  const handleSafetyAction = (type) => {
+    if (type === "block") {
+      showToast("封鎖入口已準備好，後續可接上封鎖名單功能。");
+    } else {
+      showToast("檢舉入口已準備好，若遇到騷擾請先截圖並聯絡管理員。");
+    }
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -311,7 +329,7 @@ const FloatingChat = ({
             fromUserId: currentUser.uid,
             fromUserName: myProfile?.name || "創作者",
             fromUserAvatar: myProfile?.avatar || "",
-            message: "傳送了一則私訊，請查看右下角聊天室。",
+            message: "傳送了一則私訊，請到聊天室看看誰回覆了你。",
             createdAt: now,
             read: false,
             type: "chat_notification",
@@ -326,56 +344,89 @@ const FloatingChat = ({
     }
   };
   return (
-    <div className="fixed bottom-4 right-4 z-[100] w-[90vw] sm:w-80 h-[450px] bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm flex flex-col overflow-hidden animate-fade-in-up border-white/10">
+    <div className="fixed inset-0 sm:inset-y-4 sm:left-auto sm:right-4 z-[100] w-full sm:w-[380px] lg:w-[420px] h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#0F111A] border-l sm:border border-[#2A2F3D] sm:rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in-up">
       {/* Header */}
-      <div className="bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-sm">
-
-        {/* 🌟 修改這裡：加入手機版自動關閉視窗的邏輯 */}
-        <div
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => {
-            // 1. 觸發跳轉名片
-            if (onNavigateProfile) onNavigateProfile(targetVtuber);
-
-            // 2. 判斷螢幕寬度，小於 640px (Tailwind 的 sm 斷點) 視為手機版，自動關閉聊天視窗
-            if (window.innerWidth < 640) {
-              onClose();
-            }
-          }}
-          title="查看名片"
-        >
-          <div className="relative flex-shrink-0">
-            <img
-              src={sanitizeUrl(targetVtuber.avatar)}
-              className="w-8 h-8 rounded-full border border-white/20 object-cover"
-            />
-            {onlineUsers?.has(targetVtuber.id) && (
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border border-[#7C3AED] rounded-full"></div>
-            )}
+      <div className="bg-[#181B25] border-b border-[#2A2F3D] p-4 flex-shrink-0">
+        <div className="flex justify-between items-start gap-3">
+          <div
+            className="flex items-start gap-3 cursor-pointer hover:opacity-90 transition-opacity min-w-0"
+            onClick={() => {
+              if (onNavigateProfile) onNavigateProfile(targetVtuber);
+              if (window.innerWidth < 640) onClose();
+            }}
+            title="查看名片"
+          >
+            <div className="relative flex-shrink-0">
+              <img
+                src={sanitizeUrl(targetVtuber.avatar)}
+                className="w-12 h-12 rounded-2xl border border-[#2A2F3D] object-cover bg-[#11131C]"
+                alt={targetVtuber.name || "創作者頭像"}
+              />
+              {isOnline && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#22C55E] border-2 border-[#181B25] rounded-full"></div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="font-bold text-white text-base truncate">{targetVtuber.name}</h3>
+                {targetVtuber.isVerified && <span className="text-[#38BDF8] text-xs flex-shrink-0">已認證</span>}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                <span className={`inline-flex items-center gap-1 ${targetStatus.text}`}>
+                  <span className={`w-2 h-2 rounded-full ${targetStatus.dot}`}></span>{targetStatus.label}
+                </span>
+                <span className="text-[#94A3B8] truncate max-w-[220px]">偏好：{collabPreview}</span>
+              </div>
+            </div>
           </div>
-          <span className="font-bold text-sm truncate max-w-[120px]">
-            {targetVtuber.name}
-          </span>
+
+          <button
+            onClick={onClose}
+            className="hover:bg-white/10 text-[#94A3B8] hover:text-white w-9 h-9 rounded-xl transition-colors flex items-center justify-center flex-shrink-0"
+            aria-label="關閉聊天室"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
         </div>
 
-        <button
-          onClick={onClose}
-          className="hover:bg-[#7C3AED] w-8 h-8 rounded-full transition-colors flex items-center justify-center"
-        >
-          <i className="fa-solid fa-xmark"></i>
-        </button>
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => handleSafetyAction("block")}
+            className="px-3 py-1.5 rounded-full border border-[#2A2F3D] text-[#94A3B8] hover:text-white hover:bg-[#1D2130] transition-colors"
+          >
+            封鎖
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSafetyAction("report")}
+            className="px-3 py-1.5 rounded-full border border-[#2A2F3D] text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors"
+          >
+            檢舉
+          </button>
+        </div>
       </div>
 
-      {/* --- 新增：懸浮警告條 (固定在頂部) --- */}
-      <div className="bg-[#2A1418]/90 backdrop-blur-md border-b border-[#EF4444]/30 px-3 py-2 z-20 flex-shrink-0">
-        <p className="text-[16px] text-[#EF4444] leading-relaxed text-center font-medium">
-          <i className="fa-solid fa-triangle-exclamation mr-1"></i>
-          訊息僅留七天，僅聯絡使用，私密訊息或龐大討論請轉至DC謝謝。
+      {/* Gentle safety notice */}
+      <div className="bg-[#11131C] border-b border-[#2A2F3D] px-4 py-3 flex-shrink-0">
+        <p className="text-sm text-[#94A3B8] leading-relaxed">
+          請保持禮貌，避免交換過度敏感資料；訊息僅留七天，長篇討論建議轉至 DC。
         </p>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0F111A]">
+        {messages.length === 0 && (
+          <div className="min-h-full flex items-center justify-center text-center px-6">
+            <div className="max-w-xs">
+              <div className="w-14 h-14 rounded-2xl bg-[#1D2130] border border-[#2A2F3D] flex items-center justify-center mx-auto mb-4 text-[#8B5CF6]">
+                <i className="fa-regular fa-comment-dots text-xl"></i>
+              </div>
+              <p className="text-white font-bold mb-2">這裡還沒有訊息</p>
+              <p className="text-sm text-[#94A3B8] leading-relaxed">打聲招呼，或先看看對方的名片，找一個適合一起直播的話題。</p>
+            </div>
+          </div>
+        )}
         {messages.map((m) => (
           <div
             key={m.id}
@@ -397,27 +448,25 @@ const FloatingChat = ({
       {/* Input */}
       <form
         onSubmit={handleSend}
-        className="p-3 bg-[#181B25]/80 border-t border-[#2A2F3D] flex gap-2"
+        className="p-3 sm:p-4 bg-[#181B25]/95 border-t border-[#2A2F3D] flex gap-2 flex-shrink-0"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="說點什麼..."
-          // 🌟 優化：將 text-sm 改為 text-[16px]，完美阻止 iOS 手機點擊時自動放大畫面！
-          className="flex-1 bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 py-2 text-[16px] text-white outline-none focus:border-[#8B5CF6] transition-all"
+          placeholder="打聲招呼，或聊聊想一起做的企劃..."
+          className="flex-1 bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 py-3 text-[16px] text-white outline-none focus:border-[#8B5CF6] transition-all"
         />
         <button
           type="submit"
-          className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-10 h-10 rounded-xl flex items-center justify-center transition-transform flex-shrink-0"
+          className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-4 sm:px-5 h-12 rounded-xl flex items-center justify-center transition-colors flex-shrink-0 font-bold"
         >
-          <i className="fa-solid fa-paper-plane"></i>
+          送出
         </button>
       </form>
     </div>
   );
 };
-
 const uploadImageToStorage = async (uid, dataStr, fileName) => {
   // 加上更嚴格的檢查：dataStr 必須是字串且長度大於 0
   if (
@@ -3710,13 +3759,13 @@ const HomePage = ({
               onClick={() => navigate("dashboard")}
               className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
             >
-              <i className="fa-solid fa-pen-to-square mr-2"></i>建立名片
+              <i className="fa-solid fa-pen-to-square mr-2"></i>整理你的創作者名片
             </button>
             <button
               onClick={() => navigate("grid")}
               className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
             >
-              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>探索Vtuber
+              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>找適合一起直播的人
             </button>
             <button
               onClick={onOpenUpdates}
@@ -3745,7 +3794,7 @@ const HomePage = ({
               今天就從一張名片開始
             </h2>
             <p className="text-[#94A3B8] text-sm leading-relaxed">
-              建立名片、填上聯動偏好，再去看看最近有哪些創作者正在找企劃夥伴。
+              整理你的創作者名片、填上聯動偏好，再去看看最近有哪些創作者正在找企劃夥伴。
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 mt-6">
@@ -3857,12 +3906,12 @@ const HomePage = ({
         ) : (
           <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
             <p className="text-[#F8FAFC] font-bold text-lg">還沒有揪團企劃</p>
-            <p className="text-[#94A3B8] text-sm mt-2">成為第一個發起聯動的人吧，讓其他 VTuber 知道你正在找夥伴。</p>
+            <p className="text-[#94A3B8] text-sm mt-2">成為第一個發一個招募企劃的人吧，讓其他 VTuber 知道你正在找夥伴。</p>
             <button
               onClick={goToBulletin}
               className="mt-5 inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors"
             >
-              發起揪團
+              發一個招募企劃
             </button>
           </div>
         )}
@@ -3979,7 +4028,7 @@ const HomePage = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <GuideCard
             icon="fa-id-card"
-            title="Step 1：建立名片"
+            title="Step 1：整理你的創作者名片"
             desc="先讓大家知道你是誰、常玩什麼、想找哪種聯動。"
             onClick={() => navigate("dashboard")}
             color="#8B5CF6"
@@ -4000,7 +4049,7 @@ const HomePage = ({
           />
           <GuideCard
             icon="fa-magnifying-glass"
-            title="Step 4：開始探索創作者"
+            title="Step 4：開始找適合一起直播的人"
             desc="看看近期活躍的人、招募企劃，從一個輕鬆的邀請開始。"
             onClick={() => navigate("grid")}
             color="#22C55E"
@@ -5239,7 +5288,7 @@ const AdminPage = ({
                   招募佈告欄預設圖片庫
                 </h3>
                 <p className="text-sm text-[#94A3B8] mb-4">
-                  當使用者發布招募沒有上傳圖片時，將從這裡隨機挑選一張顯示。
+                  當使用者發一個招募企劃沒有上傳圖片時，將從這裡隨機挑選一張顯示。
                 </p>
                 <div className="flex flex-wrap gap-4 mb-4">
                   {(defaultBulletinImages || []).map((img, idx) => (
@@ -8161,7 +8210,7 @@ function App() {
         image: "",
       });
     } catch (err) {
-      console.error("發布招募失敗:", err);
+      console.error("發一個招募企劃失敗:", err);
       showToast("❌ 操作失敗，請檢查網路或圖片大小");
     }
   };
@@ -8194,7 +8243,7 @@ function App() {
     bulletinAuthorId,
   ) => {
     if (!user) {
-      showToast("❌ 請先登入並建立名片！正在前往認證頁面...");
+      showToast("❌ 請先登入並整理你的創作者名片！正在前往認證頁面...");
       setTimeout(() => {
         navigate("dashboard");
       }, 1500);
