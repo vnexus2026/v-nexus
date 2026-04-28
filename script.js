@@ -870,6 +870,9 @@ const COLOR_OPTIONS = [
   "棕",
 ]; // 新增色系選項
 
+// 創作者技能標籤：選填，可多選；未來可用於繪師 / 建模師 / 剪輯師交流專區
+const CREATOR_ROLE_OPTIONS = ["繪師", "建模師", "剪輯師"];
+
 // 🌟 新增：12 星座清單
 const ZODIAC_SIGNS = [
   "牡羊座", "金牛座", "雙子座", "巨蟹座", "獅子座", "處女座",
@@ -2672,18 +2675,34 @@ const ProfileEditorForm = ({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+              介紹一下你自己吧！ <span className="text-[#EF4444]">*</span>
+            </label>
+            <textarea
+              rows="6"
+              value={form.description || ""}
+              onChange={(e) => updateForm({ description: e.target.value })}
+              className={inputCls + " resize-none"}
+              placeholder="簡單介紹你的頻道風格、個性、想找怎樣的聯動夥伴。"
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                 所屬勢力
               </label>
-              <input
-                type="text"
-                value={form.agency || ""}
+              <select
+                value={form.agency || "個人勢"}
                 onChange={(e) => updateForm({ agency: e.target.value })}
                 className={inputCls}
-                placeholder="個人勢 / 團體名稱"
-              />
+              >
+                <option value="個人勢">個人勢</option>
+                <option value="企業勢">企業勢</option>
+                <option value="社團勢">社團勢</option>
+                <option value="合作勢">合作勢</option>
+              </select>
             </div>
 
             <div>
@@ -2705,18 +2724,52 @@ const ProfileEditorForm = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-              介紹一下你自己吧！ <span className="text-[#EF4444]">*</span>
-            </label>
-            <textarea
-              rows="4"
-              value={form.description || ""}
-              onChange={(e) => updateForm({ description: e.target.value })}
-              className={inputCls + " resize-none"}
-              placeholder="簡單介紹你的頻道風格、個性、想找怎樣的聯動夥伴。"
-            />
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
+              <label className="block text-sm font-bold text-[#CBD5E1]">
+                您是不是繪師 / 建模師 / 剪輯師？ <span className="text-[11px] text-[#94A3B8] font-normal">(若都不是可不填)</span>
+              </label>
+              <span className="text-[11px] text-[#94A3B8]">選填，可多選</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {CREATOR_ROLE_OPTIONS.map((role) => {
+                const checked = (form.creatorRoles || []).includes(role);
+                return (
+                  <label
+                    key={role}
+                    className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#38BDF8]/10 border-[#38BDF8]/40 text-[#38BDF8]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        let list = [...(form.creatorRoles || [])];
+                        list = list.includes(role) ? list.filter((x) => x !== role) : [...list, role];
+                        updateForm({ creatorRoles: list });
+                      }}
+                      className="accent-sky-400 w-4 h-4"
+                    />
+                    <span className="text-sm font-bold">{role}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-[#94A3B8] mt-3">未來會用於繪師與建模師交流專區，讓其他 VTuber 更容易找到合適的創作者。</p>
+            <div className="mt-4">
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
+              </label>
+              <input
+                type="url"
+                value={form.creatorPortfolioUrl || ""}
+                onChange={(e) => updateForm({ creatorPortfolioUrl: e.target.value })}
+                className={inputCls}
+                placeholder="例如 Pixiv、X 作品串、個人網站或委託表單網址"
+              />
+              <p className="text-xs text-[#94A3B8] mt-2">填寫後會在繪師 / 建模師 / 剪輯師委託專區顯示「觀看作品集」按鈕。</p>
+            </div>
           </div>
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
@@ -3455,6 +3508,175 @@ const InboxPage = ({
   );
 };
 
+const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat }) => {
+  const [activeRoleFilter, setActiveRoleFilter] = useState("All");
+  const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
+
+  const creatorList = (Array.isArray(realVtubers) ? realVtubers : [])
+    .filter((v) =>
+      v &&
+      v.isVerified &&
+      !v.isBlacklisted &&
+      Array.isArray(v.creatorRoles) &&
+      v.creatorRoles.length > 0 &&
+      !String(v.id || "").startsWith("mock")
+    )
+    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+
+  const filteredCreatorList = activeRoleFilter === "All"
+    ? creatorList
+    : creatorList.filter((v) => Array.isArray(v.creatorRoles) && v.creatorRoles.includes(activeRoleFilter));
+
+  const openProfile = (v) => {
+    if (onNavigateProfile) onNavigateProfile(v);
+    else navigate(`profile/${v.id}`);
+  };
+
+  const openPortfolio = (url) => {
+    if (!url) return;
+    const raw = String(url).trim();
+    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
+      <div className="mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm">
+        <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">Creator Market</p>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+          <div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
+              繪師 / 建模師 / 剪輯師委託專區
+            </h2>
+            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">
+              先展示已在名片標註「繪師」「建模師」或「剪輯師」的創作者。未來會加入作品集、委託表單、價格區間與合作狀態，讓 VTuber 更快找到適合的創作夥伴。
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("dashboard")}
+            className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap"
+          >
+            補上我的創作技能標籤
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        {roleFilters.map((role) => (
+          <button
+            key={role}
+            onClick={() => setActiveRoleFilter(role)}
+            className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role
+              ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]"
+              : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"
+              }`}
+          >
+            {role === "All" ? "全部" : role}
+          </button>
+        ))}
+      </div>
+
+      {creatorList.length === 0 ? (
+        <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
+          <p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p>
+          <p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p>
+          <button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">
+            去補上身份
+          </button>
+        </div>
+      ) : (
+        filteredCreatorList.length === 0 ? (
+          <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
+            <p className="text-white text-lg font-bold mb-2">{`目前沒有符合「${activeRoleFilter === "All" ? "全部" : activeRoleFilter}」的創作者`}</p>
+            <p className="text-[#94A3B8] text-sm">可以切換篩選條件，或之後再回來看看新的委託名片。</p>
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {filteredCreatorList.map((v) => {
+            const showcase = sanitizeUrl(v.banner || v.avatar || "");
+            const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
+            return (
+              <article
+                key={v.id}
+                onClick={() => openProfile(v)}
+                className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm hover:bg-[#1D2130] transition-colors cursor-pointer"
+                title="查看詳細名片"
+              >
+                <div className="h-56 sm:h-64 bg-[#11131C] relative overflow-hidden">
+                  {showcase ? (
+                    <img
+                      src={showcase}
+                      alt={v.name || "作品展示"}
+                      className="w-full h-full object-cover opacity-90"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : null}
+                  {!showcase && (
+                    <div className="w-full h-full flex items-center justify-center text-[#64748B] text-sm">
+                      作品展示區規劃中
+                    </div>
+                  )}
+                  <div className="absolute left-4 bottom-4 flex gap-2 flex-wrap">
+                    {roles.map((role) => (
+                      <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0">
+                      {v.avatar ? <img src={sanitizeUrl(v.avatar)} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-white text-lg font-extrabold truncate flex items-center gap-2">
+                        {v.name || "未命名創作者"}
+                        {v.isVerified && <span className="text-[#22C55E] text-xs font-bold">已認證</span>}
+                      </h3>
+                      <p className="text-[#94A3B8] text-sm line-clamp-2 mt-1">
+                        {v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {(v.tags || []).slice(0, 4).map((tag) => (
+                      <span key={tag} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenChat ? onOpenChat(v) : openProfile(v);
+                      }}
+                      className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 rounded-xl font-bold transition-colors"
+                    >
+                      私訊檔期及價格
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v);
+                      }}
+                      className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 rounded-xl font-bold transition-colors`}
+                    >
+                      觀看作品集
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )
+      )}
+    </div>
+  );
+};
+
 const HomePage = ({
   navigate,
   onOpenRules,
@@ -3570,6 +3792,35 @@ const HomePage = ({
       .slice(0, 5);
   }, [realVtubers, user]);
 
+  const recommendedCreatorsForCommission = useMemo(() => {
+    const base = [...realVtubers]
+      .filter((v) =>
+        v.isVerified &&
+        !v.isBlacklisted &&
+        Array.isArray(v.creatorRoles) &&
+        v.creatorRoles.length > 0 &&
+        !String(v.id || "").startsWith("mock")
+      );
+
+    const picked = [];
+    ["繪師", "建模師", "剪輯師"].forEach((role) => {
+      const candidates = base
+        .filter((v) => v.creatorRoles.includes(role) && !picked.some((p) => p.id === v.id))
+        .sort((a, b) => getStableRandom(`${role}-${a.id || a.name}`) - getStableRandom(`${role}-${b.id || b.name}`));
+      if (candidates[0]) picked.push({ ...candidates[0], recommendedRole: role });
+    });
+
+    if (picked.length < 3) {
+      base
+        .filter((v) => !picked.some((p) => p.id === v.id))
+        .sort((a, b) => getStableRandom(a.id || a.name) - getStableRandom(b.id || b.name))
+        .slice(0, 3 - picked.length)
+        .forEach((v) => picked.push(v));
+    }
+
+    return picked.slice(0, 3);
+  }, [realVtubers]);
+
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
   }, [realVtubers, user]);
@@ -3669,9 +3920,8 @@ const HomePage = ({
     <section className="pt-10 md:pt-14 pb-20 px-4 max-w-6xl mx-auto animate-fade-in-up">
       {/* 1. 簡短 Hero：社群入口，而不是產品宣傳頁 */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-6 items-stretch mb-10">
-        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-center lg:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5 mx-auto lg:mx-0">
-            <i className="fa-solid fa-link"></i>
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-center lg:text-left h-full flex flex-col">
+          <div className="inline-flex w-fit px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5 mx-auto lg:mx-0">
             <span>專為 VTuber 打造的聯動社群</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#F8FAFC] mb-5">
@@ -3685,7 +3935,7 @@ const HomePage = ({
             大家平時要找聯動夥伴，是不是不知道該如何開口，又不敢隨便私訊怕打擾對方？註冊你的名片，找尋你的夥伴吧！
           </p>
           <p className="text-[#F59E0B] text-xs md:text-sm font-bold mt-5 leading-relaxed max-w-2xl mx-auto lg:mx-0 bg-[#F59E0B]/10 border border-[#F59E0B]/20 rounded-xl px-4 py-3">
-            目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。
+            目前僅開放YT訂閱或TWITCH追隨加起來高於500、近一個月有直播活動之Vtuber或繪師、建模師、剪輯師則由管理員認定，敬請見諒。
           </p>
 
           {/* 2. 立即行動 */}
@@ -3720,7 +3970,7 @@ const HomePage = ({
           </div>
         </div>
 
-        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 text-left flex flex-col justify-between">
+        <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 text-left h-full flex flex-col">
           <div>
             <p className="text-[#94A3B8] text-xs font-bold tracking-widest uppercase mb-3">
               Community Snapshot
@@ -3786,24 +4036,24 @@ const HomePage = ({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 mt-6">
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
-              <p className="text-[#94A3B8] text-xs font-bold mb-1">目前VTUBER註冊人數</p>
-              <p className="text-2xl font-black text-[#22C55E]">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-auto pt-6">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+              <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">VTUBER人數</p>
+              <p className="text-xl sm:text-2xl font-black text-[#22C55E]">
                 {registeredCount !== null ? <AnimatedCounter value={registeredCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
-                <span className="text-sm text-[#94A3B8] ml-1">位</span>
+                <span className="text-[10px] sm:text-sm text-[#94A3B8] ml-1">位</span>
               </p>
             </div>
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
-              <p className="text-[#94A3B8] text-xs font-bold mb-1">已成功促成聯動</p>
-              <p className="text-2xl font-black text-[#38BDF8]">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+              <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">已成功促成聯動</p>
+              <p className="text-xl sm:text-2xl font-black text-[#38BDF8]">
                 {!isLoadingCollabs ? <AnimatedCounter value={completedCollabsCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
-                <span className="text-sm text-[#94A3B8] ml-1">次</span>
+                <span className="text-[10px] sm:text-sm text-[#94A3B8] ml-1">次</span>
               </p>
             </div>
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
-              <p className="text-[#94A3B8] text-xs font-bold mb-1">網站總瀏覽人次</p>
-              <p className="text-2xl font-black text-[#8B5CF6]">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+              <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">網站總瀏覽人次</p>
+              <p className="text-xl sm:text-2xl font-black text-[#8B5CF6]">
                 {siteStats?.pageViews !== null ? <AnimatedCounter value={siteStats.pageViews} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
               </p>
             </div>
@@ -3965,6 +4215,67 @@ const HomePage = ({
         )}
       </div>
 
+      {/* 推薦繪師 / 建模師 / 剪輯師 */}
+      {recommendedCreatorsForCommission.length > 0 && (
+        <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full">
+          <SectionHeader
+            icon="fa-palette"
+            iconColor="text-[#38BDF8]"
+            title="推薦繪師 / 建模師 / 剪輯師"
+            desc="看看可以委託或合作的創作者，先從作品與名片開始認識。"
+            action={
+              <button
+                onClick={() => navigate("commissions")}
+                className="hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap"
+              >
+                查看委託專區 <i className="fa-solid fa-arrow-right text-[#38BDF8]"></i>
+              </button>
+            }
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recommendedCreatorsForCommission.map((v) => (
+              <div
+                key={`home-commission-${v.id}`}
+                className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden text-left hover:bg-[#1D2130] transition-colors"
+              >
+                <button
+                  onClick={() => {
+                    setSelectedVTuber(v);
+                    navigate(`profile/${v.id}`);
+                  }}
+                  className="block w-full text-left"
+                >
+                  <div className="h-36 bg-[#11131C] overflow-hidden">
+                    {v.banner ? (
+                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    ) : (
+                      <div className="w-full h-full bg-[#1D2130]"></div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <img src={sanitizeUrl(v.avatar)} alt={v.name || "creator"} className="w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <div className="min-w-0">
+                        <h3 className="text-[#F8FAFC] font-extrabold truncate">{v.name || "未命名創作者"}</h3>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(v.creatorRoles || []).slice(0, 2).map((role) => (
+                            <span key={role} className="text-[10px] font-bold text-[#38BDF8] bg-[#38BDF8]/10 border border-[#38BDF8]/25 rounded-full px-2 py-0.5">{role}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[#94A3B8] text-sm line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                      {v.description || "這位創作者還沒有填寫作品介紹，先看看名片認識一下。"}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 6. 新手引導 */}
       <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
         <SectionHeader
@@ -4045,102 +4356,6 @@ const HomePage = ({
           />
         </div>
       </div>
-
-      {/* 保留 24H 社群動態，但降為首頁後段補充內容 */}
-      {activeStatuses.length > 0 && (
-        <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
-          <SectionHeader
-            icon="fa-stopwatch"
-            iconColor="text-[#F59E0B]"
-            title="24H 最新動態"
-            desc="看看大家現在正在做什麼！(至名片編輯即可發布，24小時後自動隱藏)"
-            action={
-              <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
-                <button
-                  onClick={handleShuffleStatus}
-                  disabled={isShuffling}
-                  className="bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
-                </button>
-                <button
-                  onClick={() => navigate("status_wall")}
-                  className="bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2"
-                >
-                  <i className="fa-solid fa-pen-nib"></i> 發布我的動態
-                </button>
-              </div>
-            }
-          />
-
-          <div
-            className={`flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible custom-scrollbar transition-opacity duration-200 ${isShuffling ? "opacity-0" : "opacity-100"}`}
-          >
-            {activeStatuses.map((v) => (
-              <div
-                key={v.id}
-                onClick={() => {
-                  setSelectedVTuber(v);
-                  navigate(`profile/${v.id}`);
-                }}
-                className="flex-shrink-0 w-[75vw] sm:w-auto snap-center bg-[#181B25] border border-[#F59E0B]/25 hover:border-[#F59E0B]/50 rounded-2xl p-5 cursor-pointer transition-colors shadow-sm group flex flex-col gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <img
-                      src={sanitizeUrl(v.avatar)}
-                      className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D]"
-                    />
-                    <div className="absolute -bottom-1 -right-1 bg-[#F59E0B] w-4 h-4 rounded-full border border-[#0F111A] flex items-center justify-center">
-                      <i className="fa-solid fa-bolt text-[8px] text-white"></i>
-                    </div>
-                  </div>
-                  <div className="min-w-0 flex-1 text-left">
-                    <h4 className="text-[#F8FAFC] font-bold truncate text-sm group-hover:text-[#FBBF24] transition-colors">
-                      {v.name}
-                    </h4>
-                    <p className="text-[10px] text-[#94A3B8]">{formatRelativeTime(v.statusMessageUpdatedAt)}</p>
-                  </div>
-                </div>
-                <div className="bg-[#11131C] rounded-xl p-4 border border-[#2A2F3D] flex-1 text-left relative overflow-hidden">
-                  <i className="fa-solid fa-quote-left absolute top-2 right-2 text-2xl text-[#F59E0B]/10"></i>
-                  <p className="text-sm text-[#F8FAFC] line-clamp-3 leading-relaxed relative z-10 font-medium">
-                    {v.statusMessage}
-                  </p>
-                </div>
-              </div>
-            ))}
-            <div className="flex-shrink-0 w-[60vw] sm:hidden">
-              <MobileMoreCard
-                onClick={() => navigate("status_wall")}
-                icon="fa-bolt"
-                text="觀看更多動態"
-                subText="前往 24H 動態牆"
-              />
-            </div>
-          </div>
-
-          <div className="mt-2 sm:hidden flex gap-3 justify-center">
-            <button
-              onClick={handleShuffleStatus}
-              disabled={isShuffling}
-              className="flex-1 bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white border border-[#2A2F3D] px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <i className={`fa-solid fa-rotate-right ${isShuffling ? "animate-spin text-[#F59E0B]" : ""}`}></i> 換一批
-            </button>
-            <button
-              onClick={() => navigate("status_wall")}
-              className="flex-1 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 px-4 py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <i className="fa-solid fa-pen-nib"></i> 發布動態
-            </button>
-          </div>
-        </div>
-      )}
-
-      <p className="text-xs text-[#64748B] text-center font-medium tracking-widest mt-12">
-        本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa
-      </p>
     </section>
   );
 };
@@ -4545,6 +4760,8 @@ const AdminPage = ({
       personalityType: isOtherP ? "其他" : pType,
       personalityTypeOther: isOtherP ? pType : "",
       colorSchemes: v.colorSchemes || [],
+      creatorRoles: Array.isArray(v.creatorRoles) ? v.creatorRoles : [],
+      creatorPortfolioUrl: v.creatorPortfolioUrl || "",
       isScheduleAnytime: v.isScheduleAnytime || false,
       isScheduleExcept: v.isScheduleExcept || false,
       isScheduleCustom: v.isScheduleCustom || false,
@@ -6177,6 +6394,8 @@ function App() {
     personalityType: "",
     personalityTypeOther: "",
     colorSchemes: [], // 新增色系
+    creatorRoles: [],
+    creatorPortfolioUrl: "",
     isScheduleAnytime: false,
     isScheduleExcept: false,
     isScheduleCustom: false,
@@ -6760,7 +6979,7 @@ function App() {
   useEffect(() => {
     const fetchLargeData = async () => {
       const needsVtuberList = [
-        "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles"
+        "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles", "commissions"
       ].includes(currentView);
 
       if (needsVtuberList) {
@@ -6947,6 +7166,9 @@ function App() {
                 : [],
               colorSchemes: Array.isArray(myPublicData.colorSchemes)
                 ? myPublicData.colorSchemes
+                : [],
+              creatorRoles: Array.isArray(myPublicData.creatorRoles)
+                ? myPublicData.creatorRoles
                 : [],
             }));
           })
@@ -7338,6 +7560,18 @@ function App() {
 
   const dynamicSchedules = useMemo(() => {
     const days = new Set();
+    const preferredOrder = [
+      "隨時可約",
+      "平日",
+      "週末",
+      "星期一",
+      "星期二",
+      "星期三",
+      "星期四",
+      "星期五",
+      "星期六",
+      "星期日",
+    ];
     displayVtubers
       .filter((v) => isVisible(v, user))
       .forEach((v) => {
@@ -7348,7 +7582,9 @@ function App() {
           });
         }
       });
-    return ["All", ...Array.from(days).sort()];
+    const ordered = preferredOrder.filter((d) => days.has(d));
+    const custom = Array.from(days).filter((d) => !preferredOrder.includes(d)).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+    return ["All", ...ordered, ...custom];
   }, [displayVtubers, user]);
 
   const displayBulletins = useMemo(() => {
@@ -8109,6 +8345,20 @@ function App() {
       return showToast("截止時間不能在過去！");
     if (cTime < rEnd) return showToast("⚠️ 聯動時間不能早於招募截止日！");
     if (!myProfile?.isVerified) return showToast("名片審核通過後才能發布喔！");
+
+    // 每位創作者最多同時保留 3 個未截止的揪團企劃。
+    // 第 4 個必須等較早的揪團截止或自行刪除後才能發布。
+    if (!newBulletin.id) {
+      const activeMyBulletins = (realBulletins || []).filter((b) => {
+        if (!b || b.userId !== user.uid) return false;
+        const endTime = Number(b.recruitEndTime || 0);
+        return endTime > Date.now();
+      });
+
+      if (activeMyBulletins.length >= 3) {
+        return showToast("目前最多只能同時發布 3 個揪團企劃，請等其中一個截止或刪除後再發布。");
+      }
+    }
 
     try {
       showToast("⏳ 正在處理中...");
@@ -9361,7 +9611,7 @@ function App() {
                               }}
                               className="text-xs text-[#A78BFA] font-bold hover:text-[#C4B5FD] w-full py-1"
                             >
-                              前往專屬信箱查看完整通知{" "}
+                              打開我的信箱查看完整通知{" "}
                               <i className="fa-solid fa-arrow-right ml-1"></i>
                             </button>
                           </div>
@@ -9458,20 +9708,15 @@ function App() {
               >
                 <i className="fa-solid fa-broadcast-tower"></i> 確定聯動
               </button>
-              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-[#38BDF8] border-b-2 border-[#38BDF8]' : 'text-[#38BDF8]/70 hover:text-[#38BDF8]'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {user && (
                 <button
-                  onClick={() => navigate("inbox")}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "inbox" ? "bg-[#8B5CF6] text-white shadow-sm" : "bg-[#181B25] text-[#CBD5E1] hover:text-white hover:bg-[#1D2130]"}`}
+                  onClick={() => navigate("commissions")}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A] shadow-sm" : "bg-[#181B25] text-[#CBD5E1] hover:text-white hover:bg-[#1D2130]"}`}
                 >
-                  <i className="fa-solid fa-envelope-open-text"></i> 我的信箱
-                  {unreadCount > 0 && (
-                    <span className="bg-[#EF4444] text-white text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                      {unreadCount}
-                    </span>
-                  )}
+                  <i className="fa-solid fa-palette"></i> 繪師/建模師/剪輯師委託專區
                 </button>
               )}
+              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === 'articles' ? 'text-[#38BDF8] border-b-2 border-[#38BDF8]' : 'text-[#38BDF8]/70 hover:text-[#38BDF8]'}`}><i className="fa-solid fa-book-open mr-1"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
             </div>
           </div>
           {isMobileMenuOpen && (
@@ -9517,34 +9762,16 @@ function App() {
               >
                 <i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動
               </button>
-              <button
-                onClick={() => {
-                  if (!isVerifiedUser) {
-                    showToast("請先認證名片解鎖");
-                    navigate("dashboard");
-                  } else navigate("match");
-                }}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "match" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
-              >
-                <i className="fa-solid fa-dice w-5"></i> 聯動隨機配對
-              </button>
-              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-[#38BDF8]' : 'text-[#38BDF8]/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {user && (
                 <button
-                  onClick={() => navigate("inbox")}
-                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center justify-between ${currentView === "inbox" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
+                  onClick={() => navigate("commissions")}
+                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A]" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <i className="fa-solid fa-envelope-open-text w-5"></i>{" "}
-                    我的信箱
-                  </div>
-                  {unreadCount > 0 && (
-                    <span className="bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full">
-                      {unreadCount}
-                    </span>
-                  )}
+                  <i className="fa-solid fa-palette w-5"></i>
+                  繪師/建模師/剪輯師委託專區
                 </button>
               )}
+              <button onClick={() => { if (!isVerifiedUser) { showToast("請先認證名片解鎖此功能"); navigate('dashboard'); } else navigate('articles'); }} className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === 'articles' ? 'bg-blue-900/50 text-[#38BDF8]' : 'text-[#38BDF8]/70 hover:bg-blue-900/30'}`}><i className="fa-solid fa-book-open w-5"></i> Vtuber寶典{!isVerifiedUser && ' 🔒'}</button>
               {isAdmin && (
                 <button onClick={() => navigate('admin')} className={`text-left px-4 py-3 rounded-xl font-bold text-[#EF4444] hover:bg-[#EF4444]/10 flex items-center justify-between`}>
                   <div className="flex items-center gap-3"><i className="fa-solid fa-shield-halved w-5"></i> 系統管理員</div>
@@ -9608,6 +9835,19 @@ function App() {
               onNavigateProfile={handleNotifProfileNav}
               onBraveResponse={handleBraveInviteResponse}
               onOpenChat={handleNotifOpenChat}
+            />
+          )}
+
+          {currentView === "commissions" && (
+            <CommissionPlanningPage
+              navigate={navigate}
+              realVtubers={realVtubers}
+              onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+              onOpenChat={(v) => {
+                if (!user) return showToast("請先登入！");
+                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                setChatTarget(v);
+              }}
             />
           )}
 
@@ -10250,6 +10490,22 @@ function App() {
                             </span>
                           )}
 
+                          {Array.isArray(selectedVTuber.creatorRoles) && selectedVTuber.creatorRoles.length > 0 && (
+                            <>
+                              <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                              <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                {selectedVTuber.creatorRoles.map((role) => (
+                                  <span
+                                    key={role}
+                                    className="inline-flex items-center rounded-full bg-[#38BDF8]/10 text-[#38BDF8] border border-[#38BDF8]/25 px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap"
+                                  >
+                                    {role}
+                                  </span>
+                                ))}
+                              </span>
+                            </>
+                          )}
+
                           {(selectedVTuber.nationalities?.length > 0 || selectedVTuber.nationality) && (
                             <>
                               <span className="w-1 h-1 rounded-full bg-slate-700"></span>
@@ -10495,17 +10751,15 @@ function App() {
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
-                  <p className="text-[#94A3B8] mt-2 text-sm">
-                    在這裡發布您的聯動企劃，或是尋找有興趣的邀請吧！
-                    <span className="text-[#F59E0B] font-bold ml-2">
-                      (注意：揪團時間截止前，發起人必須進入信箱發送正式邀請才算成功)
-                    </span>
+                  <p className="text-[#94A3B8] mt-2 text-xs sm:text-sm leading-relaxed max-w-3xl">
+                    發布揪團、找合適的聯動夥伴。
+                    <span className="text-[#F59E0B] font-bold ml-2">揪團截止前，請到信箱發送正式邀請才算成功。</span>
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="flex flex-row flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
                   <button
                     onClick={() => setIsLeaderboardModalOpen(true)}
-                    className="bg-[#D97706] hover:bg-[#F59E0B] text-[#0F111A] px-5 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-transform"
+                    className="bg-[#D97706] hover:bg-[#F59E0B] text-[#0F111A] px-4 sm:px-5 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap"
                   >
                     <i className="fa-solid fa-trophy mr-2"></i>揪團成功排行榜
                   </button>
@@ -10525,7 +10779,7 @@ function App() {
                       }
                       setIsBulletinFormOpen(!isBulletinFormOpen);
                     }}
-                    className={`${isBulletinFormOpen ? "bg-[#1D2130]" : "bg-gradient-to-r from-purple-600 to-pink-600"} text-white px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-all`}
+                    className={`${isBulletinFormOpen ? "bg-[#1D2130]" : "bg-[#8B5CF6] hover:bg-[#7C3AED]"} text-white px-4 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap`}
                   >
                     <i
                       className={`fa-solid ${isBulletinFormOpen ? "fa-chevron-up" : "fa-pen-nib"} mr-2`}
@@ -10570,8 +10824,8 @@ function App() {
                         className={inputCls + " resize-none"}
                       />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <div>
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-5">
+                      <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                           聯動類型 <span className="text-[#EF4444]">*</span>
                         </label>
@@ -10608,7 +10862,7 @@ function App() {
                           />
                         )}
                       </div>
-                      <div>
+                      <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                           預估人數 <span className="text-[#EF4444]">*</span>
                         </label>
@@ -10632,7 +10886,7 @@ function App() {
                           )}
                         </select>
                       </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                           預計聯動時間 <span className="text-[#EF4444]">*</span>
                         </label>
@@ -10648,7 +10902,7 @@ function App() {
                           className={inputCls}
                         />
                       </div>
-                      <div>
+                      <div className="md:col-span-2">
                         <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
                           揪團截止時間 <span className="text-[#EF4444]">*</span>
                         </label>
@@ -11295,11 +11549,11 @@ function App() {
               {/* 發布限動彈窗：無特效，降低卡頓 */}
               {isStoryComposerOpen && (
                 <div
-                  className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70"
+                  className="fixed inset-0 z-[9999] grid place-items-start justify-items-center p-4 pt-6 sm:pt-10 bg-black/70"
                   onClick={() => setIsStoryComposerOpen(false)}
                 >
                   <div
-                    className="w-full max-w-lg bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden"
+                    className="w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="px-5 py-4 border-b border-[#2A2F3D] flex items-center justify-between gap-4">
@@ -11961,7 +12215,7 @@ function App() {
                 </p>
               ) : (
                 <p className="text-[#CBD5E1] text-sm leading-relaxed mb-8 text-left">
-                  很抱歉，目前不開放YT訂閱或TWITCH追隨加起來低於500、尚未出道、長期準備中、一個月以上未有直播活動之Vtuber或經紀人加入，敬請見諒。如果以上你都有達到，那就是你沒有將「V-Nexus審核中」字樣放入你的X或YT簡介內，無法審核成功喔！
+                  很抱歉，目前僅開放YT訂閱或TWITCH追隨加起來高於500、近一個月有直播活動之Vtuber或繪師、建模師、剪輯師則由管理員認定，敬請見諒。如果以上你都有達到，那就是你沒有將「V-Nexus審核中」字樣放入你的X或YT簡介內，無法審核成功喔！
                   <br />
                   <br />
                   請繼續加油！
@@ -12270,10 +12524,11 @@ function App() {
           />
         )}
 
-        <footer className="py-6 border-t border-[#2A2F3D] text-center text-[#64748B] text-sm">
-          <p>
-            © {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。
-          </p>
+        <footer className="py-6 border-t border-[#2A2F3D] text-[#64748B] text-sm">
+          <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1 text-center">
+            <p className="text-xs tracking-wide">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
+            <p>© {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。</p>
+          </div>
         </footer>
       </div>
     </AppContext.Provider>
