@@ -10294,13 +10294,17 @@ function App() {
                             </>
                           )}
 
-                          <span className="hidden sm:inline-flex w-1 h-1 rounded-full bg-slate-700"></span>
+                        </div>
+                      </div>
+
+                      <div className="w-full lg:w-auto lg:self-start flex justify-end">
+                        <div className="inline-flex items-center gap-2 bg-[#11131C]/80 border border-[#2A2F3D] rounded-xl p-1.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               if (isVerifiedUser && selectedVTuber.id !== user?.uid) handleRecommend(selectedVTuber);
                             }}
-                            className="inline-flex items-center gap-1.5 bg-[#22C55E]/10 hover:bg-[#22C55E]/20 text-[#22C55E] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors border border-[#22C55E]/20"
+                            className="inline-flex items-center gap-1.5 bg-[#22C55E]/10 hover:bg-[#22C55E]/20 text-[#22C55E] px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border border-[#22C55E]/20 whitespace-nowrap"
                             title="推薦這張名片"
                           >
                             <i className="fa-solid fa-thumbs-up text-[10px]"></i>
@@ -10312,7 +10316,7 @@ function App() {
                                 e.stopPropagation();
                                 handleInitiateDislike(selectedVTuber);
                               }}
-                              className="inline-flex items-center gap-1.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors border border-[#EF4444]/20"
+                              className="inline-flex items-center gap-1.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 text-[#EF4444] px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors border border-[#EF4444]/20 whitespace-nowrap"
                               title="送出倒讚"
                             >
                               <i className="fa-solid fa-thumbs-down text-[10px]"></i>
@@ -11210,9 +11214,9 @@ function App() {
                   // 2. 延遲 400 毫秒等滾動差不多到了，自動對焦輸入框讓手機跳出鍵盤！
                   setTimeout(() => document.getElementById('story-input')?.focus(), 400);
                 }}
-                className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full font-bold shadow-sm transition-transform flex items-center gap-2 border border-[#FBBF24]/50"
+                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-3 rounded-full font-bold shadow-sm transition-colors flex items-center gap-2 border border-[#FBBF24]/50"
               >
-                <i className="fa-solid fa-arrow-up"></i> 去發布限動！
+                <i className="fa-solid fa-pen"></i> 發布限動
               </button>
 
               {/* 頂部標題與按鈕 */}
@@ -11222,7 +11226,7 @@ function App() {
                     <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 24H 動態牆
                   </h2>
                   <p className="text-[#94A3B8] mt-2 text-sm">
-                    掌握 V 圈最新脈動！這裡顯示所有人 24 小時內的最新動態。
+                    看看誰正在找人、直播中，或想揪團。發布一則簡短動態，讓大家更容易找你互動。
                   </p>
                 </div>
                 {/* (原本在這裡的去頂部按鈕已經刪除，因為我們有浮動按鈕了) */}
@@ -11230,10 +11234,11 @@ function App() {
 
               {/* 🌟 新增：直接在動態牆發布的專屬輸入框 */}
               {isVerifiedUser && myProfile ? (
-                <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border border-[#F59E0B]/40 rounded-xl p-5 mb-8 shadow-inner">
-                  <h3 className="text-orange-300 font-bold mb-3 flex items-center gap-2">
-                    <i className="fa-solid fa-stopwatch"></i> 發布我的 24H 限時動態
+                <div className="bg-[#181B25] border border-[#F59E0B]/30 rounded-2xl p-5 mb-6 shadow-sm">
+                  <h3 className="text-orange-300 font-bold mb-1 flex items-center gap-2">
+                    <i className="fa-solid fa-stopwatch"></i> 讓大家知道你現在想做什麼
                   </h3>
+                  <p className="text-[#94A3B8] text-xs mb-4">一句話就好：想揪團、找練習、開台中，都可以讓其他創作者更快看到你。</p>
                   <form onSubmit={handlePostStory} className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1 flex flex-col">
                       <input
@@ -11293,6 +11298,80 @@ function App() {
                 </div>
               )}
 
+              {/* 限動快速列：像社群動態一樣一眼看出誰有發布 */}
+              <div className="mb-6 bg-[#181B25]/70 border border-[#2A2F3D] rounded-2xl p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[#F8FAFC] text-sm font-bold">現在誰有動態？</p>
+                    <p className="text-[#94A3B8] text-xs mt-0.5">點頭像可直接查看名片，橘圈代表限動、紅圈代表直播中。</p>
+                  </div>
+                  {isVerifiedUser && (
+                    <button
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => document.getElementById('story-input')?.focus(), 350);
+                      }}
+                      className="hidden sm:inline-flex items-center gap-1.5 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/25 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                    >
+                      <i className="fa-solid fa-plus"></i> 我也要發
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                  {isVerifiedUser && myProfile && (
+                    <button
+                      onClick={() => document.getElementById('story-input')?.focus()}
+                      className="flex-shrink-0 w-20 text-center group"
+                    >
+                      <div className="w-16 h-16 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
+                        <i className="fa-solid fa-plus"></i>
+                      </div>
+                      <p className="text-[11px] text-[#F8FAFC] mt-2 truncate">發布動態</p>
+                    </button>
+                  )}
+                  {(() => {
+                    const now = Date.now();
+                    const activeStoryUsers = [...realVtubers]
+                      .filter((v) => {
+                        if (!v.isVerified || v.isBlacklisted || v.activityStatus === "sleep" || v.activityStatus === "graduated" || String(v.id || "").startsWith("mock") || !v.statusMessage || !v.statusMessageUpdatedAt) return false;
+                        const isLiveMsg = v.statusMessage.includes('🔴');
+                        const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+                        return now - v.statusMessageUpdatedAt < expireLimit;
+                      })
+                      .sort((a, b) => b.statusMessageUpdatedAt - a.statusMessageUpdatedAt)
+                      .slice(0, 16);
+
+                    if (activeStoryUsers.length === 0) {
+                      return (
+                        <div className="flex items-center text-[#94A3B8] text-sm py-4">
+                          還沒有人發動態，成為第一個讓大家看到的人吧。
+                        </div>
+                      );
+                    }
+
+                    return activeStoryUsers.map((v) => {
+                      const isLiveMsg = v.statusMessage.includes('🔴');
+                      return (
+                        <button
+                          key={`story-ring-${v.id}`}
+                          onClick={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                          className="flex-shrink-0 w-20 text-center group"
+                          title={v.statusMessage}
+                        >
+                          <div className={`w-16 h-16 mx-auto rounded-full p-[2px] ${isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]'}`}>
+                            <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
+                              <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-[#F8FAFC] mt-2 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
+                          <p className="text-[10px] text-[#94A3B8] truncate">{isLiveMsg ? '直播中' : '限動'}</p>
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
               {/* 動態列表 (垂直排列，依時間排序) */}
               <div className="flex flex-col gap-6 pb-28">
                 {(() => {
@@ -11313,11 +11392,20 @@ function App() {
 
                   if (allActiveStatuses.length === 0) {
                     return (
-                      <div className="text-center py-20 bg-[#181B25]/30 rounded-2xl border border-[#2A2F3D]">
-                        <p className="text-[#64748B] font-bold text-lg">
-                          <i className="fa-solid fa-ghost mb-4 text-4xl block"></i>
-                          目前還沒有創作者發布限時動態。
-                        </p>
+                      <div className="text-center py-16 bg-[#181B25]/70 rounded-2xl border border-[#2A2F3D] px-5">
+                        <div className="w-16 h-16 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] mx-auto mb-4 flex items-center justify-center">
+                          <i className="fa-solid fa-comment-dots text-2xl"></i>
+                        </div>
+                        <p className="text-[#F8FAFC] font-bold text-lg">還沒有 24H 限時動態</p>
+                        <p className="text-[#94A3B8] text-sm mt-2 mb-5">想找人直播、揪團或分享近況嗎？發布一句話，讓大家更容易看見你。</p>
+                        {isVerifiedUser && (
+                          <button
+                            onClick={() => document.getElementById('story-input')?.focus()}
+                            className="bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-xl text-sm font-bold transition-colors"
+                          >
+                            發布第一則限動
+                          </button>
+                        )}
                       </div>
                     );
                   }
@@ -11451,7 +11539,7 @@ function App() {
                         </div>
 
                         {/* 中間：動態訊息 */}
-                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full mb-4 ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-[#EF4444]/50 shadow-inner' : 'bg-gradient-to-br from-orange-500/10 to-red-500/10 border-[#F59E0B]/20'}`}>
+                        <div className={`rounded-2xl p-4 sm:p-5 border flex-1 text-left relative overflow-hidden w-full mb-4 ${isLiveMsg ? 'bg-gradient-to-br from-red-600 to-red-900 border-[#EF4444]/50 shadow-inner' : 'bg-[#1D2130] border-[#F59E0B]/25'}`}>
                           <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish text-[#EF4444]/20' : 'fa-quote-left text-[#F59E0B]/10'} absolute top-2 right-2 text-4xl`}></i>
                           <p className={`text-sm sm:text-base leading-relaxed relative z-10 whitespace-pre-wrap ${isLiveMsg ? 'text-white font-bold tracking-wide' : 'text-orange-100 font-medium'}`}>
                             {v.statusMessage}
