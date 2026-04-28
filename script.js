@@ -174,6 +174,66 @@ const getRoomPath = (roomId) =>
 const getMsgPath = (roomId) =>
   `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
 
+
+const initVnexusImageLoadingUX = (() => {
+  let initialized = false;
+  return () => {
+    if (initialized || typeof document === "undefined") return;
+    initialized = true;
+
+    if (!document.getElementById("vnexus-image-loading-style")) {
+      const style = document.createElement("style");
+      style.id = "vnexus-image-loading-style";
+      style.textContent = `
+        @keyframes vnexusImageShimmer {
+          0% { background-position: 120% 0; }
+          100% { background-position: -120% 0; }
+        }
+        .vnexus-image-skeleton {
+          background-color: #1D2130;
+          background-image: linear-gradient(110deg, #1D2130 0%, #242A3A 18%, #334155 32%, #242A3A 46%, #1D2130 64%);
+          background-size: 220% 100%;
+          animation: vnexusImageShimmer 1.05s ease-in-out infinite;
+        }
+        img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
+          background-color: #1D2130;
+          background-image: linear-gradient(110deg, #1D2130 0%, #242A3A 18%, #334155 32%, #242A3A 46%, #1D2130 64%);
+          background-size: 220% 100%;
+          animation: vnexusImageShimmer 1.05s ease-in-out infinite;
+        }
+        img.vnexus-image-error {
+          opacity: 0 !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .vnexus-image-skeleton,
+          img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
+            animation: none !important;
+            background-image: none !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.addEventListener("load", (event) => {
+      const target = event.target;
+      if (target && target.tagName === "IMG") {
+        target.classList.add("vnexus-image-loaded");
+        target.classList.remove("vnexus-image-error");
+      }
+    }, true);
+
+    document.addEventListener("error", (event) => {
+      const target = event.target;
+      if (target && target.tagName === "IMG") {
+        target.classList.add("vnexus-image-error");
+      }
+    }, true);
+  };
+})();
+
+initVnexusImageLoadingUX();
+
 const LazyImage = ({
   src,
   containerCls = "",
@@ -184,20 +244,28 @@ const LazyImage = ({
   const [loaded, setLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底，避免畫面出現 ERROR 感。
+  // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
+  // 圖片載入中加上更明顯的深色 shimmer，讓使用者知道畫面正在載入，而不是卡住。
   return (
     <div
       onClick={onClick}
-      className={`overflow-hidden bg-[#1D2130] ${containerCls}`}
+      className={`relative overflow-hidden bg-[#1D2130] ${containerCls}`}
       aria-label={alt || "圖片"}
     >
+      {!loaded && !hasError && (
+        <div className="absolute inset-0 vnexus-image-skeleton z-0" aria-hidden="true"></div>
+      )}
       {src && !hasError && (
         <img
           src={src}
           alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-150 ease-out ${loaded ? "opacity-100" : "opacity-0"} ${imgCls}`}
-          onLoad={() => setLoaded(true)}
-          onError={() => {
+          className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100 vnexus-image-loaded" : "opacity-0"} ${imgCls}`}
+          onLoad={(e) => {
+            e.currentTarget.classList.add("vnexus-image-loaded");
+            setLoaded(true);
+          }}
+          onError={(e) => {
+            e.currentTarget.classList.add("vnexus-image-error");
             setHasError(true);
             setLoaded(true);
           }}
@@ -917,6 +985,19 @@ const parseSubscribers = (v) => {
     parseStr(v.youtubeSubscribers || v.subscribers) +
     parseStr(v.twitchFollowers)
   );
+};
+
+
+const formatSocialCount = (value) => {
+  if (value === null || value === undefined || value === "") return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (/萬|K|M/i.test(raw)) return raw;
+  const num = Number(raw.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(num) || num <= 0) return raw;
+  if (num >= 10000) return `${(num / 10000).toFixed(1).replace(".0", "")}萬`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1).replace(".0", "")}K`;
+  return num.toLocaleString("zh-TW");
 };
 
 const calculateCompatibility = (me, target) => {
@@ -3650,6 +3731,60 @@ const HomePage = ({
             <p className="text-[#94A3B8] text-sm leading-relaxed">
               管理名片、填上聯動偏好，再去看看最近有哪些創作者正在找企劃夥伴。
             </p>
+
+            <div className="mt-5 bg-[#11131C] border border-[#2A2F3D] rounded-xl p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-[#F8FAFC] text-sm font-bold">現在誰有動態？</p>
+                  <p className="text-[#94A3B8] text-[11px] mt-0.5">橘圈是限動、紅圈是直播中，點頭像直接看名片。</p>
+                </div>
+                <button
+                  onClick={() => navigate("status_wall")}
+                  className="flex-shrink-0 text-[11px] font-bold text-[#F59E0B] hover:text-[#FBBF24] transition-colors whitespace-nowrap"
+                >
+                  看全部
+                </button>
+              </div>
+
+              {activeStatuses.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-1">
+                  {activeStatuses.map((v) => {
+                    const isLiveMsg = String(v.statusMessage || "").includes("🔴");
+                    return (
+                      <button
+                        key={`home-story-${v.id}`}
+                        onClick={() => {
+                          setSelectedVTuber(v);
+                          navigate(`profile/${v.id}`);
+                        }}
+                        className="flex-shrink-0 w-14 text-center group"
+                        title={v.statusMessage}
+                      >
+                        <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
+                          <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
+                            <img
+                              src={sanitizeUrl(v.avatar)}
+                              className="w-full h-full rounded-full object-cover bg-[#1D2130]"
+                              onError={(e) => { e.currentTarget.style.display = "none"; }}
+                              alt={v.name || "VTuber"}
+                            />
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <button
+                  onClick={() => navigate("status_wall")}
+                  className="w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors"
+                >
+                  <p className="text-[#F8FAFC] text-sm font-bold">還沒有人發動態</p>
+                  <p className="text-[#94A3B8] text-xs mt-1">去 24H 動態牆發一句話，讓大家更容易看見你。</p>
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-3 mt-6">
             <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-4 py-3">
@@ -10021,6 +10156,11 @@ function App() {
                               title="YouTube">
                               <i className="fa-brands fa-youtube text-base"></i>
                               <span className="hidden sm:inline">YouTube</span>
+                              {formatSocialCount(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers) && (
+                                <span className="text-[11px] text-[#FCA5A5] font-semibold border-l border-[#EF4444]/25 pl-1.5">
+                                  {formatSocialCount(selectedVTuber.youtubeSubscribers || selectedVTuber.subscribers)}
+                                </span>
+                              )}
                             </a>
                           )}
                           {(selectedVTuber.twitchUrl || selectedVTuber.twitchFollowers) && (
@@ -10029,6 +10169,11 @@ function App() {
                               title="Twitch">
                               <i className="fa-brands fa-twitch text-base"></i>
                               <span className="hidden sm:inline">Twitch</span>
+                              {formatSocialCount(selectedVTuber.twitchFollowers) && (
+                                <span className="text-[11px] text-[#C4B5FD] font-semibold border-l border-[#8B5CF6]/25 pl-1.5">
+                                  {formatSocialCount(selectedVTuber.twitchFollowers)}
+                                </span>
+                              )}
                             </a>
                           )}
                           {selectedVTuber.xUrl && (
