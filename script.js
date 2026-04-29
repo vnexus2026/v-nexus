@@ -5466,7 +5466,9 @@ const AdminPage = ({
         "sendSystemEmail",
       );
 
+      const authToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
       await sendSystemEmail({
+        authToken,
         to: testEmail,
         subject: "[V-Nexus] 公開工商信箱驗證碼測試",
         text: `您好，您的驗證碼是：123456\n請回到 V-Nexus 網頁輸入此 6 位數驗證碼以完成信箱綁定。`,
@@ -5890,7 +5892,7 @@ const AdminPage = ({
                 ))}
               </div>
 
-              {/* 🌟 系統通知信：發送給全站 VTuber */}
+              {/* 🌟 系統通知信：發送給全站使用者 */}
               <div className="border-t border-[#2A2F3D] pt-6 mt-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -5899,7 +5901,7 @@ const AdminPage = ({
                       發送全站系統通知信
                     </h3>
                     <p className="text-sm text-[#94A3B8] mt-1">
-                      將由後端伺服器寄送給所有填寫過信箱的創作者。
+                      將由後端寄送給全站有 Email 的使用者；創作者優先使用名片信箱，未填寫則使用登入信箱。
                     </p>
                   </div>
                   <button
@@ -5907,8 +5909,10 @@ const AdminPage = ({
                       setIsTestEmailSending(true);
                       try {
                         const fn = httpsCallable(functionsInstance, "sendMassEmail");
+                        const authToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
                         const now = new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
                         const res = await fn({
+                          authToken,
                           subject: "系統測試信",
                           text: `這是一封來自 V-Nexus 後端的測試信！\n\n發送時間（台北時間）：${now}\n\n如果您收到這封信，代表系統通知信功能運作正常。\n\n— V-Nexus 系統`,
                           testOnly: true,  // 告訴後端只寄給管理員自己
@@ -5985,13 +5989,14 @@ const AdminPage = ({
                     onClick={async () => {
                       if (!adminEmailSubject.trim()) return showToast("❌ 請填寫主旨");
                       if (!adminEmailBody.trim()) return showToast("❌ 請填寫內容");
-                      if (!confirm("確定要發送給全站所有創作者嗎？此動作不可逆！")) return;
+                      if (!confirm("確定要發送給全站所有有 Email 的使用者嗎？此動作不可逆！")) return;
 
                       // 🌟 修正：使用 isAdminEmailSending
                       setIsAdminEmailSending(true);
                       try {
                         const fn = httpsCallable(functionsInstance, "sendMassEmail");
-                        const res = await fn({ subject: adminEmailSubject.trim(), text: adminEmailBody.trim() });
+                        const authToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
+                        const res = await fn({ authToken, subject: adminEmailSubject.trim(), text: adminEmailBody.trim() });
                         if (res.data?.success) {
                           showToast(`✅ ${res.data.message}`);
                           setAdminEmailSubject("");
@@ -6012,7 +6017,7 @@ const AdminPage = ({
                   >
                     {isAdminEmailSending
                       ? <><i className="fa-solid fa-circle-notch animate-spin"></i><span>發送中，請勿關閉視窗...</span></>
-                      : <><i className="fa-solid fa-paper-plane"></i><span>發送給全站創作者</span></>
+                      : <><i className="fa-solid fa-paper-plane"></i><span>發送給全站使用者</span></>
                     }
                   </button>
                 </div>
@@ -10078,7 +10083,9 @@ function App() {
 
     try {
       const fn = httpsCallable(functionsInstance, "sendMassEmail");
+      const authToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
       const res = await fn({
+        authToken,
         subject: subject.trim(),
         text: content.trim(),
         testOnly: false,
