@@ -4089,19 +4089,23 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const isApplying = user && applicants.includes(user.uid);
               const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
               return (
-                <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors">
+                <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-4">
                     <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
                       {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
                     </button>
                     <div className="min-w-0 flex-1">
                       <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
-                      <h3 className="text-white text-xl font-extrabold leading-tight line-clamp-2">{r.title || "未命名需求"}</h3>
-                      <p className="text-xs text-[#94A3B8] mt-1">發案者：<span className="text-white font-bold">{author?.name || "匿名創作者"}</span></p>
-                    </div>
-                    <div className="text-right text-xs text-[#94A3B8] flex-shrink-0">
-                      <p>預算</p>
-                      <p className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</p>
+                      <h3 className="text-white text-xl font-extrabold leading-tight line-clamp-2 w-full break-words">{r.title || "未命名需求"}</h3>
+                      <p className="text-xs text-[#94A3B8] mt-1">
+                        發案者：{author ? (
+                          <button type="button" onClick={() => openProfile(author)} className="text-white font-bold hover:text-[#A78BFA] hover:underline underline-offset-4 transition-colors">
+                            {author.name || "匿名創作者"}
+                          </button>
+                        ) : (
+                          <span className="text-white font-bold">匿名創作者</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4">{r.description}</p>
@@ -4111,11 +4115,13 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   </div>
                   <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
                     <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
+                    <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
                     <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
                   </div>
-                  <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <p className="text-xs font-extrabold text-[#CBD5E1]">接案人提案名單</p>
+                  <div className="mt-auto">
+                    <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="text-xs font-extrabold text-[#CBD5E1]">提案人名單</p>
                       <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -4130,10 +4136,11 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                       <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-4 py-2.5 rounded-xl font-bold text-sm">看參考資料</button>}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-4 py-2.5 rounded-xl font-bold text-sm">看參考資料</button>}
                     {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-4 py-2.5 rounded-xl font-bold text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
-                    {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 py-2.5 rounded-xl font-bold text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-4 py-2.5 rounded-xl font-bold text-sm">刪除委託（停止收案）</button></>}
+                      {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 py-2.5 rounded-xl font-bold text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-4 py-2.5 rounded-xl font-bold text-sm">刪除委託（停止收案）</button></>}
+                    </div>
                   </div>
                 </article>
               );
