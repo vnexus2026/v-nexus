@@ -4010,14 +4010,14 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 </div>
                 <div className="p-5 flex-1 flex flex-col">
                   <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {displayStyles.slice(0, 6).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
-                    {displayStyles.length > 6 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black">+{displayStyles.length - 6}</span>}
-                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold">尚未填寫風格</span>}
+                  <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                    {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
+                    {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
+                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                   </div>
-                  <div className="mt-auto grid grid-cols-2 gap-3">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 rounded-xl font-bold transition-colors text-sm">私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 rounded-xl font-bold transition-colors text-sm`}>觀看作品集</button>
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2 rounded-lg font-bold transition-colors text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-2 rounded-lg font-bold transition-colors text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                   </div>
                 </div>
               </article>;
