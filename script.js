@@ -8423,22 +8423,31 @@ function App() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
+  const scrollVtuberGridToTop = () => {
+    const target = document.getElementById("vtuber-partner-page-top");
+    const getTargetTop = () => {
+      if (!target) return 0;
+      return Math.max(0, target.getBoundingClientRect().top + window.scrollY - 88);
+    };
+    const doScroll = () => {
+      const top = getTargetTop();
+      window.scrollTo({ top, behavior: "auto" });
+
+      // iOS Safari / 部分手機瀏覽器補強，避免切頁後停在原本的頁面底部。
+      if (document.body) document.body.scrollTop = top;
+      if (document.documentElement) document.documentElement.scrollTop = top;
+    };
+
+    requestAnimationFrame(() => {
+      doScroll();
+      setTimeout(doScroll, 80);
+    });
+  };
+
   const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
       setCurrentPage(newPage);
-
-      // 解決手機版無法跳回頂部的問題
-      setTimeout(() => {
-        // 1. 執行標準滾動
-        window.scrollTo({ top: 0, behavior: "auto" });
-
-        // 2. 針對部分手機瀏覽器 (如 iOS Safari) 的強制補強
-        document.body.scrollTop = 0; // 針對舊版 Chrome/Safari
-        document.documentElement.scrollTop = 0; // 針對 Firefox/IE/新版 Chrome
-
-        // 3. 如果你有導航欄遮擋問題，可以滾動到稍微靠下的位置 (選配)
-        // window.scrollTo(0, 0);
-      }, 50); // 50 毫秒的延遲足以讓手機完成畫面切換
+      scrollVtuberGridToTop();
     }
   };
 
@@ -10630,7 +10639,7 @@ function App() {
           )}
 
           {currentView === "grid" && (
-            <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
+            <div id="vtuber-partner-page-top" className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
               <aside
                 className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
               >
