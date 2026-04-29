@@ -3818,6 +3818,24 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const requestStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const COMMISSION_PAGE_SIZE = 12;
   const REQUEST_PAGE_SIZE = 12;
+  const commissionTopRef = useRef(null);
+
+  const scrollCommissionPageTop = () => {
+    const top = commissionTopRef.current
+      ? commissionTopRef.current.getBoundingClientRect().top + window.pageYOffset - 88
+      : 0;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
+
+  const goCommissionCreatorPage = (nextPage) => {
+    setCommissionPage(Math.max(1, Math.min(totalCommissionPages, nextPage)));
+    setTimeout(scrollCommissionPageTop, 0);
+  };
+
+  const goCommissionRequestPage = (nextPage) => {
+    setRequestPage(Math.max(1, Math.min(totalRequestPages, nextPage)));
+    setTimeout(scrollCommissionPageTop, 0);
+  };
 
   const getCommissionShuffleWeight = (id, seed) => {
     const text = `${id || "creator"}_${seed || 0}`;
@@ -3899,7 +3917,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
       <div className="mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm">
         <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
@@ -3958,8 +3976,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           </div>
         </div>
         {creatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p><p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p><button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">去補上身份</button></div> : filteredCreatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前沒有符合篩選條件的創作者</p><p className="text-[#94A3B8] text-sm">可以切換身份或創作風格 / 類型，之後也可以再回來看看新的委託名片。</p></div> : <>
-          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-[#94A3B8]">
-            <p className="font-bold"><i className="fa-solid fa-border-all text-[#38BDF8] mr-2"></i>作品牆模式：點作品卡可查看完整名片與服務資訊</p>
+          <div className="mb-4 flex items-center justify-end gap-2 text-sm text-[#94A3B8]">
             <p className="text-xs">目前顯示 {pagedCreatorList.length} 位 / 共 {filteredCreatorList.length} 位創作者</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
@@ -4007,7 +4024,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             })}
           </div>
 
-          {filteredCreatorList.length > COMMISSION_PAGE_SIZE && <div className="mt-8 flex items-center justify-center gap-3"><button onClick={() => setCommissionPage((p) => Math.max(1, p - 1))} disabled={safeCommissionPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button><span className="text-[#94A3B8] text-sm font-bold">第 {safeCommissionPage} / {totalCommissionPages} 頁</span><button onClick={() => setCommissionPage((p) => Math.min(totalCommissionPages, p + 1))} disabled={safeCommissionPage === totalCommissionPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === totalCommissionPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button></div>}
+          {filteredCreatorList.length > COMMISSION_PAGE_SIZE && <div className="mt-8 flex items-center justify-center gap-3"><button onClick={() => goCommissionCreatorPage(safeCommissionPage - 1)} disabled={safeCommissionPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button><span className="text-[#94A3B8] text-sm font-bold">第 {safeCommissionPage} / {totalCommissionPages} 頁</span><button onClick={() => goCommissionCreatorPage(safeCommissionPage + 1)} disabled={safeCommissionPage === totalCommissionPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === totalCommissionPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button></div>}
         </>}
       </>}
 
@@ -4173,9 +4190,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           </div>
           {filteredRequests.length > REQUEST_PAGE_SIZE && (
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <button onClick={() => setRequestPage((p) => Math.max(1, p - 1))} disabled={safeRequestPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button>
+              <button onClick={() => goCommissionRequestPage(safeRequestPage - 1)} disabled={safeRequestPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button>
               <span className="text-[#94A3B8] text-sm font-bold">第 {safeRequestPage} / {totalRequestPages} 頁</span>
-              <button onClick={() => setRequestPage((p) => Math.min(totalRequestPages, p + 1))} disabled={safeRequestPage === totalRequestPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button>
+              <button onClick={() => goCommissionRequestPage(safeRequestPage + 1)} disabled={safeRequestPage === totalRequestPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button>
             </div>
           )}
           </>
