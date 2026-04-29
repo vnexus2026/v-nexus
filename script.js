@@ -4109,36 +4109,38 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     </div>
                   </div>
                   <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4">{r.description}</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {displayStyles.slice(0, 6).map((s) => <span key={s} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{s}</span>)}
-                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
-                  </div>
-                  <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
-                    <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
-                    <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
-                    <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
-                  </div>
-                  <div className="mt-auto">
+                  <div className="mt-auto flex flex-col">
+                    <div className="pt-3 border-t border-[#2A2F3D]/70">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {displayStyles.slice(0, 6).map((s) => <span key={s} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{s}</span>)}
+                        {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
+                      </div>
+                      <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
+                        <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
+                        <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
+                        <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
+                      </div>
+                    </div>
                     <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
                       <div className="flex items-center justify-between gap-3 mb-2">
-                      <p className="text-xs font-extrabold text-[#CBD5E1]">提案人名單</p>
-                      <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex -space-x-2">
-                        {applicantProfiles.slice(0, 5).map((a) => (
-                          <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                            {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
-                          </button>
-                        ))}
-                        {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
+                        <p className="text-xs font-extrabold text-[#CBD5E1]">提案人名單</p>
+                        <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
                       </div>
-                      <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-2">
+                          {applicantProfiles.slice(0, 5).map((a) => (
+                            <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
+                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                            </button>
+                          ))}
+                          {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
+                        </div>
+                        <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
+                      </div>
                     </div>
-                  </div>
                     <div className="flex flex-col sm:flex-row gap-2">
                       {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-4 py-2.5 rounded-xl font-bold text-sm">看參考資料</button>}
-                    {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-4 py-2.5 rounded-xl font-bold text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
+                      {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-4 py-2.5 rounded-xl font-bold text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
                       {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 py-2.5 rounded-xl font-bold text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-4 py-2.5 rounded-xl font-bold text-sm">刪除委託（停止收案）</button></>}
                     </div>
                   </div>
