@@ -1032,6 +1032,82 @@ const formatSocialCount = (value) => {
   return num.toLocaleString("zh-TW");
 };
 
+const normalizeProfileList = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+};
+
+const getSharedProfileItems = (a, b) => {
+  const source = normalizeProfileList(a);
+  const targetSet = new Set(normalizeProfileList(b));
+  return Array.from(new Set(source.filter((item) => targetSet.has(item))));
+};
+
+const formatInterestPhrase = (interest) => {
+  const text = String(interest || "").trim();
+  if (!text) return "相似的內容";
+
+  const gameLikeKeywords = [
+    "APEX", "Apex", "apex", "瓦羅蘭", "VALORANT", "Valorant", "LOL", "英雄聯盟",
+    "Minecraft", "麥塊", "FPS", "合作遊戲", "遊戲"
+  ];
+
+  if (gameLikeKeywords.some((keyword) => text.includes(keyword))) {
+    return `打${text}`;
+  }
+  if (text.includes("歌") || text.includes("雜談") || text.includes("企劃")) {
+    return `做${text}`;
+  }
+  return text;
+};
+
+const buildCompatibilityInsight = (me, target) => {
+  if (!me) return "登入並完成名片後，AI 會依你的喜好自動判斷";
+
+  const sharedCollabs = getSharedProfileItems(me.collabTypes, target.collabTypes);
+  if (sharedCollabs.length > 0) {
+    return `你們都喜歡${formatInterestPhrase(sharedCollabs[0])}`;
+  }
+
+  const sharedTags = getSharedProfileItems(me.tags, target.tags);
+  if (sharedTags.length > 0) {
+    return `你們都有「${sharedTags[0]}」相關標籤`;
+  }
+
+  const sharedLanguages = getSharedProfileItems(me.languages, target.languages);
+  if (sharedLanguages.length > 0) {
+    return `你們都能使用${sharedLanguages[0]}交流`;
+  }
+
+  const myScheduleDays = getSharedProfileItems(
+    normalizeProfileList(me.scheduleSlots?.map?.((slot) => slot?.day)),
+    normalizeProfileList(target.scheduleSlots?.map?.((slot) => slot?.day)),
+  );
+  if (myScheduleDays.length > 0) {
+    return `你們在${myScheduleDays[0]}都有機會約聯動`;
+  }
+
+  if (me.streamingStyle && target.streamingStyle && me.streamingStyle === target.streamingStyle) {
+    return `你們的直播風格都偏向${me.streamingStyle}`;
+  }
+
+  if (me.personalityType && target.personalityType) {
+    if (me.personalityType === target.personalityType) {
+      return `你們個性設定接近，都是${me.personalityType}`;
+    }
+    return "你們個性互補，適合嘗試不同節奏的企劃";
+  }
+
+  const sharedColors = getSharedProfileItems(me.colorSchemes, target.colorSchemes);
+  if (sharedColors.length > 0) {
+    return `你們的代表色系都包含${sharedColors[0]}`;
+  }
+
+  return "你們的內容方向有合作潛力";
+};
+
 const calculateCompatibility = (me, target) => {
   // 如果未登入或沒有名片，給予 60~89% 的隨機分數吸引註冊
   if (!me) return Math.floor(Math.random() * 30) + 60;
@@ -1039,25 +1115,25 @@ const calculateCompatibility = (me, target) => {
   let score = 50; // 基礎分數 50%
 
   // 1. 聯動類型相同 (每個加 12 分)
-  const myCollabs = me.collabTypes || [];
-  const targetCollabs = target.collabTypes || [];
-  const sharedCollabs = myCollabs.filter(c => targetCollabs.includes(c));
+  const sharedCollabs = getSharedProfileItems(me.collabTypes, target.collabTypes);
   score += sharedCollabs.length * 12;
 
   // 2. 內容標籤相同 (每個加 6 分)
-  const myTags = me.tags || [];
-  const targetTags = target.tags || [];
-  const sharedTags = myTags.filter(t => targetTags.includes(t));
+  const sharedTags = getSharedProfileItems(me.tags, target.tags);
   score += sharedTags.length * 6;
 
-  // 3. 個性互補或相同
+  // 3. 語言相同，較容易約聯動
+  const sharedLanguages = getSharedProfileItems(me.languages, target.languages);
+  score += Math.min(10, sharedLanguages.length * 5);
+
+  // 4. 個性互補或相同
   if (me.personalityType && target.personalityType) {
     if (me.personalityType !== target.personalityType) score += 8; // 互補加分較多
     else score += 4; // 相同也加分
   }
 
-  // 4. 創作型態相同
-  if (me.streamingStyle === target.streamingStyle) score += 5;
+  // 5. 創作型態相同
+  if (me.streamingStyle && me.streamingStyle === target.streamingStyle) score += 5;
 
   return Math.min(99, score); // 最高 99%，保留一點真實感
 };
@@ -1316,6 +1392,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   const { user, realVtubers, onlineUsers } = useContext(AppContext);
   const myProfile = user ? realVtubers.find((item) => item.id === user.uid) : null;
   const compatibilityScore = user && v.id !== user.uid ? calculateCompatibility(myProfile, v) : null;
+  const compatibilityReason = user && v.id !== user.uid ? buildCompatibilityInsight(myProfile, v) : "";
 
   const isLiveMsg = v.statusMessage && v.statusMessage.includes('🔴');
   const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
@@ -1497,13 +1574,15 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
 
           {compatibilityScore !== null && (
             <div className="pt-2">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-bold text-[#F472B6] flex items-center gap-1.5">
-                  <i className="fa-solid fa-heart"></i> 契合度
+              <div className="flex items-center justify-between gap-2 text-xs mb-1.5 min-w-0">
+                <span className="font-extrabold text-[#F472B6] flex items-center gap-1.5 flex-shrink-0">
+                  <i className="fa-solid fa-heart"></i> {compatibilityScore}%
                 </span>
-                <span className="font-extrabold text-[#F8FAFC]">
-                  {compatibilityScore}%
-                </span>
+                {compatibilityReason && (
+                  <span className="ml-auto max-w-[70%] text-right text-[11px] text-[#FBCFE8] bg-[#F472B6]/10 border border-[#F472B6]/20 rounded-full px-2.5 py-1 truncate min-w-0">
+                    {compatibilityReason}
+                  </span>
+                )}
               </div>
               <div className="h-2 rounded-full bg-[#0F111A] border border-[#2A2F3D] overflow-hidden" aria-label={`契合度 ${compatibilityScore}%`}>
                 <div
@@ -3653,6 +3732,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   });
   const [activeRoleFilter, setActiveRoleFilter] = useState("All");
   const [activeCreatorStyleFilter, setActiveCreatorStyleFilter] = useState("All");
+  const [creatorShuffleSeed, setCreatorShuffleSeed] = useState(0);
   const [commissionPage, setCommissionPage] = useState(1);
   const [requests, setRequests] = useState([]);
   const [requestFilter, setRequestFilter] = useState("All");
@@ -3666,6 +3746,16 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const requestStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const COMMISSION_PAGE_SIZE = 10;
   const REQUEST_PAGE_SIZE = 12;
+
+  const getCommissionShuffleWeight = (id, seed) => {
+    const text = `${id || "creator"}_${seed || 0}`;
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967295;
+  };
 
   useEffect(() => { setCommissionPage(1); }, [activeRoleFilter, activeCreatorStyleFilter]);
   useEffect(() => { setRequestPage(1); }, [requestFilter, requestStyleFilter]);
@@ -3683,9 +3773,12 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const styleOk = activeCreatorStyleFilter === "All" || styles.includes(activeCreatorStyleFilter);
     return roleOk && styleOk;
   });
-  const totalCommissionPages = Math.max(1, Math.ceil(filteredCreatorList.length / COMMISSION_PAGE_SIZE));
+  const shuffledCreatorList = creatorShuffleSeed
+    ? [...filteredCreatorList].sort((a, b) => getCommissionShuffleWeight(a.id, creatorShuffleSeed) - getCommissionShuffleWeight(b.id, creatorShuffleSeed))
+    : filteredCreatorList;
+  const totalCommissionPages = Math.max(1, Math.ceil(shuffledCreatorList.length / COMMISSION_PAGE_SIZE));
   const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
-  const pagedCreatorList = filteredCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
+  const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
   const filteredRequests = (requests || []).filter((r) => {
     if (!r || r.status === "closed") return false;
     const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
@@ -3755,18 +3848,31 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       </div>
 
       {activeTab === "creators" && <>
-        <div className="mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5 space-y-4">
-          <div>
-            <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">創作者身份</p>
-            <div className="flex flex-wrap gap-2">
-              {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
+        <div className="mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
+          <div className="flex flex-col xl:flex-row xl:items-end gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">創作者身份</p>
+              <div className="flex flex-wrap gap-2">
+                {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 md:items-center">
-            <label className="text-xs font-bold text-[#94A3B8] tracking-widest uppercase">進階風格篩選</label>
-            <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#38BDF8]">
-              {creatorStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
-            </select>
+            <div className="w-full xl:w-[320px] flex-shrink-0">
+              <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
+              <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#38BDF8]">
+                {creatorStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCreatorShuffleSeed(Date.now());
+                setCommissionPage(1);
+                showToast("🎲 已重新洗牌創作者順序");
+              }}
+              className="w-full xl:w-auto bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-5 py-2.5 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-2"
+            >
+              <i className="fa-solid fa-shuffle"></i>重新洗牌
+            </button>
           </div>
         </div>
         {creatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p><p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p><button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">去補上身份</button></div> : filteredCreatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前沒有符合篩選條件的創作者</p><p className="text-[#94A3B8] text-sm">可以切換身份或創作風格 / 類型，之後也可以再回來看看新的委託名片。</p></div> : <>
@@ -3801,23 +3907,21 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       </>}
 
       {activeTab === "requests" && <div className="space-y-6">
-        <div className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div className="flex-1 min-w-0 space-y-3">
-              <div>
-                <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">主要分類</p>
-                <div className="flex flex-wrap gap-2">
-                  {requestFilters.map((type) => <button key={type} onClick={() => setRequestFilter(type)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${requestFilter === type ? "bg-[#8B5CF6] text-white border-[#8B5CF6]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{type === "All" ? "全部需求" : type}</button>)}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 md:items-center">
-                <label className="text-xs font-bold text-[#94A3B8] tracking-widest uppercase">進階風格篩選</label>
-                <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#8B5CF6]">
-                  {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
-                </select>
+        <div className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
+          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">主要分類</p>
+              <div className="flex flex-wrap gap-2">
+                {requestFilters.map((type) => <button key={type} onClick={() => setRequestFilter(type)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${requestFilter === type ? "bg-[#8B5CF6] text-white border-[#8B5CF6]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{type === "All" ? "全部需求" : type}</button>)}
               </div>
             </div>
-            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
+            <div className="w-full xl:w-[320px] flex-shrink-0">
+              <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
+              <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#8B5CF6]">
+                {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
+              </select>
+            </div>
+            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
           </div>
         </div>
         {isRequestFormOpen && (
@@ -3987,6 +4091,7 @@ const HomePage = ({
   isVerifiedUser,
   onApply,
   onNavigateProfile,
+  onOpenStoryComposer,
 }) => {
   const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
   const [isShuffling, setIsShuffling] = useState(false);
@@ -4316,12 +4421,20 @@ const HomePage = ({
                   <p className="text-[#F8FAFC] text-sm font-bold">現在誰有動態？</p>
                   <p className="text-[#94A3B8] text-[11px] mt-0.5">橘圈是限動、紅圈是直播中，點頭像直接看名片。</p>
                 </div>
-                <button
-                  onClick={() => navigate("status_wall")}
-                  className="flex-shrink-0 text-[11px] font-bold text-[#F59E0B] hover:text-[#FBBF24] transition-colors whitespace-nowrap"
-                >
-                  看全部
-                </button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={onOpenStoryComposer}
+                    className="inline-flex items-center gap-1.5 bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-3 py-1.5 rounded-lg text-[11px] font-extrabold transition-colors whitespace-nowrap"
+                  >
+                    <i className="fa-solid fa-plus"></i> 我也要發
+                  </button>
+                  <button
+                    onClick={() => navigate("status_wall")}
+                    className="text-[11px] font-bold text-[#F59E0B] hover:text-[#FBBF24] transition-colors whitespace-nowrap"
+                  >
+                    看全部
+                  </button>
+                </div>
               </div>
 
               {activeStatuses.length > 0 ? (
@@ -10257,6 +10370,7 @@ function App() {
                 setSelectedVTuber(vt);
                 navigate(`profile/${vt.id}`);
               }}
+              onOpenStoryComposer={() => setIsStoryComposerOpen(true)}
             />
           )}
 
@@ -12036,8 +12150,8 @@ function App() {
                 {/* (原本在這裡的去頂部按鈕已經刪除，因為我們有浮動按鈕了) */}
               </div>
 
-              {/* 發布限動彈窗：無特效，降低卡頓 */}
-              {isStoryComposerOpen && (
+              {/* 發布限動彈窗已改為全站共用，首頁也能直接開啟 */}
+              {false && isStoryComposerOpen && (
                 <div
                   className="fixed inset-0 z-[9999] grid place-items-start justify-items-center p-4 pt-6 sm:pt-10 bg-black/70"
                   onClick={() => setIsStoryComposerOpen(false)}
@@ -12407,6 +12521,81 @@ function App() {
             />
           )}
         </main>
+
+        {/* 全站共用發布限動彈窗：首頁與 24H 動態牆都可直接開啟 */}
+        {isStoryComposerOpen && (
+          <div
+            className="fixed inset-0 z-[9999] grid place-items-start justify-items-center p-4 pt-6 sm:pt-10 bg-black/70"
+            onClick={() => setIsStoryComposerOpen(false)}
+          >
+            <div
+              className="w-full max-w-lg max-h-[90dvh] overflow-y-auto bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-[#2A2F3D] flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-[#F8FAFC] font-bold text-lg">讓大家知道你現在想做什麼</h3>
+                  <p className="text-[#94A3B8] text-xs mt-1">一句話就好：想揪團、找練習、開台中，都可以讓其他創作者更快看到你。</p>
+                </div>
+                <button type="button" onClick={() => setIsStoryComposerOpen(false)} className="w-9 h-9 rounded-lg bg-[#181B25] hover:bg-[#1D2130] text-[#94A3B8] hover:text-white transition-colors flex-shrink-0" aria-label="關閉">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              {isVerifiedUser && myProfile ? (
+                <form
+                  onSubmit={async (e) => {
+                    const willPost = storyInput.trim();
+                    await handlePostStory(e);
+                    if (willPost) setIsStoryComposerOpen(false);
+                  }}
+                  className="p-5 space-y-4"
+                >
+                  <div>
+                    <input
+                      id="story-input-global"
+                      type="text"
+                      maxLength="40"
+                      value={storyInput}
+                      onChange={(e) => setStoryInput(e.target.value)}
+                      className="w-full min-w-0 box-border bg-[#0F111A] border border-[#2A2F3D] rounded-xl px-4 h-[50px] text-white focus:ring-2 focus:ring-orange-500 outline-none text-[16px]"
+                      placeholder="例如：今晚 8 點想找人打 APEX！ (限 40 字)"
+                      autoFocus
+                    />
+                    <div className={`text-right text-[10px] mt-1.5 pr-2 transition-colors ${storyInput.length >= 40 ? 'text-[#EF4444] font-bold' : 'text-[#94A3B8]'}`}>
+                      {storyInput.length} / 40
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button type="submit" disabled={!storyInput.trim()} className={`h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center gap-1.5 ${storyInput.trim() ? 'bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A]' : 'bg-[#181B25] text-[#64748B] cursor-not-allowed'}`}>
+                      發布限動
+                    </button>
+                    <button type="button" onClick={async (e) => { await handlePostStory(e, "🔴 我在直播中！快來找我玩！", true); setIsStoryComposerOpen(false); }} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#EF4444] hover:bg-red-500 text-white">
+                      我在直播
+                    </button>
+                    {myProfile.statusMessage ? (
+                      <button type="button" onClick={async (e) => { await handlePostStory(e, "", false); setIsStoryComposerOpen(false); }} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white">
+                        清除動態
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setIsStoryComposerOpen(false)} className="h-[46px] rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white">
+                        取消
+                      </button>
+                    )}
+                  </div>
+                </form>
+              ) : (
+                <div className="p-5 text-center">
+                  <p className="text-[#94A3B8] text-sm mb-4">需通過名片認證才能發布限時動態喔！</p>
+                  <button onClick={() => { setIsStoryComposerOpen(false); navigate("dashboard"); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                    前往認證名片
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
 
         {/* 站內信發送 Modal */}
         {isCollabModalOpen && selectedVTuber && (
