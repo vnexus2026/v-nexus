@@ -9276,9 +9276,15 @@ function App() {
   }
 
   try {
+    if (!auth.currentUser) {
+      showToast("❌ 請先登入管理員帳號");
+      return;
+    }
+
     showToast("⏳ 正在審核名片...");
+    const authToken = await auth.currentUser.getIdToken(true);
     const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
-    const result = await reviewVtuberCard({ uid: id, action: "approve" });
+    const result = await reviewVtuberCard({ uid: id, action: "approve", authToken });
     const payload = result?.data || {};
     const updates = payload.updates || {
       isVerified: true,
@@ -9326,9 +9332,15 @@ function App() {
   }
 
   try {
+    if (!auth.currentUser) {
+      showToast("❌ 請先登入管理員帳號");
+      return;
+    }
+
     showToast("⏳ 正在退回名片...");
+    const authToken = await auth.currentUser.getIdToken(true);
     const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
-    const result = await reviewVtuberCard({ uid: id, action: "reject", reason: trimmedReason });
+    const result = await reviewVtuberCard({ uid: id, action: "reject", reason: trimmedReason, authToken });
     const payload = result?.data || {};
     const updates = payload.updates || {
       isVerified: false,
