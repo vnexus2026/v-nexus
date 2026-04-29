@@ -872,8 +872,28 @@ const COLOR_OPTIONS = [
   "棕",
 ]; // 新增色系選項
 
-// 創作者技能標籤：選填，可多選；未來可用於繪師 / 建模師 / 剪輯師交流專區
+// 創作服務專區：選填，可多選
 const CREATOR_ROLE_OPTIONS = ["繪師", "建模師", "剪輯師"];
+const CREATOR_STYLE_OPTIONS = [
+  "男生角色",
+  "女生角色",
+  "Q版",
+  "頭貼",
+  "立繪",
+  "插圖",
+  "Live2D",
+  "精華長篇剪輯",
+  "短影音",
+  "PV製作",
+  "動畫製作",
+  "其他(自由填寫)",
+];
+const CREATOR_STATUS_OPTIONS = ["可接案", "排隊中", "暫不接案", "邀約制"];
+const CREATOR_BUDGET_OPTIONS = ["私訊詢價", "1,000 以下", "1,000～3,000", "3,000～5,000", "5,000 以上", "依需求報價"];
+const CREATOR_BUDGET_ALIASES = { "歡迎私訊詢價": "私訊詢價" };
+const normalizeCreatorBudgetRange = (value) => CREATOR_BUDGET_ALIASES[value] || value || "";
+const REQUEST_BUDGET_OPTIONS = ["歡迎私訊報價", "1,000 以下", "1,000～3,000", "3,000～5,000", "5,000～10,000", "10,000 以上", "依需求報價"];
+const REQUEST_STYLE_OTHER = "其他(自由填寫)";
 
 // 🌟 新增：12 星座清單
 const ZODIAC_SIGNS = [
@@ -926,6 +946,13 @@ const formatDateTimeLocalStr = (dtStr) => {
   const d = new Date(dtStr);
   if (isNaN(d.getTime())) return dtStr;
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+const formatDateOnly = (value) => {
+  if (!value) return "可討論";
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
 const formatSchedule = (v) => {
   if (v.isScheduleAnytime) return "我都可以 (隨時可約)";
@@ -1447,6 +1474,16 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
             </span>
           )}
         </div>
+
+        {Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-4 -mt-1">
+            {v.creatorRoles.slice(0, 2).map((role) => (
+              <span key={role} className="px-2 py-0.5 rounded-full bg-[#38BDF8]/10 border border-[#38BDF8]/25 text-[#7DD3FC] text-[11px] font-bold">
+                也接{role === "繪師" ? "繪圖" : role === "剪輯師" ? "剪輯" : "建模"}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="mt-auto pt-3 border-t border-[#2A2F3D] space-y-2">
           <div className="flex items-center gap-2 text-xs text-[#94A3B8] min-w-0">
@@ -2736,50 +2773,6 @@ const ProfileEditorForm = ({
             </div>
           </div>
 
-          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
-              <label className="block text-sm font-bold text-[#CBD5E1]">
-                您是不是繪師 / 建模師 / 剪輯師？ <span className="text-[11px] text-[#94A3B8] font-normal">(若都不是可不填)</span>
-              </label>
-              <span className="text-[11px] text-[#94A3B8]">選填，可多選</span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {CREATOR_ROLE_OPTIONS.map((role) => {
-                const checked = (form.creatorRoles || []).includes(role);
-                return (
-                  <label
-                    key={role}
-                    className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#38BDF8]/10 border-[#38BDF8]/40 text-[#38BDF8]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        let list = [...(form.creatorRoles || [])];
-                        list = list.includes(role) ? list.filter((x) => x !== role) : [...list, role];
-                        updateForm({ creatorRoles: list });
-                      }}
-                      className="accent-sky-400 w-4 h-4"
-                    />
-                    <span className="text-sm font-bold">{role}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-                作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
-              </label>
-              <input
-                type="url"
-                value={form.creatorPortfolioUrl || ""}
-                onChange={(e) => updateForm({ creatorPortfolioUrl: e.target.value })}
-                className={inputCls}
-                placeholder="例如 Pixiv、X 作品串、個人網站或委託表單網址"
-              />
-              <p className="text-xs text-[#94A3B8] mt-2">填寫後會在繪師 / 建模師 / 剪輯師委託專區顯示「觀看作品集」按鈕。</p>
-            </div>
-          </div>
 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -2882,7 +2875,7 @@ const ProfileEditorForm = ({
 
             <div>
               <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-                橫幅網址 / 上傳
+                橫幅、代表作品 / 上傳
               </label>
               <div className="flex gap-3">
                 <img src={sanitizeUrl(form.banner)} className="w-24 h-14 rounded-xl object-cover flex-shrink-0 bg-[#181B25]" />
@@ -2902,12 +2895,144 @@ const ProfileEditorForm = ({
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
                     <button type="button" className={secondaryBtn + " w-full text-xs py-2 relative z-0"}>
-                      <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳橫幅
+                      <i className="fa-solid fa-cloud-arrow-up"></i> 從裝置上傳橫幅 / 代表作品
                     </button>
                   </div>
                 </div>
               </div>
             </div>
+
+          <div className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4 space-y-5 md:col-span-2">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-[#38BDF8] tracking-[0.16em] uppercase mb-1">Creator Service</p>
+                <label className="block text-sm font-bold text-[#F8FAFC]">
+                  創作服務專區
+                </label>
+                <p className="text-xs text-[#94A3B8] mt-1">如果你有接繪圖、建模或剪輯相關服務，可以在這裡補上讓委託者更容易找到你。</p>
+              </div>
+              <span className="text-[11px] text-[#94A3B8] whitespace-nowrap">選填，可多選</span>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                您是不是繪師 / 建模師 / 剪輯師？ <span className="text-[11px] text-[#94A3B8] font-normal">(若都不是可不填)</span>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {CREATOR_ROLE_OPTIONS.map((role) => {
+                  const checked = (form.creatorRoles || []).includes(role);
+                  return (
+                    <label
+                      key={role}
+                      className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#38BDF8]/10 border-[#38BDF8]/40 text-[#38BDF8]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          let list = [...(form.creatorRoles || [])];
+                          list = list.includes(role) ? list.filter((x) => x !== role) : [...list, role];
+                          updateForm({ creatorRoles: list });
+                        }}
+                        className="accent-sky-400 w-4 h-4"
+                      />
+                      <span className="text-sm font-bold">{role}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                創作風格 / 類型 <span className="text-[#EF4444]">*</span>
+                <span className="text-[11px] text-[#94A3B8] font-normal ml-2">若有勾選創作服務，請至少選一項</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {CREATOR_STYLE_OPTIONS.map((style) => {
+                  const checked = (form.creatorStyles || []).includes(style);
+                  return (
+                    <label
+                      key={style}
+                      className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          let list = [...(form.creatorStyles || [])];
+                          list = list.includes(style) ? list.filter((x) => x !== style) : [...list, style];
+                          updateForm({ creatorStyles: list });
+                        }}
+                        className="accent-purple-500 w-4 h-4"
+                      />
+                      <span className="text-sm font-bold">{style}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {(form.creatorStyles || []).includes("其他(自由填寫)") && (
+                <input
+                  type="text"
+                  value={form.creatorOtherStyleText || ""}
+                  onChange={(e) => updateForm({ creatorOtherStyleText: e.target.value })}
+                  className={inputCls + " mt-3"}
+                  placeholder="請簡單填寫其他創作風格 / 類型"
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                  接案狀態
+                </label>
+                <select
+                  value={form.creatorStatus || ""}
+                  onChange={(e) => updateForm({ creatorStatus: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">請選擇接案狀態</option>
+                  {CREATOR_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-[#94A3B8] mt-2">用下拉選單快速標示目前是否可接案，避免名片過長。</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                  預算參考 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
+                </label>
+                <select
+                  value={normalizeCreatorBudgetRange(form.creatorBudgetRange)}
+                  onChange={(e) => updateForm({ creatorBudgetRange: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">請選擇預算參考</option>
+                  {CREATOR_BUDGET_OPTIONS.map((budget) => (
+                    <option key={budget} value={budget}>{budget}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-[#94A3B8] mt-2">「私訊詢價」會顯示在創作服務專區與名片上。</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
+              </label>
+              <input
+                type="url"
+                value={form.creatorPortfolioUrl || ""}
+                onChange={(e) => updateForm({ creatorPortfolioUrl: e.target.value })}
+                className={inputCls}
+                placeholder="例如 Pixiv、X 作品串、個人網站或委託表單網址"
+              />
+              <p className="text-xs text-[#94A3B8] mt-2">填寫後會在繪師 / 建模師 / 剪輯師委託專區顯示「觀看作品集」按鈕。</p>
+            </div>
+          </div>
+
           </div>
         </div>
       )}
@@ -3520,48 +3645,93 @@ const InboxPage = ({
 };
 
 const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat }) => {
+  const { user, isAdmin, showToast } = useContext(AppContext);
+  const [activeTab, setActiveTab] = useState(() => {
+    const preferredTab = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("vnexus_commission_initial_tab") : "";
+    if (preferredTab) sessionStorage.removeItem("vnexus_commission_initial_tab");
+    return preferredTab === "requests" ? "requests" : "creators";
+  });
   const [activeRoleFilter, setActiveRoleFilter] = useState("All");
+  const [activeCreatorStyleFilter, setActiveCreatorStyleFilter] = useState("All");
   const [commissionPage, setCommissionPage] = useState(1);
+  const [requests, setRequests] = useState([]);
+  const [requestFilter, setRequestFilter] = useState("All");
+  const [requestStyleFilter, setRequestStyleFilter] = useState("All");
+  const [requestPage, setRequestPage] = useState(1);
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
   const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
+  const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
+  const requestFilters = ["All", "繪圖", "建模", "剪輯"];
+  const requestStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const COMMISSION_PAGE_SIZE = 10;
+  const REQUEST_PAGE_SIZE = 12;
 
+  useEffect(() => { setCommissionPage(1); }, [activeRoleFilter, activeCreatorStyleFilter]);
+  useEffect(() => { setRequestPage(1); }, [requestFilter, requestStyleFilter]);
   useEffect(() => {
-    setCommissionPage(1);
-  }, [activeRoleFilter]);
+    const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(80));
+    const unsub = onSnapshot(q, (snap) => setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.warn("委託佈告欄讀取失敗:", err));
+    return () => unsub();
+  }, []);
 
-  const creatorList = (Array.isArray(realVtubers) ? realVtubers : [])
-    .filter((v) =>
-      v &&
-      v.isVerified &&
-      !v.isBlacklisted &&
-      Array.isArray(v.creatorRoles) &&
-      v.creatorRoles.length > 0 &&
-      !String(v.id || "").startsWith("mock")
-    )
-    .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
-
-  const filteredCreatorList = activeRoleFilter === "All"
-    ? creatorList
-    : creatorList.filter((v) => Array.isArray(v.creatorRoles) && v.creatorRoles.includes(activeRoleFilter));
-
+  const creatorList = (Array.isArray(realVtubers) ? realVtubers : []).filter((v) => v && v.isVerified && !v.isBlacklisted && Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && !String(v.id || "").startsWith("mock")).sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  const filteredCreatorList = creatorList.filter((v) => {
+    const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
+    const styles = Array.isArray(v.creatorStyles) ? v.creatorStyles : [];
+    const roleOk = activeRoleFilter === "All" || roles.includes(activeRoleFilter);
+    const styleOk = activeCreatorStyleFilter === "All" || styles.includes(activeCreatorStyleFilter);
+    return roleOk && styleOk;
+  });
   const totalCommissionPages = Math.max(1, Math.ceil(filteredCreatorList.length / COMMISSION_PAGE_SIZE));
   const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
-  const pagedCreatorList = filteredCreatorList.slice(
-    (safeCommissionPage - 1) * COMMISSION_PAGE_SIZE,
-    safeCommissionPage * COMMISSION_PAGE_SIZE,
-  );
+  const pagedCreatorList = filteredCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
+  const filteredRequests = (requests || []).filter((r) => {
+    if (!r || r.status === "closed") return false;
+    const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
+    const styles = Array.isArray(r.styles) ? r.styles : [];
+    const styleOk = requestStyleFilter === "All" || styles.includes(requestStyleFilter);
+    return typeOk && styleOk;
+  });
+  const totalRequestPages = Math.max(1, Math.ceil(filteredRequests.length / REQUEST_PAGE_SIZE));
+  const safeRequestPage = Math.min(requestPage, totalRequestPages);
+  const pagedRequests = filteredRequests.slice((safeRequestPage - 1) * REQUEST_PAGE_SIZE, safeRequestPage * REQUEST_PAGE_SIZE);
 
-  const openProfile = (v) => {
-    if (onNavigateProfile) onNavigateProfile(v);
-    else navigate(`profile/${v.id}`);
-  };
+  const openProfile = (v) => { if (onNavigateProfile) onNavigateProfile(v); else navigate(`profile/${v.id}`); };
+  const openPortfolio = (url) => { if (!url) return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
+  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
 
-  const openPortfolio = (url) => {
-    if (!url) return;
-    const raw = String(url).trim();
-    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer");
+  const handleSaveRequest = async () => {
+    if (!user) return showToast("請先登入");
+    if (!requestForm.title.trim() || !requestForm.description.trim()) return showToast("請填寫委託標題與需求說明");
+    const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
+    if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim()) return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
+    const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
+    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
+    try {
+      if (requestForm.id) { await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true }); showToast("✅ 委託需求已更新"); }
+      else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布"); }
+      resetRequestForm(); setIsRequestFormOpen(false);
+    } catch (err) { console.error("委託需求儲存失敗:", err); showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`); }
   };
+  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？")) return; try { await deleteDoc(doc(db, getPath("commission_requests"), id)); showToast("✅ 已刪除委託需求"); } catch (err) { console.error("委託需求刪除失敗:", err); showToast("刪除失敗"); } };
+  const handleApplyRequest = async (r) => {
+    if (!user) return showToast("請先登入");
+    if (r.userId === user.uid) return showToast("這是你發布的需求");
+    const applicants = Array.isArray(r.applicants) ? r.applicants : [];
+    const isApplying = !applicants.includes(user.uid);
+    if (isApplying && applicants.length >= 5) return showToast("這則委託已達 5 名提案人上限");
+    try {
+      const applyCommissionRequest = httpsCallable(functionsInstance, "applyCommissionRequest");
+      const result = await applyCommissionRequest({ requestId: r.id, action: isApplying ? "apply" : "cancel" });
+      showToast(result?.data?.message || (isApplying ? "✅ 已送出接案意願，請等待發案人挑選" : "已取消接案意願"));
+    } catch (err) {
+      console.error("接案意願更新失敗:", err);
+      showToast(err?.message || "操作失敗，請稍後再試");
+    }
+  };
+  const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
@@ -3569,157 +3739,230 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">Creator Market</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
-              繪師 / 建模師 / 剪輯師委託專區
-            </h2>
-            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">
-              先展示已在名片標註「繪師」「建模師」或「剪輯師」的創作者。未來會加入作品集、委託表單、價格區間與合作狀態，讓 VTuber 更快找到適合的創作夥伴。
-            </p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">繪師 / 建模師 / 剪輯師委託專區</h2>
+            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">找作品集、看檔期，也可以在委託佈告欄發布需求，讓創作者主動看見你的案子。</p>
           </div>
-          <button
-            onClick={() => navigate("dashboard")}
-            className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap"
-          >
-            補上我的創作技能標籤
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button onClick={() => navigate("dashboard")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">補上我的創作技能標籤</button>
+            <button onClick={() => { setActiveTab("requests"); setIsRequestFormOpen(true); }} className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">發布委託需求</button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {roleFilters.map((role) => (
-          <button
-            key={role}
-            onClick={() => setActiveRoleFilter(role)}
-            className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role
-              ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]"
-              : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"
-              }`}
-          >
-            {role === "All" ? "全部" : role}
-          </button>
-        ))}
+      <div className="mb-6 flex gap-2 bg-[#11131C] border border-[#2A2F3D] p-1 rounded-2xl w-fit">
+        <button onClick={() => setActiveTab("creators")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "creators" ? "bg-[#38BDF8] text-[#0F111A]" : "text-[#94A3B8] hover:text-white"}`}>找創作者</button>
+        <button onClick={() => setActiveTab("requests")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "requests" ? "bg-[#8B5CF6] text-white" : "text-[#94A3B8] hover:text-white"}`}>委託佈告欄</button>
       </div>
 
-      {creatorList.length === 0 ? (
-        <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
-          <p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p>
-          <p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p>
-          <button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">
-            去補上身份
-          </button>
-        </div>
-      ) : (
-        filteredCreatorList.length === 0 ? (
-          <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
-            <p className="text-white text-lg font-bold mb-2">{`目前沒有符合「${activeRoleFilter === "All" ? "全部" : activeRoleFilter}」的創作者`}</p>
-            <p className="text-[#94A3B8] text-sm">可以切換篩選條件，或之後再回來看看新的委託名片。</p>
+      {activeTab === "creators" && <>
+        <div className="mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5 space-y-4">
+          <div>
+            <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">創作者身份</p>
+            <div className="flex flex-wrap gap-2">
+              {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
+            </div>
           </div>
-        ) : (
-        <>
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 md:items-center">
+            <label className="text-xs font-bold text-[#94A3B8] tracking-widest uppercase">進階風格篩選</label>
+            <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#38BDF8]">
+              {creatorStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
+            </select>
+          </div>
+        </div>
+        {creatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p><p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p><button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">去補上身份</button></div> : filteredCreatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前沒有符合篩選條件的創作者</p><p className="text-[#94A3B8] text-sm">可以切換身份或創作風格 / 類型，之後也可以再回來看看新的委託名片。</p></div> : <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {pagedCreatorList.map((v) => {
-            const showcase = sanitizeUrl(v.banner || v.avatar || "");
-            const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
-            return (
-              <article
-                key={v.id}
-                onClick={() => openProfile(v)}
-                className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm hover:bg-[#1D2130] transition-colors cursor-pointer"
-                title="查看詳細名片"
-              >
+              const showcase = sanitizeUrl(v.banner || v.avatar || "");
+              const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
+              const creatorStyles = Array.isArray(v.creatorStyles) ? v.creatorStyles : [];
+              const creatorStatus = v.creatorStatus || "";
+              const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
+              return <article key={v.id} onClick={() => openProfile(v)} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm hover:bg-[#1D2130] transition-colors cursor-pointer" title="查看詳細名片">
                 <div className="h-56 sm:h-64 bg-[#11131C] relative overflow-hidden">
-                  {showcase ? (
-                    <img
-                      src={showcase}
-                      alt={v.name || "作品展示"}
-                      className="w-full h-full object-cover opacity-90"
-                      onError={(e) => { e.currentTarget.style.display = "none"; }}
-                    />
-                  ) : null}
-                  {!showcase && (
-                    <div className="w-full h-full flex items-center justify-center text-[#64748B] text-sm">
-                      作品展示區規劃中
-                    </div>
-                  )}
-                  <div className="absolute left-4 bottom-4 flex gap-2 flex-wrap">
-                    {roles.map((role) => (
-                      <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">
-                        {role}
-                      </span>
-                    ))}
-                  </div>
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-90" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                  {!showcase && <div className="w-full h-full flex items-center justify-center text-[#64748B] text-sm">作品展示區規劃中</div>}
+                  <div className="absolute left-4 bottom-4 flex gap-2 flex-wrap">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">{role}</span>)}</div>
                 </div>
                 <div className="p-5">
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0">
-                      {v.avatar ? <img src={sanitizeUrl(v.avatar)} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-white text-lg font-extrabold truncate flex items-center gap-2">
-                        {v.name || "未命名創作者"}
-                        {v.isVerified && <span className="text-[#22C55E] text-xs font-bold">已認證</span>}
-                      </h3>
-                      <p className="text-[#94A3B8] text-sm line-clamp-2 mt-1">
-                        {v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}
-                      </p>
-                    </div>
+                  <div className="flex items-start gap-4 mb-4"><div className="w-14 h-14 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0">{v.avatar ? <img src={sanitizeUrl(v.avatar)} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}</div><div className="min-w-0 flex-1"><h3 className="text-white text-lg font-extrabold truncate flex items-center gap-2">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold">已認證</span>}</h3><p className="text-[#94A3B8] text-sm line-clamp-2 mt-1">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p></div></div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {creatorStatus && <span className="bg-[#22C55E]/10 border border-[#22C55E]/30 text-[#22C55E] px-2.5 py-1 rounded-full text-xs font-extrabold">{creatorStatus}</span>}
+                    {creatorBudgetRange && <span className="bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F59E0B] px-2.5 py-1 rounded-full text-xs font-extrabold">{creatorBudgetRange}</span>}
+                    {creatorStyles.slice(0, 5).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
+                    {creatorStyles.length === 0 && (v.tags || []).slice(0, 4).map((tag) => <span key={tag} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{tag}</span>)}
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-5">
-                    {(v.tags || []).slice(0, 4).map((tag) => (
-                      <span key={tag} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenChat ? onOpenChat(v) : openProfile(v);
-                      }}
-                      className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 rounded-xl font-bold transition-colors"
-                    >
-                      私訊檔期及價格
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v);
-                      }}
-                      className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 rounded-xl font-bold transition-colors`}
-                    >
-                      觀看作品集
-                    </button>
-                  </div>
+                  <div className="grid grid-cols-2 gap-3"><button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 rounded-xl font-bold transition-colors">私訊檔期及價格</button><button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 rounded-xl font-bold transition-colors`}>觀看作品集</button></div>
                 </div>
-              </article>
-            );
-          })}
+              </article>;
+            })}
           </div>
-          {filteredCreatorList.length > COMMISSION_PAGE_SIZE && (
-            <div className="mt-8 flex items-center justify-center gap-3">
-              <button
-                onClick={() => setCommissionPage((p) => Math.max(1, p - 1))}
-                disabled={safeCommissionPage === 1}
-                className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
-              >
-                上一頁
-              </button>
-              <span className="text-[#94A3B8] text-sm font-bold">
-                第 {safeCommissionPage} / {totalCommissionPages} 頁
-              </span>
-              <button
-                onClick={() => setCommissionPage((p) => Math.min(totalCommissionPages, p + 1))}
-                disabled={safeCommissionPage === totalCommissionPages}
-                className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === totalCommissionPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}
-              >
-                下一頁
-              </button>
+          {filteredCreatorList.length > COMMISSION_PAGE_SIZE && <div className="mt-8 flex items-center justify-center gap-3"><button onClick={() => setCommissionPage((p) => Math.max(1, p - 1))} disabled={safeCommissionPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button><span className="text-[#94A3B8] text-sm font-bold">第 {safeCommissionPage} / {totalCommissionPages} 頁</span><button onClick={() => setCommissionPage((p) => Math.min(totalCommissionPages, p + 1))} disabled={safeCommissionPage === totalCommissionPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeCommissionPage === totalCommissionPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button></div>}
+        </>}
+      </>}
+
+      {activeTab === "requests" && <div className="space-y-6">
+        <div className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">主要分類</p>
+                <div className="flex flex-wrap gap-2">
+                  {requestFilters.map((type) => <button key={type} onClick={() => setRequestFilter(type)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${requestFilter === type ? "bg-[#8B5CF6] text-white border-[#8B5CF6]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{type === "All" ? "全部需求" : type}</button>)}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 md:items-center">
+                <label className="text-xs font-bold text-[#94A3B8] tracking-widest uppercase">進階風格篩選</label>
+                <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#8B5CF6]">
+                  {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
+                </select>
+              </div>
+            </div>
+            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
+          </div>
+        </div>
+        {isRequestFormOpen && (
+          <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm">
+            <h3 className="text-white text-xl font-extrabold mb-5">{requestForm.id ? "編輯委託需求" : "發布新的委託需求"}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 *</label>
+                <input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型</label>
+                <select value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間</label>
+                <select value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期</label>
+                <input type="date" value={requestForm.deadline} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
+              </div>
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#94A3B8] text-xs font-normal">可多選</span></label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {CREATOR_STYLE_OPTIONS.map((style) => {
+                    const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
+                    return (
+                      <label key={style} className={"flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors " + (checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#11131C] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]")}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const current = Array.isArray(requestForm.styles) ? requestForm.styles : [];
+                            const next = checked ? current.filter((x) => x !== style) : [...current, style].slice(0, 12);
+                            setRequestForm({ ...requestForm, styles: next });
+                          }}
+                          className="accent-purple-500 w-4 h-4"
+                        />
+                        <span className="text-sm font-bold">{style}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {Array.isArray(requestForm.styles) && requestForm.styles.includes(REQUEST_STYLE_OTHER) && (
+                  <input
+                    value={requestForm.styleOtherText || ""}
+                    onChange={(e) => setRequestForm({ ...requestForm, styleOtherText: e.target.value })}
+                    className={inputCls + " mt-3"}
+                    placeholder="請填寫其他喜歡的風格"
+                  />
+                )}
+              </div>
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">參考連結</label>
+                <input value={requestForm.referenceUrl} onChange={(e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value })} className={inputCls} placeholder="可放參考圖、影片或 Notion / X / Google Drive 連結" />
+              </div>
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 *</label>
+                <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-5">
+              <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(false); }} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold">取消</button>
+              <button onClick={handleSaveRequest} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-6 py-3 rounded-xl font-bold">{requestForm.id ? "儲存修改" : "發布需求"}</button>
+            </div>
+          </div>
+        )}
+        {filteredRequests.length === 0 ? (
+          <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
+            <p className="text-white text-lg font-bold mb-2">還沒有委託需求</p>
+            <p className="text-[#94A3B8] text-sm mb-5">有頭貼、立繪、建模或剪輯需求嗎？發一則需求，讓創作者更容易看見你。</p>
+            <button onClick={() => setIsRequestFormOpen(true)} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold">發布委託需求</button>
+          </div>
+        ) : (
+          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {pagedRequests.map((r) => {
+              const author = authorOf(r.userId);
+              const applicants = Array.isArray(r.applicants) ? r.applicants : [];
+              const applicantProfiles = applicants.map((uid) => authorOf(uid)).filter(Boolean);
+              const isOwner = user && r.userId === user.uid;
+              const isApplying = user && applicants.includes(user.uid);
+              const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
+              return (
+                <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors">
+                  <div className="flex items-start gap-3 mb-4">
+                    <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
+                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
+                      <h3 className="text-white text-xl font-extrabold leading-tight line-clamp-2">{r.title || "未命名需求"}</h3>
+                      <p className="text-xs text-[#94A3B8] mt-1">發案者：<span className="text-white font-bold">{author?.name || "匿名創作者"}</span></p>
+                    </div>
+                    <div className="text-right text-xs text-[#94A3B8] flex-shrink-0">
+                      <p>預算</p>
+                      <p className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</p>
+                    </div>
+                  </div>
+                  <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4">{r.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {displayStyles.slice(0, 6).map((s) => <span key={s} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{s}</span>)}
+                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
+                  </div>
+                  <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
+                    <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
+                    <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
+                  </div>
+                  <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="text-xs font-extrabold text-[#CBD5E1]">接案人提案名單</p>
+                      <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex -space-x-2">
+                        {applicantProfiles.slice(0, 5).map((a) => (
+                          <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
+                            {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                          </button>
+                        ))}
+                        {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
+                      </div>
+                      <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-4 py-2.5 rounded-xl font-bold text-sm">看參考資料</button>}
+                    {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-4 py-2.5 rounded-xl font-bold text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
+                    {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 py-2.5 rounded-xl font-bold text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-4 py-2.5 rounded-xl font-bold text-sm">刪除委託（停止收案）</button></>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {filteredRequests.length > REQUEST_PAGE_SIZE && (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <button onClick={() => setRequestPage((p) => Math.max(1, p - 1))} disabled={safeRequestPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button>
+              <span className="text-[#94A3B8] text-sm font-bold">第 {safeRequestPage} / {totalRequestPages} 頁</span>
+              <button onClick={() => setRequestPage((p) => Math.min(totalRequestPages, p + 1))} disabled={safeRequestPage === totalRequestPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button>
             </div>
           )}
-        </>
-      )
-      )}
+          </>
+        )}
+      </div>}
     </div>
   );
 };
@@ -3758,6 +4001,28 @@ const HomePage = ({
   };
 
   const safeBulletins = Array.isArray(realBulletins) ? realBulletins : [];
+  const [homeCommissionRequests, setHomeCommissionRequests] = useState([]);
+
+  const goToCommissionRequests = () => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("vnexus_commission_initial_tab", "requests");
+    }
+    navigate("commissions");
+  };
+
+  useEffect(() => {
+    const q = query(
+      collection(db, getPath("commission_requests")),
+      orderBy("createdAt", "desc"),
+      limit(12),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => setHomeCommissionRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => console.warn("首頁委託佈告欄讀取失敗:", err),
+    );
+    return () => unsub();
+  }, []);
 
   const completedCollabsCount = useMemo(() => {
     return siteStats?.totalCompletedCollabs || 0;
@@ -3868,6 +4133,12 @@ const HomePage = ({
     return picked.slice(0, 3);
   }, [realVtubers]);
 
+  const featuredCommissionRequests = useMemo(() => {
+    return (homeCommissionRequests || [])
+      .filter((r) => r && r.status !== "closed")
+      .slice(0, 3);
+  }, [homeCommissionRequests]);
+
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
   }, [realVtubers, user]);
@@ -3969,7 +4240,7 @@ const HomePage = ({
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-6 items-stretch mb-10">
         <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 md:p-8 text-center lg:text-left h-full flex flex-col">
           <div className="inline-flex w-fit px-3 py-1.5 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#C4B5FD] text-xs font-bold mb-5 mx-auto lg:mx-0">
-            <span>專為 VTuber 打造的聯動社群</span>
+            <span>專為 VTuber 打造的聯動與創作社群</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight text-[#F8FAFC] mb-5">
             <span className="block">為你的 Vtuber 生涯</span>
@@ -3985,35 +4256,45 @@ const HomePage = ({
             目前僅開放YT訂閱或TWITCH追隨加起來高於500、近一個月有直播活動之Vtuber或繪師、建模師、剪輯師則由管理員認定，敬請見諒。
           </p>
 
-          {/* 2. 立即行動 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-7">
-            <button
-              onClick={() => navigate("dashboard")}
-              className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
-            >
-              <i className="fa-solid fa-pen-to-square mr-2"></i>管理名片
-            </button>
-            <button
-              onClick={() => navigate("grid")}
-              className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
-            >
-              <i className="fa-solid fa-magnifying-glass mr-2 text-[#38BDF8]"></i>尋找VTuber
-            </button>
-            <button
-              onClick={onOpenUpdates}
-              className="relative h-12 bg-[#38BDF8]/12 hover:bg-[#38BDF8]/20 text-[#7DD3FC] border border-[#38BDF8]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
-            >
-              <i className="fa-solid fa-bullhorn mr-2"></i>最新消息
-              {hasUnreadUpdates && (
-                <span className="absolute -top-1.5 -right-1.5 rounded-full h-3.5 w-3.5 bg-[#EF4444] border border-[#0F111A]"></span>
-              )}
-            </button>
-            <button
-              onClick={onOpenRules}
-              className="h-12 bg-[#EF4444]/10 hover:bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
-            >
-              <i className="fa-solid fa-triangle-exclamation mr-2"></i>聯動規範
-            </button>
+          {/* 2. 立即行動：桌機改成 3 + 2，避免五顆按鈕同排太擠 */}
+          <div className="mt-7 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => navigate("dashboard")}
+                className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+              >
+                <i className="fa-solid fa-pen-to-square mr-2"></i>管理名片
+              </button>
+              <button
+                onClick={onOpenUpdates}
+                className="relative h-12 bg-[#38BDF8]/12 hover:bg-[#38BDF8]/20 text-[#7DD3FC] border border-[#38BDF8]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+              >
+                <i className="fa-solid fa-bullhorn mr-2"></i>最新消息
+                {hasUnreadUpdates && (
+                  <span className="absolute -top-1.5 -right-1.5 rounded-full h-3.5 w-3.5 bg-[#EF4444] border border-[#0F111A]"></span>
+                )}
+              </button>
+              <button
+                onClick={onOpenRules}
+                className="h-12 bg-[#EF4444]/10 hover:bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/30 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+              >
+                <i className="fa-solid fa-triangle-exclamation mr-2"></i>聯動規範
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => goToBulletin ? goToBulletin() : navigate("bulletin")}
+                className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+              >
+                <i className="fa-solid fa-bullhorn mr-2 text-[#A78BFA]"></i>揪團佈告欄
+              </button>
+              <button
+                onClick={goToCommissionRequests}
+                className="h-12 bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 text-[#FBBF24] border border-[#F59E0B]/35 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+              >
+                <i className="fa-solid fa-clipboard-list mr-2"></i>委託佈告欄
+              </button>
+            </div>
           </div>
         </div>
 
@@ -4084,21 +4365,21 @@ const HomePage = ({
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-auto pt-6">
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3 text-center">
               <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">VTUBER人數</p>
               <p className="text-xl sm:text-2xl font-black text-[#22C55E]">
                 {registeredCount !== null ? <AnimatedCounter value={registeredCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
                 <span className="text-[10px] sm:text-sm text-[#94A3B8] ml-1">位</span>
               </p>
             </div>
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3 text-center">
               <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">已成功促成聯動</p>
               <p className="text-xl sm:text-2xl font-black text-[#38BDF8]">
                 {!isLoadingCollabs ? <AnimatedCounter value={completedCollabsCount} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
                 <span className="text-[10px] sm:text-sm text-[#94A3B8] ml-1">次</span>
               </p>
             </div>
-            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3">
+            <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3 text-center">
               <p className="text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1">網站總瀏覽人次</p>
               <p className="text-xl sm:text-2xl font-black text-[#8B5CF6]">
                 {siteStats?.pageViews !== null ? <AnimatedCounter value={siteStats.pageViews} /> : <i className="fa-solid fa-spinner fa-spin text-lg"></i>}
@@ -4280,11 +4561,11 @@ const HomePage = ({
             }
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
             {recommendedCreatorsForCommission.map((v) => (
               <div
                 key={`home-commission-${v.id}`}
-                className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden text-left hover:bg-[#1D2130] transition-colors"
+                className="flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden text-left hover:bg-[#1D2130] transition-colors h-full"
               >
                 <button
                   onClick={() => {
@@ -4319,9 +4600,85 @@ const HomePage = ({
                 </button>
               </div>
             ))}
+            <MobileMoreCard
+              onClick={goToCommissionRequests}
+              icon="fa-palette"
+              text="查看委託專區"
+              subText="找繪師、建模師與剪輯師"
+            />
           </div>
         </div>
       )}
+
+      {/* 委託佈告欄 */}
+      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
+        <SectionHeader
+          icon="fa-clipboard-list"
+          iconColor="text-[#F59E0B]"
+          title="委託佈告欄"
+          desc="看看最近有哪些委託需求正在尋找繪師、建模師或剪輯師，接案前先確認需求與預算。"
+          action={
+            <button
+              onClick={goToCommissionRequests}
+              className="hidden sm:flex bg-[#F59E0B] hover:bg-[#FBBF24] text-[#0F111A] px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap"
+            >
+              查看全部委託 <i className="fa-solid fa-arrow-right"></i>
+            </button>
+          }
+        />
+
+        {featuredCommissionRequests.length > 0 ? (
+          <div className="flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar">
+            {featuredCommissionRequests.map((r) => {
+              const author = realVtubers.find((v) => v.id === r.userId);
+              const styles = Array.isArray(r.styles) ? r.styles.filter((style) => style !== REQUEST_STYLE_OTHER).slice(0, 3) : [];
+              const applicants = Array.isArray(r.applicants) ? r.applicants : [];
+              return (
+                <article key={`home-commission-request-${r.id}`} className="flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 text-left hover:bg-[#1D2130] transition-colors h-full flex flex-col">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img src={sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={author?.name || "發案者"} className="w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <div className="min-w-0">
+                        <p className="text-[#F8FAFC] font-bold truncate">{author?.name || "匿名發案者"}</p>
+                        <p className="text-[#94A3B8] text-xs">{formatTime(r.createdAt)}</p>
+                      </div>
+                    </div>
+                    <span className="flex-shrink-0 bg-[#F59E0B]/15 text-[#FBBF24] border border-[#F59E0B]/30 text-xs font-extrabold px-2.5 py-1 rounded-full">{r.requestType || "委託"}</span>
+                  </div>
+                  <h3 className="text-[#F8FAFC] text-lg font-extrabold mb-2 line-clamp-2">{r.title || "未命名委託需求"}</h3>
+                  <p className="text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1">{r.description || "發案者尚未填寫詳細需求。"}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold">{r.budgetRange || "預算可討論"}</span>
+                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? formatDateOnly(r.deadline) : "日期可討論"}</span>
+                    {styles.map((style) => <span key={`${r.id}-${style}`} className="bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold">{style}</span>)}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]">
+                    <p className="text-xs text-[#94A3B8]">提案 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span></p>
+                    <button onClick={goToCommissionRequests} className="text-sm font-extrabold text-[#F59E0B] hover:text-[#FBBF24] transition-colors">前往查看 <i className="fa-solid fa-arrow-right ml-1"></i></button>
+                  </div>
+                </article>
+              );
+            })}
+            <MobileMoreCard
+              onClick={goToCommissionRequests}
+              icon="fa-clipboard-list"
+              text="查看全部委託"
+              subText="前往委託佈告欄接案"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D]">
+            <p className="text-[#F8FAFC] font-bold text-lg">目前還沒有公開委託需求</p>
+            <p className="text-[#94A3B8] text-sm mt-2">有繪圖、建模或剪輯需求時，可以直接發布到委託佈告欄。</p>
+            <button
+              onClick={goToCommissionRequests}
+              className="mt-5 inline-flex items-center justify-center bg-[#F59E0B] hover:bg-[#FBBF24] text-[#0F111A] px-5 py-2.5 rounded-xl font-bold transition-colors"
+            >
+              前往委託佈告欄
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 6. 新手引導 */}
       <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
@@ -6098,9 +6455,13 @@ function App() {
     try {
       const now = Date.now();
 
+      const statusDuration = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      const statusExpiresAt = content ? now + statusDuration : 0;
+
       await updateDoc(doc(db, getPath('vtubers'), user.uid), {
         statusMessage: content,
-        statusMessageUpdatedAt: now,
+        statusMessageUpdatedAt: content ? now : 0,
+        statusMessageExpiresAt: statusExpiresAt,
         // 🌟 新增：發布新動態時，清空互動名單
         statusReactions: { plus_one: [], watching: [], fire: [] },
         updatedAt: now
@@ -6115,14 +6476,14 @@ function App() {
       setRealVtubers(prev => {
         const newList = prev.map(v =>
           v.id === user.uid
-            ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now }
+            ? { ...v, statusMessage: content, statusMessageUpdatedAt: content ? now : 0, statusMessageExpiresAt: statusExpiresAt, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now }
             : v
         );
         syncVtuberCache(newList);
         return newList;
       });
 
-      setProfileForm(prev => ({ ...prev, statusMessage: content }));
+      setProfileForm(prev => ({ ...prev, statusMessage: content, statusMessageUpdatedAt: content ? now : 0, statusMessageExpiresAt: statusExpiresAt }));
       if (overrideContent === null) setStoryInput("");
 
       if (!content) {
@@ -6445,6 +6806,10 @@ function App() {
     colorSchemes: [], // 新增色系
     creatorRoles: [],
     creatorPortfolioUrl: "",
+    creatorStyles: [],
+    creatorStatus: "",
+    creatorBudgetRange: "",
+    creatorOtherStyleText: "",
     isScheduleAnytime: false,
     isScheduleExcept: false,
     isScheduleCustom: false,
@@ -6471,6 +6836,7 @@ function App() {
     lastTwitchFetchTime: 0,
     statusMessage: "",
     statusMessageUpdatedAt: 0,
+    statusMessageExpiresAt: 0,
     rejectionCount: 0,
     lastRejectedAt: 0,
     statusReactions: { plus_one: [], watching: [], fire: [] }
@@ -7219,6 +7585,7 @@ function App() {
               creatorRoles: Array.isArray(myPublicData.creatorRoles)
                 ? myPublicData.creatorRoles
                 : [],
+              creatorBudgetRange: normalizeCreatorBudgetRange(myPublicData.creatorBudgetRange),
             }));
           })
           .catch((err) => {
@@ -7937,18 +8304,38 @@ function App() {
       if (finalCollabs.length === 0)
         return showToast("請至少選擇一項連動類型！");
 
+      const finalCreatorRoles = Array.isArray(customForm.creatorRoles) ? customForm.creatorRoles : [];
+      const finalCreatorStyles = Array.isArray(customForm.creatorStyles) ? customForm.creatorStyles : [];
+      if (finalCreatorRoles.length > 0 && finalCreatorStyles.length === 0) {
+        return showToast("請至少選擇一項創作風格 / 類型！");
+      }
+      if (finalCreatorStyles.includes("其他(自由填寫)") && !String(customForm.creatorOtherStyleText || "").trim()) {
+        return showToast("請填寫其他創作風格 / 類型，或取消勾選其他。");
+      }
+
       const existingProfile = realVtubers.find((v) => v.id === targetUid);
       const finalPersonality =
         customForm.personalityType === "其他"
           ? customForm.personalityTypeOther || "其他"
           : customForm.personalityType || "";
 
-      // 🌟 關鍵修復：只要輸入框裡面有字，每次按下「儲存名片」就強制刷新 24 小時的計時器！
-      // 這樣使用者隨時可以按儲存來延長動態的顯示時間。
-      const newStatusMessageUpdatedAt = customForm.statusMessage?.trim() ? Date.now() : 0;
+      // ✅ 限時動態防重發：儲存名片時不再刷新舊動態時間戳。
+      // 若舊動態已過期且使用者沒有重新輸入新內容，就直接清空，避免 24 小時後被快取或儲存動作重新帶回來。
+      const statusDraft = String(customForm.statusMessage || "").trim();
+      const existingStatusMessage = String(existingProfile?.statusMessage || "").trim();
+      const existingStatusUpdatedAt = Number(existingProfile?.statusMessageUpdatedAt || 0);
+      const existingStatusExpiresAt = Number(existingProfile?.statusMessageExpiresAt || 0);
+      const existingStatusIsLive = existingStatusMessage.includes("🔴");
+      const existingExpireLimit = existingStatusIsLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      const existingStatusStillActive = !!existingStatusMessage && !!existingStatusUpdatedAt && (existingStatusExpiresAt ? Date.now() < existingStatusExpiresAt : Date.now() - existingStatusUpdatedAt < existingExpireLimit);
+      const statusChangedByEditor = statusDraft !== existingStatusMessage;
+      const newStatusMessageUpdatedAt = statusDraft ? (statusChangedByEditor ? Date.now() : (existingStatusStillActive ? existingStatusUpdatedAt : 0)) : 0;
+      const newStatusMessageExpiresAt = statusDraft && newStatusMessageUpdatedAt
+        ? newStatusMessageUpdatedAt + (statusDraft.includes("🔴") ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)
+        : 0;
 
       let newStatusReactions = existingProfile?.statusReactions || { plus_one: [], watching: [], fire: [] };
-      if (customForm.statusMessage !== existingProfile?.statusMessage) {
+      if (statusDraft !== existingStatusMessage || !newStatusMessageUpdatedAt) {
         newStatusReactions = { plus_one: [], watching: [], fire: [] };
       }
       // --- D. 準備寫入 Firestore 的公開資料 ---
@@ -7959,11 +8346,18 @@ function App() {
         banner: bannerUrl || "",
         tags: tagsArray,
         collabTypes: finalCollabs,
+        creatorRoles: finalCreatorRoles,
+        creatorStyles: finalCreatorStyles,
+        creatorStatus: customForm.creatorStatus || "",
+        creatorBudgetRange: normalizeCreatorBudgetRange(customForm.creatorBudgetRange),
+        creatorOtherStyleText: String(customForm.creatorOtherStyleText || "").trim(),
+        creatorPortfolioUrl: customForm.creatorPortfolioUrl || "",
         slug: (customForm.slug || "").trim().toLowerCase(),
         personalityType: finalPersonality,
         // 🌟 新增：寫入限時動態資料
-        statusMessage: customForm.statusMessage || "",
+        statusMessage: newStatusMessageUpdatedAt ? statusDraft : "",
         statusMessageUpdatedAt: newStatusMessageUpdatedAt,
+        statusMessageExpiresAt: newStatusMessageExpiresAt,
         statusReactions: newStatusReactions,
         updatedAt: Date.now(),
       };
@@ -8149,9 +8543,13 @@ function App() {
       const now = Date.now();
       const content = statusMsg || "";
 
+      const statusDuration = isLive ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      const statusExpiresAt = content ? now + statusDuration : 0;
+
       await updateDoc(doc(db, getPath("vtubers"), uid), {
         statusMessage: content,
-        statusMessageUpdatedAt: now,
+        statusMessageUpdatedAt: content ? now : 0,
+        statusMessageExpiresAt: statusExpiresAt,
         // 🌟 新增：發布新動態時，清空互動名單
         statusReactions: { plus_one: [], watching: [], fire: [] },
         updatedAt: now
@@ -8165,7 +8563,7 @@ function App() {
       // 即時更新本地畫面與快取
       setRealVtubers((prev) => {
         const newList = prev.map((v) =>
-          v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: now, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now } : v
+          v.id === uid ? { ...v, statusMessage: content, statusMessageUpdatedAt: content ? now : 0, statusMessageExpiresAt: statusExpiresAt, statusReactions: { plus_one: [], watching: [], fire: [] }, updatedAt: now } : v
         );
         syncVtuberCache(newList);
         return newList;
@@ -9740,7 +10138,7 @@ function App() {
                 onClick={() => navigate("status_wall")}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B] shadow-md border border-[#F59E0B]/50"}`}
               >
-                <i className="fa-solid fa-bolt"></i> 24H動態牆火速揪團
+                <i className="fa-solid fa-bolt"></i> 24H動態牆
               </button>
 
               <button
@@ -9751,16 +10149,10 @@ function App() {
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
               </button>
 
-              <button
-                onClick={() => navigate("collabs")}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "collabs" ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#EF4444] text-white hover:bg-[#EF4444] shadow-md border border-[#EF4444]/50"}`}
-              >
-                <i className="fa-solid fa-broadcast-tower"></i> 確定聯動
-              </button>
               {user && (
                 <button
                   onClick={() => navigate("commissions")}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A] shadow-sm" : "bg-[#181B25] text-[#CBD5E1] hover:text-white hover:bg-[#1D2130]"}`}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A] shadow-sm scale-105" : "bg-[#38BDF8] text-[#0F111A] hover:bg-[#7DD3FC] shadow-md border border-[#38BDF8]/50"}`}
                 >
                   <i className="fa-solid fa-palette"></i> 繪師/建模師/剪輯師委託專區
                 </button>
@@ -9790,7 +10182,7 @@ function App() {
                 onClick={() => navigate("status_wall")}
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B]"}`}
               >
-                <i className="fa-solid fa-bolt w-5"></i> 24H動態牆火速揪團
+                <i className="fa-solid fa-bolt w-5"></i> 24H動態牆
               </button>
 
               <button
@@ -9805,16 +10197,10 @@ function App() {
                 <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
               </button>
 
-              <button
-                onClick={() => navigate("collabs")}
-                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "collabs" ? "bg-[#EF4444] text-white shadow-sm" : "bg-[#EF4444] text-white hover:bg-[#EF4444]"}`}
-              >
-                <i className="fa-solid fa-broadcast-tower w-5"></i> 確定聯動
-              </button>
               {user && (
                 <button
                   onClick={() => navigate("commissions")}
-                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A]" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
+                  className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "commissions" ? "bg-[#38BDF8] text-[#0F111A] shadow-sm" : "bg-[#38BDF8] text-[#0F111A] hover:bg-[#7DD3FC]"}`}
                 >
                   <i className="fa-solid fa-palette w-5"></i>
                   繪師/建模師/剪輯師委託專區
@@ -10725,7 +11111,7 @@ function App() {
                               <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
                                 <i className="fa-solid fa-hashtag text-base"></i>
                               </div>
-                              <h3 className="text-xl font-bold text-white tracking-wide">常見內容</h3>
+                              <h3 className="text-xl font-bold text-white tracking-wide">我的喜好</h3>
                             </div>
                             {/* 標籤微縮 */}
                             <div className="flex flex-wrap gap-2">
@@ -10737,6 +11123,7 @@ function App() {
                             </div>
                           </div>
                         )}
+
                       </div>
 
                       {/* 右側：聯動情報 */}
@@ -10786,6 +11173,45 @@ function App() {
 
                       </div>
                     </div>
+
+                    {(Array.isArray(selectedVTuber.creatorRoles) && selectedVTuber.creatorRoles.length > 0) && (
+                      <div className="mt-6 bg-gradient-to-br from-[#0B2A3A] via-[#10213F] to-[#24124A] rounded-2xl p-5 sm:p-7 border border-[#38BDF8]/45 shadow-lg shadow-[#38BDF8]/10 relative overflow-hidden">
+                        <div className="absolute -right-16 -top-16 w-52 h-52 bg-[#38BDF8]/10 blur-3xl rounded-full"></div>
+                        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-11 h-11 rounded-2xl bg-[#38BDF8]/20 border border-[#38BDF8]/35 flex items-center justify-center text-[#7DD3FC]">
+                                <i className="fa-solid fa-palette text-lg"></i>
+                              </div>
+                              <div>
+                                <p className="text-xs font-extrabold tracking-[0.18em] uppercase text-[#7DD3FC]">Creator Service</p>
+                                <h3 className="text-2xl font-black text-white tracking-wide">創作服務專區</h3>
+                                <p className="text-sm text-[#BAE6FD] mt-1">繪圖、建模、剪輯等委託資訊獨立顯示，不再與上方名片資料擠在一起。</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {(selectedVTuber.creatorRoles || []).map((role) => <span key={role} className="bg-[#38BDF8]/15 border border-[#38BDF8]/35 text-[#BAE6FD] px-3 py-1.5 rounded-full text-xs font-extrabold">{role}</span>)}
+                              {selectedVTuber.creatorStatus && <span className="bg-[#22C55E]/15 border border-[#22C55E]/35 text-[#86EFAC] px-3 py-1.5 rounded-full text-xs font-extrabold">{selectedVTuber.creatorStatus}</span>}
+                              {selectedVTuber.creatorBudgetRange && <span className="bg-[#F59E0B]/15 border border-[#F59E0B]/35 text-[#FBBF24] px-3 py-1.5 rounded-full text-xs font-extrabold">{normalizeCreatorBudgetRange(selectedVTuber.creatorBudgetRange)}</span>}
+                            </div>
+                            {(selectedVTuber.creatorStyles || []).length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {(selectedVTuber.creatorStyles || []).map((style) => <span key={style} className="bg-[#08111F]/70 border border-white/10 text-[#E0F2FE] px-2.5 py-1 rounded-full text-xs font-bold">{style === "其他(自由填寫)" && selectedVTuber.creatorOtherStyleText ? selectedVTuber.creatorOtherStyleText : style}</span>)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-shrink-0">
+                            {selectedVTuber.creatorPortfolioUrl ? (
+                              <button onClick={() => window.open(sanitizeUrl(/^https?:\/\//i.test(selectedVTuber.creatorPortfolioUrl) ? selectedVTuber.creatorPortfolioUrl : "https://" + selectedVTuber.creatorPortfolioUrl), "_blank", "noopener,noreferrer")} className="w-full lg:w-auto inline-flex items-center justify-center gap-2 bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-6 py-3 rounded-xl font-black text-sm transition-colors shadow-lg shadow-[#38BDF8]/20">
+                                <i className="fa-solid fa-images"></i> 觀看作品集
+                              </button>
+                            ) : (
+                              <p className="text-sm text-[#BAE6FD] bg-[#08111F]/60 border border-white/10 rounded-xl px-4 py-3">尚未提供作品集連結，可先用站內私訊詢問委託資訊。</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -10810,7 +11236,7 @@ function App() {
                     onClick={() => setIsLeaderboardModalOpen(true)}
                     className="bg-[#D97706] hover:bg-[#F59E0B] text-[#0F111A] px-4 sm:px-5 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap"
                   >
-                    <i className="fa-solid fa-trophy mr-2"></i>揪團成功排行榜
+                    <i className="fa-solid fa-trophy mr-2"></i>揪團排行榜
                   </button>
                   <button
                     onClick={() => {
@@ -10834,6 +11260,13 @@ function App() {
                       className={`fa-solid ${isBulletinFormOpen ? "fa-chevron-up" : "fa-pen-nib"} mr-2`}
                     ></i>
                     {isBulletinFormOpen ? "收起揪團" : "我要揪團"}
+                  </button>
+                  <button
+                    onClick={() => navigate("collabs")}
+                    className="bg-[#EF4444] hover:bg-[#DC2626] text-white px-4 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap"
+                  >
+                    <i className="fa-solid fa-calendar-check mr-2"></i>
+                    確定聯動表
                   </button>
                 </div>
               </div>
@@ -11124,23 +11557,31 @@ function App() {
 
           {currentView === "collabs" && (
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
-              <div className="flex justify-between items-center mb-8 border-b border-[#2A2F3D] pb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-[#2A2F3D] pb-4">
                 <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
                   <i className="fa-solid fa-broadcast-tower text-[#EF4444]"></i>{" "}
                   確定聯動表
                 </h2>
-                {isVerifiedUser && (
+                <div className="flex flex-row flex-wrap gap-3 w-full sm:w-auto">
                   <button
-                    onClick={() => {
-                      document
-                        .getElementById("public-collab-form")
-                        ?.classList.toggle("hidden");
-                    }}
-                    className="bg-[#EF4444] hover:bg-[#EF4444] text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-transform"
+                    onClick={() => navigate("bulletin")}
+                    className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-colors"
                   >
-                    <i className="fa-solid fa-plus mr-2"></i>發布聯動
+                    <i className="fa-solid fa-arrow-left mr-2"></i>返回揪團佈告欄
                   </button>
-                )}
+                  {isVerifiedUser && (
+                    <button
+                      onClick={() => {
+                        document
+                          .getElementById("public-collab-form")
+                          ?.classList.toggle("hidden");
+                      }}
+                      className="bg-[#EF4444] hover:bg-[#EF4444] text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-transform"
+                    >
+                      <i className="fa-solid fa-plus mr-2"></i>發布聯動
+                    </button>
+                  )}
+                </div>
               </div>
 
               {isVerifiedUser && (
@@ -12335,7 +12776,7 @@ function App() {
             >
               <div className="bg-yellow-900/30 p-5 border-b border-yellow-900/50 flex justify-between items-center">
                 <h3 className="text-xl font-bold text-[#F59E0B] flex items-center gap-2">
-                  <i className="fa-solid fa-trophy"></i> 揪團成功排行榜
+                  <i className="fa-solid fa-trophy"></i> 揪團排行榜
                 </h3>
                 <button
                   onClick={() => setIsLeaderboardModalOpen(false)}
@@ -12575,7 +13016,7 @@ function App() {
 
         <footer className="py-6 border-t border-[#2A2F3D] text-[#64748B] text-sm">
           <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-1 text-center">
-            <p className="text-xs tracking-wide">本網頁由 Gemini Pro 輔助生成｜企劃者 從APEX歸來的Dasa</p>
+            <p className="text-xs tracking-wide">本網頁由 Gemini Pro、Chatgpt輔助生成｜企劃者 從APEX歸來的Dasa</p>
             <p>© {new Date().getFullYear()} V-Nexus. 專為 VTuber 打造的聯動平台。</p>
           </div>
         </footer>
