@@ -32,6 +32,7 @@ import {
 import {
   initializeAppCheck,
   ReCaptchaV3Provider,
+  getToken as getAppCheckToken,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import {
   getFunctions,
@@ -82,19 +83,90 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // ✅ App Check 必須盡量在 Auth / Firestore / Storage / Functions 初始化前啟動。
-// 本地開發時，請在 Firebase Console → App Check → Web App → Manage debug tokens 加入 Console 顯示的 token。
-if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-}
+// ✅ v10 本地測試模式：正式站仍使用 reCAPTCHA App Check；localhost / 127.0.0.1 / *.local 會改用 Firebase App Check Debug Token。
+// 使用方式：
+// 1. 第一次在本地開啟網站時，Console 會顯示 App Check debug token。
+// 2. 到 Firebase Console → App Check → Web App → Manage debug tokens 加入該 token。
+// 3. 重新整理本地網站後，即使 Cloud Functions 已強制執行 App Check，也能正常測試 callable functions。
+// 4. 若你已在 Console 建立固定 Debug Token，可用 ?appCheckDebugToken=你的token 或 console 執行 vnexusSetAppCheckDebugToken('你的token') 寫入本機瀏覽器。
+const APP_CHECK_DEBUG_TOKEN_STORAGE_KEY = "vnexus_app_check_debug_token";
+const isLocalAppCheckHost = () => {
+  const host = String(location.hostname || "").toLowerCase();
+  return host === "localhost"
+    || host === "127.0.0.1"
+    || host === "0.0.0.0"
+    || host.endsWith(".local");
+};
+
+const setupLocalAppCheckDebugToken = () => {
+  if (!isLocalAppCheckHost()) return false;
+
+  try {
+    const params = new URLSearchParams(location.search || "");
+    const queryToken = params.get("appCheckDebugToken") || params.get("appcheckDebugToken") || params.get("appcheckDebug");
+    if (queryToken && queryToken.trim()) {
+      localStorage.setItem(APP_CHECK_DEBUG_TOKEN_STORAGE_KEY, queryToken.trim());
+      params.delete("appCheckDebugToken");
+      params.delete("appcheckDebugToken");
+      params.delete("appcheckDebug");
+      const cleanUrl = `${location.pathname}${params.toString() ? `?${params.toString()}` : ""}${location.hash || ""}`;
+      history.replaceState(null, document.title, cleanUrl);
+      console.info("🧪 已儲存 V-Nexus 本地 App Check Debug Token，重新整理後會自動使用。未來可用 vnexusClearAppCheckDebugToken() 清除。");
+    }
+
+    const savedToken = localStorage.getItem(APP_CHECK_DEBUG_TOKEN_STORAGE_KEY);
+    // Firebase Web SDK 規定必須在 initializeAppCheck 前設定這個全域值。
+    // 有固定 token 就使用固定 token；沒有就設 true，讓 SDK 在 Console 印出一組可加入 Firebase Console 的 debug token。
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = savedToken || true;
+
+    self.vnexusSetAppCheckDebugToken = (token) => {
+      if (!token || !String(token).trim()) {
+        console.warn("請提供 Firebase Console App Check debug token，例如：vnexusSetAppCheckDebugToken('xxxx')");
+        return false;
+      }
+      localStorage.setItem(APP_CHECK_DEBUG_TOKEN_STORAGE_KEY, String(token).trim());
+      console.info("✅ 已儲存 App Check Debug Token。請重新整理頁面後再測試 Cloud Functions。");
+      return true;
+    };
+
+    self.vnexusClearAppCheckDebugToken = () => {
+      localStorage.removeItem(APP_CHECK_DEBUG_TOKEN_STORAGE_KEY);
+      console.info("🧹 已清除本機 App Check Debug Token。重新整理後 SDK 會重新產生並印出 debug token。");
+      return true;
+    };
+
+    console.info(
+      savedToken
+        ? "🧪 V-Nexus 本地 App Check Debug Token 模式已啟用：會使用本機儲存的 token 測試已強制 App Check 的 Cloud Functions。"
+        : "🧪 V-Nexus 本地 App Check Debug Token 模式已啟用：請將 Console 顯示的 debug token 加到 Firebase Console → App Check → Web App → Manage debug tokens。"
+    );
+    return true;
+  } catch (error) {
+    console.warn("⚠️ 本地 App Check Debug Token 初始化失敗，將嘗試使用正式 reCAPTCHA App Check：", error);
+    return false;
+  }
+};
+
+const isLocalAppCheckDebug = setupLocalAppCheckDebugToken();
+let appCheck = null;
 
 try {
-  initializeAppCheck(app, {
+  appCheck = initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(
       "6LdINZksAAAAAF5FtNfKOOsDPaHQue3SmuAVqR4M",
     ),
     isTokenAutoRefreshEnabled: true,
   });
-  console.info("✅ App Check 已初始化");
+  console.info(isLocalAppCheckDebug ? "✅ App Check 已初始化（本地 Debug Token 模式）" : "✅ App Check 已初始化（正式 reCAPTCHA 模式）");
+
+  // 本地測試時主動取一次 token，讓問題可以在 Console 立刻看見，不必等到按下功能才發現 Functions 被拒絕。
+  if (isLocalAppCheckDebug && appCheck) {
+    setTimeout(() => {
+      getAppCheckToken(appCheck, false)
+        .then(() => console.info("✅ 本地 App Check token 取得成功，可以測試已強制 App Check 的 Cloud Functions。"))
+        .catch((error) => console.warn("⚠️ 本地 App Check token 取得失敗：請確認 debug token 已加入 Firebase Console。", error));
+    }, 800);
+  }
 } catch (error) {
   console.warn("App Check:", error);
 }
@@ -3723,12 +3795,12 @@ const InboxPage = ({
   );
 };
 
-const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat }) => {
+const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat, mode = "creators" }) => {
   const { user, isAdmin, showToast } = useContext(AppContext);
+  const isBoardOnly = mode === "board";
   const [activeTab, setActiveTab] = useState(() => {
-    const preferredTab = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("vnexus_commission_initial_tab") : "";
-    if (preferredTab) sessionStorage.removeItem("vnexus_commission_initial_tab");
-    return preferredTab === "requests" ? "requests" : "creators";
+    if (isBoardOnly) return "requests";
+    return "creators";
   });
   const [activeRoleFilter, setActiveRoleFilter] = useState("All");
   const [activeCreatorStyleFilter, setActiveCreatorStyleFilter] = useState("All");
@@ -3829,25 +3901,35 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   return (
     <div className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
       <div className="mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm">
-        <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">Creator Market</p>
+        <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">繪師 / 建模師 / 剪輯師委託專區</h2>
-            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">找作品集、看檔期，也可以在委託佈告欄發布需求，讓創作者主動看見你的案子。</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">{isBoardOnly ? "委託佈告欄" : "繪師 / 建模師 / 剪輯師委託專區"}</h2>
+            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">{isBoardOnly ? "想找繪圖、建模、剪輯找不到人？來佈告欄表達需求，老師們可能就會找上你哦！" : "找作品集、看檔期，快速比較繪師、建模師與剪輯師的名片資料。"}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <button onClick={() => navigate("dashboard")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">補上我的創作技能標籤</button>
-            <button onClick={() => { setActiveTab("requests"); setIsRequestFormOpen(true); }} className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">發布委託需求</button>
+            {isBoardOnly ? (
+              <>
+                <button onClick={() => navigate("commissions")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">找創作者</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => navigate("dashboard")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">補上我的創作技能標籤</button>
+                <button onClick={() => navigate("commission-board")} className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">前往委託佈告欄</button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="mb-6 flex gap-2 bg-[#11131C] border border-[#2A2F3D] p-1 rounded-2xl w-fit">
-        <button onClick={() => setActiveTab("creators")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "creators" ? "bg-[#38BDF8] text-[#0F111A]" : "text-[#94A3B8] hover:text-white"}`}>找創作者</button>
-        <button onClick={() => setActiveTab("requests")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "requests" ? "bg-[#8B5CF6] text-white" : "text-[#94A3B8] hover:text-white"}`}>委託佈告欄</button>
-      </div>
+      {!isBoardOnly && false && (
+        <div className="mb-6 flex gap-2 bg-[#11131C] border border-[#2A2F3D] p-1 rounded-2xl w-fit">
+          <button onClick={() => setActiveTab("creators")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "creators" ? "bg-[#38BDF8] text-[#0F111A]" : "text-[#94A3B8] hover:text-white"}`}>找創作者</button>
+          <button onClick={() => setActiveTab("requests")} className={`px-4 py-2 rounded-xl text-sm font-extrabold transition-colors ${activeTab === "requests" ? "bg-[#8B5CF6] text-white" : "text-[#94A3B8] hover:text-white"}`}>委託佈告欄</button>
+        </div>
+      )}
 
-      {activeTab === "creators" && <>
+      {!isBoardOnly && activeTab === "creators" && <>
         <div className="mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
           <div className="flex flex-col xl:flex-row xl:items-end gap-4">
             <div className="flex-1 min-w-0">
@@ -3906,7 +3988,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         </>}
       </>}
 
-      {activeTab === "requests" && <div className="space-y-6">
+      {isBoardOnly && activeTab === "requests" && <div className="space-y-6">
         <div className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
           <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -4109,10 +4191,7 @@ const HomePage = ({
   const [homeCommissionRequests, setHomeCommissionRequests] = useState([]);
 
   const goToCommissionRequests = () => {
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.setItem("vnexus_commission_initial_tab", "requests");
-    }
-    navigate("commissions");
+    navigate("commission-board");
   };
 
   useEffect(() => {
@@ -4366,7 +4445,7 @@ const HomePage = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => navigate("dashboard")}
-                className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+                className="h-12 bg-[#8B5CF6]/10 hover:bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/40 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
               >
                 <i className="fa-solid fa-pen-to-square mr-2"></i>管理名片
               </button>
@@ -4389,13 +4468,13 @@ const HomePage = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => goToBulletin ? goToBulletin() : navigate("bulletin")}
-                className="h-12 bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#F8FAFC] px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+                className="h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
               >
-                <i className="fa-solid fa-bullhorn mr-2 text-[#A78BFA]"></i>揪團佈告欄
+                <i className="fa-solid fa-bullhorn mr-2"></i>揪團佈告欄
               </button>
               <button
                 onClick={goToCommissionRequests}
-                className="h-12 bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 text-[#FBBF24] border border-[#F59E0B]/35 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap"
+                className="h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white border border-[#8B5CF6]/50 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
               >
                 <i className="fa-solid fa-clipboard-list mr-2"></i>委託佈告欄
               </button>
@@ -4597,65 +4676,6 @@ const HomePage = ({
         )}
       </div>
 
-      {/* 5. 即將聯動 */}
-      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full">
-        <SectionHeader
-          icon="fa-calendar-check"
-          iconColor="text-[#38BDF8]"
-          title="即將聯動"
-          desc="看看有哪些 VTuber 即將展開合作，也可以從中認識新夥伴。"
-          action={
-            <button
-              onClick={() => navigate("collabs")}
-              className="hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap"
-            >
-              完整聯動表 <i className="fa-solid fa-arrow-right text-[#38BDF8]"></i>
-            </button>
-          }
-        />
-
-        {randomCollabs.length > 0 ? (
-          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full">
-            {randomCollabs.map((c) => (
-              <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full">
-                <CollabCard
-                  c={c}
-                  isLive={
-                    c.startTimestamp &&
-                    currentTime >= c.startTimestamp &&
-                    currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
-                  }
-                  vtuber={realVtubers.find((v) => v.id === c.userId)}
-                  realVtubers={realVtubers}
-                  onNavigateProfile={(vt) => {
-                    setSelectedVTuber(vt);
-                    navigate(`profile/${vt.id}`);
-                  }}
-                  onShowParticipants={onShowParticipants}
-                />
-              </div>
-            ))}
-            <MobileMoreCard
-              onClick={() => navigate("collabs")}
-              icon="fa-calendar-check"
-              text="查看完整聯動表"
-              subText="掌握所有即將到來的直播"
-            />
-          </div>
-        ) : (
-          <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
-            <p className="text-[#F8FAFC] font-bold text-lg">還沒有即將公開的聯動行程</p>
-            <p className="text-[#94A3B8] text-sm mt-2">安排好合作後，把待機室放上來，大家就能一起來支持。</p>
-            <button
-              onClick={() => navigate("collabs")}
-              className="mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors"
-            >
-              查看聯動表
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* 推薦繪師 / 建模師 / 剪輯師 */}
       {recommendedCreatorsForCommission.length > 0 && (
         <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full">
@@ -4727,13 +4747,13 @@ const HomePage = ({
       <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up">
         <SectionHeader
           icon="fa-clipboard-list"
-          iconColor="text-[#F59E0B]"
+          iconColor="text-[#8B5CF6]"
           title="委託佈告欄"
           desc="看看最近有哪些委託需求正在尋找繪師、建模師或剪輯師，接案前先確認需求與預算。"
           action={
             <button
               onClick={goToCommissionRequests}
-              className="hidden sm:flex bg-[#F59E0B] hover:bg-[#FBBF24] text-[#0F111A] px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap"
+              className="hidden sm:flex bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap"
             >
               查看全部委託 <i className="fa-solid fa-arrow-right"></i>
             </button>
@@ -4756,7 +4776,7 @@ const HomePage = ({
                         <p className="text-[#94A3B8] text-xs">{formatTime(r.createdAt)}</p>
                       </div>
                     </div>
-                    <span className="flex-shrink-0 bg-[#F59E0B]/15 text-[#FBBF24] border border-[#F59E0B]/30 text-xs font-extrabold px-2.5 py-1 rounded-full">{r.requestType || "委託"}</span>
+                    <span className="flex-shrink-0 bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/30 text-xs font-extrabold px-2.5 py-1 rounded-full">{r.requestType || "委託"}</span>
                   </div>
                   <h3 className="text-[#F8FAFC] text-lg font-extrabold mb-2 line-clamp-2">{r.title || "未命名委託需求"}</h3>
                   <p className="text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1">{r.description || "發案者尚未填寫詳細需求。"}</p>
@@ -4767,7 +4787,7 @@ const HomePage = ({
                   </div>
                   <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]">
                     <p className="text-xs text-[#94A3B8]">提案 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span></p>
-                    <button onClick={goToCommissionRequests} className="text-sm font-extrabold text-[#F59E0B] hover:text-[#FBBF24] transition-colors">前往查看 <i className="fa-solid fa-arrow-right ml-1"></i></button>
+                    <button onClick={goToCommissionRequests} className="text-sm font-extrabold text-[#A78BFA] hover:text-[#C4B5FD] transition-colors">前往查看 <i className="fa-solid fa-arrow-right ml-1"></i></button>
                   </div>
                 </article>
               );
@@ -4785,7 +4805,7 @@ const HomePage = ({
             <p className="text-[#94A3B8] text-sm mt-2">有繪圖、建模或剪輯需求時，可以直接發布到委託佈告欄。</p>
             <button
               onClick={goToCommissionRequests}
-              className="mt-5 inline-flex items-center justify-center bg-[#F59E0B] hover:bg-[#FBBF24] text-[#0F111A] px-5 py-2.5 rounded-xl font-bold transition-colors"
+              className="mt-5 inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors"
             >
               前往委託佈告欄
             </button>
@@ -4873,6 +4893,66 @@ const HomePage = ({
           />
         </div>
       </div>
+      {/* 即將聯動：移到首頁最下方 */}
+      <div className="mt-10 pt-10 border-t border-[#2A2F3D] w-full">
+        <SectionHeader
+          icon="fa-calendar-check"
+          iconColor="text-[#38BDF8]"
+          title="即將聯動"
+          desc="看看有哪些 VTuber 即將展開合作，也可以從中認識新夥伴。"
+          action={
+            <button
+              onClick={() => navigate("collabs")}
+              className="hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap"
+            >
+              完整聯動表 <i className="fa-solid fa-arrow-right text-[#38BDF8]"></i>
+            </button>
+          }
+        />
+
+        {randomCollabs.length > 0 ? (
+          <div className="flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full">
+            {randomCollabs.map((c) => (
+              <div key={c.id} className="flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full">
+                <CollabCard
+                  c={c}
+                  isLive={
+                    c.startTimestamp &&
+                    currentTime >= c.startTimestamp &&
+                    currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000
+                  }
+                  vtuber={realVtubers.find((v) => v.id === c.userId)}
+                  realVtubers={realVtubers}
+                  onNavigateProfile={(vt) => {
+                    setSelectedVTuber(vt);
+                    navigate(`profile/${vt.id}`);
+                  }}
+                  onShowParticipants={onShowParticipants}
+                />
+              </div>
+            ))}
+            <MobileMoreCard
+              onClick={() => navigate("collabs")}
+              icon="fa-calendar-check"
+              text="查看完整聯動表"
+              subText="掌握所有即將到來的直播"
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto">
+            <p className="text-[#F8FAFC] font-bold text-lg">還沒有即將公開的聯動行程</p>
+            <p className="text-[#94A3B8] text-sm mt-2">安排好合作後，把待機室放上來，大家就能一起來支持。</p>
+            <button
+              onClick={() => navigate("collabs")}
+              className="mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors"
+            >
+              查看聯動表
+            </button>
+          </div>
+        )}
+      </div>
+
+
     </section>
   );
 };
@@ -7507,7 +7587,7 @@ function App() {
   useEffect(() => {
     const fetchLargeData = async () => {
       const needsVtuberList = [
-        "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "collabs", "articles", "commissions"
+        "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
       ].includes(currentView);
 
       if (needsVtuberList) {
@@ -9190,55 +9270,37 @@ function App() {
 
  const handleVerifyVtuber = async (id) => {
   const targetVtuber = realVtubers.find((v) => v.id === id);
+  if (!targetVtuber) {
+    showToast("❌ 找不到該名片資料");
+    return;
+  }
 
-  const updates = {
-    isVerified: true,
-    verificationStatus: "approved",
-    showVerificationModal: "approved",
-    rejectionCount: 0,
-  };
-
-  // 1. 審核資料更新：只有這一步失敗，才顯示審核失敗
   try {
-    await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+    showToast("⏳ 正在審核名片...");
+    const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
+    const result = await reviewVtuberCard({ uid: id, action: "approve" });
+    const payload = result?.data || {};
+    const updates = payload.updates || {
+      isVerified: true,
+      verificationStatus: "approved",
+      showVerificationModal: "approved",
+      rejectionCount: 0,
+      verificationNote: "",
+    };
 
     setRealVtubers((prev) => {
       const newList = prev.map((v) =>
-        v.id === id ? { ...v, ...updates } : v
+        v.id === id ? { ...v, ...updates, verificationNote: updates.verificationNote || undefined } : v
       );
       syncVtuberCache(newList);
       return newList;
     });
 
-    showToast("已通過審核！");
+    showToast(payload.emailWarning ? `✅ 已通過審核；${payload.emailWarning}` : "✅ 已通過審核並送出通知！");
   } catch (err) {
-    console.error("審核通過資料更新失敗:", err);
-    showToast("❌ 審核失敗");
-    return;
-  }
-
-  // 2. 通知信寄送：失敗時不可覆蓋審核成功結果
-  try {
-    let emailToSend = targetVtuber?.publicEmail;
-
-    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-    if (privSnap.exists()) {
-      const privData = privSnap.data();
-      emailToSend =
-        privData.contactEmail || privData.publicEmail || emailToSend;
-    }
-
-    if (emailToSend) {
-      const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-      await sendSystemEmail({
-        to: emailToSend,
-        subject: `[V-Nexus] 關於您的創作者名片審核結果通知 🎉`,
-        text: `您好，${targetVtuber?.name || "創作者"}！恭喜您的名片已通過審核並正式上架，趕快回VNEXUS找新夥伴吧！https://www.vnexus2026.com/。`,
-      });
-    }
-  } catch (err) {
-    console.warn("審核已成功，但通知信寄送失敗:", err);
-    showToast("⚠️ 審核已通過，但通知信寄送失敗");
+    console.error("審核通過失敗:", err);
+    const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
+    showToast(`❌ 審核失敗：${message}`);
   }
 };
 
@@ -9263,21 +9325,20 @@ function App() {
     return;
   }
 
-  const now = Date.now();
-
-  const updates = {
-    isVerified: false,
-    verificationStatus: "rejected",
-    showVerificationModal: "rejected",
-    verificationNote: trimmedReason,
-    rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
-    lastRejectedAt: now,
-    updatedAt: now,
-  };
-
-  // 1. 退回審核資料更新：只有這一步失敗，才顯示退回失敗
   try {
-    await setDoc(doc(db, getPath("vtubers"), id), updates, { merge: true });
+    showToast("⏳ 正在退回名片...");
+    const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
+    const result = await reviewVtuberCard({ uid: id, action: "reject", reason: trimmedReason });
+    const payload = result?.data || {};
+    const updates = payload.updates || {
+      isVerified: false,
+      verificationStatus: "rejected",
+      showVerificationModal: "rejected",
+      verificationNote: trimmedReason,
+      rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
+      lastRejectedAt: Date.now(),
+      updatedAt: Date.now(),
+    };
 
     setRealVtubers((prev) => {
       const newList = prev.map((v) =>
@@ -9291,53 +9352,11 @@ function App() {
       return newList;
     });
 
-    showToast("已退回審核");
+    showToast(payload.emailWarning ? `✅ 已退回審核；${payload.emailWarning}` : "✅ 已退回審核並送出通知！");
   } catch (err) {
-    console.error("退回審核資料更新失敗:", err);
-    showToast("❌ 退回審核失敗");
-    return;
-  }
-
-  // 2. 通知信寄送：失敗時不可覆蓋退回成功結果
-  try {
-    let emailToSend = targetVtuber?.publicEmail;
-
-    const privSnap = await getDoc(doc(db, getPath("vtubers_private"), id));
-
-    if (privSnap.exists()) {
-      const privData = privSnap.data();
-      emailToSend =
-        privData.contactEmail ||
-        privData.publicEmail ||
-        emailToSend;
-    }
-
-    if (emailToSend && emailToSend.includes("@")) {
-      const sendSystemEmail = httpsCallable(
-        functionsInstance,
-        "sendSystemEmail"
-      );
-
-      await sendSystemEmail({
-        to: emailToSend,
-        subject: `[V-Nexus] 關於您的創作者名片審核結果通知`,
-        text:
-          `您好，${targetVtuber?.name || "創作者"}！\n\n` +
-          `很抱歉，您的創作者名片本次未通過審核。\n\n` +
-          `退回原因：\n${trimmedReason}\n\n` +
-          `請回到 V-Nexus 修改資料後再次送出審核：\n` +
-          `https://www.vnexus2026.com/\n\n` +
-          `V-Nexus 團隊`,
-      });
-    } else {
-      console.warn("退回審核已成功，但找不到可寄送的 Email:", {
-        id,
-        publicEmail: targetVtuber?.publicEmail,
-      });
-    }
-  } catch (err) {
-    console.warn("退回審核已成功，但通知信寄送失敗:", err);
-    showToast("⚠️ 已退回審核，但通知信寄送失敗");
+    console.error("退回審核失敗:", err);
+    const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
+    showToast(`❌ 退回審核失敗：${message}`);
   }
 };
 
@@ -10262,6 +10281,13 @@ function App() {
                 {!isVerifiedUser && <span className="text-[10px] ml-1 opacity-70">(需認證)</span>}
               </button>
 
+              <button
+                onClick={() => navigate("commission-board")}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "commission-board" ? "bg-[#8B5CF6] text-white shadow-sm scale-105" : "bg-[#8B5CF6] text-white hover:bg-[#7C3AED] shadow-md border border-[#8B5CF6]/50"}`}
+              >
+                <i className="fa-solid fa-clipboard-list"></i> 委託佈告欄
+              </button>
+
               {user && (
                 <button
                   onClick={() => navigate("commissions")}
@@ -10308,6 +10334,13 @@ function App() {
                 className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-sm" : "bg-rose-600 text-white hover:bg-rose-500"}`}
               >
                 <i className="fa-solid fa-bullhorn w-5"></i> 揪團佈告欄
+              </button>
+
+              <button
+                onClick={() => navigate("commission-board")}
+                className={`text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "commission-board" ? "bg-[#8B5CF6] text-white shadow-sm" : "bg-[#8B5CF6] text-white hover:bg-[#7C3AED]"}`}
+              >
+                <i className="fa-solid fa-clipboard-list w-5"></i> 委託佈告欄
               </button>
 
               {user && (
@@ -10389,6 +10422,21 @@ function App() {
 
           {currentView === "commissions" && (
             <CommissionPlanningPage
+              mode="creators"
+              navigate={navigate}
+              realVtubers={realVtubers}
+              onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+              onOpenChat={(v) => {
+                if (!user) return showToast("請先登入！");
+                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                setChatTarget(v);
+              }}
+            />
+          )}
+
+          {currentView === "commission-board" && (
+            <CommissionPlanningPage
+              mode="board"
               navigate={navigate}
               realVtubers={realVtubers}
               onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
@@ -11300,7 +11348,6 @@ function App() {
                               <div>
                                 <p className="text-xs font-extrabold tracking-[0.18em] uppercase text-[#7DD3FC]">Creator Service</p>
                                 <h3 className="text-2xl font-black text-white tracking-wide">創作服務專區</h3>
-                                <p className="text-sm text-[#BAE6FD] mt-1">繪圖、建模、剪輯等委託資訊獨立顯示，不再與上方名片資料擠在一起。</p>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2 mb-4">
