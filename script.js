@@ -1154,7 +1154,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                       <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
-                  <div className="p-5 flex-1 flex flex-col">
+                  <div className="p-3 sm:p-5 flex-1 flex flex-col">
                     {!a.coverUrl && <span className="bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow w-fit mb-2">{a.category}</span>}
                     <h3 className="font-bold text-white text-lg mb-2 line-clamp-2 group-hover:text-[#38BDF8] transition-colors">{a.title}</h3>
                     <p className="text-sm text-[#94A3B8] line-clamp-3 mb-4">{a.content.replace(/[#*]/g, '')}</p>
@@ -1352,6 +1352,13 @@ const formatTime = (ts) => {
   if (!ts) return "剛剛";
   const d = new Date(ts);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+const formatMonthDayTime = (value) => {
+  if (!value) return "未指定";
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
 // 🌟 新增：將時間戳記轉換為「發布了 X 分鐘/小時」的相對時間格式
@@ -2178,15 +2185,15 @@ const BulletinCard = React.memo(({
         <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] sm:text-sm">
           <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-2 sm:p-3">
             <p className="text-[9px] sm:text-[10px] text-[#94A3B8] mb-1">想找人數</p>
-            <p className="text-[#F8FAFC] font-bold truncate">{b.collabSize || "未指定"}</p>
+            <p className="text-[#F8FAFC] font-bold truncate text-[12px] sm:text-sm">{b.collabSize || "未指定"}</p>
           </div>
           <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-2 sm:p-3">
             <p className="text-[9px] sm:text-[10px] text-[#94A3B8] mb-1">預計時間</p>
-            <p className="text-[#F8FAFC] font-bold truncate">{formatDateTimeLocalStr(b.collabTime)}</p>
+            <p className="text-[#F8FAFC] font-bold truncate text-[12px] sm:text-sm">{formatDateTimeLocalStr(b.collabTime)}</p>
           </div>
           <div className="bg-[#11131C] border border-[#EF4444]/25 rounded-xl p-2 sm:p-3">
-            <p className="text-[9px] sm:text-[10px] text-[#EF4444]/80 mb-1">報名截止</p>
-            <p className="text-red-200 font-bold truncate">{b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}</p>
+            <p className="text-[10px] sm:text-[10px] text-[#EF4444]/80 mb-1">報名截止</p>
+            <p className="text-red-200 font-bold truncate text-[12px] sm:text-sm">{b.recruitEndTime ? formatMonthDayTime(b.recruitEndTime) : "未指定"}</p>
           </div>
         </div>
 
@@ -4272,18 +4279,23 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
   return (
-    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh]">
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overscroll-contain">
       <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
           <div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-white mb-2 sm:mb-3">{isBoardOnly ? "委託佈告欄" : "繪師 / 建模師 / 剪輯師委託專區"}</h2>
+            <div className="flex items-center justify-between gap-3 mb-2 sm:mb-3">
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-white min-w-0">{isBoardOnly ? "委託佈告欄" : "繪師 / 建模師 / 剪輯師委託專區"}</h2>
+              {isBoardOnly && (
+                <button onClick={() => navigate("commissions")} className="sm:hidden inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-3 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap flex-shrink-0">找創作者</button>
+              )}
+            </div>
             <p className="text-[#94A3B8] max-w-2xl leading-relaxed text-sm sm:text-base">{isBoardOnly ? "想找繪圖、建模、剪輯找不到人？來佈告欄表達需求，老師們可能就會找上你哦！" : "找作品集、看檔期，快速比較繪師、建模師與剪輯師的名片資料。"}</p>
           </div>
           <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
             {isBoardOnly ? (
               <>
-                <button onClick={() => navigate("commissions")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">找創作者</button>
+                <button onClick={() => navigate("commissions")} className="hidden sm:inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">找創作者</button>
               </>
             ) : (
               <>
@@ -4313,7 +4325,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
-              <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2.5 outline-none focus:border-[#38BDF8] text-sm sm:text-base">
+              <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full h-[42px] bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2 outline-none focus:border-[#38BDF8] text-xs sm:text-base">
                 {creatorStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
               </select>
             </div>
@@ -4324,9 +4336,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 setCommissionPage(1);
                 showToast("🎲 已重新洗牌創作者順序");
               }}
-              className="w-auto bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-2.5 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-2 text-sm sm:text-base"
+              className="h-[42px] bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-2 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-base"
             >
-              <i className="fa-solid fa-shuffle"></i>重新洗牌
+              <i className="fa-solid fa-shuffle"></i><span className="sm:hidden">洗牌</span><span className="hidden sm:inline">重新洗牌</span>
             </button>
           </div>
         </div>
@@ -4342,37 +4354,37 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorStatus = v.creatorStatus || "";
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
-              return <article key={v.id} onClick={() => openProfile(v)} className="group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex flex-col" title="查看詳細名片">
-                <div className="aspect-square bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+              return <article key={v.id} onClick={() => openProfile(v)} className="group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex flex-col will-change-auto" title="查看詳細名片">
+                <div className="aspect-square h-auto bg-[#11131C] relative overflow-hidden">
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-90 sm:group-hover:scale-105 group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/15 to-transparent"></div>
-                  <div className="absolute top-4 left-4 right-4 flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap gap-2">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-3 py-1 rounded-full text-xs font-extrabold shadow-sm">{role}</span>)}</div>
-                    {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-3 py-1 rounded-full text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/55 sm:via-[#0F111A]/15 to-transparent"></div>
+                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap gap-2">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
+                    {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
                   </div>
-                  <div className="absolute left-4 right-4 bottom-4">
+                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4">
                     <div className="flex items-end gap-3">
-                      <div className="w-14 h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
                         {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-white text-xl font-black truncate flex items-center gap-2 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full">已認證</span>}</h3>
+                        <h3 className="text-white text-base sm:text-xl font-black truncate flex items-center gap-2 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full">已認證</span>}</h3>
                         <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="p-5 flex-1 flex flex-col">
-                  <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                  <p className="hidden sm:block text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
                   <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
                     {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
                     {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
                     {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                   </div>
                   <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2 rounded-lg font-bold transition-colors text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-2 rounded-lg font-bold transition-colors text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                   </div>
                 </div>
               </article>;
@@ -4394,11 +4406,11 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             </div>
             <div className="min-w-0">
               <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
-              <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2.5 outline-none focus:border-[#8B5CF6] text-sm sm:text-base">
+              <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full h-[42px] bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2 outline-none focus:border-[#8B5CF6] text-xs sm:text-base">
                 {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
               </select>
             </div>
-            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-sm sm:text-base">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
+            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="h-[42px] bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-2 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-xs sm:text-base">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
           </div>
         </div>
         {isRequestFormOpen && (
@@ -11902,7 +11914,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsLeaderboardModalOpen(true)}
-                className="w-full mb-8 bg-gradient-to-r from-[#422006] via-[#78350F] to-[#422006] border border-[#F59E0B]/45 rounded-2xl p-4 sm:p-5 text-left hover:border-[#F59E0B] hover:shadow-lg hover:shadow-[#F59E0B]/10 transition-all group"
+                className="hidden sm:block w-full mb-8 bg-gradient-to-r from-[#422006] via-[#78350F] to-[#422006] border border-[#F59E0B]/45 rounded-2xl p-4 sm:p-5 text-left hover:border-[#F59E0B] hover:shadow-lg hover:shadow-[#F59E0B]/10 transition-all group"
                 aria-label="開啟揪團排行榜"
               >
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
