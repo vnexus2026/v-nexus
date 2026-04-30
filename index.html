@@ -19,7 +19,7 @@
   <style id="vnexus-critical-mobile-commission-css">
     /* Critical fallback for mobile Creator Market. Keeps layout when Tailwind CDN/style hydration is delayed on mobile refresh. */
     html, body { background:#0F111A; color:#E2E8F0; }
-    body { margin:0; overflow-x:hidden; font-family:sans-serif; }
+    body { margin:0; overflow-x:hidden; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     #root { min-height:100dvh; background:#0F111A; }
     .vnexus-commission-page { box-sizing:border-box; width:100%; max-width:72rem; margin:0 auto; padding:1.5rem 1rem; min-height:100dvh; overflow-x:hidden; }
     .vnexus-commission-hero { background:#181B25; border:1px solid #2A2F3D; border-radius:1rem; padding:1rem; margin-bottom:1.25rem; }
@@ -28,7 +28,7 @@
 
     .vnexus-commission-hero > p:first-child { display:block; color:#38BDF8; font-size:10px; line-height:1.25; font-weight:900; letter-spacing:.18em; text-transform:uppercase; margin:0 0 .5rem 0; }
     .vnexus-commission-hero > div { display:flex; flex-direction:column; gap:.75rem; }
-    .vnexus-commission-hero h2 { color:#fff; font-size:1.35rem; line-height:1.18; font-weight:900; margin:0; letter-spacing:-.02em; }
+    .vnexus-commission-hero h2 { color:#fff; font-size:1.35rem; line-height:1.18; font-weight:950; margin:0; letter-spacing:-.02em; }
     .vnexus-commission-hero p:not(:first-child) { color:#94A3B8; font-size:.875rem; line-height:1.7; margin:.5rem 0 0 0; max-width:100%; }
     .vnexus-commission-hero-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; width:100%; }
     .vnexus-commission-hero-actions button { min-height:42px; border:0; border-radius:.875rem; font-weight:900; font-size:.875rem; display:inline-flex; align-items:center; justify-content:center; padding:.625rem .75rem; white-space:nowrap; }
@@ -40,7 +40,7 @@
     .vnexus-commission-role-row button { flex:0 0 auto; border-radius:999px; border:1px solid #2A2F3D; background:#181B25; color:#CBD5E1; padding:.45rem .7rem; font-size:11px; line-height:1.15; font-weight:900; white-space:nowrap; }
     .vnexus-commission-role-row button[class*="bg-[#38BDF8]"] { background:#38BDF8 !important; border-color:#38BDF8 !important; color:#0F111A !important; }
     .vnexus-commission-controls select { display:block; width:100%; height:34px; border-radius:.875rem; border:1px solid #2A2F3D; background:#181B25; color:#fff; padding:.4rem .65rem; font-size:12px; outline:none; }
-    .vnexus-commission-shuffle { display:inline-flex; align-items:center; justify-content:center; min-width:62px; height:34px; border-radius:.875rem; border:0; background:#38BDF8; color:#0F111A; padding:.45rem .75rem; font-size:12px; line-height:1.15; font-weight:900; white-space:nowrap; }
+    .vnexus-commission-shuffle { display:inline-flex; align-items:center; justify-content:center; min-width:62px; height:34px; border-radius:.875rem; border:0; background:#38BDF8; color:#0F111A; padding:.45rem .75rem; font-size:12px; line-height:1.15; font-weight:950; white-space:nowrap; }
     .vnexus-floating-chat { position:fixed !important; inset:0 !important; width:100vw !important; max-width:none !important; height:100dvh !important; max-height:none !important; border-radius:0 !important; border-left:0 !important; z-index:9999 !important; transform:none !important; }
 
     .vnexus-critical-card { display:flex !important; flex-direction:column !important; overflow:hidden !important; border-radius:1.5rem !important; background:#151923 !important; border:1px solid #2A2F3D !important; box-shadow:0 10px 30px rgba(0,0,0,.22) !important; cursor:pointer; }
@@ -55,7 +55,7 @@
     .vnexus-critical-profile-row > div { display:flex !important; align-items:flex-end !important; gap:.75rem !important; min-width:0 !important; }
     .vnexus-critical-avatar { width:3rem !important; height:3rem !important; border-radius:1rem !important; overflow:hidden !important; flex-shrink:0 !important; background:#11131C !important; border:1px solid rgba(255,255,255,.22) !important; box-shadow:0 8px 22px rgba(0,0,0,.35) !important; }
     .vnexus-critical-avatar-img { width:100% !important; height:100% !important; object-fit:cover !important; display:block !important; }
-    .vnexus-critical-name { color:#fff !important; font-size:1.25rem !important; line-height:1.05 !important; font-weight:900 !important; margin:0 !important; overflow:hidden !important; white-space:nowrap !important; text-overflow:ellipsis !important; display:flex !important; align-items:center !important; gap:.5rem !important; text-shadow:0 2px 12px rgba(0,0,0,.45); }
+    .vnexus-critical-name { color:#fff !important; font-size:1.25rem !important; line-height:1.05 !important; font-weight:950 !important; margin:0 !important; overflow:hidden !important; white-space:nowrap !important; text-overflow:ellipsis !important; display:flex !important; align-items:center !important; gap:.5rem !important; text-shadow:0 2px 12px rgba(0,0,0,.45); }
     .vnexus-critical-verified { color:#22C55E !important; background:rgba(0,0,0,.45) !important; border-radius:999px !important; padding:.125rem .5rem !important; font-size:.75rem !important; font-weight:800 !important; flex-shrink:0 !important; }
     .vnexus-critical-meta { color:#BAE6FD !important; font-size:.75rem !important; font-weight:800 !important; margin-top:.25rem !important; overflow:hidden !important; white-space:nowrap !important; text-overflow:ellipsis !important; }
     .vnexus-critical-body { padding:1.25rem !important; display:flex !important; flex-direction:column !important; flex:1 1 auto !important; background:#151923 !important; }
@@ -101,13 +101,6 @@
       .vnexus-mobile-bulletin-red-nav span {
         color:#FFFFFF !important;
       }
-    }
-
-
-    /* Font restore: match uploaded style.css font-family */
-    .vnexus-commission-page,
-    .vnexus-commission-page * {
-      font-family:sans-serif !important;
     }
 
   </style>
