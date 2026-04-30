@@ -128,7 +128,7 @@
       .vnexus-commission-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     }
 
-    /* Mobile home/nav bulletin button: same size as neighboring buttons, red only in color */
+    /* Mobile nav: keep 揪團佈告欄 as red background + white text */
     @media (max-width: 639px) {
       .vnexus-mobile-bulletin-red-nav {
         background:#EF4444 !important;
@@ -139,21 +139,6 @@
       .vnexus-mobile-bulletin-red-nav span {
         color:#FFFFFF !important;
       }
-    }
-
-
-
-    /* Image failure fallback: stop endless shimmer when image cannot be displayed */
-    img.vnexus-image-error,
-    .vnexus-local-img-failed {
-      animation:none !important;
-      background-image:none !important;
-      background-color:#1D2130 !important;
-      opacity:0 !important;
-    }
-    .vnexus-image-failed-placeholder {
-      background:#1D2130 !important;
-      animation:none !important;
     }
 
   </style>
