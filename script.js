@@ -372,6 +372,40 @@ const initVnexusImageLoadingUX = (() => {
         .vnexus-drag-scroll.is-dragging {
           cursor: grabbing;
         }
+
+
+        /* ✅ 手機版：繪師 / 建模師 / 剪輯師委託專區卡片排版（仿使用者提供截圖） */
+        @media (max-width: 639px) {
+          .vnexus-commission-page {
+            max-width: 100% !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+          }
+          .vnexus-commission-grid {
+            gap: 1rem !important;
+          }
+          .vnexus-creator-market-card {
+            border-radius: 1.5rem !important;
+            background: #151923 !important;
+            border-color: #2A2F3D !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,.18) !important;
+          }
+          .vnexus-creator-market-card > div:first-child {
+            aspect-ratio: 1 / 1 !important;
+            min-height: 0 !important;
+          }
+          .vnexus-creator-showcase-img {
+            opacity: .92 !important;
+            transform: none !important;
+          }
+          .vnexus-creator-market-card .line-clamp-4 {
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .vnexus-image-skeleton,
           img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
@@ -4370,22 +4404,22 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-white text-base sm:text-xl font-black truncate flex items-center gap-2 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full">已認證</span>}</h3>
+                        <h3 className="text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
                         <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="p-5 flex-1 flex flex-col">
-                  <p className="hidden sm:block text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                  <p className="block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
                   <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
                     {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
                     {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
                     {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                   </div>
                   <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                   </div>
                 </div>
               </article>
