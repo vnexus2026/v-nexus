@@ -429,6 +429,12 @@ const initVnexusImageLoadingUX = (() => {
       const target = event.target;
       if (target && target.tagName === "IMG") {
         const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
+        // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
+        if (target.closest?.(".vnexus-creator-market-card")) {
+          target.classList.add("vnexus-image-error");
+          target.classList.remove("vnexus-image-loaded");
+          return;
+        }
         rememberBrokenImageUrl(failedSrc);
         target.classList.add("vnexus-image-error");
         target.classList.remove("vnexus-image-loaded");
@@ -843,11 +849,9 @@ const sanitizeUrl = (url) => {
     return "about:blank";
   }
 
-  // 圖片曾經載入失敗時，先不要再塞進 <img src>，避免重複 404/403 洗 console。
-  // 若原始網址後續修復，可在瀏覽器 Console 執行 vnexusClearBrokenImageCache() 後重新整理。
-  if (isKnownBrokenImageUrl(u)) return "";
-
-  // ✅ Storage / App Check 相容：保留 Firebase Storage download token，避免圖片 403。
+  // ✅ 手機版重新整理修正：不要因為一次暫時載入失敗就把圖片 URL 永久視為壞圖。
+  // 先前 isKnownBrokenImageUrl(u) 會讓 sanitizeUrl 回傳空字串，導致再次重新整理後頭像 / 作品圖直接消失。
+  // 這裡一律保留原始安全 URL，讓瀏覽器每次都能重新嘗試載入。
 
   return u;
 };
@@ -1184,7 +1188,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                   {a.coverUrl && (
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+                      <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
                       <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
@@ -1738,7 +1742,7 @@ const CollabCard = React.memo(({
           className="w-full h-full object-cover group-transition-transform duration-700"
           alt="聯動封面"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+        <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
         <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-[#2A2F3D] text-white px-3 py-1.5 rounded-xl flex flex-col items-center shadow-sm transform -rotate-2">
           <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">
             {c.date}
@@ -4389,37 +4393,37 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
-                <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
-                <div className="aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
+                <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
-                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
-                    {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
+                  <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
+                  <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
+                    <div className="vnexus-critical-role-list flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="vnexus-critical-role-badge bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
+                    {creatorStatus && <span className="vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
                   </div>
-                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
+                  <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
                     <div className="flex items-end gap-3">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                      <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
+                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
-                        <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                        <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
+                        <p className="vnexus-critical-meta text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <p className="block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                  <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                <div className="vnexus-critical-body p-5 flex-1 flex flex-col">
+                  <p className="vnexus-critical-description block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                  <div className="vnexus-critical-style-tags flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
                     {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
                     {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
                     {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                   </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                  <div className="vnexus-critical-actions mt-auto grid grid-cols-2 gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="vnexus-critical-primary-btn bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`vnexus-critical-secondary-btn ${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                   </div>
                 </div>
               </article>
@@ -4535,7 +4539,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-4">
                     <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
-                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
                     </button>
                     <div className="min-w-0 flex-1">
                       <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
@@ -4573,7 +4577,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         <div className="flex -space-x-2">
                           {applicantProfiles.slice(0, 5).map((a) => (
                             <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
                             </button>
                           ))}
                           {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
@@ -5161,7 +5165,7 @@ const HomePage = ({
                 >
                   <div className="h-36 bg-[#11131C] overflow-hidden">
                     {v.banner ? (
-                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} />
                     ) : (
                       <div className="w-full h-full bg-[#1D2130]"></div>
                     )}
