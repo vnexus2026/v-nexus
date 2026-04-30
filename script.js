@@ -247,6 +247,90 @@ const getMsgPath = (roomId) =>
   `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
 
 
+const BROKEN_IMAGE_CACHE_KEY = "vnexus_broken_image_urls_v1";
+const BROKEN_IMAGE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+const BROKEN_IMAGE_CACHE_LIMIT = 500;
+let vnexusBrokenImageUrlMap = null;
+
+function normalizeImageCacheUrl(url) {
+  if (typeof url !== "string") return "";
+  return url.trim();
+}
+
+function loadBrokenImageUrlMap() {
+  if (vnexusBrokenImageUrlMap) return vnexusBrokenImageUrlMap;
+  vnexusBrokenImageUrlMap = new Map();
+  if (typeof localStorage === "undefined") return vnexusBrokenImageUrlMap;
+
+  try {
+    const raw = localStorage.getItem(BROKEN_IMAGE_CACHE_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    const now = Date.now();
+    Object.entries(data || {}).forEach(([url, ts]) => {
+      const time = Number(ts || 0);
+      if (url && time && now - time < BROKEN_IMAGE_CACHE_TTL) {
+        vnexusBrokenImageUrlMap.set(url, time);
+      }
+    });
+  } catch (error) {
+    console.warn("圖片錯誤快取讀取失敗，將重新建立。", error);
+    try { localStorage.removeItem(BROKEN_IMAGE_CACHE_KEY); } catch (e) { }
+  }
+  return vnexusBrokenImageUrlMap;
+}
+
+function persistBrokenImageUrlMap() {
+  if (typeof localStorage === "undefined" || !vnexusBrokenImageUrlMap) return;
+  try {
+    const entries = [...vnexusBrokenImageUrlMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, BROKEN_IMAGE_CACHE_LIMIT);
+    localStorage.setItem(BROKEN_IMAGE_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch (error) {
+    // localStorage 滿了或被瀏覽器阻擋時，不影響主流程。
+  }
+}
+
+function rememberBrokenImageUrl(url) {
+  const normalized = normalizeImageCacheUrl(url);
+  if (!normalized) return;
+  const lower = normalized.toLowerCase();
+  // data/blob/about 不應該被記錄；Firebase Storage 偶發 403 也先記錄 7 天，使用者可清除快取恢復。
+  if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("about:")) return;
+  const map = loadBrokenImageUrlMap();
+  map.set(normalized, Date.now());
+  persistBrokenImageUrlMap();
+}
+
+function forgetBrokenImageUrl(url) {
+  const normalized = normalizeImageCacheUrl(url);
+  if (!normalized) return;
+  const map = loadBrokenImageUrlMap();
+  if (map.delete(normalized)) persistBrokenImageUrlMap();
+}
+
+function isKnownBrokenImageUrl(url) {
+  const normalized = normalizeImageCacheUrl(url);
+  if (!normalized) return false;
+  const map = loadBrokenImageUrlMap();
+  const ts = Number(map.get(normalized) || 0);
+  if (!ts) return false;
+  if (Date.now() - ts > BROKEN_IMAGE_CACHE_TTL) {
+    map.delete(normalized);
+    persistBrokenImageUrlMap();
+    return false;
+  }
+  return true;
+}
+
+if (typeof window !== "undefined") {
+  window.vnexusClearBrokenImageCache = () => {
+    try { localStorage.removeItem(BROKEN_IMAGE_CACHE_KEY); } catch (e) { }
+    vnexusBrokenImageUrlMap = new Map();
+    console.info("✅ V-Nexus 圖片錯誤快取已清除，重新整理後會再次嘗試載入圖片。界面：vnexusClearBrokenImageCache()");
+  };
+}
+
 const initVnexusImageLoadingUX = (() => {
   let initialized = false;
   return () => {
@@ -298,9 +382,48 @@ const initVnexusImageLoadingUX = (() => {
     document.addEventListener("error", (event) => {
       const target = event.target;
       if (target && target.tagName === "IMG") {
+        const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
+        rememberBrokenImageUrl(failedSrc);
         target.classList.add("vnexus-image-error");
+        target.classList.remove("vnexus-image-loaded");
+        target.removeAttribute("srcset");
+        target.removeAttribute("src");
       }
     }, true);
+
+    const hideKnownBrokenImages = (root = document) => {
+      root.querySelectorAll?.("img").forEach((img) => {
+        const src = img.currentSrc || img.src || img.getAttribute("src") || "";
+        if (src && isKnownBrokenImageUrl(src)) {
+          img.classList.add("vnexus-image-error");
+          img.removeAttribute("srcset");
+          img.removeAttribute("src");
+        }
+      });
+    };
+
+    hideKnownBrokenImages();
+
+    if (typeof MutationObserver !== "undefined") {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (!node || node.nodeType !== 1) return;
+            if (node.tagName === "IMG") {
+              const src = node.currentSrc || node.src || node.getAttribute("src") || "";
+              if (src && isKnownBrokenImageUrl(src)) {
+                node.classList.add("vnexus-image-error");
+                node.removeAttribute("srcset");
+                node.removeAttribute("src");
+              }
+            } else {
+              hideKnownBrokenImages(node);
+            }
+          });
+        });
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
   };
 })();
 
@@ -313,8 +436,14 @@ const LazyImage = ({
   alt = "",
   onClick,
 }) => {
+  const safeSrc = sanitizeUrl(src);
   const [loaded, setLoaded] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [hasError, setHasError] = useState(!safeSrc);
+
+  useEffect(() => {
+    setLoaded(false);
+    setHasError(!safeSrc);
+  }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
   // 圖片載入中加上更明顯的深色 shimmer，讓使用者知道畫面正在載入，而不是卡住。
@@ -327,17 +456,21 @@ const LazyImage = ({
       {!loaded && !hasError && (
         <div className="absolute inset-0 vnexus-image-skeleton z-0" aria-hidden="true"></div>
       )}
-      {src && !hasError && (
+      {safeSrc && !hasError && (
         <img
-          src={src}
+          src={safeSrc}
           alt={alt}
           className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100 vnexus-image-loaded" : "opacity-0"} ${imgCls}`}
           onLoad={(e) => {
             e.currentTarget.classList.add("vnexus-image-loaded");
+            forgetBrokenImageUrl(safeSrc);
             setLoaded(true);
           }}
           onError={(e) => {
+            rememberBrokenImageUrl(safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
             e.currentTarget.classList.add("vnexus-image-error");
+            e.currentTarget.removeAttribute("srcset");
+            e.currentTarget.removeAttribute("src");
             setHasError(true);
             setLoaded(true);
           }}
@@ -663,6 +796,10 @@ const sanitizeUrl = (url) => {
   ) {
     return "about:blank";
   }
+
+  // 圖片曾經載入失敗時，先不要再塞進 <img src>，避免重複 404/403 洗 console。
+  // 若原始網址後續修復，可在瀏覽器 Console 執行 vnexusClearBrokenImageCache() 後重新整理。
+  if (isKnownBrokenImageUrl(u)) return "";
 
   // ✅ Storage / App Check 相容：保留 Firebase Storage download token，避免圖片 403。
 
@@ -6806,6 +6943,7 @@ function App() {
   const [storyInput, setStoryInput] = useState("");
   const [isStoryComposerOpen, setIsStoryComposerOpen] = useState(false);
   const [statusWallFilter, setStatusWallFilter] = useState("all");
+  const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
   const [viewedStoryMap, setViewedStoryMap] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
@@ -12532,6 +12670,8 @@ function App() {
                       const plusCount = v.statusReactions?.plus_one?.length || 0;
                       const fireCount = v.statusReactions?.fire?.length || 0;
                       const displayMessage = String(v.statusMessage || "").replace(/^🔴\s*/, "").trim();
+                      const commentKey = `${v.id}_${Number(v.statusMessageUpdatedAt || 0)}`;
+                      const isCommentsOpen = !!openStatusCommentKeys[commentKey];
 
                       return (
                         <article
@@ -12587,6 +12727,17 @@ function App() {
                                     </button>
                                   </>
                                 )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenStatusCommentKeys((prev) => ({ ...prev, [commentKey]: !prev[commentKey] }));
+                                  }}
+                                  className={`h-9 w-9 rounded-full border text-xs font-bold transition-colors inline-flex items-center justify-center ${isCommentsOpen ? 'border-[#F59E0B]/45 bg-[#F59E0B]/15 text-[#F59E0B]' : 'border-[#2A2F3D] bg-[#11131C] hover:bg-[#38BDF8]/15 hover:border-[#38BDF8]/35 text-[#7DD3FC]'}`}
+                                  title={isCommentsOpen ? '收合留言' : '查看留言'}
+                                >
+                                  <i className="fa-regular fa-comment-dots"></i>
+                                </button>
                                 {user && v.id === user.uid && (
                                   <button
                                     onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }}
@@ -12597,15 +12748,17 @@ function App() {
                                 )}
                               </div>
 
-                              <StatusCommentsBox
-                                storyOwner={v}
-                                currentUser={user}
-                                myProfile={myProfile}
-                                isAdmin={isAdmin}
-                                isVerifiedUser={isVerifiedUser}
-                                realVtubers={realVtubers}
-                                showToast={showToast}
-                              />
+                              {isCommentsOpen && (
+                                <StatusCommentsBox
+                                  storyOwner={v}
+                                  currentUser={user}
+                                  myProfile={myProfile}
+                                  isAdmin={isAdmin}
+                                  isVerifiedUser={isVerifiedUser}
+                                  realVtubers={realVtubers}
+                                  showToast={showToast}
+                                />
+                              )}
                             </div>
                           </div>
                         </article>
