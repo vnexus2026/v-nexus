@@ -374,6 +374,30 @@ const initVnexusImageLoadingUX = (() => {
         }
 
 
+
+        /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
+        @media (max-width: 639px) {
+          .vnexus-commission-page * { box-sizing: border-box; }
+          .vnexus-commission-hero { width: 100% !important; background: #181B25 !important; border: 1px solid #2A2F3D !important; border-radius: 1.25rem !important; padding: 1rem !important; margin-bottom: 1.25rem !important; overflow: hidden !important; }
+          .vnexus-commission-hero > p:first-child { display: block !important; color: #38BDF8 !important; font-size: 10px !important; line-height: 1.25 !important; font-weight: 900 !important; letter-spacing: .18em !important; text-transform: uppercase !important; margin: 0 0 .5rem 0 !important; }
+          .vnexus-commission-hero > div { display: flex !important; flex-direction: column !important; gap: .75rem !important; }
+          .vnexus-commission-hero h2 { color: #fff !important; font-size: 1.5rem !important; line-height: 1.18 !important; font-weight: 950 !important; margin: 0 !important; letter-spacing: -.02em !important; }
+          .vnexus-commission-hero p:not(:first-child) { color: #94A3B8 !important; font-size: .875rem !important; line-height: 1.7 !important; margin: .5rem 0 0 0 !important; max-width: 100% !important; }
+          .vnexus-commission-hero-actions { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .5rem !important; width: 100% !important; }
+          .vnexus-commission-hero-actions button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 42px !important; border-radius: .875rem !important; border: 0 !important; padding: .625rem .75rem !important; font-size: .875rem !important; line-height: 1.2 !important; font-weight: 900 !important; white-space: nowrap !important; }
+          .vnexus-commission-controls { width: 100% !important; background: #11131C !important; border: 1px solid #2A2F3D !important; border-radius: 1.25rem !important; padding: .75rem !important; margin-bottom: 1rem !important; overflow: hidden !important; }
+          .vnexus-commission-controls-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; align-items: end !important; gap: .65rem !important; }
+          .vnexus-commission-controls-grid > div:first-child { grid-column: 1 / -1 !important; min-width: 0 !important; }
+          .vnexus-commission-controls p, .vnexus-commission-controls label { display: block !important; color: #94A3B8 !important; font-size: 10px !important; line-height: 1.25 !important; font-weight: 900 !important; letter-spacing: .14em !important; text-transform: uppercase !important; margin: 0 0 .45rem 0 !important; }
+          .vnexus-commission-role-row { display: flex !important; flex-wrap: nowrap !important; gap: .375rem !important; overflow-x: auto !important; overflow-y: hidden !important; padding: 0 .125rem .25rem .125rem !important; margin: 0 !important; scrollbar-width: none !important; }
+          .vnexus-commission-role-row::-webkit-scrollbar { display: none !important; }
+          .vnexus-commission-role-row button { flex: 0 0 auto !important; border-radius: 999px !important; border: 1px solid #2A2F3D !important; background: #181B25 !important; color: #CBD5E1 !important; padding: .45rem .7rem !important; font-size: 11px !important; line-height: 1.15 !important; font-weight: 900 !important; white-space: nowrap !important; }
+          .vnexus-commission-role-row button[class*="bg-[#38BDF8]"] { background: #38BDF8 !important; border-color: #38BDF8 !important; color: #0F111A !important; }
+          .vnexus-commission-controls select { display: block !important; width: 100% !important; height: 34px !important; border-radius: .875rem !important; border: 1px solid #2A2F3D !important; background: #181B25 !important; color: #fff !important; padding: .4rem .65rem !important; font-size: 12px !important; outline: none !important; }
+          .vnexus-commission-shuffle { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 62px !important; height: 34px !important; border-radius: .875rem !important; border: 0 !important; background: #38BDF8 !important; color: #0F111A !important; padding: .45rem .75rem !important; font-size: 12px !important; line-height: 1.15 !important; font-weight: 950 !important; white-space: nowrap !important; }
+          .vnexus-floating-chat { position: fixed !important; inset: 0 !important; width: 100vw !important; max-width: none !important; height: 100dvh !important; max-height: none !important; border-radius: 0 !important; border-left: 0 !important; z-index: 9999 !important; transform: none !important; }
+        }
+
         /* ✅ 手機版：繪師 / 建模師 / 剪輯師委託專區卡片排版（仿使用者提供截圖） */
         @media (max-width: 639px) {
           .vnexus-commission-page {
@@ -677,7 +701,7 @@ const FloatingChat = ({
     }
   };
   return (
-    <div className="fixed inset-0 sm:inset-y-4 sm:left-auto sm:right-4 z-[100] w-full sm:w-[380px] lg:w-[420px] h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#0F111A] border-l sm:border border-[#2A2F3D] sm:rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in-up">
+    <div className="vnexus-floating-chat fixed inset-0 sm:inset-y-4 sm:left-auto sm:right-4 z-[100] w-full sm:w-[380px] lg:w-[420px] h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#0F111A] border-l sm:border border-[#2A2F3D] sm:rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in-up">
       {/* Header */}
       <div className="bg-[#181B25] border-b border-[#2A2F3D] p-4 flex-shrink-0">
         <div className="flex justify-between items-start gap-3">

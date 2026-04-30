@@ -25,6 +25,24 @@
     .vnexus-commission-hero { background:#181B25; border:1px solid #2A2F3D; border-radius:1rem; padding:1rem; margin-bottom:1.25rem; }
     .vnexus-commission-controls { background:#11131C; border:1px solid #2A2F3D; border-radius:1rem; padding:.75rem; margin-bottom:1rem; }
     .vnexus-commission-grid { display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:1rem; align-items:stretch; }
+
+    .vnexus-commission-hero > p:first-child { display:block; color:#38BDF8; font-size:10px; line-height:1.25; font-weight:900; letter-spacing:.18em; text-transform:uppercase; margin:0 0 .5rem 0; }
+    .vnexus-commission-hero > div { display:flex; flex-direction:column; gap:.75rem; }
+    .vnexus-commission-hero h2 { color:#fff; font-size:1.5rem; line-height:1.18; font-weight:950; margin:0; letter-spacing:-.02em; }
+    .vnexus-commission-hero p:not(:first-child) { color:#94A3B8; font-size:.875rem; line-height:1.7; margin:.5rem 0 0 0; max-width:100%; }
+    .vnexus-commission-hero-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; width:100%; }
+    .vnexus-commission-hero-actions button { min-height:42px; border:0; border-radius:.875rem; font-weight:900; font-size:.875rem; display:inline-flex; align-items:center; justify-content:center; padding:.625rem .75rem; white-space:nowrap; }
+    .vnexus-commission-controls-grid { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:.65rem; }
+    .vnexus-commission-controls-grid > div:first-child { grid-column:1 / -1; min-width:0; }
+    .vnexus-commission-controls p, .vnexus-commission-controls label { display:block; color:#94A3B8; font-size:10px; line-height:1.25; font-weight:900; letter-spacing:.14em; text-transform:uppercase; margin:0 0 .45rem 0; }
+    .vnexus-commission-role-row { display:flex; flex-wrap:nowrap; gap:.375rem; overflow-x:auto; overflow-y:hidden; padding:0 .125rem .25rem .125rem; margin:0; scrollbar-width:none; }
+    .vnexus-commission-role-row::-webkit-scrollbar { display:none; }
+    .vnexus-commission-role-row button { flex:0 0 auto; border-radius:999px; border:1px solid #2A2F3D; background:#181B25; color:#CBD5E1; padding:.45rem .7rem; font-size:11px; line-height:1.15; font-weight:900; white-space:nowrap; }
+    .vnexus-commission-role-row button[class*="bg-[#38BDF8]"] { background:#38BDF8 !important; border-color:#38BDF8 !important; color:#0F111A !important; }
+    .vnexus-commission-controls select { display:block; width:100%; height:34px; border-radius:.875rem; border:1px solid #2A2F3D; background:#181B25; color:#fff; padding:.4rem .65rem; font-size:12px; outline:none; }
+    .vnexus-commission-shuffle { display:inline-flex; align-items:center; justify-content:center; min-width:62px; height:34px; border-radius:.875rem; border:0; background:#38BDF8; color:#0F111A; padding:.45rem .75rem; font-size:12px; line-height:1.15; font-weight:950; white-space:nowrap; }
+    .vnexus-floating-chat { position:fixed !important; inset:0 !important; width:100vw !important; max-width:none !important; height:100dvh !important; max-height:none !important; border-radius:0 !important; border-left:0 !important; z-index:9999 !important; transform:none !important; }
+
     .vnexus-critical-card { display:flex !important; flex-direction:column !important; overflow:hidden !important; border-radius:1.5rem !important; background:#151923 !important; border:1px solid #2A2F3D !important; box-shadow:0 10px 30px rgba(0,0,0,.22) !important; cursor:pointer; }
     .vnexus-critical-visual { position:relative !important; overflow:hidden !important; background:#11131C !important; aspect-ratio:1/1 !important; width:100% !important; }
     .vnexus-critical-showcase { width:100% !important; height:100% !important; object-fit:cover !important; opacity:.92 !important; display:block !important; }
