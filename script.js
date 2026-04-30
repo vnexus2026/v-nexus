@@ -4217,7 +4217,19 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     return () => unsub();
   }, []);
 
-  const creatorList = (Array.isArray(realVtubers) ? realVtubers : []).filter((v) => v && v.isVerified && !v.isBlacklisted && Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && !String(v.id || "").startsWith("mock")).sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  const creatorList = (() => {
+    const seenCreatorIds = new Set();
+    return (Array.isArray(realVtubers) ? realVtubers : [])
+      .filter((v) => v && v.isVerified && !v.isBlacklisted && Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && !String(v.id || "").startsWith("mock"))
+      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
+      .filter((v) => {
+        const creatorId = String(v.id || "");
+        if (!creatorId) return false;
+        if (seenCreatorIds.has(creatorId)) return false;
+        seenCreatorIds.add(creatorId);
+        return true;
+      });
+  })();
   const filteredCreatorList = creatorList.filter((v) => {
     const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
     const styles = Array.isArray(v.creatorStyles) ? v.creatorStyles : [];
@@ -4278,92 +4290,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   };
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const styleId = "vnexus-commission-mobile-stability";
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement("style");
-      style.id = styleId;
-      style.textContent = `
-        @media (max-width: 639px) {
-          /*
-            手機版委託專區改為穩定名片樣式：
-            不再使用作品牆 overlay / absolute badge / 圖片遮罩作為手機主要資訊，
-            避免手機瀏覽器下拉重新整理後 repaint 錯亂造成欄位消失。
-          */
-          .vnexus-commission-mobile-stable {
-            overflow-x: hidden !important;
-            overscroll-behavior-x: none;
-            -webkit-overflow-scrolling: touch;
-            transform: none !important;
-            contain: none !important;
-            isolation: auto !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-creator-market-card {
-            display: none !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card {
-            display: flex !important;
-            flex-direction: column !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            transform: none !important;
-            will-change: auto !important;
-            contain: none !important;
-            content-visibility: visible !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb {
-            width: 100% !important;
-            aspect-ratio: 1 / 1 !important;
-            min-width: 0 !important;
-            border-radius: 1.25rem !important;
-            overflow: hidden !important;
-            background: #11131C !important;
-            position: relative !important;
-            display: block !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb img,
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar img {
-            display: block !important;
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-            transform: none !important;
-            transition: none !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar {
-            width: 3.25rem !important;
-            height: 3.25rem !important;
-            border-radius: 1rem !important;
-            overflow: hidden !important;
-            background: #11131C !important;
-            flex: 0 0 auto !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card * {
-            transform: none !important;
-            will-change: auto !important;
-            backface-visibility: visible !important;
-          }
-          .vnexus-commission-filter-scroll {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-          }
-          .vnexus-commission-filter-scroll::-webkit-scrollbar {
-            display: none;
-          }
-        }
-        @media (min-width: 640px) {
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card {
-            display: none !important;
-          }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
   return (
-    <div ref={commissionTopRef} className="vnexus-commission-mobile-stable max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden">
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden">
       <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
@@ -4403,7 +4331,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_320px_auto] items-end gap-2.5 sm:gap-4">
             <div className="col-span-2 sm:col-span-1 min-w-0">
               <p className="text-[10px] sm:text-xs font-bold text-[#94A3B8] mb-1.5 sm:mb-2 tracking-widest uppercase">創作者身份</p>
-              <div className="vnexus-commission-filter-scroll flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 -mx-0.5 px-0.5">
+              <div className="flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 -mx-0.5 px-0.5">
                 {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-sm font-bold border transition-colors whitespace-nowrap flex-shrink-0 ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
               </div>
             </div>
@@ -4438,77 +4366,88 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorStatus = v.creatorStatus || "";
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
-              return <React.Fragment key={v.id}>
-                <article onClick={() => openProfile(v)} className="block sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm cursor-pointer" title="查看詳細名片">
-                  <div className="p-3.5">
-                    <div className="vnexus-commission-mobile-thumb border border-[#2A2F3D]">
-                      {showcase ? <img src={showcase} alt={v.name || "作品展示"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-2 opacity-70"></i><span className="text-xs font-bold">作品展示區</span></div>}
-                    </div>
-                    <div className="mt-3 flex items-start gap-3 min-w-0">
-                      <div className="vnexus-commission-mobile-avatar border border-[#2A2F3D]">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+              return (
+                <article
+                  key={v.id}
+                  onClick={() => openProfile(v)}
+                  className="vnexus-creator-market-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.25rem] sm:rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex flex-col will-change-auto"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    backgroundColor: "#181B25",
+                    border: "1px solid #2A2F3D",
+                    borderRadius: "1.25rem",
+                    overflow: "hidden",
+                    boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+                    minWidth: 0,
+                  }}
+                  title="查看詳細名片"
+                >
+                  <div
+                    className="relative w-full bg-[#11131C] overflow-hidden"
+                    style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", backgroundColor: "#11131C", overflow: "hidden" }}
+                  >
+                    {showcase ? (
+                      <img
+                        src={showcase}
+                        alt={v.name || "作品展示"}
+                        className="vnexus-creator-showcase-img w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"
+                        style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#64748B", background: "linear-gradient(135deg, #11131C, #1D2130)" }}
+                      >
+                        <i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>
+                        作品展示區規劃中
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2 min-w-0">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-white text-base font-black truncate flex items-center gap-1.5">
-                              {v.name || "未命名創作者"}
-                              {v.isVerified && <span className="text-[#22C55E] text-[10px] font-bold bg-[#22C55E]/10 border border-[#22C55E]/20 px-1.5 py-0.5 rounded-full flex-shrink-0">已認證</span>}
-                            </h3>
-                            <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}</p>
-                          </div>
-                          {creatorStatus && <span className="bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/25 px-2 py-1 rounded-full text-[10px] font-black whitespace-nowrap flex-shrink-0">{creatorStatus}</span>}
+                    )}
+                    <div
+                      className="absolute inset-0 z-[1]"
+                      style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(to top, rgba(15,17,26,0.96), rgba(15,17,26,0.54), rgba(15,17,26,0.06), rgba(15,17,26,0))" }}
+                    ></div>
+                    <div
+                      className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]"
+                      style={{ position: "absolute", top: "0.75rem", left: "0.75rem", right: "0.75rem", zIndex: 2, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem" }}
+                    >
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1" style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", minWidth: 0, paddingRight: "0.25rem" }}>
+                        {roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm" style={{ backgroundColor: "#38BDF8", color: "#0F111A", padding: "0.25rem 0.625rem", borderRadius: "9999px", fontSize: "11px", fontWeight: 800, whiteSpace: "nowrap" }}>{role}</span>)}
+                      </div>
+                      {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap" style={{ backgroundColor: "rgba(34,197,94,0.9)", color: "#052E16", padding: "0.25rem 0.625rem", borderRadius: "9999px", fontSize: "11px", fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>{creatorStatus}</span>}
+                    </div>
+                    <div
+                      className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]"
+                      style={{ position: "absolute", left: "0.75rem", right: "0.75rem", bottom: "0.75rem", zIndex: 2 }}
+                    >
+                      <div className="flex items-end gap-3" style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem" }}>
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg" style={{ width: "3.5rem", height: "3.5rem", borderRadius: "1rem", backgroundColor: "#11131C", border: "1px solid rgba(255,255,255,0.2)", overflow: "hidden", flexShrink: 0 }}>
+                          {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                         </div>
-                        <p className="text-[#94A3B8] text-[11px] leading-relaxed mt-1.5 line-clamp-2">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                        <p className="text-[#38BDF8] text-[11px] font-extrabold mt-1.5 truncate">{creatorBudgetRange || "尚未填寫報價"}</p>
+                        <div className="min-w-0 flex-1" style={{ minWidth: 0, flex: 1 }}>
+                          <h3 className="text-white text-base sm:text-xl font-black truncate flex items-center gap-2 drop-shadow" style={{ color: "#FFFFFF", fontSize: "1rem", fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>
+                            {v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full" style={{ color: "#22C55E", fontSize: "0.75rem", fontWeight: 700, backgroundColor: "rgba(0,0,0,0.4)", padding: "0.125rem 0.5rem", borderRadius: "9999px", marginLeft: "0.5rem" }}>已認證</span>}
+                          </h3>
+                          <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate" style={{ color: "#BAE6FD", fontSize: "0.75rem", fontWeight: 700, marginTop: "0.25rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden min-h-[1.55rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
-                      {displayStyles.slice(0, 3).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 max-w-[5.8rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
-                      {displayStyles.length > 3 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2 py-1 rounded-full text-[11px] font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 3}</span>}
-                      {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
+                  </div>
+                  <div className="p-4 sm:p-5 flex-1 flex flex-col" style={{ padding: "1rem", flex: 1, display: "flex", flexDirection: "column" }}>
+                    <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]" style={{ color: "#CBD5E1", fontSize: "0.875rem", lineHeight: 1.6, marginBottom: "1rem", minHeight: "4rem" }}>{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                    <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" style={{ display: "flex", flexWrap: "nowrap", gap: "0.5rem", marginBottom: "1rem", overflow: "hidden", minHeight: "1.75rem" }} title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                      {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate" style={{ backgroundColor: "#11131C", border: "1px solid #2A2F3D", color: "#CBD5E1", padding: "0.25rem 0.625rem", borderRadius: "9999px", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, maxWidth: "7.5rem", overflow: "hidden", textOverflow: "ellipsis" }}>{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
+                      {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0" style={{ backgroundColor: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.3)", color: "#7DD3FC", padding: "0.25rem 0.625rem", borderRadius: "9999px", fontSize: "0.75rem", fontWeight: 900, whiteSpace: "nowrap", flexShrink: 0 }}>+{displayStyles.length - 4}</span>}
+                      {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0" style={{ backgroundColor: "#11131C", border: "1px solid #2A2F3D", color: "#64748B", padding: "0.25rem 0.625rem", borderRadius: "9999px", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}>尚未填寫風格</span>}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2 rounded-lg font-bold transition-colors text-[11px] inline-flex items-center justify-center gap-1"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                      <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-2 rounded-lg font-bold transition-colors text-[11px] inline-flex items-center justify-center gap-1`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                    <div className="mt-auto grid grid-cols-2 gap-2" style={{ marginTop: "auto", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem" }}>
+                      <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5" style={{ backgroundColor: "#8B5CF6", color: "#FFFFFF", paddingTop: "0.5rem", paddingBottom: "0.5rem", borderRadius: "0.5rem", fontWeight: 700, fontSize: "11px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.25rem", border: 0 }}><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                      <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5`} style={{ backgroundColor: v.creatorPortfolioUrl ? "#38BDF8" : "#1D2130", color: v.creatorPortfolioUrl ? "#0F111A" : "#94A3B8", paddingTop: "0.5rem", paddingBottom: "0.5rem", borderRadius: "0.5rem", fontWeight: 700, fontSize: "11px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.25rem", border: 0 }}><i className="fa-solid fa-images"></i>觀看作品集</button>
                     </div>
                   </div>
                 </article>
-                <article onClick={() => openProfile(v)} className="hidden sm:flex vnexus-creator-market-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
-                <div className="aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
-                  {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
-                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
-                    {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
-                  </div>
-                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
-                    <div className="flex items-end gap-3">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-white text-base sm:text-xl font-black truncate flex items-center gap-2 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full">已認證</span>}</h3>
-                        <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <p className="hidden sm:block text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                  <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
-                    {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
-                    {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
-                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
-                  </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
-                  </div>
-                </div>
-              </article>
-              </React.Fragment>;
+              );
             })}
           </div>
 
