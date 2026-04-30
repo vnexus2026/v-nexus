@@ -4157,7 +4157,7 @@ const InboxPage = ({
   );
 };
 
-const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat, mode = "creators" }) => {
+const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile, onOpenChat, mode = "creators", isLoadingCreators = false }) => {
   const { user, isAdmin, showToast } = useContext(AppContext);
   const isBoardOnly = mode === "board";
   const [activeTab, setActiveTab] = useState(() => {
@@ -4169,6 +4169,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const [creatorShuffleSeed, setCreatorShuffleSeed] = useState(0);
   const [commissionPage, setCommissionPage] = useState(1);
   const [requests, setRequests] = useState([]);
+  const [isRequestsLoading, setIsRequestsLoading] = useState(true);
   const [requestFilter, setRequestFilter] = useState("All");
   const [requestStyleFilter, setRequestStyleFilter] = useState("All");
   const [requestPage, setRequestPage] = useState(1);
@@ -4212,8 +4213,20 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   useEffect(() => { setCommissionPage(1); }, [activeRoleFilter, activeCreatorStyleFilter]);
   useEffect(() => { setRequestPage(1); }, [requestFilter, requestStyleFilter]);
   useEffect(() => {
+    setIsRequestsLoading(true);
     const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(80));
-    const unsub = onSnapshot(q, (snap) => setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.warn("委託佈告欄讀取失敗:", err));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setRequests((snap?.docs || []).map((d) => ({ id: d.id, ...d.data() })));
+        setIsRequestsLoading(false);
+      },
+      (err) => {
+        console.warn("委託佈告欄讀取失敗:", err);
+        setRequests([]);
+        setIsRequestsLoading(false);
+      },
+    );
     return () => unsub();
   }, []);
 
@@ -4230,7 +4243,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         return true;
       });
   })();
-  const filteredCreatorList = creatorList.filter((v) => {
+  const filteredCreatorList = (Array.isArray(creatorList) ? creatorList : []).filter((v) => {
     const roles = Array.isArray(v.creatorRoles) ? v.creatorRoles : [];
     const styles = Array.isArray(v.creatorStyles) ? v.creatorStyles : [];
     const roleOk = activeRoleFilter === "All" || roles.includes(activeRoleFilter);
@@ -4288,10 +4301,27 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       showToast(err?.message || "操作失敗，請稍後再試");
     }
   };
-  const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
+  const authorOf = (uid) => (Array.isArray(realVtubers) ? realVtubers : []).find((v) => v.id === uid);
+  const renderCommissionLoading = (message = "資料載入中...") => (
+    <div
+      className="min-h-[55vh] w-full bg-[#0F111A] text-white flex justify-center items-center rounded-2xl border border-[#2A2F3D]"
+      style={{ minHeight: "55vh", width: "100%", backgroundColor: "#0F111A", color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "1rem", border: "1px solid #2A2F3D" }}
+    >
+      <div className="text-center px-6" style={{ textAlign: "center", paddingLeft: "1.5rem", paddingRight: "1.5rem" }}>
+        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-[#181B25] border border-[#2A2F3D] flex items-center justify-center text-[#38BDF8]" style={{ width: "3.5rem", height: "3.5rem", marginLeft: "auto", marginRight: "auto", marginBottom: "1rem", borderRadius: "1rem", backgroundColor: "#181B25", border: "1px solid #2A2F3D", display: "flex", alignItems: "center", justifyContent: "center", color: "#38BDF8" }}>
+          <i className="fa-solid fa-spinner fa-spin text-xl"></i>
+        </div>
+        <p className="animate-pulse text-[#94A3B8] font-bold" style={{ color: "#94A3B8", fontWeight: 700 }}>{message}</p>
+      </div>
+    </div>
+  );
 
   return (
-    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden">
+    <section
+      className="min-h-screen w-full bg-[#0F111A] text-white overflow-x-hidden"
+      style={{ minHeight: "100dvh", width: "100%", backgroundColor: "#0F111A", color: "#FFFFFF", overflowX: "hidden" }}
+    >
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden" style={{ maxWidth: "72rem", marginLeft: "auto", marginRight: "auto", paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1.5rem", paddingBottom: "2.5rem", minHeight: "100dvh", overflowX: "hidden" }}>
       <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
@@ -4354,7 +4384,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             </button>
           </div>
         </div>
-        {creatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前還沒有繪師 / 建模師 / 剪輯師名片</p><p className="text-[#94A3B8] text-sm mb-5">如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p><button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors">去補上身份</button></div> : filteredCreatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center"><p className="text-white text-lg font-bold mb-2">目前沒有符合篩選條件的創作者</p><p className="text-[#94A3B8] text-sm">可以切換身份或創作風格 / 類型，之後也可以再回來看看新的委託名片。</p></div> : <>
+        {isLoadingCreators && creatorList.length === 0 ? renderCommissionLoading("正在載入創作者委託名片...") : creatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center" style={{ backgroundColor: "#181B25", border: "1px dashed #2A2F3D", borderRadius: "1rem", padding: "2rem", textAlign: "center" }}><p className="text-white text-lg font-bold mb-2" style={{ color: "#FFFFFF", fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.5rem" }}>目前還沒有繪師 / 建模師 / 剪輯師名片</p><p className="text-[#94A3B8] text-sm mb-5" style={{ color: "#94A3B8", fontSize: "0.875rem", marginBottom: "1.25rem" }}>如果你會繪圖、建模或剪輯，可以先到名片編輯中勾選身份，讓其他 VTuber 更容易找到你。</p><button onClick={() => navigate("dashboard")} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors" style={{ backgroundColor: "#8B5CF6", color: "#FFFFFF", padding: "0.625rem 1.25rem", borderRadius: "0.75rem", fontWeight: 700, border: 0 }}>去補上身份</button></div> : filteredCreatorList.length === 0 ? <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center" style={{ backgroundColor: "#181B25", border: "1px dashed #2A2F3D", borderRadius: "1rem", padding: "2rem", textAlign: "center" }}><p className="text-white text-lg font-bold mb-2" style={{ color: "#FFFFFF", fontSize: "1.125rem", fontWeight: 700, marginBottom: "0.5rem" }}>目前沒有符合篩選條件的創作者</p><p className="text-[#94A3B8] text-sm" style={{ color: "#94A3B8", fontSize: "0.875rem" }}>可以切換身份或創作風格 / 類型，之後也可以再回來看看新的委託名片。</p></div> : <>
           <div className="mb-4 flex items-center justify-end gap-2 text-sm text-[#94A3B8]">
             <p className="text-xs">目前顯示 {pagedCreatorList.length} 位 / 共 {filteredCreatorList.length} 位創作者</p>
           </div>
@@ -4539,8 +4569,10 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             </div>
           </div>
         )}
-        {filteredRequests.length === 0 ? (
-          <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center">
+        {isRequestsLoading ? (
+          renderCommissionLoading("正在載入委託佈告欄...")
+        ) : filteredRequests.length === 0 ? (
+          <div className="bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center" style={{ backgroundColor: "#181B25", border: "1px dashed #2A2F3D", borderRadius: "1rem", padding: "2rem", textAlign: "center" }}>
             <p className="text-white text-lg font-bold mb-2">還沒有委託需求</p>
             <p className="text-[#94A3B8] text-sm mb-5">有頭貼、立繪、建模或剪輯需求嗎？發一則需求，讓創作者更容易看見你。</p>
             <button onClick={() => setIsRequestFormOpen(true)} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold">發布委託需求</button>
@@ -4626,6 +4658,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         )}
       </div>}
     </div>
+    </section>
   );
 };
 
@@ -10962,6 +10995,7 @@ function App() {
               mode="creators"
               navigate={navigate}
               realVtubers={realVtubers}
+              isLoadingCreators={isLoading}
               onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
               onOpenChat={(v) => {
                 if (!user) return showToast("請先登入！");
@@ -10976,6 +11010,7 @@ function App() {
               mode="board"
               navigate={navigate}
               realVtubers={realVtubers}
+              isLoadingCreators={isLoading}
               onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
               onOpenChat={(v) => {
                 if (!user) return showToast("請先登入！");
