@@ -4313,12 +4313,14 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             content-visibility: visible !important;
           }
           .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb {
-            width: 5.5rem !important;
-            height: 5.5rem !important;
-            min-width: 5.5rem !important;
+            width: 100% !important;
+            aspect-ratio: 1 / 1 !important;
+            min-width: 0 !important;
             border-radius: 1.25rem !important;
             overflow: hidden !important;
             background: #11131C !important;
+            position: relative !important;
+            display: block !important;
           }
           .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb img,
           .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar img {
@@ -4327,14 +4329,20 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             height: 100% !important;
             object-fit: cover !important;
             transform: none !important;
+            transition: none !important;
           }
           .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar {
-            width: 3rem !important;
-            height: 3rem !important;
+            width: 3.25rem !important;
+            height: 3.25rem !important;
             border-radius: 1rem !important;
             overflow: hidden !important;
             background: #11131C !important;
             flex: 0 0 auto !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card * {
+            transform: none !important;
+            will-change: auto !important;
+            backface-visibility: visible !important;
           }
           .vnexus-commission-filter-scroll {
             scrollbar-width: none;
@@ -4431,11 +4439,14 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
-                <article onClick={() => openProfile(v)} className="sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm cursor-pointer" title="查看詳細名片">
-                  <div className="p-4">
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="vnexus-commission-mobile-thumb border border-[#2A2F3D] flex-shrink-0">
-                        {showcase ? <img src={showcase} alt={v.name || "作品展示"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B] bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-xl opacity-70"></i></div>}
+                <article onClick={() => openProfile(v)} className="block sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm cursor-pointer" title="查看詳細名片">
+                  <div className="p-3.5">
+                    <div className="vnexus-commission-mobile-thumb border border-[#2A2F3D]">
+                      {showcase ? <img src={showcase} alt={v.name || "作品展示"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-2 opacity-70"></i><span className="text-xs font-bold">作品展示區</span></div>}
+                    </div>
+                    <div className="mt-3 flex items-start gap-3 min-w-0">
+                      <div className="vnexus-commission-mobile-avatar border border-[#2A2F3D]">
+                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2 min-w-0">
@@ -4444,22 +4455,12 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                               {v.name || "未命名創作者"}
                               {v.isVerified && <span className="text-[#22C55E] text-[10px] font-bold bg-[#22C55E]/10 border border-[#22C55E]/20 px-1.5 py-0.5 rounded-full flex-shrink-0">已認證</span>}
                             </h3>
-                            <p className="text-[#94A3B8] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}</p>
+                            <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}</p>
                           </div>
                           {creatorStatus && <span className="bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/25 px-2 py-1 rounded-full text-[10px] font-black whitespace-nowrap flex-shrink-0">{creatorStatus}</span>}
                         </div>
-                        <div className="mt-2 flex items-center gap-2 min-w-0">
-                          <div className="vnexus-commission-mobile-avatar border border-[#2A2F3D] flex-shrink-0">
-                            {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-nowrap gap-1.5 overflow-hidden">
-                              {roles.slice(0, 2).map((role) => <span key={role} className="bg-[#38BDF8]/15 text-[#7DD3FC] border border-[#38BDF8]/25 px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap flex-shrink-0">{role}</span>)}
-                              {roles.length === 0 && <span className="bg-[#11131C] text-[#64748B] border border-[#2A2F3D] px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">尚未填身份</span>}
-                            </div>
-                            <p className="text-[#BAE6FD] text-[11px] font-bold mt-1 truncate">{creatorBudgetRange || "尚未填寫報價"}</p>
-                          </div>
-                        </div>
+                        <p className="text-[#94A3B8] text-[11px] leading-relaxed mt-1.5 line-clamp-2">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                        <p className="text-[#38BDF8] text-[11px] font-extrabold mt-1.5 truncate">{creatorBudgetRange || "尚未填寫報價"}</p>
                       </div>
                     </div>
                     <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden min-h-[1.55rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
