@@ -1215,7 +1215,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
             </div>
           ) : myArticles.map(a => (
             <div key={a.id} className="bg-[#181B25] border border-[#2A2F3D] p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-[#38BDF8]/30 transition-colors">
-              <div className="flex-1 min-w-0">
+              <div className="col-span-2 sm:col-span-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   {a.status === 'published' ? <span className="bg-[#22C55E]/20 text-[#22C55E] text-[10px] font-bold px-2 py-0.5 rounded border border-[#22C55E]/30 flex items-center gap-1"><i className="fa-solid fa-check"></i>已發布</span> : <span className="bg-[#F59E0B]/20 text-[#F59E0B] text-[10px] font-bold px-2 py-0.5 rounded border border-[#F59E0B]/30 flex items-center gap-1"><i className="fa-solid fa-hourglass-half"></i>審核中</span>}
                   <span className="text-[#38BDF8] text-[10px] font-bold px-2 py-0.5 rounded bg-[#38BDF8]/10 border border-[#38BDF8]/20">{a.category}</span>
@@ -2175,17 +2175,17 @@ const BulletinCard = React.memo(({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-3">
-            <p className="text-[10px] text-[#94A3B8] mb-1">想找人數</p>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-[11px] sm:text-sm">
+          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-2 sm:p-3">
+            <p className="text-[9px] sm:text-[10px] text-[#94A3B8] mb-1">想找人數</p>
             <p className="text-[#F8FAFC] font-bold truncate">{b.collabSize || "未指定"}</p>
           </div>
-          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-3">
-            <p className="text-[10px] text-[#94A3B8] mb-1">預計時間</p>
+          <div className="bg-[#11131C] border border-[#2A2F3D] rounded-xl p-2 sm:p-3">
+            <p className="text-[9px] sm:text-[10px] text-[#94A3B8] mb-1">預計時間</p>
             <p className="text-[#F8FAFC] font-bold truncate">{formatDateTimeLocalStr(b.collabTime)}</p>
           </div>
-          <div className="bg-[#11131C] border border-[#EF4444]/25 rounded-xl p-3">
-            <p className="text-[10px] text-[#EF4444]/80 mb-1">報名截止</p>
+          <div className="bg-[#11131C] border border-[#EF4444]/25 rounded-xl p-2 sm:p-3">
+            <p className="text-[9px] sm:text-[10px] text-[#EF4444]/80 mb-1">報名截止</p>
             <p className="text-red-200 font-bold truncate">{b.recruitEndTime ? formatTime(b.recruitEndTime) : "未指定"}</p>
           </div>
         </div>
@@ -4044,7 +4044,7 @@ const InboxPage = ({
                   onClick={() => onNavigateProfile(n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId)}
                   className="w-14 h-14 rounded-full border border-[#2A2F3D] bg-[#0F111A] object-cover cursor-pointer hover:border-[#A78BFA]"
                 />
-                <div className="flex-1 min-w-0">
+                <div className="col-span-2 xl:col-span-1 min-w-0">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                     <h4 className="font-bold text-white text-lg flex flex-wrap items-center gap-2">
                       <span
@@ -4272,23 +4272,23 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
   return (
-    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-10 animate-fade-in-up">
-      <div className="mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 shadow-sm">
-        <p className="text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh]">
+      <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
+        <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
           <div>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">{isBoardOnly ? "委託佈告欄" : "繪師 / 建模師 / 剪輯師委託專區"}</h2>
-            <p className="text-[#94A3B8] max-w-2xl leading-relaxed">{isBoardOnly ? "想找繪圖、建模、剪輯找不到人？來佈告欄表達需求，老師們可能就會找上你哦！" : "找作品集、看檔期，快速比較繪師、建模師與剪輯師的名片資料。"}</p>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white mb-2 sm:mb-3">{isBoardOnly ? "委託佈告欄" : "繪師 / 建模師 / 剪輯師委託專區"}</h2>
+            <p className="text-[#94A3B8] max-w-2xl leading-relaxed text-sm sm:text-base">{isBoardOnly ? "想找繪圖、建模、剪輯找不到人？來佈告欄表達需求，老師們可能就會找上你哦！" : "找作品集、看檔期，快速比較繪師、建模師與剪輯師的名片資料。"}</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
             {isBoardOnly ? (
               <>
                 <button onClick={() => navigate("commissions")} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">找創作者</button>
               </>
             ) : (
               <>
-                <button onClick={() => { navigate("dashboard"); setTimeout(() => { document.getElementById("creator-service-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 180); setTimeout(() => { document.getElementById("creator-service-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 650); }} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">補上我的創作技能標籤</button>
-                <button onClick={() => navigate("commission-board")} className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">前往委託佈告欄</button>
+                <button onClick={() => { navigate("dashboard"); setTimeout(() => { document.getElementById("creator-service-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 180); setTimeout(() => { document.getElementById("creator-service-section")?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 650); }} className="inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-bold transition-colors whitespace-nowrap">補上創作技能</button>
+                <button onClick={() => navigate("commission-board")} className="inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base font-bold transition-colors whitespace-nowrap">委託佈告欄</button>
               </>
             )}
           </div>
@@ -4303,17 +4303,17 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       )}
 
       {!isBoardOnly && activeTab === "creators" && <>
-        <div className="mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
-          <div className="flex flex-col xl:flex-row xl:items-end gap-4">
-            <div className="flex-1 min-w-0">
+        <div className="mb-4 sm:mb-6 bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-3 sm:p-5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_320px_auto] items-end gap-3 sm:gap-4">
+            <div className="col-span-2 sm:col-span-1 min-w-0">
               <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">創作者身份</p>
               <div className="flex flex-wrap gap-2">
                 {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
               </div>
             </div>
-            <div className="w-full xl:w-[320px] flex-shrink-0">
+            <div className="min-w-0">
               <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
-              <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#38BDF8]">
+              <select value={activeCreatorStyleFilter} onChange={(e) => setActiveCreatorStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2.5 outline-none focus:border-[#38BDF8] text-sm sm:text-base">
                 {creatorStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
               </select>
             </div>
@@ -4324,7 +4324,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 setCommissionPage(1);
                 showToast("🎲 已重新洗牌創作者順序");
               }}
-              className="w-full xl:w-auto bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-5 py-2.5 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-2"
+              className="w-auto bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-2.5 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               <i className="fa-solid fa-shuffle"></i>重新洗牌
             </button>
@@ -4385,20 +4385,20 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
 
       {isBoardOnly && activeTab === "requests" && <div className="space-y-6">
         <div className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-4 sm:p-5">
-          <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-            <div className="flex-1 min-w-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_320px_auto] xl:items-end xl:justify-between gap-3 sm:gap-4">
+            <div className="col-span-2 xl:col-span-1 min-w-0">
               <p className="text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">主要分類</p>
               <div className="flex flex-wrap gap-2">
                 {requestFilters.map((type) => <button key={type} onClick={() => setRequestFilter(type)} className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${requestFilter === type ? "bg-[#8B5CF6] text-white border-[#8B5CF6]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{type === "All" ? "全部需求" : type}</button>)}
               </div>
             </div>
-            <div className="w-full xl:w-[320px] flex-shrink-0">
+            <div className="min-w-0">
               <label className="block text-xs font-bold text-[#94A3B8] mb-2 tracking-widest uppercase">進階風格篩選</label>
-              <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-4 py-2.5 outline-none focus:border-[#8B5CF6]">
+              <select value={requestStyleFilter} onChange={(e) => setRequestStyleFilter(e.target.value)} className="w-full bg-[#181B25] border border-[#2A2F3D] text-white rounded-xl px-3 sm:px-4 py-2.5 outline-none focus:border-[#8B5CF6] text-sm sm:text-base">
                 {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
               </select>
             </div>
-            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
+            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-sm sm:text-base">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
           </div>
         </div>
         {isRequestFormOpen && (
@@ -4533,10 +4533,10 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-4 py-2.5 rounded-xl font-bold text-sm">看參考資料</button>}
-                      {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-4 py-2.5 rounded-xl font-bold text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
-                      {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-4 py-2.5 rounded-xl font-bold text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-4 py-2.5 rounded-xl font-bold text-sm">刪除委託（停止收案）</button></>}
+                    <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2">
+                      {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">看參考資料</button>}
+                      {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
+                      {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap">刪除委託</button></>}
                     </div>
                   </div>
                 </article>
@@ -5266,7 +5266,7 @@ const HomePage = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <GuideCard
             icon="fa-id-card"
             title="Step 1：管理名片"
@@ -8058,7 +8058,7 @@ function App() {
       }
 
       // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
-      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin'].includes(currentView);
+      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
         const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
@@ -11874,7 +11874,7 @@ function App() {
                       }
                       setIsBulletinFormOpen(!isBulletinFormOpen);
                     }}
-                    className={`${isBulletinFormOpen ? "bg-[#1D2130]" : "bg-[#8B5CF6] hover:bg-[#7C3AED]"} text-white px-4 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap`}
+                    className={`${isBulletinFormOpen ? "bg-[#1D2130]" : "bg-[#8B5CF6] hover:bg-[#7C3AED]"} text-white px-3 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap text-sm sm:text-base`}
                   >
                     <i
                       className={`fa-solid ${isBulletinFormOpen ? "fa-chevron-up" : "fa-pen-nib"} mr-2`}
@@ -11883,10 +11883,18 @@ function App() {
                   </button>
                   <button
                     onClick={() => navigate("collabs")}
-                    className="bg-[#EF4444] hover:bg-[#DC2626] text-white px-4 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap"
+                    className="bg-[#EF4444] hover:bg-[#DC2626] text-white px-3 sm:px-6 py-3 rounded-xl font-bold shadow-sm flex items-center justify-center transition-colors whitespace-nowrap text-sm sm:text-base"
                   >
                     <i className="fa-solid fa-calendar-check mr-2"></i>
                     確定聯動表
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLeaderboardModalOpen(true)}
+                    className="sm:hidden bg-[#F59E0B] hover:bg-[#FBBF24] text-[#0F111A] px-3 py-3 rounded-xl font-black shadow-sm flex items-center justify-center transition-colors whitespace-nowrap"
+                    aria-label="開啟揪團排行榜"
+                  >
+                    <i className="fa-solid fa-trophy mr-1.5"></i>排行榜
                   </button>
                 </div>
               </div>
