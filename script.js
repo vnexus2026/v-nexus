@@ -669,6 +669,180 @@ const sanitizeUrl = (url) => {
   return u;
 };
 
+
+const StatusCommentsBox = ({
+  storyOwner,
+  currentUser,
+  myProfile,
+  isAdmin,
+  isVerifiedUser,
+  realVtubers,
+  showToast,
+}) => {
+  const ownerId = storyOwner?.id || "";
+  const statusMessageUpdatedAt = Number(storyOwner?.statusMessageUpdatedAt || 0);
+  const [comments, setComments] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+  const [input, setInput] = useState("");
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+
+  useEffect(() => {
+    if (!ownerId || !statusMessageUpdatedAt) {
+      setComments([]);
+      return;
+    }
+
+    const commentsRef = collection(db, `${getPath("vtubers")}/${ownerId}/status_comments`);
+    const q = query(commentsRef, orderBy("createdAt", "desc"), limit(expanded ? 50 : 4));
+    const unsub = onSnapshot(q, (snap) => {
+      let rows = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((c) => Number(c.statusMessageUpdatedAt || 0) === statusMessageUpdatedAt)
+        .reverse();
+      setHasMoreComments(!expanded && rows.length > 3);
+      if (!expanded && rows.length > 3) rows = rows.slice(-3);
+      setComments(rows);
+    }, (err) => {
+      console.warn("讀取動態留言失敗:", err);
+      setComments([]);
+    });
+
+    return unsub;
+  }, [ownerId, statusMessageUpdatedAt, expanded]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!currentUser) return showToast("請先登入！");
+    if (!isVerifiedUser) return showToast("需通過名片認證才能留言！");
+    if (!text) return;
+    if (text.length > 200) return showToast("留言最多 200 字");
+    setSubmitting(true);
+    try {
+      const authToken = await auth.currentUser?.getIdToken(true);
+      const fn = httpsCallable(functionsInstance, "addStatusComment");
+      await fn({ storyOwnerId: ownerId, statusMessageUpdatedAt, text, authToken });
+      setInput("");
+      showToast("留言已送出");
+    } catch (err) {
+      console.error("新增動態留言失敗:", err);
+      showToast(err?.message || "留言失敗，請稍後再試");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!commentId || deletingId) return;
+    if (!confirm("確定要刪除這則留言嗎？")) return;
+    setDeletingId(commentId);
+    try {
+      const authToken = await auth.currentUser?.getIdToken(true);
+      const fn = httpsCallable(functionsInstance, "deleteStatusComment");
+      await fn({ storyOwnerId: ownerId, commentId, authToken });
+      showToast("留言已刪除");
+    } catch (err) {
+      console.error("刪除動態留言失敗:", err);
+      showToast(err?.message || "刪除留言失敗");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#2A2F3D]/70" onClick={(e) => e.stopPropagation()}>
+      {comments.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {comments.map((comment) => {
+            const commenter = realVtubers.find((v) => v.id === comment.commenterId);
+            const canDelete = isAdmin || currentUser?.uid === ownerId || currentUser?.uid === comment.commenterId;
+            return (
+              <div key={comment.id} className="flex items-start gap-2 group/comment">
+                <img
+                  src={sanitizeUrl(comment.commenterAvatar || commenter?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")}
+                  className="w-7 h-7 rounded-full object-cover border border-[#2A2F3D] flex-shrink-0"
+                  alt={comment.commenterName || commenter?.name || "留言者"}
+                />
+                <div className="min-w-0 flex-1 rounded-2xl bg-[#11131C] border border-[#2A2F3D] px-3 py-2">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <div className="min-w-0 flex items-center gap-2 text-[11px]">
+                      <span className="text-[#CBD5E1] font-bold truncate">{comment.commenterName || commenter?.name || "創作者"}</span>
+                      <span className="text-[#64748B] flex-shrink-0">{formatRelativeTime(comment.createdAt)}</span>
+                    </div>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        disabled={deletingId === comment.id}
+                        onClick={() => handleDelete(comment.id)}
+                        className="opacity-70 sm:opacity-0 group-hover/comment:opacity-100 text-[#94A3B8] hover:text-[#EF4444] transition-all text-[11px] flex-shrink-0"
+                        title="刪除留言"
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[#E2E8F0] text-sm leading-relaxed whitespace-pre-wrap break-words">{comment.text}</p>
+                </div>
+              </div>
+            );
+          })}
+          {!expanded && hasMoreComments && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="text-[#94A3B8] hover:text-[#F59E0B] text-xs font-bold transition-colors"
+            >
+              查看更多留言
+            </button>
+          )}
+          {expanded && comments.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="text-[#94A3B8] hover:text-[#F59E0B] text-xs font-bold transition-colors"
+            >
+              收合留言
+            </button>
+          )}
+        </div>
+      )}
+
+      {currentUser && isVerifiedUser ? (
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <img
+            src={sanitizeUrl(myProfile?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Me")}
+            className="w-8 h-8 rounded-full object-cover border border-[#2A2F3D] flex-shrink-0"
+            alt="我的頭像"
+          />
+          <div className="flex-1 min-w-0 relative">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value.slice(0, 200))}
+              maxLength="200"
+              className="w-full h-10 rounded-full bg-[#0F111A] border border-[#2A2F3D] px-4 pr-14 text-sm text-white outline-none focus:border-[#F59E0B] transition-colors"
+              placeholder="留言回應這則動態..."
+            />
+            <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-[10px] ${input.length >= 190 ? 'text-[#EF4444]' : 'text-[#64748B]'}`}>
+              {input.length}/200
+            </span>
+          </div>
+          <button
+            type="submit"
+            disabled={!input.trim() || submitting}
+            className={`h-10 px-3 rounded-full text-xs font-bold transition-colors flex-shrink-0 ${input.trim() && !submitting ? 'bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A]' : 'bg-[#1D2130] text-[#64748B] cursor-not-allowed'}`}
+          >
+            送出
+          </button>
+        </form>
+      ) : (
+        <p className="text-[11px] text-[#64748B]">需登入並通過名片認證後才能留言。</p>
+      )}
+    </div>
+  );
+};
+
 const PREDEFINED_COLLABS = [
   "APEX",
   "瓦羅蘭",
@@ -12422,6 +12596,16 @@ function App() {
                                   </button>
                                 )}
                               </div>
+
+                              <StatusCommentsBox
+                                storyOwner={v}
+                                currentUser={user}
+                                myProfile={myProfile}
+                                isAdmin={isAdmin}
+                                isVerifiedUser={isVerifiedUser}
+                                realVtubers={realVtubers}
+                                showToast={showToast}
+                              />
                             </div>
                           </div>
                         </article>
