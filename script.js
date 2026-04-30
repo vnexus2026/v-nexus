@@ -4286,32 +4286,99 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       style.id = styleId;
       style.textContent = `
         @media (max-width: 639px) {
+          /*
+            手機版委託專區修正：
+            之前這頁同時存在 mobile card / desktop work-wall card，並搭配 contain、translateZ、absolute overlay。
+            手機瀏覽器下拉重新整理後，某些 WebView / Chrome 會把 responsive hidden 狀態或 overlay repaint 錯亂，
+            導致桌機卡片短暫接管或頭像標籤被吃掉。這裡改成「明確手機版 CSS」而不是只仰賴 Tailwind responsive class。
+          */
           .vnexus-commission-mobile-stable {
-            overflow-x: hidden;
+            overflow-x: hidden !important;
             overscroll-behavior-x: none;
-            overscroll-behavior-y: auto;
+            overscroll-behavior-y: contain;
             -webkit-overflow-scrolling: touch;
             transform: none !important;
-            contain: layout paint;
+            contain: none !important;
+            isolation: isolate;
           }
           .vnexus-commission-mobile-stable * {
             -webkit-tap-highlight-color: transparent;
           }
-          .vnexus-commission-mobile-stable .vnexus-creator-market-card,
-          .vnexus-commission-mobile-stable .vnexus-creator-market-card * {
-            backface-visibility: hidden;
-          }
           .vnexus-commission-mobile-stable .vnexus-creator-market-card {
-            transform: translateZ(0) !important;
-            will-change: auto !important;
+            display: none !important;
           }
-          .vnexus-commission-mobile-stable .vnexus-creator-showcase-img {
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            min-width: 0 !important;
             transform: none !important;
-            transition-property: opacity !important;
+            will-change: auto !important;
+            contain: none !important;
+            content-visibility: visible !important;
           }
-          .vnexus-commission-mobile-card img {
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-showcase {
+            display: block !important;
+            position: relative !important;
+            width: 100% !important;
+            aspect-ratio: 1 / 1 !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            background: #11131C !important;
+            transform: none !important;
+            contain: none !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-showcase img {
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
             transform: none !important;
             transition: opacity .2s ease !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-overlay {
+            display: block !important;
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+            background: linear-gradient(to top, rgba(5,7,13,.96), rgba(15,17,26,.58) 45%, rgba(15,17,26,0) 78%) !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-topbadges {
+            display: flex !important;
+            position: absolute !important;
+            top: .75rem !important;
+            left: .75rem !important;
+            right: .75rem !important;
+            z-index: 3 !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: .5rem !important;
+            min-width: 0 !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-bottominfo {
+            display: flex !important;
+            position: absolute !important;
+            left: .75rem !important;
+            right: .75rem !important;
+            bottom: .75rem !important;
+            z-index: 3 !important;
+            align-items: flex-end !important;
+            gap: .75rem !important;
+            min-width: 0 !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar {
+            display: block !important;
+            width: 3rem !important;
+            height: 3rem !important;
+            border-radius: 1rem !important;
+            overflow: hidden !important;
+            flex: 0 0 auto !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-info {
+            display: block !important;
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
           }
           .vnexus-commission-filter-scroll {
             scrollbar-width: none;
@@ -4319,6 +4386,11 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           }
           .vnexus-commission-filter-scroll::-webkit-scrollbar {
             display: none;
+          }
+        }
+        @media (min-width: 640px) {
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-card {
+            display: none !important;
           }
         }
       `;
@@ -4367,8 +4439,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           <div className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_320px_auto] items-end gap-2.5 sm:gap-4">
             <div className="col-span-2 sm:col-span-1 min-w-0">
               <p className="text-[10px] sm:text-xs font-bold text-[#94A3B8] mb-1.5 sm:mb-2 tracking-widest uppercase">創作者身份</p>
-              <div className="flex flex-wrap gap-2">
-                {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold border transition-colors whitespace-nowrap ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
+              <div className="vnexus-commission-filter-scroll flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 -mx-0.5 px-0.5">
+                {roleFilters.map((role) => <button key={role} onClick={() => setActiveRoleFilter(role)} className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-sm font-bold border transition-colors whitespace-nowrap flex-shrink-0 ${activeRoleFilter === role ? "bg-[#38BDF8] text-[#0F111A] border-[#38BDF8]" : "bg-[#181B25] text-[#CBD5E1] border-[#2A2F3D] hover:bg-[#1D2130]"}`}>{role === "All" ? "全部" : role}</button>)}
               </div>
             </div>
             <div className="min-w-0">
@@ -4404,21 +4476,21 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
                 <article onClick={() => openProfile(v)} className="sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-[1.35rem] overflow-hidden shadow-sm cursor-pointer flex flex-col" title="查看詳細名片">
-                  <div className="aspect-square bg-[#11131C] relative overflow-hidden">
+                  <div className="vnexus-commission-mobile-showcase aspect-square bg-[#11131C] relative overflow-hidden">
                     {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-95" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-xs bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-2xl mb-2 opacity-60"></i>作品展示區規劃中</div>}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#05070D] via-[#0F111A]/55 to-transparent pointer-events-none"></div>
-                    <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-[2]">
+                    <div className="vnexus-commission-mobile-overlay absolute inset-0 bg-gradient-to-t from-[#05070D] via-[#0F111A]/55 to-transparent pointer-events-none"></div>
+                    <div className="vnexus-commission-mobile-topbadges absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-[2]">
                       <div className="flex gap-1.5 overflow-hidden min-w-0 pr-1">
                         {roles.slice(0, 2).map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm whitespace-nowrap">{role}</span>)}
                       </div>
                       {creatorStatus && <span className="bg-[#22C55E]/95 text-[#052E16] px-2.5 py-1 rounded-full text-[11px] font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
                     </div>
-                    <div className="absolute left-3 right-3 bottom-3 z-[2]">
+                    <div className="vnexus-commission-mobile-bottominfo absolute left-3 right-3 bottom-3 z-[2]">
                       <div className="flex items-end gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-[#11131C] border border-white/25 overflow-hidden flex-shrink-0 shadow-lg">
+                        <div className="vnexus-commission-mobile-avatar w-12 h-12 rounded-2xl bg-[#11131C] border border-white/25 overflow-hidden flex-shrink-0 shadow-lg">
                           {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                         </div>
-                        <div className="min-w-0 flex-1 pb-0.5">
+                        <div className="vnexus-commission-mobile-info min-w-0 flex-1 pb-0.5">
                           <h3 className="text-white text-base font-black truncate flex items-center gap-1.5 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-[10px] font-bold bg-black/45 px-1.5 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
                           <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
                         </div>
