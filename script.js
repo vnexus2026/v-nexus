@@ -819,6 +819,38 @@ const sanitizeUrl = (url) => {
 };
 
 
+const StatusCommentCount = ({ storyOwner }) => {
+  const ownerId = storyOwner?.id || "";
+  const statusMessageUpdatedAt = Number(storyOwner?.statusMessageUpdatedAt || 0);
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!ownerId || !statusMessageUpdatedAt) {
+      setCount(0);
+      return;
+    }
+
+    const commentsRef = collection(db, `${getPath("vtubers")}/${ownerId}/status_comments`);
+    const q = query(commentsRef, where("statusMessageUpdatedAt", "==", statusMessageUpdatedAt));
+    const unsub = onSnapshot(q, (snap) => {
+      setCount(snap.size);
+    }, (err) => {
+      console.warn("讀取動態留言數失敗:", err);
+      setCount(0);
+    });
+
+    return unsub;
+  }, [ownerId, statusMessageUpdatedAt]);
+
+  if (!count) return null;
+
+  return (
+    <span className="ml-1 text-[#94A3B8] text-xs font-bold leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+};
+
 const StatusCommentsBox = ({
   storyOwner,
   currentUser,
@@ -12596,16 +12628,6 @@ function App() {
                     </h2>
                     <p className="text-[#94A3B8] text-xs mt-1 leading-relaxed max-w-xl">看看誰正在直播、想揪團、找人聊天或分享近況。點頭像就能快速進入對方資料進行私訊互動。</p>
                   </div>
-                  {isVerifiedUser && (
-                    <button
-                      type="button"
-                      onClick={() => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50)}
-                      className="flex-shrink-0 h-9 px-3 rounded-full bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 text-[#F59E0B] border border-[#F59E0B]/30 text-xs font-black transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <i className="fa-solid fa-plus"></i>
-                      發布
-                    </button>
-                  )}
                 </div>
 
                 {/* 最上方只保留 IG 限動圈圈列 */}
@@ -12649,18 +12671,6 @@ function App() {
                       }
                     }}
                   >
-                    {isVerifiedUser && myProfile && (
-                      <button
-                        onClick={() => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50)}
-                        className="flex-shrink-0 w-16 text-center group"
-                      >
-                        <div className="w-14 h-14 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
-                          <i className="fa-solid fa-plus"></i>
-                        </div>
-                        <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate">發布</p>
-                      </button>
-                    )}
-
                     {storyRingUsers.length === 0 ? (
                       <div className="flex items-center text-[#94A3B8] text-sm py-3">
                         目前還沒有近期更新的創作者。
@@ -12848,10 +12858,11 @@ function App() {
                                     e.stopPropagation();
                                     setOpenStatusCommentKeys((prev) => ({ ...prev, [commentKey]: !prev[commentKey] }));
                                   }}
-                                  className={`h-9 w-9 rounded-full border text-xs font-bold transition-colors inline-flex items-center justify-center ${isCommentsOpen ? 'border-[#F59E0B]/45 bg-[#F59E0B]/15 text-[#F59E0B]' : 'border-[#2A2F3D] bg-[#11131C] hover:bg-[#38BDF8]/15 hover:border-[#38BDF8]/35 text-[#7DD3FC]'}`}
+                                  className={`h-9 px-3 rounded-full border text-xs font-bold transition-colors inline-flex items-center justify-center ${isCommentsOpen ? 'border-[#F59E0B]/45 bg-[#F59E0B]/15 text-[#F59E0B]' : 'border-[#2A2F3D] bg-[#11131C] hover:bg-[#38BDF8]/15 hover:border-[#38BDF8]/35 text-[#7DD3FC]'}`}
                                   title={isCommentsOpen ? '收合留言' : '查看留言'}
                                 >
                                   <i className="fa-regular fa-comment-dots"></i>
+                                  <StatusCommentCount storyOwner={v} />
                                 </button>
                                 {user && v.id === user.uid && (
                                   <button
