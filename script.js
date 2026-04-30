@@ -519,6 +519,16 @@ const LazyImage = ({
   useEffect(() => {
     setLoaded(false);
     setHasError(!safeSrc);
+
+    // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
+    // 導致 skeleton shimmer 永遠閃爍。超過時間就停止載入狀態，保留深色底。
+    if (!safeSrc) return;
+    const timer = setTimeout(() => {
+      setHasError(true);
+      setLoaded(true);
+    }, 9000);
+
+    return () => clearTimeout(timer);
   }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
