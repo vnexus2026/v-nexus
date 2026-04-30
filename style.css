@@ -84,3 +84,5 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
     font-size: 0 !important;
     visibility: hidden !important;
 }
+
+/* Desktop premium font is loaded in index.html with a min-width media query to avoid mobile layout shift. */

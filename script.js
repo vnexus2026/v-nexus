@@ -519,6 +519,15 @@ const LazyImage = ({
   useEffect(() => {
     setLoaded(false);
     setHasError(!safeSrc);
+
+    // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
+    // 導致 skeleton shimmer 永遠閃爍。超過時間只停止載入動畫，不判定壞圖、不移除圖片。
+    if (!safeSrc) return;
+    const timer = setTimeout(() => {
+      setLoaded(true);
+    }, 9000);
+
+    return () => clearTimeout(timer);
   }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
@@ -536,7 +545,7 @@ const LazyImage = ({
         <img
           src={safeSrc}
           alt={alt}
-          className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100 vnexus-image-loaded" : "opacity-0"} ${imgCls}`}
+          className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100" : "opacity-0"} ${imgCls}`}
           onLoad={(e) => {
             e.currentTarget.classList.add("vnexus-image-loaded");
             forgetBrokenImageUrl(safeSrc);
