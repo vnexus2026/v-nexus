@@ -6632,6 +6632,37 @@ function App() {
   const [storyInput, setStoryInput] = useState("");
   const [isStoryComposerOpen, setIsStoryComposerOpen] = useState(false);
   const [statusWallFilter, setStatusWallFilter] = useState("all");
+  const [viewedStoryMap, setViewedStoryMap] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
+    } catch (error) {
+      return {};
+    }
+  });
+
+  const markStatusStoryViewed = (vtuber) => {
+    if (!vtuber?.id || !vtuber?.statusMessageUpdatedAt) return;
+    const key = `${vtuber.id}_${Number(vtuber.statusMessageUpdatedAt || 0)}`;
+    setViewedStoryMap((prev) => {
+      if (prev?.[key]) return prev;
+      const next = { ...(prev || {}), [key]: Date.now() };
+      try {
+        const entries = Object.entries(next)
+          .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+          .slice(0, 300);
+        const compact = Object.fromEntries(entries);
+        localStorage.setItem("vnexus_viewed_status_stories", JSON.stringify(compact));
+        return compact;
+      } catch (error) {
+        return next;
+      }
+    });
+  };
+
+  const isStatusStoryViewed = (vtuber) => {
+    if (!vtuber?.id || !vtuber?.statusMessageUpdatedAt) return false;
+    return Boolean(viewedStoryMap?.[`${vtuber.id}_${Number(vtuber.statusMessageUpdatedAt || 0)}`]);
+  };
 
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -12223,11 +12254,13 @@ function App() {
             const activeStoryUsers = [...realVtubers]
               .filter((v) => isStoryEligibleProfile(v) && hasValidStoryStatus(v))
               .sort((a, b) => Number(b.statusMessageUpdatedAt || 0) - Number(a.statusMessageUpdatedAt || 0));
+            const unreadStoryUsers = activeStoryUsers.filter((v) => !isStatusStoryViewed(v));
+            const viewedStoryUsers = activeStoryUsers.filter((v) => isStatusStoryViewed(v));
             const activeStoryIds = new Set(activeStoryUsers.map((v) => v.id));
             const recentlyUpdatedUsers = [...realVtubers]
               .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
               .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
-            const storyRingUsers = [...activeStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
+            const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
 
             return (
               <div className="max-w-3xl mx-auto px-4 py-6 animate-fade-in-up">
@@ -12273,17 +12306,18 @@ function App() {
                     ) : (
                       storyRingUsers.map((v) => {
                         const hasActiveStory = activeStoryIds.has(v.id);
+                        const storyViewed = hasActiveStory && isStatusStoryViewed(v);
                         const isLiveMsg = hasActiveStory && String(v.statusMessage || "").includes('🔴');
-                        const ringClass = hasActiveStory
+                        const ringClass = hasActiveStory && !storyViewed
                           ? (isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]')
                           : 'bg-transparent border border-[#2A2F3D]';
                         const titleText = hasActiveStory
-                          ? String(v.statusMessage || '')
+                          ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                           : `${v.name || '創作者'} 最近更新了名片資料`;
                         return (
                           <button
                             key={`story-ring-${v.id}`}
-                            onClick={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                            onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
                             className="flex-shrink-0 w-16 text-center group"
                             title={titleText}
                           >
