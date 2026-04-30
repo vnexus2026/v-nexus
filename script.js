@@ -360,6 +360,18 @@ const initVnexusImageLoadingUX = (() => {
         img.vnexus-image-error {
           opacity: 0 !important;
         }
+        .vnexus-drag-scroll {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          cursor: grab;
+          user-select: none;
+        }
+        .vnexus-drag-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .vnexus-drag-scroll.is-dragging {
+          cursor: grabbing;
+        }
         @media (prefers-reduced-motion: reduce) {
           .vnexus-image-skeleton,
           img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
@@ -12598,7 +12610,45 @@ function App() {
 
                 {/* 最上方只保留 IG 限動圈圈列 */}
                 <div className="mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3">
-                  <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                  <div
+                    className="flex gap-4 overflow-x-auto pb-1 vnexus-drag-scroll"
+                    onMouseDown={(e) => {
+                      const el = e.currentTarget;
+                      el.dataset.dragging = "1";
+                      el.dataset.dragStartX = String(e.pageX);
+                      el.dataset.dragScrollLeft = String(el.scrollLeft);
+                      el.dataset.dragMoved = "0";
+                      el.classList.add("is-dragging");
+                    }}
+                    onMouseMove={(e) => {
+                      const el = e.currentTarget;
+                      if (el.dataset.dragging !== "1") return;
+                      e.preventDefault();
+                      const startX = Number(el.dataset.dragStartX || 0);
+                      const startLeft = Number(el.dataset.dragScrollLeft || 0);
+                      const delta = e.pageX - startX;
+                      if (Math.abs(delta) > 4) el.dataset.dragMoved = "1";
+                      el.scrollLeft = startLeft - delta;
+                    }}
+                    onMouseUp={(e) => {
+                      const el = e.currentTarget;
+                      el.dataset.dragging = "0";
+                      el.classList.remove("is-dragging");
+                    }}
+                    onMouseLeave={(e) => {
+                      const el = e.currentTarget;
+                      el.dataset.dragging = "0";
+                      el.classList.remove("is-dragging");
+                    }}
+                    onClickCapture={(e) => {
+                      const el = e.currentTarget;
+                      if (el.dataset.dragMoved === "1") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        el.dataset.dragMoved = "0";
+                      }
+                    }}
+                  >
                     {isVerifiedUser && myProfile && (
                       <button
                         onClick={() => setIsStoryComposerOpen(true)}
