@@ -89,6 +89,20 @@
     @media (min-width:1280px) {
       .vnexus-commission-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     }
+
+    /* Mobile nav: keep 揪團佈告欄 as red background + white text */
+    @media (max-width: 639px) {
+      .vnexus-mobile-bulletin-red-nav {
+        background:#EF4444 !important;
+        color:#FFFFFF !important;
+        border-color:#EF4444 !important;
+      }
+      .vnexus-mobile-bulletin-red-nav i,
+      .vnexus-mobile-bulletin-red-nav span {
+        color:#FFFFFF !important;
+      }
+    }
+
   </style>
 </head>
 
