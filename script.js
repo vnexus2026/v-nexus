@@ -439,109 +439,7 @@ const initVnexusImageLoadingUX = (() => {
   };
 })();
 
-const initVnexusCriticalMobileLayoutFix = (() => {
-  let initialized = false;
-  return () => {
-    if (initialized || typeof document === "undefined") return;
-    initialized = true;
-
-    if (document.getElementById("vnexus-critical-mobile-layout-fix")) return;
-
-    const style = document.createElement("style");
-    style.id = "vnexus-critical-mobile-layout-fix";
-    style.textContent = `
-      /* V-Nexus critical layout fallback: prevents mobile refresh from falling back to plain text when Tailwind utilities are delayed/unavailable. */
-      html, body, #root { min-height: 100%; margin: 0; background: #0F111A; color: #F8FAFC; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
-      *, *::before, *::after { box-sizing: border-box; }
-      body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      button, input, textarea, select { font: inherit; }
-      button { cursor: pointer; }
-      img { max-width: 100%; display: block; }
-
-      .hidden { display: none !important; }
-      .block { display: block !important; }
-      .inline-block { display: inline-block !important; }
-      .flex { display: flex !important; }
-      .inline-flex { display: inline-flex !important; }
-      .grid { display: grid !important; }
-      .hidden { display: none !important; }
-      .relative { position: relative !important; }
-      .absolute { position: absolute !important; }
-      .fixed { position: fixed !important; }
-      .sticky { position: sticky !important; }
-      .items-center { align-items: center !important; }
-      .items-start { align-items: flex-start !important; }
-      .justify-between { justify-content: space-between !important; }
-      .justify-center { justify-content: center !important; }
-      .flex-col { flex-direction: column !important; }
-      .flex-row { flex-direction: row !important; }
-      .flex-1 { flex: 1 1 0% !important; }
-      .flex-shrink-0 { flex-shrink: 0 !important; }
-      .min-w-0 { min-width: 0 !important; }
-      .overflow-hidden { overflow: hidden !important; }
-      .overflow-x-auto { overflow-x: auto !important; }
-      .overflow-x-hidden { overflow-x: hidden !important; }
-      .whitespace-nowrap { white-space: nowrap !important; }
-      .text-left { text-align: left !important; }
-      .text-center { text-align: center !important; }
-      .mx-auto { margin-left: auto !important; margin-right: auto !important; }
-      @media (min-width: 640px) {
-        .sm\\:hidden { display: none !important; }
-        .sm\\:block { display: block !important; }
-        .sm\\:flex { display: flex !important; }
-        .sm\\:inline-flex { display: inline-flex !important; }
-        .sm\\:grid { display: grid !important; }
-        .sm\\:flex-row { flex-direction: row !important; }
-      }
-      @media (max-width: 639.98px) {
-        .hidden.sm\\:block, .hidden.sm\\:flex, .hidden.sm\\:inline-flex, .hidden.sm\\:grid { display: none !important; }
-      }
-      @media (min-width: 1024px) {
-        .lg\\:hidden { display: none !important; }
-        .lg\\:block { display: block !important; }
-        .lg\\:flex { display: flex !important; }
-        .lg\\:inline-flex { display: inline-flex !important; }
-        .lg\\:grid { display: grid !important; }
-        .lg\\:flex-row { flex-direction: row !important; }
-      }
-      @media (max-width: 1023.98px) {
-        .hidden.lg\\:block, .hidden.lg\\:flex, .hidden.lg\\:inline-flex, .hidden.lg\\:grid { display: none !important; }
-      }
-
-      .vnexus-site-shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; position: relative; background: #0F111A; color: #F8FAFC; overflow-x: hidden; }
-      .vnexus-site-nav { position: sticky; top: 0; z-index: 40; width: 100%; background: rgba(15, 17, 26, 0.96); border-bottom: 1px solid #2A2F3D; box-shadow: 0 10px 30px rgba(0,0,0,0.28); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-      .vnexus-nav-inner { max-width: 80rem; margin-left: auto; margin-right: auto; padding-left: 1rem; padding-right: 1rem; }
-      .vnexus-nav-main-row { height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-width: 0; }
-      .vnexus-logo-button { display: flex; align-items: center; gap: 0.5rem; min-width: 0; flex-shrink: 0; }
-      .vnexus-logo-icon { width: 2.25rem; height: 2.25rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 0.75rem; color: #fff; background: linear-gradient(135deg, #8B5CF6, #EC4899); }
-      .vnexus-logo-text { display: inline-block; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.25rem; line-height: 1.2; font-weight: 800; color: #F8FAFC; }
-      .vnexus-nav-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.55rem; min-width: 0; }
-      .vnexus-nav-actions button { border: 0; }
-      .vnexus-mobile-menu-button { display: inline-flex !important; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; color: #CBD5E1; background: rgba(29, 33, 48, 0.8) !important; }
-      .vnexus-desktop-nav { display: none !important; }
-      .vnexus-mobile-menu { position: absolute; left: 0; right: 0; top: 4rem; z-index: 50; display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; background: rgba(15, 17, 26, 0.98); border-bottom: 1px solid #2A2F3D; box-shadow: 0 18px 36px rgba(0,0,0,0.34); }
-      .vnexus-mobile-menu button { width: 100%; border: 1px solid #2A2F3D; border-radius: 0.9rem; padding: 0.85rem 1rem; color: #E2E8F0; background: #181B25; text-align: left; }
-      .vnexus-app-main { flex: 1 1 auto; min-width: 0; width: 100%; padding-bottom: 2.5rem; background: #0F111A; }
-      @media (min-width: 1024px) {
-        .vnexus-nav-inner { padding-left: 1.5rem; padding-right: 1.5rem; }
-        .vnexus-desktop-nav { display: flex !important; align-items: center; justify-content: center; gap: 1rem; padding-bottom: 1rem; overflow-x: auto; white-space: nowrap; }
-        .vnexus-mobile-menu-button, .vnexus-mobile-menu { display: none !important; }
-      }
-
-      .vnexus-commission-page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 2.5rem; min-height: 100vh; min-height: 100dvh; background: #0F111A; color: #F8FAFC; overflow-x: hidden; }
-      .vnexus-commission-hero { margin-bottom: 1.25rem; border-radius: 1rem; border: 1px solid #2A2F3D; background: #181B25; padding: 1rem; box-shadow: 0 12px 28px rgba(0,0,0,.22); }
-      .vnexus-commission-toolbar, .vnexus-commission-filter-scroll { display: flex; gap: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-      .vnexus-commission-toolbar::-webkit-scrollbar, .vnexus-commission-filter-scroll::-webkit-scrollbar { display: none; }
-      .vnexus-creator-market-card { display: flex; flex-direction: column; min-width: 0; border-radius: 1.25rem; overflow: hidden; background: #181B25; border: 1px solid #2A2F3D; color: #F8FAFC; }
-      .vnexus-creator-showcase-img { width: 100%; height: 100%; object-fit: cover; }
-      @media (min-width: 640px) { .vnexus-commission-page { padding-top: 2.5rem; } .vnexus-commission-hero { padding: 2rem; border-radius: 1.25rem; } }
-    `;
-    document.head.prepend(style);
-  };
-})();
-
 initVnexusImageLoadingUX();
-initVnexusCriticalMobileLayoutFix();
 
 const LazyImage = ({
   src,
@@ -4423,8 +4321,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       className="min-h-screen w-full bg-[#0F111A] text-white overflow-x-hidden"
       style={{ minHeight: "100dvh", width: "100%", backgroundColor: "#0F111A", color: "#FFFFFF", overflowX: "hidden" }}
     >
-    <div ref={commissionTopRef} className="vnexus-commission-page max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden" style={{ maxWidth: "72rem", marginLeft: "auto", marginRight: "auto", paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1.5rem", paddingBottom: "2.5rem", minHeight: "100dvh", overflowX: "hidden", backgroundColor: "#0F111A", color: "#F8FAFC" }}>
-      <div className="vnexus-commission-hero mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
+    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden" style={{ maxWidth: "72rem", marginLeft: "auto", marginRight: "auto", paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1.5rem", paddingBottom: "2.5rem", minHeight: "100dvh", overflowX: "hidden" }}>
+      <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
           <div>
@@ -4436,7 +4334,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             </div>
             <p className="text-[#94A3B8] max-w-2xl leading-relaxed text-sm sm:text-base">{isBoardOnly ? "想找繪圖、建模、剪輯找不到人？來佈告欄表達需求，老師們可能就會找上你哦！" : "找作品集、看檔期，快速比較繪師、建模師與剪輯師的名片資料。"}</p>
           </div>
-          <div className="vnexus-commission-toolbar grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
             {isBoardOnly ? (
               <>
                 <button onClick={() => navigate("commissions")} className="hidden sm:inline-flex items-center justify-center bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors whitespace-nowrap">找創作者</button>
@@ -10714,28 +10612,28 @@ function App() {
 
   return (
     <AppContext.Provider value={contextValue}>
-      <div className="vnexus-site-shell flex flex-col min-h-screen relative">
+      <div className="flex flex-col min-h-screen relative">
         {toastMsg && (
           <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#181B25] border border-[#8B5CF6] text-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3 font-bold text-sm">
             <i className="fa-solid fa-circle-info text-[#A78BFA]"></i> {toastMsg}
           </div>
         )}
 
-        <nav className="vnexus-site-nav sticky top-0 z-40 backdrop-blur-md bg-[#0F111A]/95 border-b border-[#2A2F3D] shadow-md">
-          <div className="vnexus-nav-inner max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="vnexus-nav-main-row h-16 flex items-center justify-between">
+        <nav className="sticky top-0 z-40 backdrop-blur-md bg-[#0F111A]/95 border-b border-[#2A2F3D] shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="h-16 flex items-center justify-between">
               <div
-                className="vnexus-logo-button flex items-center gap-2 cursor-pointer group"
+                className="flex items-center gap-2 cursor-pointer group"
                 onClick={() => navigate("home")}
               >
-                <div className="vnexus-logo-icon bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-sm transition-all">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg group-hover:shadow-sm transition-all">
                   <i className="fa-solid fa-wand-magic-sparkles text-white"></i>
                 </div>
-                <span className="vnexus-logo-text text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
                   V-Nexus
                 </span>
               </div>
-              <div className="vnexus-nav-actions flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 {!user ? (
                   <div className="flex items-center gap-2">
                     <button
@@ -10913,7 +10811,7 @@ function App() {
                 )}
                 <button
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  className="vnexus-mobile-menu-button lg:hidden text-[#CBD5E1] p-2 text-2xl ml-1"
+                  className="lg:hidden text-[#CBD5E1] p-2 text-2xl ml-1"
                 >
                   <i
                     className={`fa-solid ${isMobileMenuOpen ? "fa-xmark" : "fa-bars"}`}
@@ -10921,7 +10819,7 @@ function App() {
                 </button>
               </div>
             </div>
-            <div className="vnexus-desktop-nav hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
+            <div className="hidden lg:flex items-center justify-center gap-4 pb-4 overflow-x-auto whitespace-nowrap scrollbar-hide">
               <button
                 onClick={() => navigate("home")}
                 className={`transition-colors px-3 py-1.5 font-bold text-sm whitespace-nowrap ${currentView === "home" ? "text-[#A78BFA] border-b-2 border-[#8B5CF6]" : "text-[#94A3B8] hover:text-white"}`}
@@ -10972,7 +10870,7 @@ function App() {
             </div>
           </div>
           {isMobileMenuOpen && (
-            <div className="vnexus-mobile-menu lg:hidden absolute top-16 left-0 w-full bg-[#0F111A]/95 backdrop-blur-md border-b border-[#2A2F3D] shadow-md flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
+            <div className="lg:hidden absolute top-16 left-0 w-full bg-[#0F111A]/95 backdrop-blur-md border-b border-[#2A2F3D] shadow-md flex flex-col p-4 gap-4 z-50 animate-fade-in-up">
               <button
                 onClick={() => navigate("home")}
                 className={`text-left px-4 py-3 rounded-xl font-bold ${currentView === "home" ? "bg-[#8B5CF6] text-white" : "text-[#CBD5E1] hover:bg-[#181B25]"}`}
@@ -11042,7 +10940,7 @@ function App() {
 
         </nav>
 
-        <main className="vnexus-app-main flex-1 pb-10">
+        <main className="flex-1 pb-10">
           {currentView === "home" && (
             <HomePage
               navigate={navigate}
