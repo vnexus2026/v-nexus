@@ -4278,8 +4278,39 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   };
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const styleId = "vnexus-commission-mobile-stability";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        @media (max-width: 639px) {
+          .vnexus-commission-mobile-stable {
+            overflow-x: hidden;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+          }
+          .vnexus-commission-mobile-stable .vnexus-creator-market-card,
+          .vnexus-commission-mobile-stable .vnexus-creator-market-card * {
+            backface-visibility: hidden;
+          }
+          .vnexus-commission-mobile-stable .vnexus-creator-market-card {
+            transform: translateZ(0) !important;
+            will-change: auto !important;
+          }
+          .vnexus-commission-mobile-stable .vnexus-creator-showcase-img {
+            transform: none !important;
+            transition-property: opacity !important;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   return (
-    <div ref={commissionTopRef} className="max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overscroll-contain">
+    <div ref={commissionTopRef} className="vnexus-commission-mobile-stable max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overscroll-contain overflow-x-hidden">
       <div className="mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
@@ -4336,7 +4367,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 setCommissionPage(1);
                 showToast("🎲 已重新洗牌創作者順序");
               }}
-              className="h-[42px] bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-2 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-base"
+              className="h-[34px] sm:h-[42px] bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-base justify-self-end self-end col-start-2 sm:col-start-auto mt-1 sm:mt-0"
             >
               <i className="fa-solid fa-shuffle"></i><span className="sm:hidden">洗牌</span><span className="hidden sm:inline">重新洗牌</span>
             </button>
@@ -4354,16 +4385,16 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorStatus = v.creatorStatus || "";
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
-              return <article key={v.id} onClick={() => openProfile(v)} className="group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex flex-col will-change-auto" title="查看詳細名片">
+              return <article key={v.id} onClick={() => openProfile(v)} className="vnexus-creator-market-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex flex-col will-change-auto" title="查看詳細名片">
                 <div className="aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-90 sm:group-hover:scale-105 group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/55 sm:via-[#0F111A]/15 to-transparent"></div>
-                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap gap-2">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
+                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
                     {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
                   </div>
-                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4">
+                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
                     <div className="flex items-end gap-3">
                       <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
                         {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
@@ -4410,7 +4441,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 {requestStyleFilters.map((style) => <option key={style} value={style}>{style === "All" ? "全部創作風格 / 類型" : style}</option>)}
               </select>
             </div>
-            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="h-[42px] bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-2 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-xs sm:text-base">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
+            <button onClick={() => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }} className="h-[34px] sm:h-[42px] bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-xs sm:text-base justify-self-end self-end col-start-2 sm:col-start-auto mt-1 sm:mt-0">{isRequestFormOpen ? "收起需求表單" : "發布委託需求"}</button>
           </div>
         </div>
         {isRequestFormOpen && (
