@@ -12213,391 +12213,188 @@ function App() {
           {/* 🌟 全新：24H 動態牆頁面 */}
           {currentView === "status_wall" && (() => {
             const now = Date.now();
+            const hasValidStoryStatus = (v) => {
+              if (!v?.statusMessage || !v?.statusMessageUpdatedAt) return false;
+              const isLiveMsg = String(v.statusMessage || "").includes('🔴');
+              const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+              return now - Number(v.statusMessageUpdatedAt || 0) < expireLimit;
+            };
+            const isStoryEligibleProfile = (v) => v.isVerified && !v.isBlacklisted && v.activityStatus !== "sleep" && v.activityStatus !== "graduated" && !String(v.id || "").startsWith("mock");
             const activeStoryUsers = [...realVtubers]
-              .filter((v) => {
-                if (!v.isVerified || v.isBlacklisted || v.activityStatus === "sleep" || v.activityStatus === "graduated" || String(v.id || "").startsWith("mock") || !v.statusMessage || !v.statusMessageUpdatedAt) return false;
-                const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                const expireLimit = isLiveMsg ? 3 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-                return now - v.statusMessageUpdatedAt < expireLimit;
-              })
-              .sort((a, b) => b.statusMessageUpdatedAt - a.statusMessageUpdatedAt);
-
-            const liveStatuses = activeStoryUsers.filter((v) => String(v.statusMessage || "").includes('🔴'));
-            const storyStatuses = activeStoryUsers.filter((v) => !String(v.statusMessage || "").includes('🔴'));
-            const myStatuses = user ? activeStoryUsers.filter((v) => v.id === user.uid) : [];
-            const filteredStatuses = activeStoryUsers.filter((v) => {
-              if (statusWallFilter === 'live') return String(v.statusMessage || "").includes('🔴');
-              if (statusWallFilter === 'story') return !String(v.statusMessage || "").includes('🔴');
-              if (statusWallFilter === 'mine') return !!user && v.id === user.uid;
-              return true;
-            });
-
-            const statusFilterOptions = [
-              { key: 'all', label: '全部動態', count: activeStoryUsers.length, icon: 'fa-layer-group' },
-              { key: 'live', label: '直播中', count: liveStatuses.length, icon: 'fa-satellite-dish' },
-              { key: 'story', label: '24H 限動', count: storyStatuses.length, icon: 'fa-comment-dots' },
-              ...(user ? [{ key: 'mine', label: '我的動態', count: myStatuses.length, icon: 'fa-user' }] : []),
-            ];
+              .filter((v) => isStoryEligibleProfile(v) && hasValidStoryStatus(v))
+              .sort((a, b) => Number(b.statusMessageUpdatedAt || 0) - Number(a.statusMessageUpdatedAt || 0));
+            const activeStoryIds = new Set(activeStoryUsers.map((v) => v.id));
+            const recentlyUpdatedUsers = [...realVtubers]
+              .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
+              .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
+            const storyRingUsers = [...activeStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
 
             return (
-              <div className="max-w-6xl mx-auto px-4 py-8 animate-fade-in-up">
-                <div className="bg-gradient-to-br from-[#25163B] via-[#1A2032] to-[#11131C] border border-[#3B4254] rounded-[28px] p-5 sm:p-7 shadow-2xl shadow-black/20 overflow-hidden relative mb-6">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.18),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(139,92,246,0.14),transparent_30%)] pointer-events-none"></div>
-                  <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                    <div className="max-w-3xl">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-[#F59E0B]/20 bg-[#F59E0B]/10 px-3 py-1 text-[11px] font-bold text-[#FCD34D] mb-3">
-                        <i className="fa-solid fa-bolt"></i> 即時動態中心
-                      </div>
-                      <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center gap-3">
-                        <i className="fa-solid fa-bolt text-[#F59E0B]"></i>
-                        24H 動態牆
-                      </h2>
-                      <p className="text-[#CBD5E1] mt-3 text-sm sm:text-base leading-relaxed max-w-2xl">
-                        用更直覺的方式看看誰正在直播、想揪團、找人聊天或分享近況。點名片就能快速進入對方資料，看到感興趣的動態也能立刻互動。
-                      </p>
-                    </div>
+              <div className="max-w-3xl mx-auto px-4 py-6 animate-fade-in-up">
+                {/* 小型提醒標題：只保留辨識與提醒，不佔版面 */}
+                <div className="mb-4 rounded-2xl border border-[#2A2F3D] bg-[#181B25]/70 px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+                      <i className="fa-solid fa-bolt text-[#F59E0B]"></i> 24H 動態牆
+                    </h2>
+                    <p className="text-[#94A3B8] text-xs mt-1 leading-relaxed max-w-xl">看看誰正在直播、想揪團、找人聊天或分享近況。點頭像就能快速進入對方資料進行私訊互動。</p>
+                  </div>
+                  {isVerifiedUser && (
+                    <button
+                      type="button"
+                      onClick={() => setIsStoryComposerOpen(true)}
+                      className="flex-shrink-0 h-9 px-3 rounded-full bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] text-xs font-black transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <i className="fa-solid fa-plus"></i>
+                      發布
+                    </button>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:w-[460px] gap-3 w-full">
-                      <div className="rounded-2xl border border-[#2A2F3D] bg-black/20 backdrop-blur-sm p-4 text-center">
-                        <p className="text-[#94A3B8] text-xs font-medium">現在有動態</p>
-                        <p className="text-white text-2xl font-black mt-1">{activeStoryUsers.length}</p>
-                      </div>
-                      <div className="rounded-2xl border border-[#2A2F3D] bg-black/20 backdrop-blur-sm p-4 text-center">
-                        <p className="text-[#94A3B8] text-xs font-medium">直播中</p>
-                        <p className="text-[#FCA5A5] text-2xl font-black mt-1">{liveStatuses.length}</p>
-                      </div>
-                      <div className="rounded-2xl border border-[#2A2F3D] bg-black/20 backdrop-blur-sm p-4 text-center">
-                        <p className="text-[#94A3B8] text-xs font-medium">一般限動</p>
-                        <p className="text-[#FCD34D] text-2xl font-black mt-1">{storyStatuses.length}</p>
-                      </div>
+                {/* 最上方只保留 IG 限動圈圈列 */}
+                <div className="mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3">
+                  <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
+                    {isVerifiedUser && myProfile && (
                       <button
-                        type="button"
-                        onClick={() => {
-                          if (!isVerifiedUser) return showToast('需通過認證才能發布動態！');
-                          setIsStoryComposerOpen(true);
-                        }}
-                        className="rounded-2xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 p-4 text-center transition-colors"
+                        onClick={() => setIsStoryComposerOpen(true)}
+                        className="flex-shrink-0 w-16 text-center group"
                       >
-                        <p className="text-[#F59E0B] text-xs font-bold">快速發布</p>
-                        <p className="text-white text-sm font-black mt-1">我也要發</p>
+                        <div className="w-14 h-14 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
+                          <i className="fa-solid fa-plus"></i>
+                        </div>
+                        <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate">發布</p>
                       </button>
-                    </div>
+                    )}
+
+                    {storyRingUsers.length === 0 ? (
+                      <div className="flex items-center text-[#94A3B8] text-sm py-3">
+                        目前還沒有近期更新的創作者。
+                      </div>
+                    ) : (
+                      storyRingUsers.map((v) => {
+                        const hasActiveStory = activeStoryIds.has(v.id);
+                        const isLiveMsg = hasActiveStory && String(v.statusMessage || "").includes('🔴');
+                        const ringClass = hasActiveStory
+                          ? (isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]')
+                          : 'bg-transparent border border-[#2A2F3D]';
+                        const titleText = hasActiveStory
+                          ? String(v.statusMessage || '')
+                          : `${v.name || '創作者'} 最近更新了名片資料`;
+                        return (
+                          <button
+                            key={`story-ring-${v.id}`}
+                            onClick={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                            className="flex-shrink-0 w-16 text-center group"
+                            title={titleText}
+                          >
+                            <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
+                              <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
+                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                              </div>
+                            </div>
+                            <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-5 mb-6">
-                  <div className="bg-[#181B25]/80 border border-[#2A2F3D] rounded-[24px] p-4 sm:p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                      <div>
-                        <p className="text-[#F8FAFC] text-sm font-bold">現在誰有動態？</p>
-                        <p className="text-[#94A3B8] text-xs mt-1">像限時動態一樣先看一圈，誰在線上、誰有近況，一眼就懂。</p>
+                {/* Threads / X 風格：單純牆面，只留頭像、時間、內容、幫推、+1 */}
+                <div className="bg-[#181B25]/55 border border-[#2A2F3D] rounded-2xl overflow-hidden divide-y divide-[#2A2F3D]">
+                  {activeStoryUsers.length === 0 ? (
+                    <div className="text-center py-14 px-5">
+                      <div className="w-14 h-14 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] mx-auto mb-4 flex items-center justify-center">
+                        <i className="fa-solid fa-comment-dots text-xl"></i>
                       </div>
+                      <p className="text-[#F8FAFC] font-bold">目前沒有 24H 動態</p>
+                      <p className="text-[#94A3B8] text-sm mt-2">發布一句話，讓大家知道你現在想做什麼。</p>
                       {isVerifiedUser && (
                         <button
                           onClick={() => setIsStoryComposerOpen(true)}
-                          className="hidden sm:inline-flex items-center gap-1.5 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors"
+                          className="mt-5 bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                         >
-                          <i className="fa-solid fa-plus"></i> 發布動態
+                          發布第一則動態
                         </button>
                       )}
                     </div>
-
-                    <div className="flex gap-4 overflow-x-auto pb-1 custom-scrollbar">
-                      {isVerifiedUser && myProfile && (
-                        <button
-                          onClick={() => setIsStoryComposerOpen(true)}
-                          className="flex-shrink-0 w-20 text-center group"
-                        >
-                          <div className="w-16 h-16 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
-                            <i className="fa-solid fa-plus"></i>
-                          </div>
-                          <p className="text-[11px] text-[#F8FAFC] mt-2 truncate">發布動態</p>
-                        </button>
-                      )}
-                      {activeStoryUsers.length === 0 ? (
-                        <div className="flex items-center text-[#94A3B8] text-sm py-4">
-                          還沒有人發動態，成為第一個讓大家看到的人吧。
-                        </div>
-                      ) : (
-                        activeStoryUsers.slice(0, 18).map((v) => {
-                          const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                          return (
-                            <button
-                              key={`story-ring-${v.id}`}
-                              onClick={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                              className="flex-shrink-0 w-20 text-center group"
-                              title={v.statusMessage}
-                            >
-                              <div className={`w-16 h-16 mx-auto rounded-full p-[2px] ${isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]'}`}>
-                                <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
-                                  <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                                </div>
-                              </div>
-                              <p className={`text-[11px] text-[#F8FAFC] mt-2 truncate ${isLiveMsg ? 'group-hover:text-[#FCA5A5]' : 'group-hover:text-[#F59E0B]'} transition-colors`}>{v.name}</p>
-                              <p className="text-[10px] text-[#94A3B8] truncate">{String((v.statusMessage || '').replace('🔴', '').trim()).slice(0, 10) || (isLiveMsg ? '直播中' : '限動')}</p>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#181B25]/80 border border-[#2A2F3D] rounded-[24px] p-4 sm:p-5 shadow-sm">
-                    <div className="flex items-center justify-between gap-2 mb-4">
-                      <div>
-                        <p className="text-[#F8FAFC] text-sm font-bold">一鍵發布</p>
-                        <p className="text-[#94A3B8] text-xs mt-1">想讓大家快點看見你，可以直接用這裡。</p>
-                      </div>
-                      <i className="fa-solid fa-wand-magic-sparkles text-[#F59E0B]"></i>
-                    </div>
-                    {isVerifiedUser ? (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setIsStoryComposerOpen(true)}
-                            className="w-full h-12 rounded-2xl bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] text-xs sm:text-sm font-black transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
-                          >
-                            <i className="fa-solid fa-pen"></i> 發布一般限動
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async (e) => { await handlePostStory(e, "🔴 我在直播中！快來找我玩！", true); }}
-                            className="w-full h-12 rounded-2xl bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
-                          >
-                            <i className="fa-solid fa-satellite-dish"></i> 一鍵發布直播中
-                          </button>
-                        </div>
-                        <div className="rounded-2xl border border-[#2A2F3D] bg-[#11131C] px-4 py-3 text-xs text-[#94A3B8] leading-relaxed">
-                          小提醒：一般限動會保留 24 小時；直播中提示會保留 3 小時。點對方卡片還能直接進入名片或私訊互動。
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-2xl border border-dashed border-[#2A2F3D] px-4 py-6 text-center text-sm text-[#94A3B8] leading-relaxed">
-                        需先通過名片認證，才能在 24H 動態牆發布內容。
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-[#181B25]/80 border border-[#2A2F3D] rounded-[24px] p-4 sm:p-5 shadow-sm mb-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div>
-                      <p className="text-[#F8FAFC] text-sm font-bold">用你想看的方式瀏覽</p>
-                      <p className="text-[#94A3B8] text-xs mt-1">直播、一般限動、自己的動態都能快速切換。</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {statusFilterOptions.map((option) => {
-                        const active = statusWallFilter === option.key;
-                        return (
-                          <button
-                            key={option.key}
-                            type="button"
-                            onClick={() => setStatusWallFilter(option.key)}
-                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-bold transition-colors ${active ? 'bg-[#F59E0B] text-[#0F111A]' : 'bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] hover:border-[#F59E0B]/30 hover:text-white'}`}
-                          >
-                            <i className={`fa-solid ${option.icon} text-xs`}></i>
-                            <span>{option.label}</span>
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${active ? 'bg-black/15 text-[#0F111A]' : 'bg-[#1D2130] text-[#94A3B8]'}`}>{option.count}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {filteredStatuses.length === 0 ? (
-                  <div className="text-center py-16 bg-[#181B25]/70 rounded-[28px] border border-[#2A2F3D] px-5">
-                    <div className="w-16 h-16 rounded-full bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[#F59E0B] mx-auto mb-4 flex items-center justify-center">
-                      <i className="fa-solid fa-comment-dots text-2xl"></i>
-                    </div>
-                    <p className="text-[#F8FAFC] font-bold text-lg">目前沒有符合這個篩選的動態</p>
-                    <p className="text-[#94A3B8] text-sm mt-2 mb-5">切換其他分類，或發布一句話，讓大家先看到你的近況。</p>
-                    {isVerifiedUser && (
-                      <button
-                        onClick={() => setIsStoryComposerOpen(true)}
-                        className="bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-xl text-sm font-bold transition-colors"
-                      >
-                        發布限動
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 pb-10">
-                    {filteredStatuses.map((v) => {
+                  ) : (
+                    activeStoryUsers.map((v) => {
                       const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                      const reactions = v.statusReactions || { plus_one: [], watching: [], fire: [] };
-                      const allReactors = [...new Set([...(reactions.plus_one || []), ...(reactions.watching || []), ...(reactions.fire || [])])];
-                      const statusTypeLabel = isLiveMsg ? '直播中' : '24H 限動';
-                      const statusTypeCls = isLiveMsg
-                        ? 'bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/25'
-                        : 'bg-[#F59E0B]/15 text-[#FCD34D] border border-[#F59E0B]/25';
+                      const plusCount = v.statusReactions?.plus_one?.length || 0;
+                      const fireCount = v.statusReactions?.fire?.length || 0;
+                      const displayMessage = String(v.statusMessage || "").replace(/^🔴\s*/, "").trim();
 
                       return (
-                        <div
+                        <article
                           key={v.id}
-                          onClick={() => {
-                            setSelectedVTuber(v);
-                            navigate(`profile/${v.id}`);
-                          }}
-                          className={`group bg-[#181B25]/85 border rounded-[26px] p-5 sm:p-6 cursor-pointer transition-all shadow-sm hover:-translate-y-0.5 ${isLiveMsg ? 'border-[#EF4444]/45 hover:border-[#EF4444]/70 shadow-red-950/10' : 'border-[#2A2F3D] hover:border-[#F59E0B]/45'}`}
+                          className="px-4 sm:px-5 py-4 hover:bg-[#1D2130]/55 transition-colors"
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-center gap-4 min-w-0 flex-1">
-                              <div className="relative flex-shrink-0">
-                                <img
-                                  src={sanitizeUrl(v.avatar)}
-                                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-4 ring-red-500/20' : 'border-[#F59E0B] ring-4 ring-orange-500/20'}`}
-                                />
-                                <div className={`absolute -bottom-1 -right-1 ${isLiveMsg ? 'bg-[#EF4444]' : 'bg-[#F59E0B]'} w-6 h-6 rounded-full border-2 border-[#181B25] flex items-center justify-center z-10`}>
-                                  <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish' : 'fa-bolt'} text-[10px] text-white`}></i>
-                                </div>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h4 className={`text-white font-black text-lg truncate ${isLiveMsg ? 'group-hover:text-[#FCA5A5]' : 'group-hover:text-[#FCD34D]'}`}>
-                                    {v.name}
-                                  </h4>
-                                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTypeCls}`}>
-                                    <i className={`fa-solid ${isLiveMsg ? 'fa-satellite-dish' : 'fa-comment-dots'} text-[10px]`}></i>
-                                    {statusTypeLabel}
-                                  </span>
-                                  {(v.youtubeUrl || v.channelUrl) && (v.youtubeUrl || v.channelUrl) !== "#" && (
-                                    <a
-                                      href={sanitizeUrl(v.youtubeUrl || v.channelUrl)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/25 hover:bg-[#EF4444]/25 transition-colors"
-                                      title="YouTube"
-                                      aria-label="YouTube"
-                                    >
-                                      <i className="fa-brands fa-youtube text-xs"></i>
-                                    </a>
-                                  )}
-                                  {v.twitchUrl && v.twitchUrl !== "#" && (
-                                    <a
-                                      href={sanitizeUrl(v.twitchUrl)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#8B5CF6]/15 text-[#C4B5FD] border border-[#8B5CF6]/25 hover:bg-[#8B5CF6]/25 transition-colors"
-                                      title="Twitch"
-                                      aria-label="Twitch"
-                                    >
-                                      <i className="fa-brands fa-twitch text-xs"></i>
-                                    </a>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-[#94A3B8]">
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-[#11131C] border border-[#2A2F3D] px-2.5 py-1">
-                                    <i className="fa-regular fa-clock"></i> {formatRelativeTime(v.statusMessageUpdatedAt)}
-                                  </span>
-                                  {Array.isArray(v.collabTypes) && v.collabTypes.slice(0, 2).map((tag) => (
-                                    <span key={`${v.id}-status-tag-${tag}`} className="inline-flex items-center rounded-full bg-[#11131C] border border-[#2A2F3D] px-2.5 py-1 text-[#CBD5E1]">
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                              {user && v.id === user.uid ? (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }}
-                                  className="h-10 px-3 rounded-xl bg-[#11131C] hover:bg-[#1D2130] text-[#CBD5E1] hover:text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                  <i className="fa-solid fa-eraser"></i> 清除
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); if (!user) return showToast("請先登入！"); if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！"); setChatTarget(v); }}
-                                  className="h-10 px-3 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                                >
-                                  <i className="fa-solid fa-comment-dots"></i> 私訊
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className={`mt-5 rounded-[22px] p-5 border relative overflow-hidden ${isLiveMsg ? 'bg-gradient-to-br from-[#7F1D1D] via-[#991B1B] to-[#450A0A] border-[#EF4444]/40' : 'bg-gradient-to-br from-[#231A10] via-[#1D2130] to-[#121620] border-[#F59E0B]/20'}`}>
-                            <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl ${isLiveMsg ? 'bg-[#EF4444]/20' : 'bg-[#F59E0B]/15'}`}></div>
-                            <p className={`relative z-10 text-base leading-relaxed whitespace-pre-wrap ${isLiveMsg ? 'text-white font-black tracking-wide' : 'text-[#F8FAFC] font-medium'}`}>
-                              {v.statusMessage}
-                            </p>
-                          </div>
-
-                          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2.5" onClick={(e) => e.stopPropagation()}>
-                            {(!user || v.id !== user?.uid) && (
-                              <>
-                                <button
-                                  onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
-                                  className="bg-[#8B5CF6]/15 hover:bg-[#8B5CF6] text-[#C4B5FD] hover:text-white border border-[#8B5CF6]/20 px-3 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
-                                >
-                                  <span>👋 +1</span>
-                                  {v.statusReactions?.plus_one?.length > 0 && <span className="bg-black/25 text-white px-2 py-0.5 rounded-full text-[10px]">{v.statusReactions.plus_one.length}</span>}
-                                </button>
-                                <button
-                                  onClick={(e) => handleStatusReaction(e, v, 'watching')}
-                                  className="bg-[#38BDF8]/15 hover:bg-[#38BDF8] text-[#7DD3FC] hover:text-white border border-[#38BDF8]/20 px-3 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
-                                >
-                                  <span>👀 觀望中</span>
-                                  {v.statusReactions?.watching?.length > 0 && <span className="bg-black/25 text-white px-2 py-0.5 rounded-full text-[10px]">{v.statusReactions.watching.length}</span>}
-                                </button>
-                                <button
-                                  onClick={(e) => handleStatusReaction(e, v, 'fire')}
-                                  className="bg-[#F59E0B]/15 hover:bg-[#F59E0B] text-[#FCD34D] hover:text-white border border-[#F59E0B]/20 px-3 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2"
-                                >
-                                  <span>🔥 幫推</span>
-                                  {v.statusReactions?.fire?.length > 0 && <span className="bg-black/25 text-white px-2 py-0.5 rounded-full text-[10px]">{v.statusReactions.fire.length}</span>}
-                                </button>
-                              </>
-                            )}
-                          </div>
-
-                          <div className="mt-4 pt-4 border-t border-[#2A2F3D]/70 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              {allReactors.length > 0 ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="flex -space-x-2">
-                                    {allReactors.slice(0, 8).map((uid) => {
-                                      const reactor = realVtubers.find((rv) => rv.id === uid);
-                                      if (!reactor) return null;
-                                      return (
-                                        <img
-                                          key={uid}
-                                          src={sanitizeUrl(reactor.avatar)}
-                                          className="w-8 h-8 rounded-full border-2 border-[#181B25] object-cover"
-                                          title={reactor.name}
-                                        />
-                                      );
-                                    })}
-                                    {allReactors.length > 8 && (
-                                      <div className="w-8 h-8 rounded-full bg-[#1D2130] border-2 border-[#181B25] flex items-center justify-center text-[10px] text-white font-bold">
-                                        +{allReactors.length - 8}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-[#94A3B8] truncate">已收到 {allReactors.length} 位創作者互動</p>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-[#64748B]">還沒有人互動，快成為第一個回應的人。</p>
-                              )}
-                            </div>
+                          <div className="flex gap-3 sm:gap-4">
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                              className="flex-shrink-0 h-10 px-3 rounded-xl border border-[#2A2F3D] bg-[#11131C] hover:border-[#F59E0B]/35 hover:text-white text-[#CBD5E1] text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                              onClick={() => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                              className="flex-shrink-0 self-start"
+                              title="查看名片"
                             >
-                              <i className="fa-solid fa-id-card"></i> 查看名片
+                              <img
+                                src={sanitizeUrl(v.avatar)}
+                                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
                             </button>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 min-w-0 text-xs text-[#94A3B8] mb-1">
+                                <span className="font-bold text-[#CBD5E1] truncate">{v.name}</span>
+                                <span className="text-[#64748B]">·</span>
+                                <span className="flex-shrink-0">{formatRelativeTime(v.statusMessageUpdatedAt)}</span>
+                                {isLiveMsg && (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 text-[#FCA5A5] border border-[#EF4444]/20 px-2 py-0.5 text-[10px] font-bold">
+                                    <i className="fa-solid fa-satellite-dish text-[9px]"></i> LIVE
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-[#F8FAFC] text-[15px] sm:text-base leading-relaxed whitespace-pre-wrap break-words">
+                                {displayMessage || (isLiveMsg ? '我在直播中！快來找我玩！' : '發布了一則動態')}
+                              </p>
+
+                              <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                {(!user || v.id !== user?.uid) && (
+                                  <>
+                                    <button
+                                      onClick={(e) => handleStatusReaction(e, v, 'fire')}
+                                      className="h-9 px-3 rounded-full border border-[#2A2F3D] bg-[#11131C] hover:bg-[#F59E0B]/15 hover:border-[#F59E0B]/35 text-[#FCD34D] text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                    >
+                                      🔥 幫推
+                                      {fireCount > 0 && <span className="text-[#94A3B8]">{fireCount}</span>}
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleStatusReaction(e, v, 'plus_one')}
+                                      className="h-9 px-3 rounded-full border border-[#2A2F3D] bg-[#11131C] hover:bg-[#8B5CF6]/15 hover:border-[#8B5CF6]/35 text-[#C4B5FD] text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                    >
+                                      👋 +1
+                                      {plusCount > 0 && <span className="text-[#94A3B8]">{plusCount}</span>}
+                                    </button>
+                                  </>
+                                )}
+                                {user && v.id === user.uid && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); if (confirm("確定要清除這則動態嗎？")) handlePostStory(e, "", false); }}
+                                    className="h-9 px-3 rounded-full border border-[#2A2F3D] bg-[#11131C] hover:bg-[#1D2130] text-[#CBD5E1] text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                  >
+                                    <i className="fa-solid fa-eraser"></i> 清除
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        </article>
                       );
-                    })}
-                  </div>
-                )}
+                    })
+                  )}
+                </div>
               </div>
             );
           })()}
