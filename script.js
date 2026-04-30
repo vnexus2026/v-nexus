@@ -12599,8 +12599,8 @@ function App() {
                   {isVerifiedUser && (
                     <button
                       type="button"
-                      onClick={() => setIsStoryComposerOpen(true)}
-                      className="flex-shrink-0 h-9 px-3 rounded-full bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] text-xs font-black transition-colors inline-flex items-center gap-1.5"
+                      onClick={() => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50)}
+                      className="flex-shrink-0 h-9 px-3 rounded-full bg-[#F59E0B]/15 hover:bg-[#F59E0B]/25 text-[#F59E0B] border border-[#F59E0B]/30 text-xs font-black transition-colors inline-flex items-center gap-1.5"
                     >
                       <i className="fa-solid fa-plus"></i>
                       發布
@@ -12651,7 +12651,7 @@ function App() {
                   >
                     {isVerifiedUser && myProfile && (
                       <button
-                        onClick={() => setIsStoryComposerOpen(true)}
+                        onClick={() => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50)}
                         className="flex-shrink-0 w-16 text-center group"
                       >
                         <div className="w-14 h-14 mx-auto rounded-full border border-dashed border-[#F59E0B]/60 bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] group-hover:bg-[#F59E0B]/20 transition-colors">
@@ -12696,6 +12696,71 @@ function App() {
                   </div>
                 </div>
 
+                {/* Threads / X 風格頁內發布欄：只在 24H 動態牆使用，首頁仍維持原本彈窗 */}
+                {isVerifiedUser && myProfile && (
+                  <div className="mb-4 bg-[#181B25]/55 border-y sm:border border-[#2A2F3D] sm:rounded-2xl px-4 sm:px-5 py-4">
+                    <form
+                      onSubmit={async (e) => {
+                        const willPost = storyInput.trim();
+                        await handlePostStory(e);
+                        if (willPost) setStoryInput("");
+                      }}
+                      className="flex items-start gap-3"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id || user?.uid}`); }}
+                        className="flex-shrink-0 mt-0.5"
+                        title="查看我的名片"
+                      >
+                        <img
+                          src={sanitizeUrl(myProfile.avatar)}
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <textarea
+                          id="status-wall-inline-input"
+                          maxLength="40"
+                          rows="1"
+                          value={storyInput}
+                          onChange={(e) => setStoryInput(e.target.value)}
+                          className="w-full bg-transparent border-0 outline-none resize-none text-white placeholder:text-[#64748B] text-[16px] leading-relaxed min-h-[42px] py-2"
+                          placeholder="現在想找人做什麼？"
+                        />
+                        <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#2A2F3D]/70">
+                          <span className={`text-[10px] ${storyInput.length >= 40 ? 'text-[#EF4444] font-bold' : 'text-[#64748B]'}`}>{storyInput.length} / 40</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              type="submit"
+                              disabled={!storyInput.trim()}
+                              className={`h-8 px-3 rounded-full text-xs font-black transition-colors inline-flex items-center gap-1.5 ${storyInput.trim() ? 'bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A]' : 'bg-[#1D2130] text-[#64748B] cursor-not-allowed'}`}
+                            >
+                              發布
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => { await handlePostStory(e, "🔴 我在直播中！快來找我玩！", true); }}
+                              className="h-8 px-3 rounded-full bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 text-xs font-black transition-colors inline-flex items-center gap-1.5"
+                            >
+                              <i className="fa-solid fa-satellite-dish text-[10px]"></i> 直播
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {!isVerifiedUser && (
+                  <div className="mb-4 bg-[#181B25]/45 border border-[#2A2F3D] rounded-2xl px-4 py-3 text-xs text-[#94A3B8] flex items-center gap-2">
+                    <i className="fa-solid fa-circle-info text-[#F59E0B]"></i>
+                    通過名片認證後，就能直接在這裡發布 24H 動態。
+                  </div>
+                )}
+
                 {/* Threads / X 風格：單純牆面，只留頭像、時間、內容、幫推、+1 */}
                 <div className="bg-[#181B25]/55 border border-[#2A2F3D] rounded-2xl overflow-hidden divide-y divide-[#2A2F3D]">
                   {activeStoryUsers.length === 0 ? (
@@ -12707,7 +12772,7 @@ function App() {
                       <p className="text-[#94A3B8] text-sm mt-2">發布一句話，讓大家知道你現在想做什麼。</p>
                       {isVerifiedUser && (
                         <button
-                          onClick={() => setIsStoryComposerOpen(true)}
+                          onClick={() => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50)}
                           className="mt-5 bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-full text-sm font-bold transition-colors"
                         >
                           發布第一則動態
