@@ -4287,22 +4287,17 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       style.textContent = `
         @media (max-width: 639px) {
           /*
-            手機版委託專區修正：
-            之前這頁同時存在 mobile card / desktop work-wall card，並搭配 contain、translateZ、absolute overlay。
-            手機瀏覽器下拉重新整理後，某些 WebView / Chrome 會把 responsive hidden 狀態或 overlay repaint 錯亂，
-            導致桌機卡片短暫接管或頭像標籤被吃掉。這裡改成「明確手機版 CSS」而不是只仰賴 Tailwind responsive class。
+            手機版委託專區改為穩定名片樣式：
+            不再使用作品牆 overlay / absolute badge / 圖片遮罩作為手機主要資訊，
+            避免手機瀏覽器下拉重新整理後 repaint 錯亂造成欄位消失。
           */
           .vnexus-commission-mobile-stable {
             overflow-x: hidden !important;
             overscroll-behavior-x: none;
-            overscroll-behavior-y: contain;
             -webkit-overflow-scrolling: touch;
             transform: none !important;
             contain: none !important;
-            isolation: isolate;
-          }
-          .vnexus-commission-mobile-stable * {
-            -webkit-tap-highlight-color: transparent;
+            isolation: auto !important;
           }
           .vnexus-commission-mobile-stable .vnexus-creator-market-card {
             display: none !important;
@@ -4317,68 +4312,29 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             contain: none !important;
             content-visibility: visible !important;
           }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-showcase {
-            display: block !important;
-            position: relative !important;
-            width: 100% !important;
-            aspect-ratio: 1 / 1 !important;
-            min-height: 0 !important;
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb {
+            width: 5.5rem !important;
+            height: 5.5rem !important;
+            min-width: 5.5rem !important;
+            border-radius: 1.25rem !important;
             overflow: hidden !important;
             background: #11131C !important;
-            transform: none !important;
-            contain: none !important;
           }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-showcase img {
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-thumb img,
+          .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar img {
             display: block !important;
             width: 100% !important;
             height: 100% !important;
             object-fit: cover !important;
             transform: none !important;
-            transition: opacity .2s ease !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-overlay {
-            display: block !important;
-            position: absolute !important;
-            inset: 0 !important;
-            z-index: 1 !important;
-            pointer-events: none !important;
-            background: linear-gradient(to top, rgba(5,7,13,.96), rgba(15,17,26,.58) 45%, rgba(15,17,26,0) 78%) !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-topbadges {
-            display: flex !important;
-            position: absolute !important;
-            top: .75rem !important;
-            left: .75rem !important;
-            right: .75rem !important;
-            z-index: 3 !important;
-            align-items: flex-start !important;
-            justify-content: space-between !important;
-            gap: .5rem !important;
-            min-width: 0 !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-bottominfo {
-            display: flex !important;
-            position: absolute !important;
-            left: .75rem !important;
-            right: .75rem !important;
-            bottom: .75rem !important;
-            z-index: 3 !important;
-            align-items: flex-end !important;
-            gap: .75rem !important;
-            min-width: 0 !important;
           }
           .vnexus-commission-mobile-stable .vnexus-commission-mobile-avatar {
-            display: block !important;
             width: 3rem !important;
             height: 3rem !important;
             border-radius: 1rem !important;
             overflow: hidden !important;
+            background: #11131C !important;
             flex: 0 0 auto !important;
-          }
-          .vnexus-commission-mobile-stable .vnexus-commission-mobile-info {
-            display: block !important;
-            min-width: 0 !important;
-            flex: 1 1 auto !important;
           }
           .vnexus-commission-filter-scroll {
             scrollbar-width: none;
@@ -4475,35 +4431,43 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
-                <article onClick={() => openProfile(v)} className="sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-[1.35rem] overflow-hidden shadow-sm cursor-pointer flex flex-col" title="查看詳細名片">
-                  <div className="vnexus-commission-mobile-showcase aspect-square bg-[#11131C] relative overflow-hidden">
-                    {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="w-full h-full object-cover opacity-95" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-xs bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-2xl mb-2 opacity-60"></i>作品展示區規劃中</div>}
-                    <div className="vnexus-commission-mobile-overlay absolute inset-0 bg-gradient-to-t from-[#05070D] via-[#0F111A]/55 to-transparent pointer-events-none"></div>
-                    <div className="vnexus-commission-mobile-topbadges absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-[2]">
-                      <div className="flex gap-1.5 overflow-hidden min-w-0 pr-1">
-                        {roles.slice(0, 2).map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 py-1 rounded-full text-[11px] font-extrabold shadow-sm whitespace-nowrap">{role}</span>)}
+                <article onClick={() => openProfile(v)} className="sm:hidden vnexus-commission-mobile-card bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden shadow-sm cursor-pointer" title="查看詳細名片">
+                  <div className="p-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="vnexus-commission-mobile-thumb border border-[#2A2F3D] flex-shrink-0">
+                        {showcase ? <img src={showcase} alt={v.name || "作品展示"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B] bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-xl opacity-70"></i></div>}
                       </div>
-                      {creatorStatus && <span className="bg-[#22C55E]/95 text-[#052E16] px-2.5 py-1 rounded-full text-[11px] font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
-                    </div>
-                    <div className="vnexus-commission-mobile-bottominfo absolute left-3 right-3 bottom-3 z-[2]">
-                      <div className="flex items-end gap-3">
-                        <div className="vnexus-commission-mobile-avatar w-12 h-12 rounded-2xl bg-[#11131C] border border-white/25 overflow-hidden flex-shrink-0 shadow-lg">
-                          {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2 min-w-0">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-white text-base font-black truncate flex items-center gap-1.5">
+                              {v.name || "未命名創作者"}
+                              {v.isVerified && <span className="text-[#22C55E] text-[10px] font-bold bg-[#22C55E]/10 border border-[#22C55E]/20 px-1.5 py-0.5 rounded-full flex-shrink-0">已認證</span>}
+                            </h3>
+                            <p className="text-[#94A3B8] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}</p>
+                          </div>
+                          {creatorStatus && <span className="bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/25 px-2 py-1 rounded-full text-[10px] font-black whitespace-nowrap flex-shrink-0">{creatorStatus}</span>}
                         </div>
-                        <div className="vnexus-commission-mobile-info min-w-0 flex-1 pb-0.5">
-                          <h3 className="text-white text-base font-black truncate flex items-center gap-1.5 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-[10px] font-bold bg-black/45 px-1.5 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
-                          <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                        <div className="mt-2 flex items-center gap-2 min-w-0">
+                          <div className="vnexus-commission-mobile-avatar border border-[#2A2F3D] flex-shrink-0">
+                            {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-nowrap gap-1.5 overflow-hidden">
+                              {roles.slice(0, 2).map((role) => <span key={role} className="bg-[#38BDF8]/15 text-[#7DD3FC] border border-[#38BDF8]/25 px-2 py-0.5 rounded-full text-[10px] font-extrabold whitespace-nowrap flex-shrink-0">{role}</span>)}
+                              {roles.length === 0 && <span className="bg-[#11131C] text-[#64748B] border border-[#2A2F3D] px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap">尚未填身份</span>}
+                            </div>
+                            <p className="text-[#BAE6FD] text-[11px] font-bold mt-1 truncate">{creatorBudgetRange || "尚未填寫報價"}</p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-4 flex flex-col gap-3">
-                    <div className="flex flex-nowrap gap-1.5 overflow-hidden min-h-[1.55rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                    <div className="mt-3 flex flex-nowrap gap-1.5 overflow-hidden min-h-[1.55rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
                       {displayStyles.slice(0, 3).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 max-w-[5.8rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
                       {displayStyles.length > 3 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2 py-1 rounded-full text-[11px] font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 3}</span>}
                       {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-2 rounded-lg font-bold transition-colors text-[11px] inline-flex items-center justify-center gap-1"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
                       <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-2 rounded-lg font-bold transition-colors text-[11px] inline-flex items-center justify-center gap-1`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                     </div>
