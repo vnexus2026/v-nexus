@@ -1012,6 +1012,15 @@ const sanitizeUrl = (url) => {
   return u;
 };
 
+const getStatusPreviewText = (vtuber, maxChars = 10) => {
+  const raw = String(vtuber?.statusMessage || "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return "最近更新";
+  return Array.from(raw).slice(0, maxChars).join("");
+};
+
 
 const StatusCommentCount = ({ storyOwner }) => {
   const ownerId = storyOwner?.id || "";
@@ -5226,7 +5235,7 @@ const HomePage = ({
                           setSelectedVTuber(v);
                           navigate(`profile/${v.id}`);
                         }}
-                        className="flex-shrink-0 w-14 text-center group"
+                        className="flex-shrink-0 w-[76px] text-center group"
                         title={v.statusMessage}
                       >
                         <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
@@ -5240,6 +5249,7 @@ const HomePage = ({
                           </div>
                         </div>
                         <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
+                        <p className="text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate" title={v.statusMessage || ""}>{getStatusPreviewText(v)}</p>
                       </button>
                     );
                   })}
@@ -13130,7 +13140,7 @@ function App() {
                           <button
                             key={`story-ring-${v.id}`}
                             onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                            className="flex-shrink-0 w-16 text-center group"
+                            className="flex-shrink-0 w-[82px] text-center group"
                             title={titleText}
                           >
                             <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
@@ -13139,6 +13149,7 @@ function App() {
                               </div>
                             </div>
                             <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
+                            <p className="text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate" title={titleText}>{hasActiveStory ? getStatusPreviewText(v) : "最近更新"}</p>
                           </button>
                         );
                       })

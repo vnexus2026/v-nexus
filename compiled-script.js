@@ -819,6 +819,15 @@ const sanitizeUrl = (url) => {
     // 這裡一律保留原始安全 URL，讓瀏覽器每次都能重新嘗試載入。
     return u;
 };
+const getStatusPreviewText = (vtuber, maxChars = 10) => {
+    const raw = String(vtuber?.statusMessage || "")
+        .replace(/https?:\/\/\S+/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    if (!raw)
+        return "最近更新";
+    return Array.from(raw).slice(0, maxChars).join("");
+};
 const StatusCommentCount = ({ storyOwner }) => {
     const ownerId = storyOwner?.id || "";
     const statusMessageUpdatedAt = Number(storyOwner?.statusMessageUpdatedAt || 0);
@@ -3519,11 +3528,12 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             return (React.createElement("button", { key: `home-story-${v.id}`, onClick: () => {
                                     setSelectedVTuber(v);
                                     navigate(`profile/${v.id}`);
-                                }, className: "flex-shrink-0 w-14 text-center group", title: v.statusMessage },
+                                }, className: "flex-shrink-0 w-[76px] text-center group", title: v.statusMessage },
                                 React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}` },
                                     React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                         React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => setImageToGrayPlaceholder(e.currentTarget), alt: v.name || "VTuber" }))),
-                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name)));
+                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name),
+                                React.createElement("p", { className: "text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate", title: v.statusMessage || "" }, getStatusPreviewText(v))));
                         }))) : (React.createElement("button", { onClick: () => navigate("status_wall"), className: "w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors" },
                             React.createElement("p", { className: "text-[#F8FAFC] text-sm font-bold" }, "\u9084\u6C92\u6709\u4EBA\u767C\u52D5\u614B"),
                             React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u52D5\u614B\u7246\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
@@ -8721,11 +8731,12 @@ function App() {
                                     ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                                     : `${v.name || '創作者'} 最近更新了名片資料`;
                                 return (React.createElement("button", { key: `story-ring-${v.id}`, onClick: () => { if (hasActiveStory)
-                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-16 text-center group", title: titleText },
+                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-[82px] text-center group", title: titleText },
                                     React.createElement("div", { className: `w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}` },
                                         React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                             React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }))),
-                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name)));
+                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name),
+                                    React.createElement("p", { className: "text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate", title: titleText }, hasActiveStory ? getStatusPreviewText(v) : "最近更新")));
                             })))),
                         isVerifiedUser && myProfile && (React.createElement("div", { className: "mb-4 bg-[#181B25]/55 border-y sm:border border-[#2A2F3D] sm:rounded-2xl px-4 sm:px-5 py-4" },
                             React.createElement("form", { onSubmit: async (e) => {
