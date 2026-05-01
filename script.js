@@ -38,6 +38,12 @@ import {
   getFunctions,
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
+// --- 務必確認這行有在頂部 ---
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 import {
   getStorage,
@@ -46,6 +52,10 @@ import {
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
+import {
+  getAnalytics,
+  logEvent
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 // --------------------------------------------------
 
 // 🌟 引入 createContext 與 useContext
@@ -163,8 +173,14 @@ try {
 
 const auth = getAuth(app);
 
-// ✅ 未打包快速啟動版：把非首屏模組延後到瀏覽器空閒時才初始化。
-// 這不改 Firebase / Firestore / Functions 安全邏輯，只避免首頁一進站就載入 Analytics 與 FCM Messaging。
+// 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (error) {
+  console.warn("Analytics 初始化被阻擋:", error);
+}
+
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
@@ -175,191 +191,51 @@ const storage = getStorage(app);
 
 const functionsInstance = getFunctions(app);
 
-const runWhenIdle = (callback, timeout = 1800) => {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    return window.requestIdleCallback(callback, { timeout });
-  }
-  return setTimeout(callback, Math.min(timeout, 1200));
-};
-
-let analytics = null;
-let analyticsLogEvent = null;
-let analyticsImportPromise = null;
-const pendingAnalyticsEvents = [];
-
-const initDeferredAnalytics = () => {
-  if (analyticsImportPromise) return analyticsImportPromise;
-  analyticsImportPromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js")
-    .then(({ getAnalytics, logEvent }) => {
-      try {
-        analytics = getAnalytics(app);
-        analyticsLogEvent = logEvent;
-        pendingAnalyticsEvents.splice(0).forEach(({ name, params }) => {
-          try { analyticsLogEvent(analytics, name, params); } catch (error) { }
-        });
-        console.info("✅ Analytics 已延後初始化");
-      } catch (error) {
-        console.warn("Analytics 初始化被阻擋:", error);
-      }
-    })
-    .catch((error) => console.warn("Analytics 模組延後載入失敗:", error));
-  return analyticsImportPromise;
-};
-
-const trackAnalyticsEvent = (name, params = {}) => {
-  if (analytics && analyticsLogEvent) {
-    try { analyticsLogEvent(analytics, name, params); } catch (error) { }
-    return;
-  }
-  if (pendingAnalyticsEvents.length < 25) pendingAnalyticsEvents.push({ name, params });
-  runWhenIdle(() => initDeferredAnalytics(), 2600);
-};
-
+// ✅ 前景推播監聽：App 開著時收到訊息，也能即時顯示通知
 let messagingInstance = null;
-let messagingModulePromise = null;
-let foregroundMessagingStarted = false;
+try {
+  messagingInstance = getMessaging(app);
+  onMessage(messagingInstance, (payload) => {
+    const title = payload.notification?.title || "V-Nexus 通知";
+    const body = payload.notification?.body || "";
+    const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
 
-const loadMessagingModule = () => {
-  if (!messagingModulePromise) {
-    messagingModulePromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js");
-  }
-  return messagingModulePromise;
-};
+    // 如果瀏覽器已授權通知權限，就顯示原生通知泡泡
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body: body,
+        icon: icon,
+        badge: "https://duk.tw/u1jpPE.png",
+        vibrate: [200, 100, 200],
+      });
+    } else {
+      // 沒有通知權限時，退而求其次在 console 記錄
+      // （你也可以在這裡改成呼叫 showToast，但 showToast 在這個作用域外，建議用 console）
+      console.info(`📨 前景推播收到：${title} - ${body}`);
+    }
+  });
+  console.info("✅ FCM 前景推播監聽已啟動");
+} catch (e) {
+  console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
+}
 
-const initForegroundMessaging = async () => {
-  if (foregroundMessagingStarted) return messagingInstance;
-  if (typeof window === "undefined" || !("Notification" in window)) return null;
-  // 沒授權通知前不需要初始化 FCM 前景監聽，避免首頁首屏多載入一包 messaging SDK。
-  if (Notification.permission !== "granted") return null;
-
-  try {
-    const { getMessaging, onMessage } = await loadMessagingModule();
-    messagingInstance = getMessaging(app);
-    onMessage(messagingInstance, (payload) => {
-      const title = payload.notification?.title || "V-Nexus 通知";
-      const body = payload.notification?.body || "";
-      const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
-      if (Notification.permission === "granted") {
-        new Notification(title, {
-          body,
-          icon,
-          badge: "https://duk.tw/u1jpPE.png",
-          vibrate: [200, 100, 200],
-        });
-      } else {
-        console.info(`📨 前景推播收到：${title} - ${body}`);
-      }
-    });
-    foregroundMessagingStarted = true;
-    console.info("✅ FCM 前景推播監聽已延後啟動");
-  } catch (error) {
-    console.warn("⚠️ Messaging 延後初始化失敗（可能是瀏覽器不支援或被封鎖）:", error);
-  }
-  return messagingInstance;
-};
-
-let serviceWorkerRegistrationPromise = null;
-const registerVnexusServiceWorker = () => {
-  if (!("serviceWorker" in navigator)) return Promise.resolve(null);
-  if (serviceWorkerRegistrationPromise) return serviceWorkerRegistrationPromise;
-  serviceWorkerRegistrationPromise = navigator.serviceWorker
-    .register("/firebase-messaging-sw.js")
-    .then((reg) => {
-      console.log("SW 延後註冊成功:", reg.scope);
-      return reg;
-    })
-    .catch((err) => {
-      console.error("SW 延後註冊失敗:", err);
-      return null;
-    });
-  return serviceWorkerRegistrationPromise;
-};
-
-// 首屏出來後再補 Analytics / 已授權推播監聽 / Service Worker。
-runWhenIdle(() => initDeferredAnalytics(), 2600);
-runWhenIdle(() => initForegroundMessaging(), 3200);
-runWhenIdle(() => registerVnexusServiceWorker(), 3600);
 
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
 const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
 const VTUBER_CACHE_KEY = "vnexus_vtubers_data";
 const VTUBER_CACHE_TS = "vnexus_vtubers_ts";
-const PUBLIC_VTUBERS_JSON_URL = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-const PUBLIC_VTUBER_CACHE_LIMIT = 5 * 60 * 1000; // 公開名片 JSON 5 分鐘內不重複抓；Storage 無 Firestore reads 成本。
-const STATS_CACHE_KEY = "vnexus_stats_data";
-const STATS_CACHE_TS = "vnexus_stats_ts";
-const STATS_CACHE_LIMIT = 30 * 60 * 1000; // 統計/廣播資料 30 分鐘快取；不再每個使用者長時間監聽。
+const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
+const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
+const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
 const BULLETINS_CACHE_KEY = "vnexus_bulletins_data";
 const BULLETINS_CACHE_TS = "vnexus_bulletins_ts";
 const COLLABS_CACHE_KEY = "vnexus_collabs_data";
 const COLLABS_CACHE_TS = "vnexus_collabs_ts";
-const UPDATES_CACHE_KEY = "vnexus_updates_data";
-const UPDATES_CACHE_TS = "vnexus_updates_ts";
 const ARTICLES_CACHE_KEY = "vnexus_articles_data";
 const ARTICLES_CACHE_TS = "vnexus_articles_ts";
-const SETTINGS_CACHE_KEY = "vnexus_settings_data";
-const SETTINGS_CACHE_TS = "vnexus_settings_ts";
-const ACTIVITY_CACHE_LIMIT = 5 * 60 * 1000; // 首頁活動 / 揪團 / 聯動：5 分鐘快取。
-const ARTICLES_CACHE_LIMIT = 60 * 60 * 1000; // 文章 / 公告：1 小時快取。
-const SETTINGS_CACHE_LIMIT = 60 * 60 * 1000; // 站規 / 邀約小技巧 / 預設圖：1 小時快取。
-
-const safeJsonParse = (raw, fallback = null) => {
-  if (!raw || typeof raw !== "string") return fallback;
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    return fallback;
-  }
-};
-
-const readLocalCache = (key, fallback = null) => {
-  if (typeof localStorage === "undefined") return fallback;
-  return safeJsonParse(localStorage.getItem(key), fallback);
-};
-
-const writeLocalCache = (key, value) => {
-  if (typeof localStorage === "undefined") return false;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    console.warn(`寫入快取失敗：${key}`, error);
-    return false;
-  }
-};
-
-const removeLocalCache = (...keys) => {
-  if (typeof localStorage === "undefined") return;
-  keys.forEach((key) => {
-    try { localStorage.removeItem(key); } catch (error) { }
-  });
-};
-
-const readCacheTimestamp = (key) => {
-  if (typeof localStorage === "undefined") return 0;
-  const value = Number(localStorage.getItem(key) || 0);
-  return Number.isFinite(value) ? value : 0;
-};
-
-const isCacheFresh = (tsKey, maxAgeMs) => {
-  const ts = readCacheTimestamp(tsKey);
-  return Boolean(ts && Date.now() - ts < maxAgeMs);
-};
-
-const markCacheTimestamp = (key, timestamp = Date.now()) => {
-  if (typeof localStorage === "undefined") return;
-  try { localStorage.setItem(key, String(timestamp)); } catch (error) { }
-};
-
-const getCachedArray = (dataKey, tsKey = null) => {
-  const data = readLocalCache(dataKey, []);
-  if (!Array.isArray(data)) {
-    removeLocalCache(dataKey, ...(tsKey ? [tsKey] : []));
-    return [];
-  }
-  return data;
-};
+const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
+const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
 
 const getPath = (collectionName) =>
   `artifacts/${APP_ID}/public/data/${collectionName}`;
@@ -416,11 +292,14 @@ function persistBrokenImageUrlMap() {
 }
 
 function rememberBrokenImageUrl(url) {
-  // 圖片錯誤不再寫入長時間壞圖快取。
-  // 手機網路、Storage 暫時 403/timeout、Service Worker 切換都可能造成單次載入失敗；
-  // 若把 URL 記成 7 天壞圖，下一次正常圖片也會被直接蓋成灰底。
-  // 因此改為：只在當次 <img> onError 時顯示灰底，不阻止之後重新嘗試載入。
-  return;
+  const normalized = normalizeImageCacheUrl(url);
+  if (!normalized) return;
+  const lower = normalized.toLowerCase();
+  // data/blob/about 不應該被記錄；Firebase Storage 偶發 403 也先記錄 7 天，使用者可清除快取恢復。
+  if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("about:")) return;
+  const map = loadBrokenImageUrlMap();
+  map.set(normalized, Date.now());
+  persistBrokenImageUrlMap();
 }
 
 function forgetBrokenImageUrl(url) {
@@ -431,10 +310,18 @@ function forgetBrokenImageUrl(url) {
 }
 
 function isKnownBrokenImageUrl(url) {
-  // 不再使用持久化壞圖快取預先隱藏圖片，避免暫時性載入失敗影響正常名片圖片。
-  return false;
+  const normalized = normalizeImageCacheUrl(url);
+  if (!normalized) return false;
+  const map = loadBrokenImageUrlMap();
+  const ts = Number(map.get(normalized) || 0);
+  if (!ts) return false;
+  if (Date.now() - ts > BROKEN_IMAGE_CACHE_TTL) {
+    map.delete(normalized);
+    persistBrokenImageUrlMap();
+    return false;
+  }
+  return true;
 }
-
 
 if (typeof window !== "undefined") {
   window.vnexusClearBrokenImageCache = () => {
@@ -442,33 +329,6 @@ if (typeof window !== "undefined") {
     vnexusBrokenImageUrlMap = new Map();
     console.info("✅ V-Nexus 圖片錯誤快取已清除，重新整理後會再次嘗試載入圖片。界面：vnexusClearBrokenImageCache()");
   };
-}
-
-const VNEXUS_GRAY_IMAGE_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#1D2130"/><path d="M52 92l18-18 17 17 13-13 24 24H36l16-10z" fill="#334155" opacity=".55"/><circle cx="58" cy="55" r="10" fill="#475569" opacity=".45"/></svg>')}`;
-
-try {
-  // 清掉舊版曾經寫入的壞圖快取。舊快取可能讓已恢復的正常圖片直接變灰底。
-  if (typeof localStorage !== "undefined") localStorage.removeItem(BROKEN_IMAGE_CACHE_KEY);
-  vnexusBrokenImageUrlMap = new Map();
-} catch (e) { }
-
-function setImageToGrayPlaceholder(img, failedSrc = "", options = {}) {
-  if (!img) return;
-  const { remember = true } = options || {};
-  const current = failedSrc || img.currentSrc || img.src || img.getAttribute?.("src") || "";
-  if (current === VNEXUS_GRAY_IMAGE_PLACEHOLDER || img.dataset?.vnexusPlaceholder === "gray") return;
-
-  if (remember && current) rememberBrokenImageUrl(current);
-
-  try { img.dataset.vnexusPlaceholder = "gray"; } catch (e) { }
-  img.classList?.add("vnexus-image-error", "vnexus-image-loaded");
-  img.removeAttribute?.("srcset");
-  img.removeAttribute?.("sizes");
-  img.style.opacity = "1";
-  img.style.visibility = "visible";
-  img.style.backgroundColor = "#1D2130";
-  img.style.objectFit = img.style.objectFit || "cover";
-  img.src = VNEXUS_GRAY_IMAGE_PLACEHOLDER;
 }
 
 const initVnexusImageLoadingUX = (() => {
@@ -498,9 +358,7 @@ const initVnexusImageLoadingUX = (() => {
           animation: vnexusImageShimmer 1.05s ease-in-out infinite;
         }
         img.vnexus-image-error {
-          opacity: 1 !important;
-          visibility: visible !important;
-          background: #1D2130 !important;
+          opacity: 0 !important;
         }
         .vnexus-drag-scroll {
           scrollbar-width: none;
@@ -595,11 +453,17 @@ const initVnexusImageLoadingUX = (() => {
       const target = event.target;
       if (target && target.tagName === "IMG") {
         const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
-        if (failedSrc === VNEXUS_GRAY_IMAGE_PLACEHOLDER || target.dataset?.vnexusPlaceholder === "gray") return;
         // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
-        setImageToGrayPlaceholder(target, failedSrc, {
-          remember: !target.closest?.(".vnexus-creator-market-card")
-        });
+        if (target.closest?.(".vnexus-creator-market-card")) {
+          target.classList.add("vnexus-image-error");
+          target.classList.remove("vnexus-image-loaded");
+          return;
+        }
+        rememberBrokenImageUrl(failedSrc);
+        target.classList.add("vnexus-image-error");
+        target.classList.remove("vnexus-image-loaded");
+        target.removeAttribute("srcset");
+        target.removeAttribute("src");
       }
     }, true);
 
@@ -607,7 +471,9 @@ const initVnexusImageLoadingUX = (() => {
       root.querySelectorAll?.("img").forEach((img) => {
         const src = img.currentSrc || img.src || img.getAttribute("src") || "";
         if (src && isKnownBrokenImageUrl(src)) {
-          setImageToGrayPlaceholder(img, src, { remember: false });
+          img.classList.add("vnexus-image-error");
+          img.removeAttribute("srcset");
+          img.removeAttribute("src");
         }
       });
     };
@@ -622,7 +488,9 @@ const initVnexusImageLoadingUX = (() => {
             if (node.tagName === "IMG") {
               const src = node.currentSrc || node.src || node.getAttribute("src") || "";
               if (src && isKnownBrokenImageUrl(src)) {
-                setImageToGrayPlaceholder(node, src, { remember: false });
+                node.classList.add("vnexus-image-error");
+                node.removeAttribute("srcset");
+                node.removeAttribute("src");
               }
             } else {
               hideKnownBrokenImages(node);
@@ -651,9 +519,15 @@ const LazyImage = ({
   useEffect(() => {
     setLoaded(false);
     setHasError(!safeSrc);
-    // 不再設定 9 秒 timeout。
-    // 圖片載入慢時應該繼續等待，不能把正常圖片誤判為壞圖並移除。
-    // 真正沒有網址或圖片連結失效時，交由 !safeSrc / onError 顯示灰底。
+
+    // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
+    // 導致 skeleton shimmer 永遠閃爍。超過時間只停止載入動畫，不判定壞圖、不移除圖片。
+    if (!safeSrc) return;
+    const timer = setTimeout(() => {
+      setLoaded(true);
+    }, 9000);
+
+    return () => clearTimeout(timer);
   }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
@@ -678,7 +552,10 @@ const LazyImage = ({
             setLoaded(true);
           }}
           onError={(e) => {
-            setImageToGrayPlaceholder(e.currentTarget, safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
+            rememberBrokenImageUrl(safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
+            e.currentTarget.classList.add("vnexus-image-error");
+            e.currentTarget.removeAttribute("srcset");
+            e.currentTarget.removeAttribute("src");
             setHasError(true);
             setLoaded(true);
           }}
@@ -1010,15 +887,6 @@ const sanitizeUrl = (url) => {
   // 這裡一律保留原始安全 URL，讓瀏覽器每次都能重新嘗試載入。
 
   return u;
-};
-
-const getStatusPreviewText = (vtuber, maxChars = 10) => {
-  const raw = String(vtuber?.statusMessage || "")
-    .replace(/https?:\/\/\S+/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!raw) return "最近更新";
-  return Array.from(raw).slice(0, maxChars).join("");
 };
 
 
@@ -1354,7 +1222,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
                       <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
-                      <span className="vnexus-article-category-badge absolute bottom-2 left-3 z-20 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
+                      <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
                   <div className="p-3 sm:p-5 flex-1 flex flex-col">
@@ -1591,42 +1459,6 @@ const formatDateOnly = (value) => {
   if (isNaN(d.getTime())) return String(value);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
-
-const getDateEndOfDayMs = (dateStr) => {
-  if (!dateStr) return null;
-  const d = new Date(`${dateStr}T23:59:59`);
-  const ms = d.getTime();
-  return Number.isFinite(ms) ? ms : null;
-};
-
-const getTodayStartMs = () => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-};
-
-const formatDateInputLocal = (value) => {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-const getCommissionRequestEndTime = (request) => {
-  if (!request) return 0;
-  const rawTime = Number(request.requestEndTime || 0);
-  if (Number.isFinite(rawTime) && rawTime > 0) return rawTime;
-  const dateStr = request.requestEndDate || request.requestDeadlineDate || "";
-  const dateTime = getDateEndOfDayMs(dateStr);
-  return Number.isFinite(dateTime) && dateTime > 0 ? dateTime : 0;
-};
-
-const isCommissionRequestActive = (request, now = Date.now()) => {
-  if (!request || request.status === "closed") return false;
-  const requestEndTime = getCommissionRequestEndTime(request);
-  // 舊資料若尚未設定「徵求截止日期」，先保留顯示，避免既有委託突然全部消失。
-  if (!requestEndTime) return true;
-  return requestEndTime >= now;
-};
 const formatSchedule = (v) => {
   if (v.isScheduleAnytime) return "我都可以 (隨時可約)";
   if (v.isScheduleCustom && v.customScheduleText) return v.customScheduleText;
@@ -1819,9 +1651,16 @@ const isVisible = (v, currentUser) => {
   if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
     return false;
 
-  // ✅ 尋找 VTuber 夥伴應顯示所有有效名片。
-  // 之前這裡會把 30 天未活躍的名片整個隱藏，導致頁數從約 24 頁掉到 13 頁。
-  // 活躍度只保留給「最近動態」排序使用，不再作為是否顯示的條件。
+  // 修正：處理 Firebase Timestamp 物件轉換為數字
+  const getTime = (val) => {
+    if (!val) return Date.now();
+    if (typeof val === "number") return val;
+    if (val.toMillis) return val.toMillis();
+    return Date.now();
+  };
+
+  const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
+  if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
   return true;
 };
 
@@ -2434,7 +2273,7 @@ const BulletinCard = React.memo(({
             <button onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowApplicants(true); }} className="min-w-0 flex items-center gap-2 text-left rounded-xl hover:bg-[#11131C] transition-colors p-2 -m-2">
               <div className="flex -space-x-2 flex-shrink-0">
                 {b.applicantsData?.slice(0, 3).map((a) => (
-                  <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]" onError={(event) => setImageToGrayPlaceholder(event.currentTarget)} />
+                  <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                 ))}
                 {(!b.applicantsData || b.applicantsData.length === 0) && <div className="w-7 h-7 rounded-full bg-[#1D2130] ring-2 ring-[#181B25]"></div>}
               </div>
@@ -2476,7 +2315,7 @@ const BulletinCard = React.memo(({
               {b.applicantsData?.length > 0 ? b.applicantsData.map((a) => (
                 <div key={a.id} className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-colors cursor-pointer group" onClick={(event) => { event.stopPropagation(); setShowApplicants(false); onNavigateProfile(a, true); }}>
                   <div className="flex items-center gap-4 min-w-0">
-                    <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]" onError={(event) => setImageToGrayPlaceholder(event.currentTarget)} />
+                    <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                     <div className="min-w-0">
                       <p className="font-bold text-white text-sm truncate group-hover:text-[#C4B5FD] transition-colors">{a.name}</p>
                       <p className="text-[10px] text-[#94A3B8] mt-1">點擊查看名片</p>
@@ -4405,7 +4244,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const [requestStyleFilter, setRequestStyleFilter] = useState("All");
   const [requestPage, setRequestPage] = useState(1);
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
   const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
   const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const requestFilters = ["All", "繪圖", "建模", "剪輯"];
@@ -4464,7 +4303,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
   const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
   const filteredRequests = (requests || []).filter((r) => {
-    if (!isCommissionRequestActive(r)) return false;
+    if (!r || r.status === "closed") return false;
     const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
     const styles = Array.isArray(r.styles) ? r.styles : [];
     const styleOk = requestStyleFilter === "All" || styles.includes(requestStyleFilter);
@@ -4476,75 +4315,22 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
 
   const openProfile = (v) => { if (onNavigateProfile) onNavigateProfile(v); else navigate(`profile/${v.id}`); };
   const openPortfolio = (url) => { if (!url) return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
-  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
 
   const handleSaveRequest = async () => {
     if (!user) return showToast("請先登入");
-    const title = String(requestForm.title || "").trim();
-    const description = String(requestForm.description || "").trim();
-    const requestType = String(requestForm.requestType || "").trim();
-    const budgetRange = String(requestForm.budgetRange || "").trim();
-    const requestDeadline = String(requestForm.requestDeadline || "").trim();
-    const completionDeadline = String(requestForm.deadline || "").trim();
+    if (!requestForm.title.trim() || !requestForm.description.trim()) return showToast("請填寫委託標題與需求說明");
     const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
-
-    if (!title) return showToast("請填寫需求標題");
-    if (!requestType) return showToast("請選擇需求類型");
-    if (!budgetRange) return showToast("請選擇預算區間");
-    if (!requestDeadline) return showToast("請選擇徵求截止日期");
-    if (!completionDeadline) return showToast("請選擇希望完成日期");
-    if (selectedRequestStyles.length === 0) return showToast("請至少選擇一個喜歡的風格。");
     if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim()) return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
-    if (!description) return showToast("請填寫需求說明");
-
-    const requestEndTime = getDateEndOfDayMs(requestDeadline);
-    const deadlineAt = getDateEndOfDayMs(completionDeadline);
-    if (!requestEndTime) return showToast("徵求截止日期格式錯誤");
-    if (!deadlineAt) return showToast("希望完成日期格式錯誤");
-    if (requestEndTime < getTodayStartMs()) return showToast("徵求截止日期不能早於今天");
-    if (deadlineAt < requestEndTime) return showToast("希望完成日期不能早於徵求截止日期");
-
-    const payload = {
-      userId: user.uid,
-      title,
-      description,
-      requestType: requestType || "其他",
-      budgetRange: budgetRange || "歡迎私訊報價",
-      requestEndTime,
-      requestEndDate: requestDeadline,
-      requestDeadlineDate: requestDeadline,
-      deadline: deadlineAt,
-      deadlineDate: completionDeadline,
-      completionDate: completionDeadline,
-      styles: selectedRequestStyles.slice(0, 12),
-      styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80),
-      referenceUrl: String(requestForm.referenceUrl || "").trim(),
-      status: "open",
-      updatedAt: Date.now(),
-    };
+    const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
+    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
     try {
       if (requestForm.id) { await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true }); showToast("✅ 委託需求已更新"); }
       else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布"); }
       resetRequestForm(); setIsRequestFormOpen(false);
     } catch (err) { console.error("委託需求儲存失敗:", err); showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`); }
   };
-  const handleEditRequest = (r) => {
-    setRequestForm({
-      id: r.id,
-      title: r.title || "",
-      description: r.description || "",
-      requestType: r.requestType || "繪圖",
-      budgetRange: r.budgetRange || "歡迎私訊報價",
-      requestDeadline: r.requestEndDate || r.requestDeadlineDate || formatDateInputLocal(r.requestEndTime),
-      deadline: r.deadlineDate || r.completionDate || formatDateInputLocal(r.deadline),
-      styles: Array.isArray(r.styles) ? r.styles : [],
-      styleOtherText: r.styleOtherText || "",
-      referenceUrl: r.referenceUrl || "",
-    });
-    setIsRequestFormOpen(true);
-    setActiveTab("requests");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？")) return; try { await deleteDoc(doc(db, getPath("commission_requests"), id)); showToast("✅ 已刪除委託需求"); } catch (err) { console.error("委託需求刪除失敗:", err); showToast("刪除失敗"); } };
   const handleApplyRequest = async (r) => {
     if (!user) return showToast("請先登入");
@@ -4642,7 +4428,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               return <React.Fragment key={v.id}>
                 <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
                 <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : null}
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
                   <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
                   <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
@@ -4652,7 +4438,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
                     <div className="flex items-end gap-3">
                       <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : null}
+                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
@@ -4703,29 +4489,25 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         {isRequestFormOpen && (
           <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm">
             <h3 className="text-white text-xl font-extrabold mb-5">{requestForm.id ? "編輯委託需求" : "發布新的委託需求"}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="sm:col-span-2 lg:col-span-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-3">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 *</label>
-                <input required value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
+                <input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型 *</label>
-                <select required value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型</label>
+                <select value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間 *</label>
-                <select required value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間</label>
+                <select value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">徵求截止日期 *</label>
-                <input required type="date" value={requestForm.requestDeadline || ""} onChange={(e) => setRequestForm({ ...requestForm, requestDeadline: e.target.value })} className={inputCls} />
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期</label>
+                <input type="date" value={requestForm.deadline} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期 *</label>
-                <input required type="date" value={requestForm.deadline} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 * <span className="text-[#94A3B8] text-xs font-normal">可多選（至少選一項）</span></label>
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#94A3B8] text-xs font-normal">可多選</span></label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {CREATOR_STYLE_OPTIONS.map((style) => {
                     const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
@@ -4755,13 +4537,13 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   />
                 )}
               </div>
-              <div className="sm:col-span-2 lg:col-span-4">
+              <div className="md:col-span-3">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">參考連結</label>
                 <input value={requestForm.referenceUrl} onChange={(e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value })} className={inputCls} placeholder="可放參考圖、影片或 Notion / X / Google Drive 連結" />
               </div>
-              <div className="sm:col-span-2 lg:col-span-4">
+              <div className="md:col-span-3">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 *</label>
-                <textarea required value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
+                <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
               </div>
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-5">
@@ -4790,7 +4572,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-4">
                     <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
-                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
                     </button>
                     <div className="min-w-0 flex-1">
                       <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
@@ -4814,7 +4596,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
                       </div>
                       <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
-                        <p>徵求截止：<span className="text-white font-bold">{getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定"}</span></p>
                         <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
                         <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
                         <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
@@ -4829,7 +4610,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         <div className="flex -space-x-2">
                           {applicantProfiles.slice(0, 5).map((a) => (
                             <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
                             </button>
                           ))}
                           {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
@@ -4859,6 +4640,17 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
       </div>}
     </div>
   );
+};
+
+// Shared helper for status/story previews. Keep this outside App so HomePage can use it before App props are created.
+const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
+  const raw = String(vtuber?.statusMessage || "")
+    .replace(/^🔴\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!raw) return fallback;
+  const chars = Array.from(raw);
+  return chars.length > 10 ? chars.slice(0, 10).join("") + "…" : raw;
 };
 
 const HomePage = ({
@@ -5027,9 +4819,9 @@ const HomePage = ({
 
   const featuredCommissionRequests = useMemo(() => {
     return (homeCommissionRequests || [])
-      .filter((r) => isCommissionRequestActive(r, currentTime || Date.now()))
+      .filter((r) => r && r.status !== "closed")
       .slice(0, 3);
-  }, [homeCommissionRequests, currentTime]);
+  }, [homeCommissionRequests]);
 
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
@@ -5176,7 +4968,7 @@ const HomePage = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => goToBulletin ? goToBulletin() : navigate("bulletin")}
-                className="vnexus-mobile-bulletin-red-nav h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
+                className=" vnexus-mobile-bulletin-red-navh-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
               >
                 <i className="fa-solid fa-bullhorn mr-2"></i>揪團佈告欄
               </button>
@@ -5228,6 +5020,7 @@ const HomePage = ({
                 <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-1">
                   {activeStatuses.map((v) => {
                     const isLiveMsg = String(v.statusMessage || "").includes("🔴");
+                    const previewText = getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態");
                     return (
                       <button
                         key={`home-story-${v.id}`}
@@ -5235,7 +5028,7 @@ const HomePage = ({
                           setSelectedVTuber(v);
                           navigate(`profile/${v.id}`);
                         }}
-                        className="flex-shrink-0 w-[76px] text-center group"
+                        className="flex-shrink-0 w-20 text-center group"
                         title={v.statusMessage}
                       >
                         <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
@@ -5243,13 +5036,13 @@ const HomePage = ({
                             <img
                               src={sanitizeUrl(v.avatar)}
                               className="w-full h-full rounded-full object-cover bg-[#1D2130]"
-                              onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
+                              onError={(e) => { e.currentTarget.style.display = "none"; }}
                               alt={v.name || "VTuber"}
                             />
                           </div>
                         </div>
                         <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
-                        <p className="text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate" title={v.statusMessage || ""}>{getStatusPreviewText(v)}</p>
+                        <p className="text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight" title={previewText}>{previewText}</p>
                       </button>
                     );
                   })}
@@ -5418,14 +5211,14 @@ const HomePage = ({
                 >
                   <div className="h-36 bg-[#11131C] overflow-hidden">
                     {v.banner ? (
-                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
+                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} />
                     ) : (
                       <div className="w-full h-full bg-[#1D2130]"></div>
                     )}
                   </div>
                   <div className="p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <img src={sanitizeUrl(v.avatar)} alt={v.name || "creator"} className="w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
+                      <img src={sanitizeUrl(v.avatar)} alt={v.name || "creator"} className="w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                       <div className="min-w-0">
                         <h3 className="text-[#F8FAFC] font-extrabold truncate">{v.name || "未命名創作者"}</h3>
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -5479,7 +5272,7 @@ const HomePage = ({
                 <article key={`home-commission-request-${r.id}`} className="flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 text-left hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={author?.name || "發案者"} className="w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
+                      <img src={sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={author?.name || "發案者"} className="w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                       <div className="min-w-0">
                         <p className="text-[#F8FAFC] font-bold truncate">{author?.name || "匿名發案者"}</p>
                         <p className="text-[#94A3B8] text-xs">{formatTime(r.createdAt)}</p>
@@ -5491,8 +5284,7 @@ const HomePage = ({
                   <p className="text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1">{r.description || "發案者尚未填寫詳細需求。"}</p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     <span className="bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold">{r.budgetRange || "預算可討論"}</span>
-                    <span className="bg-[#F59E0B]/10 text-[#FBBF24] border border-[#F59E0B]/25 rounded-full px-2.5 py-1 text-xs font-bold">徵求到 {getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定"}</span>
-                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">希望完成 {r.deadline ? formatDateOnly(r.deadline) : "日期可討論"}</span>
+                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? formatDateOnly(r.deadline) : "日期可討論"}</span>
                     {styles.map((style) => <span key={`${r.id}-${style}`} className="bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold">{style}</span>)}
                   </div>
                   <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]">
@@ -7134,9 +6926,7 @@ const ChatListContent = ({
 }) => {
   const { onlineUsers } = useContext(AppContext);
   const [missingUsers, setMissingUsers] = useState({});
-  const [latestRoomPreviews, setLatestRoomPreviews] = useState({});
   const fetchedIds = useRef(new Set());
-  const fetchedPreviewKeys = useRef(new Set());
 
   useEffect(() => {
     allChatRooms.forEach((room) => {
@@ -7176,76 +6966,9 @@ const ChatListContent = ({
     });
   }, [allChatRooms, vtubers, currentUser.uid]);
 
-  // ✅ 修正聊天室列表最後訊息不同步：
-  // 舊版或異常流程可能只把 messages 子集合寫入成功，卻沒有同步更新 chat_rooms 主文件的 lastMessage。
-  // 因此列表打開時會讀取每個房間 messages 的最新一筆做畫面校正，必要時順手補回主文件。
-  useEffect(() => {
-    if (!currentUser?.uid || !Array.isArray(allChatRooms) || allChatRooms.length === 0) return;
-
-    let cancelled = false;
-
-    allChatRooms.forEach((room) => {
-      if (!room?.id) return;
-      const previewKey = `${room.id}:${room.lastTimestamp || 0}:${room.lastMessage || ""}`;
-      if (fetchedPreviewKeys.current.has(previewKey)) return;
-      fetchedPreviewKeys.current.add(previewKey);
-
-      const latestQuery = query(
-        collection(db, getMsgPath(room.id)),
-        orderBy("createdAt", "desc"),
-        limit(1),
-      );
-
-      getDocs(latestQuery)
-        .then(async (snap) => {
-          if (cancelled || snap.empty) return;
-          const latestDoc = snap.docs[0];
-          const latest = latestDoc.data() || {};
-          const latestText = typeof latest.text === "string" ? latest.text : "";
-          const latestTimestamp = Number(latest.createdAt || 0);
-          if (!latestText && !latestTimestamp) return;
-
-          setLatestRoomPreviews((prev) => ({
-            ...prev,
-            [room.id]: {
-              lastMessage: latestText || "（沒有文字訊息）",
-              lastTimestamp: latestTimestamp || Number(room.lastTimestamp || 0),
-            },
-          }));
-
-          const roomTimestamp = Number(room.lastTimestamp || 0);
-          const roomMessage = typeof room.lastMessage === "string" ? room.lastMessage : "";
-          const shouldRepairRoomDoc = latestTimestamp > roomTimestamp || (latestText && latestText !== roomMessage);
-
-          if (shouldRepairRoomDoc) {
-            try {
-              await updateDoc(doc(db, getPath("chat_rooms"), room.id), {
-                lastMessage: latestText || roomMessage || "（沒有文字訊息）",
-                lastTimestamp: latestTimestamp || Date.now(),
-              });
-            } catch (error) {
-              // 權限或網路失敗時只影響下次列表仍需校正，不影響使用者看最新訊息。
-              console.warn("聊天室最後訊息主文件同步失敗，已先用子集合最新訊息顯示：", error);
-            }
-          }
-        })
-        .catch((error) => {
-          console.warn("讀取聊天室最新訊息失敗：", error);
-        });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [allChatRooms, currentUser?.uid]);
-
-  const getRoomPreview = (room) => latestRoomPreviews[room.id] || {};
-
-  const rooms = [...allChatRooms].sort((a, b) => {
-    const aPreview = getRoomPreview(a);
-    const bPreview = getRoomPreview(b);
-    return (Number(bPreview.lastTimestamp || b.lastTimestamp || 0)) - (Number(aPreview.lastTimestamp || a.lastTimestamp || 0));
-  });
+  const rooms = [...allChatRooms].sort(
+    (a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0),
+  );
 
   if (rooms.length === 0)
     return (
@@ -7276,9 +6999,6 @@ const ChatListContent = ({
 
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
         const isOnline = onlineUsers.has(target.id);
-        const preview = getRoomPreview(room);
-        const displayLastMessage = preview.lastMessage || room.lastMessage || "尚無訊息";
-        const displayLastTimestamp = preview.lastTimestamp || room.lastTimestamp;
 
         return (
           <div
@@ -7305,13 +7025,13 @@ const ChatListContent = ({
                   {target.name}
                 </span>
                 <span className="text-[10px] text-[#64748B]">
-                  {formatTime(displayLastTimestamp)}
+                  {formatTime(room.lastTimestamp)}
                 </span>
               </div>
               <p
                 className={`text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}`}
               >
-                {displayLastMessage}
+                {room.lastMessage}
               </p>
             </div>
 
@@ -7350,11 +7070,58 @@ function App() {
   const [previousView, setPreviousView] = useState("grid");
   const [selectedVTuber, setSelectedVTuber] = useState(null);
   const [user, setUser] = useState(null);
-  const [realVtubers, setRealVtubers] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS));
-  const [leaderboardFallback, setLeaderboardFallback] = useState([]);
+  const [realVtubers, setRealVtubers] = useState(() => {
+    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
+  });
   const isAdmin = user && user.email === "apex.dasa@gmail.com";
   const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
   const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
+
+  const vtuberById = useMemo(() => {
+    const map = new Map();
+    (realVtubers || []).forEach((v) => {
+      if (v?.id) map.set(String(v.id), v);
+    });
+    return map;
+  }, [realVtubers]);
+
+  const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
+    const raw = String(vtuber?.statusMessage || "")
+      .replace(/^🔴\s*/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!raw) return fallback;
+    const chars = Array.from(raw);
+    return chars.length > 10 ? `${chars.slice(0, 10).join("")}…` : raw;
+  };
+
+  const getReactionUsers = (ids = []) => {
+    const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).filter(Boolean).map((id) => String(id)))];
+    return uniqueIds.map((uid) => {
+      const profile = vtuberById.get(uid);
+      return {
+        uid,
+        name: profile?.name || (uid === user?.uid ? myProfile?.name : "創作者"),
+        avatar: profile?.avatar || "",
+      };
+    });
+  };
+
+  const renderReactionUserLine = (label, users, colorClass = "text-[#CBD5E1]") => {
+    if (!users || users.length === 0) return null;
+    const names = users.map((u) => u.name).filter(Boolean);
+    const visibleNames = names.slice(0, 6).join("、");
+    const moreCount = Math.max(0, names.length - 6);
+    return (
+      <div className="flex flex-wrap items-center gap-1 text-[11px] leading-relaxed text-[#94A3B8]">
+        <span className={`font-extrabold ${colorClass}`}>{label}</span>
+        <span className="break-words">
+          {visibleNames}{moreCount > 0 ? ` 等 ${names.length} 人` : ""}
+        </span>
+      </div>
+    );
+  };
 
 
 
@@ -7366,7 +7133,7 @@ function App() {
   const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
   const [viewedStoryMap, setViewedStoryMap] = useState(() => {
     try {
-      return readLocalCache("vnexus_viewed_status_stories", {}) || {};
+      return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
     } catch (error) {
       return {};
     }
@@ -7510,17 +7277,19 @@ function App() {
 
   // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
   useEffect(() => {
-    trackAnalyticsEvent('page_view', {
-      page_title: currentView,
-      page_location: window.location.href,
-      page_path: `/${currentView}`
-    });
+    if (analytics) {
+      logEvent(analytics, 'page_view', {
+        page_title: currentView,
+        page_location: window.location.href,
+        page_path: `/${currentView}`
+      });
+    }
   }, [currentView]);
 
   // 🌟 新增 GA4 監控 2：追蹤使用者具體查看了「誰」的名片 (view_item)
   useEffect(() => {
-    if (currentView === 'profile' && selectedVTuber) {
-      trackAnalyticsEvent('view_item', {
+    if (analytics && currentView === 'profile' && selectedVTuber) {
+      logEvent(analytics, 'view_item', {
         item_id: selectedVTuber.id,
         item_name: selectedVTuber.name,
         item_category: 'vtuber_profile'
@@ -7539,8 +7308,12 @@ function App() {
       setSortOrder("random");
     }
   }, [user, sortOrder]);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(() => getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS).length === 0);
-  const [isLoading, setIsLoading] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS).length === 0);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
+    return !localStorage.getItem(BULLETINS_CACHE_KEY);
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    return !localStorage.getItem(VTUBER_CACHE_KEY);
+  });
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [siteStats, setSiteStats] = useState({ pageViews: null });
   const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
@@ -7548,7 +7321,12 @@ function App() {
   const [realBulletins, setRealBulletins] = useState([]);
   const [realUpdates, setRealUpdates] = useState([]);
   const [realCollabs, setRealCollabs] = useState([]);
-  const [realArticles, setRealArticles] = useState(() => getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS));
+  const [realArticles, setRealArticles] = useState(() => {
+    try {
+      const cached = localStorage.getItem(ARTICLES_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const viewedArticles = useRef(new Set());
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
@@ -7646,34 +7424,6 @@ function App() {
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const isFetchingJson = useRef(false);
-
-  const fetchPublicVtubersJson = async ({ force = false } = {}) => {
-    if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
-      return realVtubers;
-    }
-
-    if (isFetchingJson.current) return realVtubers;
-    isFetchingJson.current = true;
-
-    try {
-      const separator = PUBLIC_VTUBERS_JSON_URL.includes("?") ? "&" : "?";
-      const response = await fetch(`${PUBLIC_VTUBERS_JSON_URL}${force ? `${separator}t=${Date.now()}` : ""}`, {
-        cache: force ? "reload" : "default",
-      });
-      if (!response.ok) throw new Error(`public vtubers json ${response.status}`);
-      const payload = await response.json();
-      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.vtubers) ? payload.vtubers : []);
-      if (!Array.isArray(list)) throw new Error("public vtubers json format invalid");
-      syncVtuberCache(list);
-      return list;
-    } catch (error) {
-      console.warn("公開名片 JSON 讀取失敗，將使用既有快取或 Firestore 備援：", error);
-      return null;
-    } finally {
-      isFetchingJson.current = false;
-    }
-  };
-
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -7753,9 +7503,7 @@ function App() {
         return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟。");
       }
 
-      await registerVnexusServiceWorker();
       const registration = await navigator.serviceWorker.ready;
-      const { getMessaging, getToken } = await loadMessagingModule();
       const messaging = getMessaging(app);
       const currentToken = await getToken(messaging, {
         serviceWorkerRegistration: registration,
@@ -7771,7 +7519,6 @@ function App() {
           fcmTokenUpdatedAt: Date.now(),
         }, { merge: true });
 
-        await initForegroundMessaging();
         showToast("✅ 手機推播已成功啟動！");
         alert("🎉 恭喜！您的設備已成功綁定推播功能。");
       } else {
@@ -7791,7 +7538,7 @@ function App() {
 
   const [readUpdateIds, setReadUpdateIds] = useState(() => {
     try {
-      return readLocalCache("readUpdates", []) || [];
+      return JSON.parse(localStorage.getItem("readUpdates") || "[]");
     } catch {
       return [];
     }
@@ -7996,8 +7743,7 @@ function App() {
     if (!user) return showToast("請先登入！");
     showToast("⏳ 正在發送測試推播...");
     try {
-      // 1. 先嘗試本地顯示（確保 Service Worker 運作中）
-      await registerVnexusServiceWorker();
+      // 1. 先嘗試本地顯示 (確保 Service Worker 運作中)
       const registration = await navigator.serviceWorker.ready;
       if (registration) {
         await registration.showNotification("V-Nexus 系統測試", {
@@ -8190,62 +7936,26 @@ function App() {
     [realVtubers],
   );
 
-  useEffect(() => {
-    const shouldFetchLeaderboard = currentView === "bulletin" || isLeaderboardModalOpen;
-    if (!shouldFetchLeaderboard) return;
-
-    const hasJsonSuccessCount = realVtubers.some((v) => Number(v?.successCount || 0) > 0);
-    if (hasJsonSuccessCount && leaderboardFallback.length > 0) return;
-
-    let cancelled = false;
-    const fetchLeaderboardFallback = async () => {
-      try {
-        // ✅ 最新版修復：公開 vtubers.json 可能是舊版白名單，沒有 successCount。
-        // 排行榜只在揪團頁需要，因此這裡只補讀有成功次數的少量名片，不回到整包 Firestore 讀取。
-        const q = query(
-          collection(db, getPath("vtubers")),
-          where("successCount", ">", 0),
-          orderBy("successCount", "desc"),
-          limit(50),
-        );
-        const snap = await getDocs(q);
-        if (cancelled) return;
-        setLeaderboardFallback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (error) {
-        console.warn("揪團排行榜補讀失敗：", error);
-      }
-    };
-
-    fetchLeaderboardFallback();
-    return () => { cancelled = true; };
-  }, [currentView, isLeaderboardModalOpen, realVtubers, leaderboardFallback.length]);
-
   const leaderboardData = useMemo(() => {
-    const byId = new Map();
-
-    leaderboardFallback.forEach((v) => {
-      const successCount = Number(v?.successCount || 0);
-      if (v?.id && successCount > 0) {
-        byId.set(v.id, { ...v, successCount });
-      }
-    });
-
-    realVtubers.forEach((v) => {
-      const successCount = Number(v?.successCount ?? byId.get(v?.id)?.successCount ?? 0);
-      if (v?.id && successCount > 0) {
-        byId.set(v.id, { ...(byId.get(v.id) || {}), ...v, successCount });
-      }
-    });
-
-    return Array.from(byId.values())
-      .filter((v) => v?.id && v.isVerified !== false && !v.isBlacklisted && v.activityStatus !== "sleep" && v.activityStatus !== "graduated")
-      .sort((a, b) => Number(b.successCount || 0) - Number(a.successCount || 0));
-  }, [realVtubers, leaderboardFallback]);
+    return realVtubers
+      .filter((v) => v.successCount && v.successCount > 0)
+      .sort((a, b) => b.successCount - a.successCount);
+  }, [realVtubers]);
 
   useEffect(() => {
-    // ✅ 短暫完整啟動版：不在 React 一掛載就立刻關閉 loading。
-    // 右上角登入/頭像需要等 Firebase Auth 第一次回報狀態；由 onAuthStateChanged 觸發 __vnexusSignalBootReady。
-    // index.html 仍有 max fallback，避免 Auth 異常時卡住。
+    const loader = document.getElementById("loading-screen");
+    if (loader) {
+      // 強制 300ms 後開始淡出，不論資料是否加載完成
+      const timer = setTimeout(() => {
+        loader.style.opacity = "0";
+        loader.style.pointerEvents = "none";
+        // 動畫結束後徹底隱藏
+        setTimeout(() => {
+          loader.style.display = "none";
+        }, 800);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   useEffect(() => {
@@ -8296,7 +8006,13 @@ function App() {
   }, [notifRef]);
 
   useEffect(() => {
-    // Service Worker 已改成進站後 idle 延後註冊；啟用推播時會主動確保註冊完成。
+    // 註冊 Service Worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js")
+        .then((reg) => console.log("SW 註冊成功:", reg.scope))
+        .catch((err) => console.error("SW 註冊失敗:", err));
+    }
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       // 關鍵：當偵測到帳號變動（包含登出）
       if (!u || (user && u.uid !== user.uid)) {
@@ -8306,11 +8022,6 @@ function App() {
 
       setUser(u);
       setProfileForm(getEmptyProfile(u?.uid));
-
-      // ✅ Firebase Auth 第一次完成後再關閉啟動畫面，避免右上角登入按鈕/頭像跳動。
-      if (typeof window !== "undefined" && typeof window.__vnexusSignalBootReady === "function") {
-        window.__vnexusSignalBootReady();
-      }
     });
     const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
 
@@ -8333,98 +8044,74 @@ function App() {
     }
   }, [currentView]);
 
-  // 🌟 全站統計 / 靜態設定：改成快取 + 偶爾刷新，不再讓每位訪客常駐監聽 settings。
-  // 即時性真正需要保留的是通知、私訊、自己的私密資料；公開大清單由 Storage JSON 承擔。
+  // 🌟 獨立出全站設定與廣播監聽 (只在網頁載入時執行一次，不再受 currentView 影響)
   useEffect(() => {
-    let isMounted = true;
+    const unsubStats = onSnapshot(doc(db, getPath("settings"), "stats"), async (docSnap) => {
+      if (docSnap.exists()) {
+        const statsData = docSnap.data();
+        setSiteStats(statsData);
+        localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
+        localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
 
-    const applyStatsAndRefreshPublicJsonIfNeeded = async (statsData) => {
-      if (!statsData || !isMounted) return;
-      setSiteStats(statsData);
-      writeLocalCache(STATS_CACHE_KEY, statsData);
-      markCacheTimestamp(STATS_CACHE_TS);
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
+        const processedUpdate = localStorage.getItem("processed_global_update") || '0';
 
-      const cachedTs = readCacheTimestamp(VTUBER_CACHE_TS);
-      const processedUpdate = typeof localStorage !== "undefined"
-        ? localStorage.getItem("processed_global_update") || "0"
-        : "0";
+        // 🌟 終極防呆：確保這個更新時間大於快取時間，且「我們還沒處理過這個特定的更新時間」
+        // 這樣就算使用者的電腦時鐘比伺服器慢，也不會陷入無限重複抓取的迴圈！
+        if (
+          statsData.lastGlobalUpdate &&
+          statsData.lastGlobalUpdate > parseInt(cachedTs) &&
+          statsData.lastGlobalUpdate.toString() !== processedUpdate
+        ) {
+          // 🌟 關鍵修復：如果已經在抓取中了，就直接擋掉，防止無限迴圈！
+          if (isFetchingJson.current) return;
+          isFetchingJson.current = true;
 
-      if (
-        statsData.lastGlobalUpdate &&
-        Number(statsData.lastGlobalUpdate) > cachedTs &&
-        String(statsData.lastGlobalUpdate) !== processedUpdate
-      ) {
-        try { localStorage.setItem("processed_global_update", String(statsData.lastGlobalUpdate)); } catch (error) { }
-        console.log("🔔 偵測到公開名片更新，改抓 Storage JSON，不讀 Firestore 整包。 ");
+          console.log("🔔 偵測到全站更新，等待後端打包資料...");
 
-        setTimeout(async () => {
-          if (!isMounted) return;
-          if (isAdmin) {
-            try {
-              const vSnap = await getDocs(collection(db, getPath("vtubers")));
-              syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-              sessionStorage.setItem("has_full_admin_data", "true");
-            } catch (e) {
-              console.error("管理員背景更新完整名單失敗", e);
+          // 立刻記錄已處理，防止重複觸發
+          localStorage.setItem("processed_global_update", statsData.lastGlobalUpdate.toString());
+
+          setTimeout(async () => {
+            if (isAdmin) {
+              try {
+                const vSnap = await getDocs(collection(db, getPath("vtubers")));
+                const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                syncVtuberCache(data);
+              } catch (e) { console.error("背景更新名單失敗", e); }
+            } else {
+              try {
+                const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+                const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  syncVtuberCache(data);
+                  console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
+                }
+              } catch (e) { console.error("背景更新 JSON 失敗", e); }
             }
-          } else {
-            await fetchPublicVtubersJson({ force: true });
-          }
-        }, 4000);
-      }
-    };
-
-    const loadStatsAndSettings = async () => {
-      const cachedStats = readLocalCache(STATS_CACHE_KEY, null);
-      if (cachedStats && isMounted) setSiteStats(cachedStats);
-
-      if (!cachedStats || !isCacheFresh(STATS_CACHE_TS, STATS_CACHE_LIMIT)) {
-        try {
-          const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
-          if (statsSnap.exists()) await applyStatsAndRefreshPublicJsonIfNeeded(statsSnap.data());
-        } catch (error) {
-          console.warn("讀取統計資料失敗，沿用快取。", error);
-        }
-      } else {
-        await applyStatsAndRefreshPublicJsonIfNeeded(cachedStats);
-      }
-
-      if (!hasFetchedSettings.current) {
-        hasFetchedSettings.current = true;
-        const cachedSettings = readLocalCache(SETTINGS_CACHE_KEY, null);
-        if (cachedSettings && isMounted) {
-          if (cachedSettings.tips !== undefined) setRealTips(cachedSettings.tips);
-          if (cachedSettings.rules !== undefined) setRealRules(cachedSettings.rules);
-          if (Array.isArray(cachedSettings.bulletinImages)) setDefaultBulletinImages(cachedSettings.bulletinImages);
-        }
-
-        if (!cachedSettings || !isCacheFresh(SETTINGS_CACHE_TS, SETTINGS_CACHE_LIMIT)) {
-          try {
-            const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
-              getDoc(doc(db, getPath("settings"), "tips")),
-              getDoc(doc(db, getPath("settings"), "rules")),
-              getDoc(doc(db, getPath("settings"), "bulletinImages")),
-            ]);
-            const nextSettings = {
-              tips: tipsSnap.exists() ? tipsSnap.data().content : realTips,
-              rules: rulesSnap.exists() ? rulesSnap.data().content : realRules,
-              bulletinImages: imgSnap.exists() ? (imgSnap.data().images || []) : defaultBulletinImages,
-            };
-            if (!isMounted) return;
-            setRealTips(nextSettings.tips);
-            setRealRules(nextSettings.rules);
-            setDefaultBulletinImages(nextSettings.bulletinImages);
-            writeLocalCache(SETTINGS_CACHE_KEY, nextSettings);
-            markCacheTimestamp(SETTINGS_CACHE_TS);
-          } catch (error) {
-            console.warn("讀取站規/邀約小技巧/預設揪團圖失敗，沿用快取。", error);
-          }
+            // 🌟 抓取完畢，解開鎖
+            isFetchingJson.current = false;
+          }, 4000);
         }
       }
-    };
+    });
 
-    loadStatsAndSettings();
-    return () => { isMounted = false; };
+    // 抓取其他靜態設定 (站規、小技巧等，只需抓一次)
+    if (!hasFetchedSettings.current) {
+      hasFetchedSettings.current = true;
+      Promise.all([
+        getDoc(doc(db, getPath("settings"), "tips")),
+        getDoc(doc(db, getPath("settings"), "rules")),
+        getDoc(doc(db, getPath("settings"), "bulletinImages")),
+      ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
+        if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
+        if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
+        if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
+      });
+    }
+
+    return () => unsubStats();
   }, [isAdmin]);
 
   // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
@@ -8481,131 +8168,122 @@ function App() {
     return () => unsubN();
   }, [user?.uid]);
 
-  // --- 公開資料分層讀取：名片大清單走 Storage JSON；活動資料 5 分鐘快取；後台才讀完整 Firestore。 ---
+  // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
-    let isMounted = true;
-
     const fetchLargeData = async () => {
       const needsVtuberList = [
         "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
       ].includes(currentView);
 
       if (needsVtuberList) {
-        const cachedVtubers = getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
-        if (cachedVtubers.length > 0) {
-          setRealVtubers(cachedVtubers);
-          setIsLoading(false);
+        const now = Date.now();
+        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+
+        // 🌟 關鍵修復 3：預設快取 24 小時。
+        // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
+        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
+
+        // 管理員進入後台時，確保擁有包含待審核的完整資料
+        const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
+        if (isAdmin && currentView === 'admin' && !hasFullData) {
+          isExpired = true;
         }
 
-        const hasFullAdminData = sessionStorage.getItem("has_full_admin_data") === "true";
-        const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullAdminData;
-        const shouldRefreshPublicJson = !shouldFetchFullForAdmin && (!cachedVtubers.length || !isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT));
-
-        if (shouldFetchFullForAdmin) {
+        if (isExpired) {
           try {
             const vSnap = await getDocs(collection(db, getPath("vtubers")));
-            if (!isMounted) return;
-            syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-            sessionStorage.setItem("has_full_admin_data", "true");
-          } catch (e) {
-            console.error("管理員讀取完整名單失敗", e);
-          } finally {
-            if (isMounted) setIsLoading(false);
-          }
-        } else if (shouldRefreshPublicJson) {
-          const publicList = await fetchPublicVtubersJson({ force: cachedVtubers.length === 0 });
-          if (!publicList && cachedVtubers.length === 0) {
-            // 最後備援：只有 public JSON 尚未建立且本機沒有任何快取時才讀 Firestore，避免訪客每次都讀整包。
-            try {
-              const vSnap = await getDocs(collection(db, getPath("vtubers")));
-              if (!isMounted) return;
-              syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-              console.warn("⚠️ public_api/vtubers.json 尚未可用，本次使用 Firestore 備援。請部署後端並等待/觸發 JSON 生成。 ");
-            } catch (e) {
-              console.error("公開名單備援讀取失敗", e);
-            }
-          }
-          if (isMounted) setIsLoading(false);
-        } else {
-          setIsLoading(false);
+            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data);
+            if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
+          } catch (e) { console.error("讀取名單失敗", e); }
         }
+        setIsLoading(false);
       }
 
-      const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
+      // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
+      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
       if (needsActivityData) {
-        const cachedBulletins = getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS);
-        const cachedCollabs = getCachedArray(COLLABS_CACHE_KEY, COLLABS_CACHE_TS);
-        const cachedUpdates = getCachedArray(UPDATES_CACHE_KEY, UPDATES_CACHE_TS);
+        const now = Date.now();
+        const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
+        const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
+        const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
+        const cTs = localStorage.getItem(COLLABS_CACHE_TS);
 
-        if (cachedBulletins.length || cachedCollabs.length || cachedUpdates.length) {
-          setRealBulletins(cachedBulletins);
-          setRealCollabs(cachedCollabs);
-          setRealUpdates(cachedUpdates);
+        // 🌟 新增：讀取 Updates 的快取
+        const uCache = localStorage.getItem("vnexus_updates_data");
+        const uTs = localStorage.getItem("vnexus_updates_ts");
+
+        const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
+        const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
+        const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
+
+        // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
+        if (isBCacheValid && isCCacheValid && isUCacheValid) {
+          setRealBulletins(JSON.parse(bCache));
+          setRealCollabs(JSON.parse(cCache));
+          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
           setIsLoadingActivities(false);
-        }
-
-        const allActivityCachesFresh =
-          isCacheFresh(BULLETINS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
-          isCacheFresh(COLLABS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
-          isCacheFresh(UPDATES_CACHE_TS, ACTIVITY_CACHE_LIMIT);
-
-        if (!allActivityCachesFresh || currentView === "admin") {
-          if (!cachedBulletins.length && !cachedCollabs.length && !cachedUpdates.length) setIsLoadingActivities(true);
+        } else {
+          setIsLoadingActivities(true);
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDocs(query(collection(db, getPath("bulletins")), where("recruitEndTime", ">", nowTime))),
-              getDocs(query(collection(db, getPath("collabs")), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
-              getDocs(query(collection(db, getPath("updates")), orderBy("createdAt", "desc"), limit(15))),
+              getDocs(query(collection(db, getPath('bulletins')), where("recruitEndTime", ">", nowTime))),
+              getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
+              getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ]);
-            if (!isMounted) return;
-            const bData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const cData = cSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const uData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
             syncBulletinCache(bData);
             syncCollabCache(cData);
+
+            // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
             setRealUpdates(uData);
-            writeLocalCache(UPDATES_CACHE_KEY, uData);
-            markCacheTimestamp(UPDATES_CACHE_TS);
+            localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
+            localStorage.setItem("vnexus_updates_ts", Date.now().toString());
+
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            if (isMounted) setIsLoadingActivities(false);
+            setIsLoadingActivities(false);
           }
         }
       }
     };
 
     fetchLargeData();
-    return () => { isMounted = false; };
   }, [currentView, isAdmin]);
 
   useEffect(() => {
-    const needsArticleData = ["articles", "admin"].includes(currentView);
+    const needsArticleData = ['articles', 'admin'].includes(currentView);
     if (!needsArticleData) return;
 
-    let isMounted = true;
     const fetchArticles = async () => {
-      const cachedArticles = getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS);
-      if (cachedArticles.length > 0) setRealArticles(cachedArticles);
-
+      const now = Date.now();
+      const aCache = localStorage.getItem(ARTICLES_CACHE_KEY);
+      const aTs = localStorage.getItem(ARTICLES_CACHE_TS);
+      const isACacheValid = aCache && aTs && now - parseInt(aTs) < ARTICLES_CACHE_LIMIT;
       const forceRefresh = currentView === "admin";
-      if (!forceRefresh && cachedArticles.length > 0 && isCacheFresh(ARTICLES_CACHE_TS, ARTICLES_CACHE_LIMIT)) return;
+
+      if (isACacheValid && !forceRefresh) {
+        setRealArticles(JSON.parse(aCache));
+        return;
+      }
 
       try {
         const aSnap = await getDocs(collection(db, getPath("articles")));
-        if (!isMounted) return;
         const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRealArticles(aData);
-        writeLocalCache(ARTICLES_CACHE_KEY, aData);
-        markCacheTimestamp(ARTICLES_CACHE_TS);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(aData));
+        localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
       } catch (e) {
         console.error("抓取文章失敗:", e);
       }
     };
 
     fetchArticles();
-    return () => { isMounted = false; };
   }, [currentView]);
 
   const hasFetchedPrivate = useRef(false);
@@ -8884,7 +8562,9 @@ function App() {
       showToast("🎉 登入成功！");
 
       // 🌟 新增 GA4 監控 3：記錄使用者成功登入
-      trackAnalyticsEvent('login', { method: 'Google' });
+      if (analytics) {
+        logEvent(analytics, 'login', { method: 'Google' });
+      }
     } catch (e) {
       showToast("登入失敗");
     }
@@ -9323,24 +9003,21 @@ function App() {
     });
   }, [currentView]);
 
-  const syncVtuberCache = (newList, timestamp = Date.now()) => {
-    const safeList = Array.isArray(newList) ? newList : [];
-    setRealVtubers(safeList);
-    writeLocalCache(VTUBER_CACHE_KEY, safeList);
-    markCacheTimestamp(VTUBER_CACHE_TS, timestamp);
+  const syncVtuberCache = (newList) => {
+    setRealVtubers(newList);
+    localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
   };
-  const syncBulletinCache = (newList, timestamp = Date.now()) => {
-    const safeList = Array.isArray(newList) ? newList : [];
-    setRealBulletins(safeList);
-    writeLocalCache(BULLETINS_CACHE_KEY, safeList);
-    markCacheTimestamp(BULLETINS_CACHE_TS, timestamp);
+  const syncBulletinCache = (newList) => {
+    setRealBulletins(newList);
+    localStorage.setItem(BULLETINS_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(BULLETINS_CACHE_TS, Date.now().toString());
   };
 
-  const syncCollabCache = (newList, timestamp = Date.now()) => {
-    const safeList = Array.isArray(newList) ? newList : [];
-    setRealCollabs(safeList);
-    writeLocalCache(COLLABS_CACHE_KEY, safeList);
-    markCacheTimestamp(COLLABS_CACHE_TS, timestamp);
+  const syncCollabCache = (newList) => {
+    setRealCollabs(newList);
+    localStorage.setItem(COLLABS_CACHE_KEY, JSON.stringify(newList));
+    localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
   };
 
   const handleSaveProfile = async (e, customForm = profileForm) => {
@@ -10529,13 +10206,6 @@ function App() {
         );
         setRealRules(rulesContent);
       }
-      const nextSettingsCache = {
-        tips: tipsContent !== undefined ? tipsContent : realTips,
-        rules: rulesContent !== undefined ? rulesContent : realRules,
-        bulletinImages: defaultBulletinImages,
-      };
-      writeLocalCache(SETTINGS_CACHE_KEY, nextSettingsCache);
-      markCacheTimestamp(SETTINGS_CACHE_TS);
       showToast("系統設定已更新！");
     } catch (err) {
       showToast("更新失敗");
@@ -11742,7 +11412,7 @@ function App() {
                     </button>
                     <button
                       onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-                      className="vnexus-mobile-filter-toggle lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
+                      className="lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <i className="fa-solid fa-filter"></i> 篩選
                     </button>
@@ -11767,7 +11437,7 @@ function App() {
                           setShuffleSeed(Date.now());
                         }
                       }}
-                      className="vnexus-vtuber-sort-select bg-[#181B25] border border-[#2A2F3D] rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto"
+                      className="bg-[#181B25] border border-[#2A2F3D] rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (直播中/更新)</option>
 
@@ -12337,7 +12007,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className="vnexus-bulletin-page-title text-4xl sm:text-5xl font-extrabold text-white flex items-center gap-3 leading-tight">
+                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
@@ -13183,20 +12853,21 @@ function App() {
                         const titleText = hasActiveStory
                           ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                           : `${v.name || '創作者'} 最近更新了名片資料`;
+                        const previewText = hasActiveStory ? getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態") : "最近更新";
                         return (
                           <button
                             key={`story-ring-${v.id}`}
                             onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                            className="flex-shrink-0 w-[82px] text-center group"
+                            className="flex-shrink-0 w-20 text-center group"
                             title={titleText}
                           >
                             <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
                               <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
-                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
+                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                               </div>
                             </div>
                             <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
-                            <p className="text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate" title={titleText}>{hasActiveStory ? getStatusPreviewText(v) : "最近更新"}</p>
+                            <p className="text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight" title={previewText}>{previewText}</p>
                           </button>
                         );
                       })
@@ -13224,7 +12895,7 @@ function App() {
                         <img
                           src={sanitizeUrl(myProfile.avatar)}
                           className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]"
-                          onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       </button>
 
@@ -13290,8 +12961,10 @@ function App() {
                   ) : (
                     activeStoryUsers.map((v) => {
                       const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                      const plusCount = v.statusReactions?.plus_one?.length || 0;
-                      const fireCount = v.statusReactions?.fire?.length || 0;
+                      const plusUsers = getReactionUsers(v.statusReactions?.plus_one || []);
+                      const fireUsers = getReactionUsers(v.statusReactions?.fire || []);
+                      const plusCount = plusUsers.length;
+                      const fireCount = fireUsers.length;
                       const displayMessage = String(v.statusMessage || "").replace(/^🔴\s*/, "").trim();
                       const commentKey = `${v.id}_${Number(v.statusMessageUpdatedAt || 0)}`;
                       const isCommentsOpen = !!openStatusCommentKeys[commentKey];
@@ -13311,7 +12984,7 @@ function App() {
                               <img
                                 src={sanitizeUrl(v.avatar)}
                                 className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`}
-                                onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
                             </button>
 
@@ -13371,6 +13044,13 @@ function App() {
                                   </button>
                                 )}
                               </div>
+
+                              {(fireCount > 0 || plusCount > 0) && (
+                                <div className="mt-2 space-y-1 rounded-xl border border-[#2A2F3D]/70 bg-[#11131C]/70 px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                                  {renderReactionUserLine("🔥 幫推", fireUsers, "text-[#FCD34D]")}
+                                  {renderReactionUserLine("👋 +1", plusUsers, "text-[#C4B5FD]")}
+                                </div>
+                              )}
 
                               {isCommentsOpen && (
                                 <StatusCommentsBox
@@ -14123,7 +13803,7 @@ function App() {
           </div>
         )}
         {user && !chatTarget && (
-          <div className="vnexus-chat-launcher fixed bottom-4 right-4 z-[90]">
+          <div className="fixed bottom-4 right-4 z-[90]">
             {isChatListOpen && (
               <div className="absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden animate-fade-in-up">
                 <div className="bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-md">
