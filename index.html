@@ -229,6 +229,53 @@
     @media(max-width:639px){.vnexus-vtuber-sort-select{width:100%!important;max-width:100%!important;min-height:38px!important;font-size:.875rem!important;}}
     .vnexus-bulletin-page-title{font-size:2.5rem!important;line-height:1.08!important;font-weight:900!important;}
     @media(min-width:640px){.vnexus-bulletin-page-title{font-size:3.25rem!important;}}
+  
+
+    /* Fast boot UX: do not let the full-screen loader block the site while Babel/large JS is compiling. */
+    @keyframes vnexusBootLoaderFadeOut {
+      to { opacity:0; visibility:hidden; pointer-events:none; }
+    }
+    #loading-screen {
+      animation: vnexusBootLoaderFadeOut .22s ease 1.05s forwards;
+    }
+    #vnexus-boot-skeleton {
+      min-height:100dvh;
+      background:#0F111A;
+      color:#E2E8F0;
+      padding:20px 16px 56px;
+      box-sizing:border-box;
+      font-family:ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .vnexus-boot-shell { max-width:1120px; margin:0 auto; }
+    .vnexus-boot-nav { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:28px; }
+    .vnexus-boot-brand { display:flex; align-items:center; gap:10px; font-weight:900; color:#fff; letter-spacing:.02em; }
+    .vnexus-boot-logo { width:38px; height:38px; border-radius:14px; background:linear-gradient(135deg,#8B5CF6,#38BDF8); box-shadow:0 12px 30px rgba(139,92,246,.25); }
+    .vnexus-boot-pill { width:96px; height:34px; border-radius:999px; background:#181B25; border:1px solid #2A2F3D; }
+    .vnexus-boot-hero { border:1px solid #2A2F3D; background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(56,189,248,.08)),#181B25; border-radius:28px; padding:28px 22px; overflow:hidden; }
+    .vnexus-boot-kicker { width:156px; height:14px; border-radius:999px; background:#2A2F3D; margin-bottom:16px; }
+    .vnexus-boot-title { width:min(620px,90%); height:42px; border-radius:16px; background:#334155; margin-bottom:14px; }
+    .vnexus-boot-text { width:min(760px,100%); height:16px; border-radius:999px; background:#2A2F3D; margin-bottom:9px; }
+    .vnexus-boot-text.short { width:min(520px,78%); }
+    .vnexus-boot-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:22px; max-width:460px; }
+    .vnexus-boot-button { height:48px; border-radius:16px; background:#8B5CF6; }
+    .vnexus-boot-button.alt { background:#1D2130; border:1px solid #2A2F3D; }
+    .vnexus-boot-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:18px; }
+    .vnexus-boot-card { min-height:176px; border-radius:24px; background:#181B25; border:1px solid #2A2F3D; padding:16px; }
+    .vnexus-boot-avatar { width:54px; height:54px; border-radius:18px; background:#2A2F3D; margin-bottom:14px; }
+    .vnexus-boot-line { height:13px; border-radius:999px; background:#2A2F3D; margin-bottom:10px; }
+    .vnexus-boot-line.name { width:70%; background:#334155; }
+    .vnexus-boot-line.meta { width:48%; }
+    .vnexus-boot-line.desc { width:92%; }
+    @media (max-width: 639px) {
+      #vnexus-boot-skeleton { padding:16px 12px 44px; }
+      .vnexus-boot-nav { margin-bottom:18px; }
+      .vnexus-boot-hero { border-radius:22px; padding:22px 16px; }
+      .vnexus-boot-title { height:34px; width:92%; }
+      .vnexus-boot-actions { grid-template-columns:1fr; max-width:none; }
+      .vnexus-boot-grid { grid-template-columns:1fr; gap:12px; }
+      .vnexus-boot-card:nth-child(n+3) { display:none; }
+    }
+
   </style>
 </head>
 
@@ -255,7 +302,46 @@
     </style>
   </div>
 
-  <div id="root"></div>
+  <div id="root">
+    <div id="vnexus-boot-skeleton" aria-label="V-Nexus 載入中">
+      <div class="vnexus-boot-shell">
+        <div class="vnexus-boot-nav">
+          <div class="vnexus-boot-brand"><div class="vnexus-boot-logo"></div><span>V-Nexus</span></div>
+          <div class="vnexus-boot-pill"></div>
+        </div>
+        <section class="vnexus-boot-hero">
+          <div class="vnexus-boot-kicker"></div>
+          <div class="vnexus-boot-title"></div>
+          <div class="vnexus-boot-text"></div>
+          <div class="vnexus-boot-text short"></div>
+          <div class="vnexus-boot-actions">
+            <div class="vnexus-boot-button"></div>
+            <div class="vnexus-boot-button alt"></div>
+          </div>
+        </section>
+        <div class="vnexus-boot-grid">
+          <div class="vnexus-boot-card"><div class="vnexus-boot-avatar"></div><div class="vnexus-boot-line name"></div><div class="vnexus-boot-line meta"></div><div class="vnexus-boot-line desc"></div><div class="vnexus-boot-line desc"></div></div>
+          <div class="vnexus-boot-card"><div class="vnexus-boot-avatar"></div><div class="vnexus-boot-line name"></div><div class="vnexus-boot-line meta"></div><div class="vnexus-boot-line desc"></div><div class="vnexus-boot-line desc"></div></div>
+          <div class="vnexus-boot-card"><div class="vnexus-boot-avatar"></div><div class="vnexus-boot-line name"></div><div class="vnexus-boot-line meta"></div><div class="vnexus-boot-line desc"></div><div class="vnexus-boot-line desc"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    window.__vnexusHideBootLoader = function () {
+      var loader = document.getElementById("loading-screen");
+      if (!loader) return;
+      loader.style.opacity = "0";
+      loader.style.visibility = "hidden";
+      loader.style.pointerEvents = "none";
+      setTimeout(function () {
+        if (loader) loader.style.display = "none";
+      }, 260);
+    };
+    setTimeout(window.__vnexusHideBootLoader, 1500);
+  </script>
 
   <script src="script.js" type="text/babel" data-type="module"></script>
 

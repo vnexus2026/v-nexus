@@ -3550,136 +3550,136 @@ const ProfileEditorForm = ({
               </div>
             </div>
 
-          <div id="creator-service-section" className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4 space-y-5 md:col-span-2 scroll-mt-28">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div id="creator-service-section" className="bg-[#0F111A] border border-[#2A2F3D] rounded-xl p-4 space-y-5 md:col-span-2 scroll-mt-28">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-[#38BDF8] tracking-[0.16em] uppercase mb-1">Creator Service</p>
+                  <label className="block text-sm font-bold text-[#F8FAFC]">
+                    創作服務專區
+                  </label>
+                  <p className="text-xs text-[#94A3B8] mt-1">如果你有接繪圖、建模或剪輯相關服務，可以在這裡補上讓委託者更容易找到你。</p>
+                </div>
+                <span className="text-[11px] text-[#94A3B8] whitespace-nowrap">選填，可多選</span>
+              </div>
+
               <div>
-                <p className="text-xs font-bold text-[#38BDF8] tracking-[0.16em] uppercase mb-1">Creator Service</p>
-                <label className="block text-sm font-bold text-[#F8FAFC]">
-                  創作服務專區
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                  您是不是繪師 / 建模師 / 剪輯師？ <span className="text-[11px] text-[#94A3B8] font-normal">(若都不是可不填)</span>
                 </label>
-                <p className="text-xs text-[#94A3B8] mt-1">如果你有接繪圖、建模或剪輯相關服務，可以在這裡補上讓委託者更容易找到你。</p>
+                <div className="flex flex-wrap gap-3">
+                  {CREATOR_ROLE_OPTIONS.map((role) => {
+                    const checked = (form.creatorRoles || []).includes(role);
+                    return (
+                      <label
+                        key={role}
+                        className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#38BDF8]/10 border-[#38BDF8]/40 text-[#38BDF8]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            let list = [...(form.creatorRoles || [])];
+                            list = list.includes(role) ? list.filter((x) => x !== role) : [...list, role];
+                            updateForm({ creatorRoles: list });
+                          }}
+                          className="accent-sky-400 w-4 h-4"
+                        />
+                        <span className="text-sm font-bold">{role}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-              <span className="text-[11px] text-[#94A3B8] whitespace-nowrap">選填，可多選</span>
-            </div>
 
-            <div>
-              <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
-                您是不是繪師 / 建模師 / 剪輯師？ <span className="text-[11px] text-[#94A3B8] font-normal">(若都不是可不填)</span>
-              </label>
-              <div className="flex flex-wrap gap-3">
-                {CREATOR_ROLE_OPTIONS.map((role) => {
-                  const checked = (form.creatorRoles || []).includes(role);
-                  return (
-                    <label
-                      key={role}
-                      className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#38BDF8]/10 border-[#38BDF8]/40 text-[#38BDF8]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          let list = [...(form.creatorRoles || [])];
-                          list = list.includes(role) ? list.filter((x) => x !== role) : [...list, role];
-                          updateForm({ creatorRoles: list });
-                        }}
-                        className="accent-sky-400 w-4 h-4"
-                      />
-                      <span className="text-sm font-bold">{role}</span>
-                    </label>
-                  );
-                })}
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                  創作風格 / 類型 <span className="text-[#EF4444]">*</span>
+                  <span className="text-[11px] text-[#94A3B8] font-normal ml-2">若有勾選創作服務，請至少選一項</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {CREATOR_STYLE_OPTIONS.map((style) => {
+                    const checked = (form.creatorStyles || []).includes(style);
+                    return (
+                      <label
+                        key={style}
+                        className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            let list = [...(form.creatorStyles || [])];
+                            list = list.includes(style) ? list.filter((x) => x !== style) : [...list, style];
+                            updateForm({ creatorStyles: list });
+                          }}
+                          className="accent-purple-500 w-4 h-4"
+                        />
+                        <span className="text-sm font-bold">{style}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {(form.creatorStyles || []).includes("其他(自由填寫)") && (
+                  <input
+                    type="text"
+                    value={form.creatorOtherStyleText || ""}
+                    onChange={(e) => updateForm({ creatorOtherStyleText: e.target.value })}
+                    className={inputCls + " mt-3"}
+                    placeholder="請簡單填寫其他創作風格 / 類型"
+                  />
+                )}
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
-                創作風格 / 類型 <span className="text-[#EF4444]">*</span>
-                <span className="text-[11px] text-[#94A3B8] font-normal ml-2">若有勾選創作服務，請至少選一項</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {CREATOR_STYLE_OPTIONS.map((style) => {
-                  const checked = (form.creatorStyles || []).includes(style);
-                  return (
-                    <label
-                      key={style}
-                      className={`flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors ${checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#181B25] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          let list = [...(form.creatorStyles || [])];
-                          list = list.includes(style) ? list.filter((x) => x !== style) : [...list, style];
-                          updateForm({ creatorStyles: list });
-                        }}
-                        className="accent-purple-500 w-4 h-4"
-                      />
-                      <span className="text-sm font-bold">{style}</span>
-                    </label>
-                  );
-                })}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                    接案狀態
+                  </label>
+                  <select
+                    value={form.creatorStatus || ""}
+                    onChange={(e) => updateForm({ creatorStatus: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">請選擇接案狀態</option>
+                    {CREATOR_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[#94A3B8] mt-2">用下拉選單快速標示目前是否可接案，避免名片過長。</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
+                    預算參考 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
+                  </label>
+                  <select
+                    value={normalizeCreatorBudgetRange(form.creatorBudgetRange)}
+                    onChange={(e) => updateForm({ creatorBudgetRange: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">請選擇預算參考</option>
+                    {CREATOR_BUDGET_OPTIONS.map((budget) => (
+                      <option key={budget} value={budget}>{budget}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-[#94A3B8] mt-2">「私訊詢價」會顯示在創作服務專區與名片上。</p>
+                </div>
               </div>
-              {(form.creatorStyles || []).includes("其他(自由填寫)") && (
+
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
+                  作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
+                </label>
                 <input
-                  type="text"
-                  value={form.creatorOtherStyleText || ""}
-                  onChange={(e) => updateForm({ creatorOtherStyleText: e.target.value })}
-                  className={inputCls + " mt-3"}
-                  placeholder="請簡單填寫其他創作風格 / 類型"
+                  type="url"
+                  value={form.creatorPortfolioUrl || ""}
+                  onChange={(e) => updateForm({ creatorPortfolioUrl: e.target.value })}
+                  className={inputCls}
+                  placeholder="例如 Pixiv、X 作品串、個人網站或委託表單網址"
                 />
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
-                  接案狀態
-                </label>
-                <select
-                  value={form.creatorStatus || ""}
-                  onChange={(e) => updateForm({ creatorStatus: e.target.value })}
-                  className={inputCls}
-                >
-                  <option value="">請選擇接案狀態</option>
-                  {CREATOR_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-[#94A3B8] mt-2">用下拉選單快速標示目前是否可接案，避免名片過長。</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">
-                  預算參考 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
-                </label>
-                <select
-                  value={normalizeCreatorBudgetRange(form.creatorBudgetRange)}
-                  onChange={(e) => updateForm({ creatorBudgetRange: e.target.value })}
-                  className={inputCls}
-                >
-                  <option value="">請選擇預算參考</option>
-                  {CREATOR_BUDGET_OPTIONS.map((budget) => (
-                    <option key={budget} value={budget}>{budget}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-[#94A3B8] mt-2">「私訊詢價」會顯示在創作服務專區與名片上。</p>
+                <p className="text-xs text-[#94A3B8] mt-2">填寫後會在繪師 / 建模師 / 剪輯師委託專區顯示「觀看作品集」按鈕。</p>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-bold text-[#CBD5E1] mb-2">
-                作品集 / 委託資訊網址 <span className="text-[#94A3B8] text-xs font-normal">選填</span>
-              </label>
-              <input
-                type="url"
-                value={form.creatorPortfolioUrl || ""}
-                onChange={(e) => updateForm({ creatorPortfolioUrl: e.target.value })}
-                className={inputCls}
-                placeholder="例如 Pixiv、X 作品串、個人網站或委託表單網址"
-              />
-              <p className="text-xs text-[#94A3B8] mt-2">填寫後會在繪師 / 建模師 / 剪輯師委託專區顯示「觀看作品集」按鈕。</p>
-            </div>
-          </div>
 
           </div>
         </div>
@@ -4491,39 +4491,39 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
                 <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
-                <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
-                  {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
-                  <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
-                    <div className="vnexus-critical-role-list flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="vnexus-critical-role-badge bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
-                    {creatorStatus && <span className="vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
-                  </div>
-                  <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
-                    <div className="flex items-end gap-3">
-                      <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
-                        <p className="vnexus-critical-meta text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                  <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
+                    {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
+                    {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
+                    <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
+                    <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
+                      <div className="vnexus-critical-role-list flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="vnexus-critical-role-badge bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
+                      {creatorStatus && <span className="vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
+                    </div>
+                    <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
+                      <div className="flex items-end gap-3">
+                        <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
+                          {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
+                          <p className="vnexus-critical-meta text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="vnexus-critical-body p-5 flex-1 flex flex-col">
-                  <p className="vnexus-critical-description block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                  <div className="vnexus-critical-style-tags flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
-                    {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
-                    {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
-                    {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
+                  <div className="vnexus-critical-body p-5 flex-1 flex flex-col">
+                    <p className="vnexus-critical-description block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                    <div className="vnexus-critical-style-tags flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                      {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
+                      {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
+                      {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
+                    </div>
+                    <div className="vnexus-critical-actions mt-auto grid grid-cols-2 gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="vnexus-critical-primary-btn bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                      <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`vnexus-critical-secondary-btn ${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                    </div>
                   </div>
-                  <div className="vnexus-critical-actions mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="vnexus-critical-primary-btn bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`vnexus-critical-secondary-btn ${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
-                  </div>
-                </div>
-              </article>
+                </article>
               </React.Fragment>;
             })}
           </div>
@@ -4624,81 +4624,81 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {pagedRequests.map((r) => {
-              const author = authorOf(r.userId);
-              const applicants = Array.isArray(r.applicants) ? r.applicants : [];
-              const applicantProfiles = applicants.map((uid) => authorOf(uid)).filter(Boolean);
-              const isOwner = user && r.userId === user.uid;
-              const isApplying = user && applicants.includes(user.uid);
-              const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
-              return (
-                <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
-                  <div className="flex items-start gap-3 mb-4">
-                    <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
-                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
-                      <h3 className="text-white text-xl font-extrabold leading-tight line-clamp-2 w-full break-words">{r.title || "未命名需求"}</h3>
-                      <p className="text-xs text-[#94A3B8] mt-1">
-                        發案者：{author ? (
-                          <button type="button" onClick={() => openProfile(author)} className="text-white font-bold hover:text-[#A78BFA] hover:underline underline-offset-4 transition-colors">
-                            {author.name || "匿名創作者"}
-                          </button>
-                        ) : (
-                          <span className="text-white font-bold">匿名創作者</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4">{r.description}</p>
-                  <div className="mt-auto flex flex-col">
-                    <div className="pt-3 border-t border-[#2A2F3D]/70">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {displayStyles.slice(0, 6).map((s) => <span key={s} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{s}</span>)}
-                        {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
-                      </div>
-                      <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
-                        <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
-                        <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
-                        <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
-                      </div>
-                    </div>
-                    <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <p className="text-xs font-extrabold text-[#CBD5E1]">提案人名單</p>
-                        <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2">
-                          {applicantProfiles.slice(0, 5).map((a) => (
-                            <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {pagedRequests.map((r) => {
+                const author = authorOf(r.userId);
+                const applicants = Array.isArray(r.applicants) ? r.applicants : [];
+                const applicantProfiles = applicants.map((uid) => authorOf(uid)).filter(Boolean);
+                const isOwner = user && r.userId === user.uid;
+                const isApplying = user && applicants.includes(user.uid);
+                const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
+                return (
+                  <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
+                    <div className="flex items-start gap-3 mb-4">
+                      <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
+                        {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
+                        <h3 className="text-white text-xl font-extrabold leading-tight line-clamp-2 w-full break-words">{r.title || "未命名需求"}</h3>
+                        <p className="text-xs text-[#94A3B8] mt-1">
+                          發案者：{author ? (
+                            <button type="button" onClick={() => openProfile(author)} className="text-white font-bold hover:text-[#A78BFA] hover:underline underline-offset-4 transition-colors">
+                              {author.name || "匿名創作者"}
                             </button>
-                          ))}
-                          {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
-                        </div>
-                        <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
+                          ) : (
+                            <span className="text-white font-bold">匿名創作者</span>
+                          )}
+                        </p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2">
-                      {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">看參考資料</button>}
-                      {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
-                      {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap">刪除委託</button></>}
+                    <p className="text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4">{r.description}</p>
+                    <div className="mt-auto flex flex-col">
+                      <div className="pt-3 border-t border-[#2A2F3D]/70">
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {displayStyles.slice(0, 6).map((s) => <span key={s} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold">{s}</span>)}
+                          {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
+                        </div>
+                        <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
+                          <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
+                          <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
+                          <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
+                        </div>
+                      </div>
+                      <div className="mb-4 rounded-xl bg-[#0F111A] border border-[#2A2F3D] p-3">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <p className="text-xs font-extrabold text-[#CBD5E1]">提案人名單</p>
+                          <span className="text-[11px] text-[#94A3B8]">最多 5 位</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {applicantProfiles.slice(0, 5).map((a) => (
+                              <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
+                                {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                              </button>
+                            ))}
+                            {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
+                          </div>
+                          <p className="text-xs text-[#94A3B8] leading-relaxed">發案人還在挑選中；如無進一步通知，請勿主動打擾發案人。</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2">
+                        {r.referenceUrl && <button onClick={() => openPortfolio(r.referenceUrl)} className="bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">看參考資料</button>}
+                        {!isOwner && <button disabled={!isApplying && applicants.length >= 5} onClick={() => handleApplyRequest(r)} className={(isApplying ? "bg-[#1D2130] text-[#CBD5E1]" : applicants.length >= 5 ? "bg-[#1D2130] text-[#64748B] cursor-not-allowed" : "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white") + " px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm"}>{isApplying ? "取消接案意願" : applicants.length >= 5 ? "提案已滿" : "我想接案"}</button>}
+                        {(isOwner || isAdmin) && <><button onClick={() => handleEditRequest(r)} className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm">編輯</button><button onClick={() => handleDeleteRequest(r.id)} className="bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/30 px-2 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm whitespace-nowrap">刪除委託</button></>}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          {filteredRequests.length > REQUEST_PAGE_SIZE && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <button onClick={() => goCommissionRequestPage(safeRequestPage - 1)} disabled={safeRequestPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button>
-              <span className="text-[#94A3B8] text-sm font-bold">第 {safeRequestPage} / {totalRequestPages} 頁</span>
-              <button onClick={() => goCommissionRequestPage(safeRequestPage + 1)} disabled={safeRequestPage === totalRequestPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button>
+                  </article>
+                );
+              })}
             </div>
-          )}
+            {filteredRequests.length > REQUEST_PAGE_SIZE && (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <button onClick={() => goCommissionRequestPage(safeRequestPage - 1)} disabled={safeRequestPage === 1} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === 1 ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>上一頁</button>
+                <span className="text-[#94A3B8] text-sm font-bold">第 {safeRequestPage} / {totalRequestPages} 頁</span>
+                <button onClick={() => goCommissionRequestPage(safeRequestPage + 1)} disabled={safeRequestPage === totalRequestPages} className={`px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}`}>下一頁</button>
+              </div>
+            )}
           </>
         )}
       </div>}
@@ -5161,7 +5161,7 @@ const HomePage = ({
                     setSelectedVTuber(v);
                     navigate(`profile/${v.id}`);
                   }}
-                  onDislike={() => {}}
+                  onDislike={() => { }}
                 />
               </div>
             ))}
@@ -7967,15 +7967,19 @@ function App() {
   useEffect(() => {
     const loader = document.getElementById("loading-screen");
     if (loader) {
-      // 強制 300ms 後開始淡出，不論資料是否加載完成
+      // ✅ 進站體感修正：不要等資料或額外 800ms。HTML/CSS 已先自動淡出；React 掛載後立刻清掉遮罩。
       const timer = setTimeout(() => {
+        if (typeof window.__vnexusHideBootLoader === "function") {
+          window.__vnexusHideBootLoader();
+          return;
+        }
         loader.style.opacity = "0";
+        loader.style.visibility = "hidden";
         loader.style.pointerEvents = "none";
-        // 動畫結束後徹底隱藏
         setTimeout(() => {
           loader.style.display = "none";
-        }, 800);
-      }, 800);
+        }, 260);
+      }, 80);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -9936,109 +9940,109 @@ function App() {
     }
   };
 
- const handleVerifyVtuber = async (id) => {
-  const targetVtuber = realVtubers.find((v) => v.id === id);
-  if (!targetVtuber) {
-    showToast("❌ 找不到該名片資料");
-    return;
-  }
-
-  try {
-    if (!auth.currentUser) {
-      showToast("❌ 請先登入管理員帳號");
+  const handleVerifyVtuber = async (id) => {
+    const targetVtuber = realVtubers.find((v) => v.id === id);
+    if (!targetVtuber) {
+      showToast("❌ 找不到該名片資料");
       return;
     }
 
-    showToast("⏳ 正在審核名片...");
-    const authToken = await auth.currentUser.getIdToken(true);
-    const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
-    const result = await reviewVtuberCard({ uid: id, action: "approve", authToken });
-    const payload = result?.data || {};
-    const updates = payload.updates || {
-      isVerified: true,
-      verificationStatus: "approved",
-      showVerificationModal: "approved",
-      rejectionCount: 0,
-      verificationNote: "",
-    };
-
-    setRealVtubers((prev) => {
-      const newList = prev.map((v) =>
-        v.id === id ? { ...v, ...updates, verificationNote: updates.verificationNote || undefined } : v
-      );
-      syncVtuberCache(newList);
-      return newList;
-    });
-
-    showToast(payload.emailWarning ? `✅ 已通過審核；${payload.emailWarning}` : "✅ 已通過審核並送出通知！");
-  } catch (err) {
-    console.error("審核通過失敗:", err);
-    const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
-    showToast(`❌ 審核失敗：${message}`);
-  }
-};
-
-  const handleRejectVtuber = async (id) => {
-  const targetVtuber = realVtubers.find((v) => v.id === id);
-
-  if (!targetVtuber) {
-    showToast("❌ 找不到該名片資料");
-    return;
-  }
-
-  const reason = prompt("請輸入退回原因：", targetVtuber?.verificationNote || "");
-
-  if (reason === null) {
-    return;
-  }
-
-  const trimmedReason = reason.trim();
-
-  if (!trimmedReason) {
-    showToast("❌ 請輸入退回原因");
-    return;
-  }
-
-  try {
-    if (!auth.currentUser) {
-      showToast("❌ 請先登入管理員帳號");
-      return;
-    }
-
-    showToast("⏳ 正在退回名片...");
-    const authToken = await auth.currentUser.getIdToken(true);
-    const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
-    const result = await reviewVtuberCard({ uid: id, action: "reject", reason: trimmedReason, authToken });
-    const payload = result?.data || {};
-    const updates = payload.updates || {
-      isVerified: false,
-      verificationStatus: "rejected",
-      showVerificationModal: "rejected",
-      verificationNote: trimmedReason,
-      rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
-      lastRejectedAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    setRealVtubers((prev) => {
-      const newList = prev.map((v) =>
-        v.id === id ? { ...v, ...updates } : v
-      );
-
-      if (typeof syncVtuberCache === "function") {
-        syncVtuberCache(newList);
+    try {
+      if (!auth.currentUser) {
+        showToast("❌ 請先登入管理員帳號");
+        return;
       }
 
-      return newList;
-    });
+      showToast("⏳ 正在審核名片...");
+      const authToken = await auth.currentUser.getIdToken(true);
+      const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
+      const result = await reviewVtuberCard({ uid: id, action: "approve", authToken });
+      const payload = result?.data || {};
+      const updates = payload.updates || {
+        isVerified: true,
+        verificationStatus: "approved",
+        showVerificationModal: "approved",
+        rejectionCount: 0,
+        verificationNote: "",
+      };
 
-    showToast(payload.emailWarning ? `✅ 已退回審核；${payload.emailWarning}` : "✅ 已退回審核並送出通知！");
-  } catch (err) {
-    console.error("退回審核失敗:", err);
-    const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
-    showToast(`❌ 退回審核失敗：${message}`);
-  }
-};
+      setRealVtubers((prev) => {
+        const newList = prev.map((v) =>
+          v.id === id ? { ...v, ...updates, verificationNote: updates.verificationNote || undefined } : v
+        );
+        syncVtuberCache(newList);
+        return newList;
+      });
+
+      showToast(payload.emailWarning ? `✅ 已通過審核；${payload.emailWarning}` : "✅ 已通過審核並送出通知！");
+    } catch (err) {
+      console.error("審核通過失敗:", err);
+      const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
+      showToast(`❌ 審核失敗：${message}`);
+    }
+  };
+
+  const handleRejectVtuber = async (id) => {
+    const targetVtuber = realVtubers.find((v) => v.id === id);
+
+    if (!targetVtuber) {
+      showToast("❌ 找不到該名片資料");
+      return;
+    }
+
+    const reason = prompt("請輸入退回原因：", targetVtuber?.verificationNote || "");
+
+    if (reason === null) {
+      return;
+    }
+
+    const trimmedReason = reason.trim();
+
+    if (!trimmedReason) {
+      showToast("❌ 請輸入退回原因");
+      return;
+    }
+
+    try {
+      if (!auth.currentUser) {
+        showToast("❌ 請先登入管理員帳號");
+        return;
+      }
+
+      showToast("⏳ 正在退回名片...");
+      const authToken = await auth.currentUser.getIdToken(true);
+      const reviewVtuberCard = httpsCallable(functionsInstance, "reviewVtuberCard");
+      const result = await reviewVtuberCard({ uid: id, action: "reject", reason: trimmedReason, authToken });
+      const payload = result?.data || {};
+      const updates = payload.updates || {
+        isVerified: false,
+        verificationStatus: "rejected",
+        showVerificationModal: "rejected",
+        verificationNote: trimmedReason,
+        rejectionCount: (targetVtuber.rejectionCount || 0) + 1,
+        lastRejectedAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      setRealVtubers((prev) => {
+        const newList = prev.map((v) =>
+          v.id === id ? { ...v, ...updates } : v
+        );
+
+        if (typeof syncVtuberCache === "function") {
+          syncVtuberCache(newList);
+        }
+
+        return newList;
+      });
+
+      showToast(payload.emailWarning ? `✅ 已退回審核；${payload.emailWarning}` : "✅ 已退回審核並送出通知！");
+    } catch (err) {
+      console.error("退回審核失敗:", err);
+      const message = err?.message || err?.details || "請確認管理員權限、App Check 與 Functions 是否已部署";
+      showToast(`❌ 退回審核失敗：${message}`);
+    }
+  };
 
   const handleAdminUpdateVtuber = async (id, updatedData) => {
     try {
