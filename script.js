@@ -1459,6 +1459,29 @@ const formatDateOnly = (value) => {
   if (isNaN(d.getTime())) return String(value);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
+
+const getDateInputValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const getDateEndOfDayTime = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T23:59:59`);
+  const time = d.getTime();
+  return Number.isFinite(time) ? time : null;
+};
+
+const isCommissionRequestActive = (request, now = Date.now()) => {
+  if (!request || request.status === "closed") return false;
+  const endTime = Number(request.requestEndTime || 0);
+  // 舊資料沒有徵求截止日期時先繼續顯示，避免既有委託需求突然全部消失。
+  if (!endTime) return true;
+  return endTime >= now;
+};
 const formatSchedule = (v) => {
   if (v.isScheduleAnytime) return "我都可以 (隨時可約)";
   if (v.isScheduleCustom && v.customScheduleText) return v.customScheduleText;
@@ -4243,8 +4266,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const [requestFilter, setRequestFilter] = useState("All");
   const [requestStyleFilter, setRequestStyleFilter] = useState("All");
   const [requestPage, setRequestPage] = useState(1);
+  const [commissionRequestNow, setCommissionRequestNow] = useState(Date.now());
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestEndDate: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
   const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
   const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const requestFilters = ["All", "繪圖", "建模", "剪輯"];
@@ -4283,9 +4307,14 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   useEffect(() => { setCommissionPage(1); }, [activeRoleFilter, activeCreatorStyleFilter]);
   useEffect(() => { setRequestPage(1); }, [requestFilter, requestStyleFilter]);
   useEffect(() => {
-    const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(80));
+    const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(200));
     const unsub = onSnapshot(q, (snap) => setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.warn("委託佈告欄讀取失敗:", err));
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCommissionRequestNow(Date.now()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const creatorList = (Array.isArray(realVtubers) ? realVtubers : []).filter((v) => v && v.isVerified && !v.isBlacklisted && Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && !String(v.id || "").startsWith("mock")).sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
@@ -4303,7 +4332,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
   const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
   const filteredRequests = (requests || []).filter((r) => {
-    if (!r || r.status === "closed") return false;
+    if (!isCommissionRequestActive(r, commissionRequestNow)) return false;
     const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
     const styles = Array.isArray(r.styles) ? r.styles : [];
     const styleOk = requestStyleFilter === "All" || styles.includes(requestStyleFilter);
@@ -4315,22 +4344,31 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
 
   const openProfile = (v) => { if (onNavigateProfile) onNavigateProfile(v); else navigate(`profile/${v.id}`); };
   const openPortfolio = (url) => { if (!url) return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
-  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestEndDate: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
 
   const handleSaveRequest = async () => {
     if (!user) return showToast("請先登入");
     if (!requestForm.title.trim() || !requestForm.description.trim()) return showToast("請填寫委託標題與需求說明");
+    if (!requestForm.requestType) return showToast("請選擇需求類型");
+    if (!requestForm.budgetRange) return showToast("請選擇預算區間");
+    if (!requestForm.requestEndDate) return showToast("請選擇徵求截止日期，截止後委託名片會自動下架。");
+    if (!requestForm.deadline) return showToast("請選擇希望完成日期");
     const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
     if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim()) return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
-    const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
-    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
+    const requestEndTime = getDateEndOfDayTime(requestForm.requestEndDate);
+    const deadlineAt = getDateEndOfDayTime(requestForm.deadline);
+    if (!Number.isFinite(requestEndTime)) return showToast("徵求截止日期格式不正確，請重新選擇。");
+    if (!Number.isFinite(deadlineAt)) return showToast("希望完成日期格式不正確，請重新選擇。");
+    if (requestEndTime < Date.now()) return showToast("徵求截止日期不能早於今天。");
+    if (deadlineAt < requestEndTime) return showToast("希望完成日期不能早於徵求截止日期。");
+    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType, budgetRange: requestForm.budgetRange, requestEndTime, requestEndDate: requestForm.requestEndDate || "", deadline: deadlineAt, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
     try {
       if (requestForm.id) { await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true }); showToast("✅ 委託需求已更新"); }
-      else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布"); }
+      else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布，會在徵求截止日後自動下架"); }
       resetRequestForm(); setIsRequestFormOpen(false);
     } catch (err) { console.error("委託需求儲存失敗:", err); showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`); }
   };
-  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", requestEndDate: r.requestEndDate || getDateInputValue(r.requestEndTime), deadline: r.deadlineDate || getDateInputValue(r.deadline), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？")) return; try { await deleteDoc(doc(db, getPath("commission_requests"), id)); showToast("✅ 已刪除委託需求"); } catch (err) { console.error("委託需求刪除失敗:", err); showToast("刪除失敗"); } };
   const handleApplyRequest = async (r) => {
     if (!user) return showToast("請先登入");
@@ -4338,6 +4376,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const applicants = Array.isArray(r.applicants) ? r.applicants : [];
     const isApplying = !applicants.includes(user.uid);
     if (isApplying && applicants.length >= 5) return showToast("這則委託已達 5 名提案人上限");
+    if (isApplying && !isCommissionRequestActive(r)) return showToast("這則委託需求已超過徵求截止日期，無法再提案。");
     try {
       const applyCommissionRequest = httpsCallable(functionsInstance, "applyCommissionRequest");
       const result = await applyCommissionRequest({ requestId: r.id, action: isApplying ? "apply" : "cancel" });
@@ -4489,24 +4528,29 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         {isRequestFormOpen && (
           <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm">
             <h3 className="text-white text-xl font-extrabold mb-5">{requestForm.id ? "編輯委託需求" : "發布新的委託需求"}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-3">
+            <div className="vnexus-request-form-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="sm:col-span-2 lg:col-span-4">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 *</label>
                 <input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
               </div>
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型</label>
-                <select value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              <div className="vnexus-request-required-field">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型 <span className="text-[#EF4444]">*</span></label>
+                <select required value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間</label>
-                <select value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              <div className="vnexus-request-required-field">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間 <span className="text-[#EF4444]">*</span></label>
+                <select required value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期</label>
-                <input type="date" value={requestForm.deadline} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
+              <div className="vnexus-request-required-field">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">徵求截止日期 <span className="text-[#EF4444]">*</span></label>
+                <input required type="date" value={requestForm.requestEndDate || ""} min={getDateInputValue(Date.now())} onChange={(e) => setRequestForm({ ...requestForm, requestEndDate: e.target.value })} className={inputCls} />
+                <p className="text-[11px] text-[#94A3B8] mt-1">到期後會自動從委託佈告欄下架。</p>
               </div>
-              <div className="md:col-span-3">
+              <div className="vnexus-request-required-field">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期 <span className="text-[#EF4444]">*</span></label>
+                <input required type="date" value={requestForm.deadline} min={requestForm.requestEndDate || getDateInputValue(Date.now())} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#94A3B8] text-xs font-normal">可多選</span></label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {CREATOR_STYLE_OPTIONS.map((style) => {
@@ -4537,11 +4581,11 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   />
                 )}
               </div>
-              <div className="md:col-span-3">
+              <div className="sm:col-span-2 lg:col-span-4">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">參考連結</label>
                 <input value={requestForm.referenceUrl} onChange={(e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value })} className={inputCls} placeholder="可放參考圖、影片或 Notion / X / Google Drive 連結" />
               </div>
-              <div className="md:col-span-3">
+              <div className="sm:col-span-2 lg:col-span-4">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 *</label>
                 <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
               </div>
@@ -4596,6 +4640,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
                       </div>
                       <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
+                        <p>徵求截止：<span className="text-[#FDE68A] font-bold">{r.requestEndTime ? formatDateOnly(r.requestEndTime) : "未設定"}</span></p>
                         <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
                         <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
                         <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
@@ -4687,7 +4732,7 @@ const HomePage = ({
     const q = query(
       collection(db, getPath("commission_requests")),
       orderBy("createdAt", "desc"),
-      limit(12),
+      limit(60),
     );
     const unsub = onSnapshot(
       q,
@@ -4808,9 +4853,9 @@ const HomePage = ({
 
   const featuredCommissionRequests = useMemo(() => {
     return (homeCommissionRequests || [])
-      .filter((r) => r && r.status !== "closed")
+      .filter((r) => isCommissionRequestActive(r, currentTime))
       .slice(0, 3);
-  }, [homeCommissionRequests]);
+  }, [homeCommissionRequests, currentTime]);
 
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
@@ -5271,7 +5316,8 @@ const HomePage = ({
                   <p className="text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1">{r.description || "發案者尚未填寫詳細需求。"}</p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     <span className="bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold">{r.budgetRange || "預算可討論"}</span>
-                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? formatDateOnly(r.deadline) : "日期可討論"}</span>
+                    <span className="bg-[#F59E0B]/10 text-[#FDE68A] border border-[#F59E0B]/25 rounded-full px-2.5 py-1 text-xs font-bold">徵求至 {r.requestEndTime ? formatDateOnly(r.requestEndTime) : "未設定"}</span>
+                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? `希望完成 ${formatDateOnly(r.deadline)}` : "完成日可討論"}</span>
                     {styles.map((style) => <span key={`${r.id}-${style}`} className="bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold">{style}</span>)}
                   </div>
                   <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]">

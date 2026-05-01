@@ -240,6 +240,42 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
     .vnexus-vtuber-grid-search-sort { width: auto !important; }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
     .vnexus-vtuber-grid-list { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+/* Commission request form: keep the four required meta fields in one row on desktop, wrap safely on mobile. */
+.vnexus-request-form-grid {
+    display: grid !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+.vnexus-request-form-grid > * {
+    min-width: 0 !important;
+}
+
+.vnexus-request-required-field select,
+.vnexus-request-required-field input[type="date"] {
+    min-height: 48px !important;
+}
+
+@media (min-width: 640px) {
+    .vnexus-request-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .vnexus-request-form-grid > .sm\:col-span-2 {
+        grid-column: span 2 / span 2 !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    .vnexus-request-form-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+    .vnexus-request-form-grid > .lg\:col-span-4 {
+        grid-column: span 4 / span 4 !important;
+    }
 }
