@@ -239,6 +239,21 @@ const readCachedVtuberListSafely = () => {
     return [];
   }
 };
+const readArrayLocalCacheSafely = (key) => {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(cached) ? cached : [];
+  } catch (error) {
+    return [];
+  }
+};
+const runVnexusIdleTask = (callback, timeout = 900) => {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    return window.requestIdleCallback(callback, { timeout });
+  }
+  return setTimeout(callback, Math.min(timeout, 700));
+};
 const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
 const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
 const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
@@ -7380,6 +7395,35 @@ function App() {
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const isFetchingJson = useRef(false);
+  const isRefreshingFullVtuberList = useRef(false);
+  const isScheduledFullVtuberListRefresh = useRef(false);
+  const refreshFullVtuberList = async (reason = "background") => {
+    if (isRefreshingFullVtuberList.current) return false;
+    isRefreshingFullVtuberList.current = true;
+    try {
+      const vSnap = await getDocs(collection(db, getPath("vtubers")));
+      const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (data.length) {
+        syncVtuberCache(data);
+        if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
+        console.info(`✅ 名片完整清單已背景更新：${reason}，共 ${getVtuberPageCount(data)} 頁`);
+        return true;
+      }
+    } catch (e) {
+      console.error("背景補齊完整名單失敗", e);
+    } finally {
+      isRefreshingFullVtuberList.current = false;
+    }
+    return false;
+  };
+  const scheduleFullVtuberListRefresh = (reason = "background", timeout = 900) => {
+    if (isScheduledFullVtuberListRefresh.current || isRefreshingFullVtuberList.current) return;
+    isScheduledFullVtuberListRefresh.current = true;
+    runVnexusIdleTask(() => {
+      isScheduledFullVtuberListRefresh.current = false;
+      refreshFullVtuberList(reason);
+    }, timeout);
+  };
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -8124,9 +8168,11 @@ function App() {
     return () => unsubN();
   }, [user?.uid]);
 
-  // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
+  // --- 優化版：首頁快速顯示；名片完整清單改成背景補齊，避免首頁卡 3-5 秒 ---
   useEffect(() => {
+    let isMounted = true;
     const fetchLargeData = async () => {
+      const isHomeFastPaint = currentView === "home";
       const needsVtuberList = [
         "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
       ].includes(currentView);
@@ -8134,58 +8180,61 @@ function App() {
       if (needsVtuberList) {
         const now = Date.now();
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
-
-        // 🌟 關鍵修復 3：預設快取 24 小時。
-        // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
-        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
         const cachedVtubers = readCachedVtuberListSafely();
-        if (isVtuberListUnexpectedlyShort(cachedVtubers)) {
-          console.warn(`⚠️ 本機名片快取只有 ${getVtuberPageCount(cachedVtubers)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁，將重抓完整名單。`);
-          isExpired = true;
+        const cachedVtubersLookShort = isVtuberListUnexpectedlyShort(cachedVtubers);
+        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000) || cachedVtubersLookShort;
+
+        if (cachedVtubers.length > 0) {
+          setRealVtubers(cachedVtubers);
+          setIsLoading(false);
+        } else if (isHomeFastPaint) {
+          // 首頁不等待完整名片；先讓首屏出來，資料回來後自動補上。
+          setIsLoading(false);
         }
 
-        // 管理員進入後台時，確保擁有包含待審核的完整資料
+        if (cachedVtubersLookShort) {
+          console.warn(`⚠️ 本機名片快取目前只有 ${getVtuberPageCount(cachedVtubers)} 頁；首頁不阻塞，將在背景補回原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁。`);
+        }
+
         const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
-        if (isAdmin && currentView === 'admin' && !hasFullData) {
-          isExpired = true;
-        }
+        const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullData;
 
-        if (isExpired) {
-          try {
-            const vSnap = await getDocs(collection(db, getPath("vtubers")));
-            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data);
-            if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
-          } catch (e) { console.error("讀取名單失敗", e); }
+        if (isExpired || shouldFetchFullForAdmin) {
+          if (isHomeFastPaint && !shouldFetchFullForAdmin) {
+            scheduleFullVtuberListRefresh(cachedVtubersLookShort ? "home-cache-short" : "home-cache-expired", 800);
+          } else {
+            await refreshFullVtuberList(shouldFetchFullForAdmin ? "admin-open" : "view-open");
+            if (isMounted) setIsLoading(false);
+          }
+        } else {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
 
-      // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
-      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
+      // 2. 佈告欄、行程與最新消息資料：首頁不阻塞首屏，背景補資料。
+      const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
-        const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
+        const bDataCached = readArrayLocalCacheSafely(BULLETINS_CACHE_KEY);
+        const cDataCached = readArrayLocalCacheSafely(COLLABS_CACHE_KEY);
+        const uDataCached = readArrayLocalCacheSafely("vnexus_updates_data");
         const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
-        const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
         const cTs = localStorage.getItem(COLLABS_CACHE_TS);
-
-        // 🌟 新增：讀取 Updates 的快取
-        const uCache = localStorage.getItem("vnexus_updates_data");
         const uTs = localStorage.getItem("vnexus_updates_ts");
+        const isBCacheValid = bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
+        const isCCacheValid = cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
+        const isUCacheValid = uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
 
-        const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
-        const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
-        const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
-
-        // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
-        if (isBCacheValid && isCCacheValid && isUCacheValid) {
-          setRealBulletins(JSON.parse(bCache));
-          setRealCollabs(JSON.parse(cCache));
-          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
+        if (bDataCached.length || cDataCached.length || uDataCached.length) {
+          setRealBulletins(bDataCached);
+          setRealCollabs(cDataCached);
+          setRealUpdates(uDataCached);
           setIsLoadingActivities(false);
-        } else {
-          setIsLoadingActivities(true);
+        } else if (isHomeFastPaint) {
+          setIsLoadingActivities(false);
+        }
+
+        const refreshActivityData = async () => {
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -8193,28 +8242,35 @@ function App() {
               getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ]);
+            if (!isMounted) return;
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
             syncBulletinCache(bData);
             syncCollabCache(cData);
-
-            // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
             setRealUpdates(uData);
             localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
             localStorage.setItem("vnexus_updates_ts", Date.now().toString());
-
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            setIsLoadingActivities(false);
+            if (isMounted) setIsLoadingActivities(false);
+          }
+        };
+
+        if (!isBCacheValid || !isCCacheValid || !isUCacheValid || currentView === "admin") {
+          if (isHomeFastPaint) {
+            runVnexusIdleTask(() => refreshActivityData(), 1000);
+          } else {
+            if (!bDataCached.length && !cDataCached.length && !uDataCached.length) setIsLoadingActivities(true);
+            await refreshActivityData();
           }
         }
       }
     };
 
     fetchLargeData();
+    return () => { isMounted = false; };
   }, [currentView, isAdmin]);
 
   useEffect(() => {

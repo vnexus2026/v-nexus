@@ -4688,6 +4688,40 @@ function App() {
     const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
     const [isSendingInvite, setIsSendingInvite] = useState(false);
     const isFetchingJson = useRef(false);
+    const isRefreshingFullVtuberList = useRef(false);
+    const isScheduledFullVtuberListRefresh = useRef(false);
+    const refreshFullVtuberList = async (reason = "background") => {
+        if (isRefreshingFullVtuberList.current)
+            return false;
+        isRefreshingFullVtuberList.current = true;
+        try {
+            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            if (data.length) {
+                syncVtuberCache(data);
+                if (isAdmin)
+                    sessionStorage.setItem("has_full_admin_data", "true");
+                console.info(`✅ 名片完整清單已背景更新：${reason}，共 ${getVtuberPageCount(data)} 頁`);
+                return true;
+            }
+        }
+        catch (e) {
+            console.error("背景補齊完整名單失敗", e);
+        }
+        finally {
+            isRefreshingFullVtuberList.current = false;
+        }
+        return false;
+    };
+    const scheduleFullVtuberListRefresh = (reason = "background", timeout = 900) => {
+        if (isScheduledFullVtuberListRefresh.current || isRefreshingFullVtuberList.current)
+            return;
+        isScheduledFullVtuberListRefresh.current = true;
+        runWhenIdle(() => {
+            isScheduledFullVtuberListRefresh.current = false;
+            refreshFullVtuberList(reason);
+        }, timeout);
+    };
     const fetchPublicVtubersJson = async ({ force = false } = {}) => {
         if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
             return realVtubers;
@@ -5398,37 +5432,41 @@ function App() {
         });
         return () => unsubN();
     }, [user?.uid]);
-    // --- 公開資料分層讀取：名片大清單走 Storage JSON；活動資料 5 分鐘快取；後台才讀完整 Firestore。 ---
+    // --- 公開資料分層讀取：首頁先快速顯示；名片完整清單改成背景補齊，避免首頁卡 3-5 秒。 ---
     useEffect(() => {
         let isMounted = true;
         const fetchLargeData = async () => {
+            const isHomeFastPaint = currentView === "home";
             const needsVtuberList = [
                 "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
             ].includes(currentView);
             if (needsVtuberList) {
                 const cachedVtubers = getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
                 const cachedVtubersLookShort = isVtuberListUnexpectedlyShort(cachedVtubers);
-                if (cachedVtubers.length > 0 && !cachedVtubersLookShort) {
+                if (cachedVtubers.length > 0) {
                     setRealVtubers(cachedVtubers);
                     setIsLoading(false);
                 }
-                else if (cachedVtubersLookShort) {
-                    console.warn(`⚠️ 本機名片快取只有 ${getVtuberPageCount(cachedVtubers)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁，將重抓完整名單。`);
-                    removeLocalCache(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
+                else if (isHomeFastPaint) {
+                    // 首頁不等待名片全量資料；先讓首屏出來，資料回來後自動補上。
+                    setIsLoading(false);
+                }
+                if (cachedVtubersLookShort) {
+                    console.warn(`⚠️ 本機名片快取目前只有 ${getVtuberPageCount(cachedVtubers)} 頁；首頁不阻塞，將在背景補回原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁。`);
                 }
                 const hasFullAdminData = sessionStorage.getItem("has_full_admin_data") === "true";
                 const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullAdminData;
                 const shouldRefreshPublicJson = !shouldFetchFullForAdmin && (!cachedVtubers.length || cachedVtubersLookShort || !isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT));
+                const refreshPublicThenMaybeFull = async () => {
+                    const publicList = await fetchPublicVtubersJson({ force: cachedVtubers.length === 0 || cachedVtubersLookShort });
+                    if (!publicList && (cachedVtubers.length === 0 || cachedVtubersLookShort)) {
+                        // public JSON 尚未生成完整 24 頁時，改在背景用 Firestore 補齊；首頁不再等待這一步。
+                        await refreshFullVtuberList("public-json-incomplete");
+                    }
+                };
                 if (shouldFetchFullForAdmin) {
                     try {
-                        const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                        if (!isMounted)
-                            return;
-                        syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-                        sessionStorage.setItem("has_full_admin_data", "true");
-                    }
-                    catch (e) {
-                        console.error("管理員讀取完整名單失敗", e);
+                        await refreshFullVtuberList("admin-open");
                     }
                     finally {
                         if (isMounted)
@@ -5436,22 +5474,16 @@ function App() {
                     }
                 }
                 else if (shouldRefreshPublicJson) {
-                    const publicList = await fetchPublicVtubersJson({ force: cachedVtubers.length === 0 || cachedVtubersLookShort });
-                    if (!publicList && (cachedVtubers.length === 0 || cachedVtubersLookShort)) {
-                        // 最後備援：public JSON 尚未建立 / 名片數異常不足且本機沒有完整快取時才讀 Firestore，避免訪客每次都讀整包。
-                        try {
-                            const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                            if (!isMounted)
-                                return;
-                            syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-                            console.warn("⚠️ public_api/vtubers.json 尚未可用，本次使用 Firestore 備援。請部署後端並等待/觸發 JSON 生成。 ");
-                        }
-                        catch (e) {
-                            console.error("公開名單備援讀取失敗", e);
-                        }
+                    if (isHomeFastPaint) {
+                        runWhenIdle(() => {
+                            refreshPublicThenMaybeFull();
+                        }, 700);
                     }
-                    if (isMounted)
-                        setIsLoading(false);
+                    else {
+                        await refreshPublicThenMaybeFull();
+                        if (isMounted)
+                            setIsLoading(false);
+                    }
                 }
                 else {
                     setIsLoading(false);
@@ -5468,12 +5500,14 @@ function App() {
                     setRealUpdates(cachedUpdates);
                     setIsLoadingActivities(false);
                 }
+                else if (isHomeFastPaint) {
+                    // 首頁活動卡也不顯示長時間骨架屏；背景回來後自動填入。
+                    setIsLoadingActivities(false);
+                }
                 const allActivityCachesFresh = isCacheFresh(BULLETINS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
                     isCacheFresh(COLLABS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
                     isCacheFresh(UPDATES_CACHE_TS, ACTIVITY_CACHE_LIMIT);
-                if (!allActivityCachesFresh || currentView === "admin") {
-                    if (!cachedBulletins.length && !cachedCollabs.length && !cachedUpdates.length)
-                        setIsLoadingActivities(true);
+                const refreshActivityData = async () => {
                     try {
                         const nowTime = Date.now();
                         const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -5499,11 +5533,23 @@ function App() {
                         if (isMounted)
                             setIsLoadingActivities(false);
                     }
+                };
+                if (!allActivityCachesFresh || currentView === "admin") {
+                    if (isHomeFastPaint) {
+                        runWhenIdle(() => refreshActivityData(), 1000);
+                    }
+                    else {
+                        if (!cachedBulletins.length && !cachedCollabs.length && !cachedUpdates.length)
+                            setIsLoadingActivities(true);
+                        await refreshActivityData();
+                    }
                 }
             }
         };
         fetchLargeData();
-        return () => { isMounted = false; };
+        return () => {
+            isMounted = false;
+        };
     }, [currentView, isAdmin]);
     useEffect(() => {
         const needsArticleData = ["articles", "admin"].includes(currentView);
