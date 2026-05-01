@@ -1976,9 +1976,9 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   return (
     <article
       onClick={onSelect}
-      className="group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col"
+      className="vnexus-vtuber-card group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col"
     >
-      <div className="h-20 relative overflow-hidden bg-[#11131C] border-b border-[#2A2F3D]">
+      <div className="vnexus-vtuber-card-banner h-20 relative overflow-hidden bg-[#11131C] border-b border-[#2A2F3D]">
         <LazyImage
           src={sanitizeUrl(v.banner)}
           containerCls="absolute inset-0 w-full h-full"
@@ -1988,7 +1988,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         <div className="absolute inset-0 bg-[#0F111A]/35"></div>
       </div>
 
-      <div className="p-4 flex-1 flex flex-col">
+      <div className="vnexus-vtuber-card-body p-4 flex-1 flex flex-col">
         <div className="flex items-start gap-3 -mt-10 mb-3 relative z-10">
           <LazyImage
             src={sanitizeUrl(v.avatar)}
@@ -8929,6 +8929,22 @@ function App() {
     }
   };
 
+  // ✅ 手機版 grid 頁穩定化：從其他頁刷新後再回到「尋找 VTuber 夥伴」時，
+  // 清掉手機選單/篩選殘留並鎖住橫向溢出，避免上一頁狀態影響 grid 版面。
+  useEffect(() => {
+    if (currentView !== "grid") {
+      setIsMobileFilterOpen(false);
+      return;
+    }
+    setIsMobileMenuOpen(false);
+    requestAnimationFrame(() => {
+      const root = document.getElementById("vtuber-partner-page-top");
+      if (root) root.style.removeProperty("transform");
+      if (document.documentElement) document.documentElement.style.overflowX = "hidden";
+      if (document.body) document.body.style.overflowX = "hidden";
+    });
+  }, [currentView]);
+
   const syncVtuberCache = (newList) => {
     setRealVtubers(newList);
     localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
@@ -11119,9 +11135,9 @@ function App() {
           )}
 
           {currentView === "grid" && (
-            <div id="vtuber-partner-page-top" className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
+            <div id="vtuber-partner-page-top" className="vnexus-vtuber-grid-page w-full max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up overflow-x-hidden">
               <aside
-                className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
+                className={`vnexus-vtuber-filter-panel w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
               >
                 <div className="hidden lg:block relative">
                   <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
@@ -11277,9 +11293,9 @@ function App() {
                   </div>
                 </div>
               </aside>
-              <div className="flex-1">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
-                  <div className="flex flex-wrap items-center gap-3">
+              <div className="vnexus-vtuber-grid-main flex-1 min-w-0 w-full">
+                <div className="vnexus-vtuber-grid-toolbar flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
+                  <div className="vnexus-vtuber-grid-actions flex flex-wrap items-center gap-3">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                       尋找 VTuber 夥伴{" "}
                       {user &&
@@ -11343,7 +11359,7 @@ function App() {
                       <i className="fa-solid fa-filter"></i> 篩選
                     </button>
                   </div>
-                  <div className="flex flex-col gap-3 w-full sm:w-auto">
+                  <div className="vnexus-vtuber-grid-search-sort flex flex-col gap-3 w-full sm:w-auto">
                     <div className="block lg:hidden relative w-full">
                       <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
                       <input
@@ -11388,7 +11404,7 @@ function App() {
                   </p>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="vnexus-vtuber-grid-list grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {paginatedVTubers.map((v) => (
                         <VTuberCard
                           key={v.id}
