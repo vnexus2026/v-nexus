@@ -4607,6 +4607,7 @@ function App() {
     const [selectedVTuber, setSelectedVTuber] = useState(null);
     const [user, setUser] = useState(null);
     const [realVtubers, setRealVtubers] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS));
+    const [leaderboardFallback, setLeaderboardFallback] = useState([]);
     const isAdmin = user && user.email === "apex.dasa@gmail.com";
     const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
     const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
@@ -5346,11 +5347,49 @@ function App() {
     const pendingVtubersCount = useMemo(() => realVtubers.filter((v) => !v.isVerified &&
         !v.isBlacklisted &&
         v.verificationStatus !== "rejected").length, [realVtubers]);
+    useEffect(() => {
+        const shouldFetchLeaderboard = currentView === "bulletin" || isLeaderboardModalOpen;
+        if (!shouldFetchLeaderboard)
+            return;
+        const hasJsonSuccessCount = realVtubers.some((v) => Number(v?.successCount || 0) > 0);
+        if (hasJsonSuccessCount && leaderboardFallback.length > 0)
+            return;
+        let cancelled = false;
+        const fetchLeaderboardFallback = async () => {
+            try {
+                // ✅ 最新版修復：公開 vtubers.json 可能是舊版白名單，沒有 successCount。
+                // 排行榜只在揪團頁需要，因此這裡只補讀有成功次數的少量名片，不回到整包 Firestore 讀取。
+                const q = query(collection(db, getPath("vtubers")), where("successCount", ">", 0), orderBy("successCount", "desc"), limit(50));
+                const snap = await getDocs(q);
+                if (cancelled)
+                    return;
+                setLeaderboardFallback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            }
+            catch (error) {
+                console.warn("揪團排行榜補讀失敗：", error);
+            }
+        };
+        fetchLeaderboardFallback();
+        return () => { cancelled = true; };
+    }, [currentView, isLeaderboardModalOpen, realVtubers, leaderboardFallback.length]);
     const leaderboardData = useMemo(() => {
-        return realVtubers
-            .filter((v) => v.successCount && v.successCount > 0)
-            .sort((a, b) => b.successCount - a.successCount);
-    }, [realVtubers]);
+        const byId = new Map();
+        leaderboardFallback.forEach((v) => {
+            const successCount = Number(v?.successCount || 0);
+            if (v?.id && successCount > 0) {
+                byId.set(v.id, { ...v, successCount });
+            }
+        });
+        realVtubers.forEach((v) => {
+            const successCount = Number(v?.successCount ?? byId.get(v?.id)?.successCount ?? 0);
+            if (v?.id && successCount > 0) {
+                byId.set(v.id, { ...(byId.get(v.id) || {}), ...v, successCount });
+            }
+        });
+        return Array.from(byId.values())
+            .filter((v) => v?.id && v.isVerified !== false && !v.isBlacklisted && v.activityStatus !== "sleep" && v.activityStatus !== "graduated")
+            .sort((a, b) => Number(b.successCount || 0) - Number(a.successCount || 0));
+    }, [realVtubers, leaderboardFallback]);
     useEffect(() => {
         // ✅ 短暫完整啟動版：不在 React 一掛載就立刻關閉 loading。
         // 右上角登入/頭像需要等 Firebase Auth 第一次回報狀態；由 onAuthStateChanged 觸發 __vnexusSignalBootReady。
