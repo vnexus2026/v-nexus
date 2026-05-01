@@ -599,11 +599,11 @@ const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) 
         setLoaded(false);
         setHasError(!safeSrc);
         // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
-        // 導致 skeleton shimmer 永遠閃爍。超過時間後只停止閃爍，不把慢載入圖片誤判成壞圖。
-        // 真正讀取失敗仍交給 onError 統一改成灰色佔位。
+        // 導致 skeleton shimmer 永遠閃爍。超過時間後直接顯示灰色底，不再讓瀏覽器破圖 icon 出現。
         if (!safeSrc)
             return;
         const timer = setTimeout(() => {
+            setHasError(true);
             setLoaded(true);
         }, 9000);
         return () => clearTimeout(timer);
@@ -1270,6 +1270,44 @@ const formatDateOnly = (value) => {
         return String(value);
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
+const getDateEndOfDayMs = (dateStr) => {
+    if (!dateStr)
+        return null;
+    const d = new Date(`${dateStr}T23:59:59`);
+    const ms = d.getTime();
+    return Number.isFinite(ms) ? ms : null;
+};
+const getTodayStartMs = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+};
+const formatDateInputLocal = (value) => {
+    if (!value)
+        return "";
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime()))
+        return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const getCommissionRequestEndTime = (request) => {
+    if (!request)
+        return 0;
+    const rawTime = Number(request.requestEndTime || 0);
+    if (Number.isFinite(rawTime) && rawTime > 0)
+        return rawTime;
+    const dateStr = request.requestEndDate || request.requestDeadlineDate || "";
+    const dateTime = getDateEndOfDayMs(dateStr);
+    return Number.isFinite(dateTime) && dateTime > 0 ? dateTime : 0;
+};
+const isCommissionRequestActive = (request, now = Date.now()) => {
+    if (!request || request.status === "closed")
+        return false;
+    const requestEndTime = getCommissionRequestEndTime(request);
+    // 舊資料若尚未設定「徵求截止日期」，先保留顯示，避免既有委託突然全部消失。
+    if (!requestEndTime)
+        return true;
+    return requestEndTime >= now;
+};
 const formatSchedule = (v) => {
     if (v.isScheduleAnytime)
         return "我都可以 (隨時可約)";
@@ -1450,10 +1488,19 @@ const isVisible = (v, currentUser) => {
         return false;
     if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
         return false;
-    // ✅ 重要修正：不要再用「30 天未活躍」把公開名片從尋找 VTuber 夥伴頁隱藏。
-    // 之前這裡會讓較久沒有更新 / lastActiveAt 沒同步到 JSON 的名片被濾掉，
-    // 導致頁數從正常約 20 頁縮成 13 頁，看起來像沒有讀到全部名片。
-    // 「最近動態」排序仍會把活躍名片排前面，但不再把舊名片整個下架。
+    // 修正：處理 Firebase Timestamp 物件轉換為數字
+    const getTime = (val) => {
+        if (!val)
+            return Date.now();
+        if (typeof val === "number")
+            return val;
+        if (val.toMillis)
+            return val.toMillis();
+        return Date.now();
+    };
+    const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
+    if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000)
+        return false;
     return true;
 };
 const getActivityStatusMeta = (status) => {
@@ -2859,7 +2906,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const [requestStyleFilter, setRequestStyleFilter] = useState("All");
     const [requestPage, setRequestPage] = useState(1);
     const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-    const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+    const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
     const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
     const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
     const requestFilters = ["All", "繪圖", "建模", "剪輯"];
@@ -2912,7 +2959,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
     const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
     const filteredRequests = (requests || []).filter((r) => {
-        if (!r || r.status === "closed")
+        if (!isCommissionRequestActive(r))
             return false;
         const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
         const styles = Array.isArray(r.styles) ? r.styles : [];
@@ -2928,17 +2975,61 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         navigate(`profile/${v.id}`); };
     const openPortfolio = (url) => { if (!url)
         return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
-    const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+    const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
     const handleSaveRequest = async () => {
         if (!user)
             return showToast("請先登入");
-        if (!requestForm.title.trim() || !requestForm.description.trim())
-            return showToast("請填寫委託標題與需求說明");
+        const title = String(requestForm.title || "").trim();
+        const description = String(requestForm.description || "").trim();
+        const requestType = String(requestForm.requestType || "").trim();
+        const budgetRange = String(requestForm.budgetRange || "").trim();
+        const requestDeadline = String(requestForm.requestDeadline || "").trim();
+        const completionDeadline = String(requestForm.deadline || "").trim();
         const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
+        if (!title)
+            return showToast("請填寫需求標題");
+        if (!requestType)
+            return showToast("請選擇需求類型");
+        if (!budgetRange)
+            return showToast("請選擇預算區間");
+        if (!requestDeadline)
+            return showToast("請選擇徵求截止日期");
+        if (!completionDeadline)
+            return showToast("請選擇希望完成日期");
+        if (selectedRequestStyles.length === 0)
+            return showToast("請至少選擇一個喜歡的風格。");
         if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim())
             return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
-        const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
-        const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
+        if (!description)
+            return showToast("請填寫需求說明");
+        const requestEndTime = getDateEndOfDayMs(requestDeadline);
+        const deadlineAt = getDateEndOfDayMs(completionDeadline);
+        if (!requestEndTime)
+            return showToast("徵求截止日期格式錯誤");
+        if (!deadlineAt)
+            return showToast("希望完成日期格式錯誤");
+        if (requestEndTime < getTodayStartMs())
+            return showToast("徵求截止日期不能早於今天");
+        if (deadlineAt < requestEndTime)
+            return showToast("希望完成日期不能早於徵求截止日期");
+        const payload = {
+            userId: user.uid,
+            title,
+            description,
+            requestType: requestType || "其他",
+            budgetRange: budgetRange || "歡迎私訊報價",
+            requestEndTime,
+            requestEndDate: requestDeadline,
+            requestDeadlineDate: requestDeadline,
+            deadline: deadlineAt,
+            deadlineDate: completionDeadline,
+            completionDate: completionDeadline,
+            styles: selectedRequestStyles.slice(0, 12),
+            styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80),
+            referenceUrl: String(requestForm.referenceUrl || "").trim(),
+            status: "open",
+            updatedAt: Date.now(),
+        };
         try {
             if (requestForm.id) {
                 await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true });
@@ -2956,7 +3047,23 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`);
         }
     };
-    const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+    const handleEditRequest = (r) => {
+        setRequestForm({
+            id: r.id,
+            title: r.title || "",
+            description: r.description || "",
+            requestType: r.requestType || "繪圖",
+            budgetRange: r.budgetRange || "歡迎私訊報價",
+            requestDeadline: r.requestEndDate || r.requestDeadlineDate || formatDateInputLocal(r.requestEndTime),
+            deadline: r.deadlineDate || r.completionDate || formatDateInputLocal(r.deadline),
+            styles: Array.isArray(r.styles) ? r.styles : [],
+            styleOtherText: r.styleOtherText || "",
+            referenceUrl: r.referenceUrl || "",
+        });
+        setIsRequestFormOpen(true);
+        setActiveTab("requests");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
     const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？"))
         return; try {
         await deleteDoc(doc(db, getPath("commission_requests"), id));
@@ -3097,23 +3204,26 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     React.createElement("button", { onClick: () => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }, className: "h-[34px] sm:h-[42px] bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-xs sm:text-base justify-self-end self-end col-start-2 sm:col-start-auto mt-1 sm:mt-0" }, isRequestFormOpen ? "收起需求表單" : "發布委託需求"))),
             isRequestFormOpen && (React.createElement("div", { className: "bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm" },
                 React.createElement("h3", { className: "text-white text-xl font-extrabold mb-5" }, requestForm.id ? "編輯委託需求" : "發布新的委託需求"),
-                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
-                    React.createElement("div", { className: "md:col-span-3" },
+                React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" },
+                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u6A19\u984C *"),
-                        React.createElement("input", { value: requestForm.title, onChange: (e) => setRequestForm({ ...requestForm, title: e.target.value }), className: inputCls, placeholder: "\u4F8B\u5982\uFF1A\u60F3\u627E\u53EF\u611B\u98A8\u683C\u982D\u8CBC\u7E6A\u5E2B" })),
+                        React.createElement("input", { required: true, value: requestForm.title, onChange: (e) => setRequestForm({ ...requestForm, title: e.target.value }), className: inputCls, placeholder: "\u4F8B\u5982\uFF1A\u60F3\u627E\u53EF\u611B\u98A8\u683C\u982D\u8CBC\u7E6A\u5E2B" })),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u985E\u578B"),
-                        React.createElement("select", { value: requestForm.requestType, onChange: (e) => setRequestForm({ ...requestForm, requestType: e.target.value }), className: inputCls }, ["繪圖", "建模", "剪輯", "其他"].map((x) => React.createElement("option", { key: x, value: x }, x)))),
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u985E\u578B *"),
+                        React.createElement("select", { required: true, value: requestForm.requestType, onChange: (e) => setRequestForm({ ...requestForm, requestType: e.target.value }), className: inputCls }, ["繪圖", "建模", "剪輯", "其他"].map((x) => React.createElement("option", { key: x, value: x }, x)))),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9810\u7B97\u5340\u9593"),
-                        React.createElement("select", { value: requestForm.budgetRange, onChange: (e) => setRequestForm({ ...requestForm, budgetRange: e.target.value }), className: inputCls }, REQUEST_BUDGET_OPTIONS.map((x) => React.createElement("option", { key: x, value: x }, x)))),
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9810\u7B97\u5340\u9593 *"),
+                        React.createElement("select", { required: true, value: requestForm.budgetRange, onChange: (e) => setRequestForm({ ...requestForm, budgetRange: e.target.value }), className: inputCls }, REQUEST_BUDGET_OPTIONS.map((x) => React.createElement("option", { key: x, value: x }, x)))),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5E0C\u671B\u5B8C\u6210\u65E5\u671F"),
-                        React.createElement("input", { type: "date", value: requestForm.deadline, onChange: (e) => setRequestForm({ ...requestForm, deadline: e.target.value }), className: inputCls })),
-                    React.createElement("div", { className: "md:col-span-3" },
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5FB5\u6C42\u622A\u6B62\u65E5\u671F *"),
+                        React.createElement("input", { required: true, type: "date", value: requestForm.requestDeadline || "", onChange: (e) => setRequestForm({ ...requestForm, requestDeadline: e.target.value }), className: inputCls })),
+                    React.createElement("div", null,
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5E0C\u671B\u5B8C\u6210\u65E5\u671F *"),
+                        React.createElement("input", { required: true, type: "date", value: requestForm.deadline, onChange: (e) => setRequestForm({ ...requestForm, deadline: e.target.value }), className: inputCls })),
+                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-3" },
-                            "\u559C\u6B61\u7684\u98A8\u683C ",
-                            React.createElement("span", { className: "text-[#94A3B8] text-xs font-normal" }, "\u53EF\u591A\u9078")),
+                            "\u559C\u6B61\u7684\u98A8\u683C * ",
+                            React.createElement("span", { className: "text-[#94A3B8] text-xs font-normal" }, "\u53EF\u591A\u9078\uFF08\u81F3\u5C11\u9078\u4E00\u9805\uFF09")),
                         React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2" }, CREATOR_STYLE_OPTIONS.map((style) => {
                             const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
                             return (React.createElement("label", { key: style, className: "flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors " + (checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#11131C] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]") },
@@ -3125,12 +3235,12 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                 React.createElement("span", { className: "text-sm font-bold" }, style)));
                         })),
                         Array.isArray(requestForm.styles) && requestForm.styles.includes(REQUEST_STYLE_OTHER) && (React.createElement("input", { value: requestForm.styleOtherText || "", onChange: (e) => setRequestForm({ ...requestForm, styleOtherText: e.target.value }), className: inputCls + " mt-3", placeholder: "\u8ACB\u586B\u5BEB\u5176\u4ED6\u559C\u6B61\u7684\u98A8\u683C" }))),
-                    React.createElement("div", { className: "md:col-span-3" },
+                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u53C3\u8003\u9023\u7D50"),
                         React.createElement("input", { value: requestForm.referenceUrl, onChange: (e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value }), className: inputCls, placeholder: "\u53EF\u653E\u53C3\u8003\u5716\u3001\u5F71\u7247\u6216 Notion / X / Google Drive \u9023\u7D50" })),
-                    React.createElement("div", { className: "md:col-span-3" },
+                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u8AAA\u660E *"),
-                        React.createElement("textarea", { value: requestForm.description, onChange: (e) => setRequestForm({ ...requestForm, description: e.target.value }), className: inputCls + " min-h-[140px]", placeholder: "\u7C21\u55AE\u63CF\u8FF0\u4F60\u60F3\u505A\u4EC0\u9EBC\u3001\u7528\u9014\u3001\u5E0C\u671B\u98A8\u683C\u8207\u6CE8\u610F\u4E8B\u9805\u3002" }))),
+                        React.createElement("textarea", { required: true, value: requestForm.description, onChange: (e) => setRequestForm({ ...requestForm, description: e.target.value }), className: inputCls + " min-h-[140px]", placeholder: "\u7C21\u55AE\u63CF\u8FF0\u4F60\u60F3\u505A\u4EC0\u9EBC\u3001\u7528\u9014\u3001\u5E0C\u671B\u98A8\u683C\u8207\u6CE8\u610F\u4E8B\u9805\u3002" }))),
                 React.createElement("div", { className: "flex flex-col sm:flex-row justify-end gap-3 mt-5" },
                     React.createElement("button", { onClick: () => { resetRequestForm(); setIsRequestFormOpen(false); }, className: "bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold" }, "\u53D6\u6D88"),
                     React.createElement("button", { onClick: handleSaveRequest, className: "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-6 py-3 rounded-xl font-bold" }, requestForm.id ? "儲存修改" : "發布需求")))),
@@ -3162,6 +3272,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     displayStyles.slice(0, 6).map((s) => React.createElement("span", { key: s, className: "bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold" }, s)),
                                     displayStyles.length === 0 && React.createElement("span", { className: "bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold" }, "\u98A8\u683C\u53EF\u8A0E\u8AD6")),
                                 React.createElement("div", { className: "text-xs text-[#94A3B8] space-y-1 mb-4" },
+                                    React.createElement("p", null,
+                                        "\u5FB5\u6C42\u622A\u6B62\uFF1A",
+                                        React.createElement("span", { className: "text-white font-bold" }, getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定")),
                                     React.createElement("p", null,
                                         "\u5E0C\u671B\u5B8C\u6210\uFF1A",
                                         React.createElement("span", { className: "text-white font-bold" }, r.deadline ? formatDateOnly(r.deadline) : "可討論")),
@@ -3316,9 +3429,9 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
     }, [realVtubers]);
     const featuredCommissionRequests = useMemo(() => {
         return (homeCommissionRequests || [])
-            .filter((r) => r && r.status !== "closed")
+            .filter((r) => isCommissionRequestActive(r, currentTime || Date.now()))
             .slice(0, 3);
-    }, [homeCommissionRequests]);
+    }, [homeCommissionRequests, currentTime]);
     const myHomeProfile = useMemo(() => {
         return user ? realVtubers.find((v) => v.id === user.uid) : null;
     }, [realVtubers, user]);
@@ -3513,7 +3626,12 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                         React.createElement("p", { className: "text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1" }, r.description || "發案者尚未填寫詳細需求。"),
                         React.createElement("div", { className: "flex flex-wrap gap-2 mb-4" },
                             React.createElement("span", { className: "bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold" }, r.budgetRange || "預算可討論"),
-                            React.createElement("span", { className: "bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold" }, r.deadline ? formatDateOnly(r.deadline) : "日期可討論"),
+                            React.createElement("span", { className: "bg-[#F59E0B]/10 text-[#FBBF24] border border-[#F59E0B]/25 rounded-full px-2.5 py-1 text-xs font-bold" },
+                                "徵求到 ",
+                                getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定"),
+                            React.createElement("span", { className: "bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold" },
+                                "希望完成 ",
+                                r.deadline ? formatDateOnly(r.deadline) : "日期可討論"),
                             styles.map((style) => React.createElement("span", { key: `${r.id}-${style}`, className: "bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold" }, style))),
                         React.createElement("div", { className: "flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]" },
                             React.createElement("p", { className: "text-xs text-[#94A3B8]" },
@@ -4621,7 +4739,6 @@ function App() {
     const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
     const [chatTarget, setChatTarget] = useState(null);
     const [allChatRooms, setAllChatRooms] = React.useState([]);
-    const clearedUnreadRoomIdsRef = useRef(new Set());
     useEffect(() => {
         if (!user) {
             setAllChatRooms([]);
@@ -4629,20 +4746,7 @@ function App() {
         }
         const q = query(collection(db, getPath("chat_rooms")), where("participants", "array-contains", user.uid));
         const unsub = onSnapshot(q, (snap) => {
-            const rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map((room) => {
-                if (!clearedUnreadRoomIdsRef.current.has(room.id))
-                    return room;
-                const unreadBy = Array.isArray(room.unreadBy) ? room.unreadBy : [];
-                if (!unreadBy.includes(user.uid)) {
-                    clearedUnreadRoomIdsRef.current.delete(room.id);
-                    return room;
-                }
-                return {
-                    ...room,
-                    unreadBy: unreadBy.filter((uid) => uid !== user.uid),
-                };
-            });
-            setAllChatRooms(rooms);
+            setAllChatRooms(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         });
         return unsub;
     }, [user]);
@@ -4712,7 +4816,6 @@ function App() {
     const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
     const [isSendingInvite, setIsSendingInvite] = useState(false);
     const isFetchingJson = useRef(false);
-    const hasForcedGridVtuberJsonRefresh = useRef(false);
     const fetchPublicVtubersJson = async ({ force = false } = {}) => {
         if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
             return realVtubers;
@@ -4742,65 +4845,22 @@ function App() {
             isFetchingJson.current = false;
         }
     };
-    useEffect(() => {
-        if (currentView !== "grid")
-            return;
-        if (hasForcedGridVtuberJsonRefresh.current)
-            return;
-        hasForcedGridVtuberJsonRefresh.current = true;
-        // ✅ 進入「尋找 VTuber 夥伴」時強制抓一次最新 Storage JSON。
-        // 這不會增加 Firestore reads，但可以避免手機/瀏覽器沿用舊 localStorage 快取，造成頁數少於實際名片數。
-        fetchPublicVtubersJson({ force: true }).catch((error) => {
-            console.warn("尋找 VTuber 夥伴頁強制更新公開 JSON 失敗，沿用目前快取：", error);
-        });
-    }, [currentView]);
-    const clearUnreadChatRooms = async (roomsToClear = []) => {
-        if (!user?.uid)
-            return;
-        const unreadRooms = (Array.isArray(roomsToClear) ? roomsToClear : [])
-            .filter((room) => room?.id && Array.isArray(room.unreadBy) && room.unreadBy.includes(user.uid));
-        if (unreadRooms.length === 0)
-            return;
-        const unreadRoomIds = new Set(unreadRooms.map((room) => room.id));
-        unreadRoomIds.forEach((roomId) => clearedUnreadRoomIdsRef.current.add(roomId));
-        // 先本地更新，讓手機點擊後紅點立即消失；資料庫同步在背景完成。
-        setAllChatRooms((prev) => prev.map((room) => {
-            if (!unreadRoomIds.has(room.id))
-                return room;
-            return {
-                ...room,
-                unreadBy: Array.isArray(room.unreadBy)
-                    ? room.unreadBy.filter((uid) => uid !== user.uid)
-                    : [],
-            };
-        }));
-        try {
-            const batch = writeBatch(db);
-            unreadRooms.forEach((room) => {
-                batch.update(doc(db, getPath("chat_rooms"), room.id), {
-                    unreadBy: arrayRemove(user.uid),
-                });
-            });
-            await batch.commit();
-        }
-        catch (e) {
-            console.error("Clear unread chats error:", e);
-        }
-    };
     const handleOpenChat = async (targetVtuber) => {
         setChatTarget(targetVtuber);
         setIsChatListOpen(false);
-        if (user?.uid && targetVtuber?.id) {
+        if (user) {
             const roomId = generateRoomId(user.uid, targetVtuber.id);
-            await clearUnreadChatRooms([{ id: roomId, unreadBy: [user.uid] }]);
+            const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
+            // 從未讀名單中移除自己
+            try {
+                await updateDoc(roomRef, {
+                    unreadBy: arrayRemove(user.uid),
+                });
+            }
+            catch (e) {
+                console.error("Clear unread error:", e);
+            }
         }
-    };
-    const handleChatLauncherClick = () => {
-        const nextOpen = !isChatListOpen;
-        setIsChatListOpen(nextOpen);
-        // ✅ 保留聊天室列表內每個對話的未讀紅點。
-        // 之前一打開訊息列表就把所有 unreadBy 清掉，會造成列表欄位內看不到哪一則未讀。
-        // 現在只在使用者點進單一聊天室時清除該對話未讀；列表打開時只隱藏浮動按鈕上的總紅點。
     };
     const handleDeleteChat = async (e, roomId) => {
         e.stopPropagation(); // 防止觸發開啟聊天室
@@ -8983,7 +9043,7 @@ function App() {
                         React.createElement("button", { onClick: () => setIsChatListOpen(false), className: "hover:bg-[#7C3AED] w-6 h-6 rounded-full flex items-center justify-center transition-colors" },
                             React.createElement("i", { className: "fa-solid fa-xmark" }))),
                     React.createElement(ChatListContent, { currentUser: user, vtubers: typeof realVtubers !== "undefined" ? realVtubers : [], onOpenChat: handleOpenChat, onDeleteChat: handleDeleteChat, allChatRooms: allChatRooms }))),
-                React.createElement("button", { onClick: handleChatLauncherClick, className: "bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative" },
+                React.createElement("button", { onClick: () => setIsChatListOpen(!isChatListOpen), className: "bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative" },
                     React.createElement("i", { className: `fa-solid ${isChatListOpen ? "fa-xmark text-xl" : "fa-message text-2xl"}` }),
                     !isChatListOpen && hasUnreadChat && (React.createElement("span", { className: "absolute -top-1 -right-1 flex h-5 w-5" },
                         React.createElement("span", { className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" }),

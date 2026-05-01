@@ -7,17 +7,19 @@
   <title>V-Nexus | 專為 VTuber 打造的聯動平台</title>
   <link rel="icon" href="https://duk.tw/u1jpPE.png">
 
-  <!-- Unbundled precompiled test: warm up the biggest external resources before compiled-script.js executes. -->
+  <!-- Unbundled fast boot: warm up the biggest external resources before Babel starts compiling script.js. -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="//firebasestorage.googleapis.com">
-  <link rel="modulepreload" href="compiled-script.js">
+  <link rel="preload" href="script.js" as="script">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
 
   <!-- Desktop premium font: mobile keeps original font to avoid layout shift -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -236,42 +238,10 @@
     @media(min-width:640px){.vnexus-bulletin-page-title{font-size:3.25rem!important;}}
   
 
-
-    /* Fast boot UX: keep the short boot delay, then softly fade the real app in. */
+    /* Fast boot UX: use a neutral standby screen instead of a fake homepage skeleton to avoid layout/image jump. */
     #loading-screen {
-      transition: opacity .22s ease-in-out, visibility .22s ease-in-out;
+      transition: opacity .16s ease-in-out, visibility .16s ease-in-out;
     }
-    #root {
-      opacity: 0;
-      transition: opacity .42s cubic-bezier(.16, 1, .3, 1);
-      will-change: opacity;
-      pointer-events: none;
-    }
-    body.vnexus-app-ready #root {
-      opacity: 1;
-      pointer-events: auto;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      #loading-screen, #root {
-        transition: none !important;
-      }
-    }
-
-    /* Fixed elements inside #root must stay viewport-fixed on mobile.
-       Do not animate #root with transform; transformed ancestors make position:fixed behave like page-bottom. */
-    .vnexus-chat-launcher {
-      position: fixed !important;
-      right: max(1rem, env(safe-area-inset-right)) !important;
-      bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-      z-index: 9000 !important;
-    }
-    @media (max-width: 639px) {
-      .vnexus-chat-launcher {
-        right: max(1rem, env(safe-area-inset-right)) !important;
-        bottom: max(1rem, env(safe-area-inset-bottom)) !important;
-      }
-    }
-
     @keyframes vnexusBootPulse {
       0%, 100% { opacity:.62; transform:scale(.98); }
       50% { opacity:1; transform:scale(1); }
@@ -326,7 +296,7 @@
 
 <body class="selection:bg-purple-500 selection:text-white m-0 p-0 overflow-x-hidden">
   <div id="loading-screen"
-    style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f111a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; opacity: 1; transition: opacity 0.22s ease-in-out; pointer-events: auto;">
+    style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f111a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999; opacity: 1; transition: opacity 0.16s ease-in-out; pointer-events: auto;">
     <div
       style="width:50px; height:50px; border:4px solid #1f2937; border-top:4px solid #a855f7; border-radius:50%; animation: spin 1s linear infinite;">
     </div>
@@ -359,43 +329,21 @@
 
 
   <script>
-    // 未打包預編譯版：採用「短暫完整啟動」。
-    // 目的：維持進站快，但多等一點點讓 Firebase Auth 判斷完成，避免右上角登入/頭像跳動。
-    window.__vnexusBootStartedAt = Date.now();
-    window.__vnexusBootMinVisibleMs = 1050;
-    window.__vnexusBootMaxVisibleMs = 1900;
-    window.__vnexusBootReady = false;
-
     window.__vnexusHideBootLoader = function () {
       var loader = document.getElementById("loading-screen");
-      // 先讓真正首頁開始淡入，再讓 loading 淡出，避免畫面突然跳出。
-      requestAnimationFrame(function () {
-        document.body.classList.add("vnexus-app-ready");
-        if (!loader) return;
-        loader.style.opacity = "0";
-        loader.style.visibility = "hidden";
-        loader.style.pointerEvents = "none";
-        setTimeout(function () {
-          if (loader) loader.style.display = "none";
-        }, 260);
-      });
+      if (!loader) return;
+      loader.style.opacity = "0";
+      loader.style.visibility = "hidden";
+      loader.style.pointerEvents = "none";
+      setTimeout(function () {
+        if (loader) loader.style.display = "none";
+      }, 220);
     };
-
-    window.__vnexusSignalBootReady = function () {
-      if (window.__vnexusBootReady) return;
-      window.__vnexusBootReady = true;
-      var elapsed = Date.now() - (window.__vnexusBootStartedAt || Date.now());
-      var wait = Math.max(0, (window.__vnexusBootMinVisibleMs || 0) - elapsed);
-      setTimeout(window.__vnexusHideBootLoader, wait);
-    };
-
-    // 保險：若 Auth/CDN 有異常，不讓使用者一直停在 loading。
-    setTimeout(function () {
-      if (!window.__vnexusBootReady) window.__vnexusHideBootLoader();
-    }, window.__vnexusBootMaxVisibleMs);
+    // 未打包快速啟動版：loading 不再等 Babel/React 完整掛載，先讓使用者看到準備畫面。
+    setTimeout(window.__vnexusHideBootLoader, 650);
   </script>
 
-  <script type="module" src="compiled-script.js"></script>
+  <script src="script.js" type="text/babel" data-type="module"></script>
 
 </body>
 
