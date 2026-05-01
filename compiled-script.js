@@ -5175,23 +5175,9 @@ function App() {
             .sort((a, b) => b.successCount - a.successCount);
     }, [realVtubers]);
     useEffect(() => {
-        const loader = document.getElementById("loading-screen");
-        if (loader) {
-            // ✅ 進站體感修正：不要等資料或額外 800ms。HTML/CSS 已先自動淡出；React 掛載後立刻清掉遮罩。
-            const timer = setTimeout(() => {
-                if (typeof window.__vnexusHideBootLoader === "function") {
-                    window.__vnexusHideBootLoader();
-                    return;
-                }
-                loader.style.opacity = "0";
-                loader.style.visibility = "hidden";
-                loader.style.pointerEvents = "none";
-                setTimeout(() => {
-                    loader.style.display = "none";
-                }, 220);
-            }, 30);
-            return () => clearTimeout(timer);
-        }
+        // ✅ 短暫完整啟動版：不在 React 一掛載就立刻關閉 loading。
+        // 右上角登入/頭像需要等 Firebase Auth 第一次回報狀態；由 onAuthStateChanged 觸發 __vnexusSignalBootReady。
+        // index.html 仍有 max fallback，避免 Auth 異常時卡住。
     }, []);
     useEffect(() => {
         const handleHashChange = () => {
@@ -5245,6 +5231,10 @@ function App() {
             }
             setUser(u);
             setProfileForm(getEmptyProfile(u?.uid));
+            // ✅ Firebase Auth 第一次完成後再關閉啟動畫面，避免右上角登入按鈕/頭像跳動。
+            if (typeof window !== "undefined" && typeof window.__vnexusSignalBootReady === "function") {
+                window.__vnexusSignalBootReady();
+            }
         });
         const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
         return () => {
