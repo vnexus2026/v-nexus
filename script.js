@@ -1286,7 +1286,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
                       <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
-                      <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
+                      <span className="vnexus-article-category-badge absolute bottom-2 left-3 z-20 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
                   <div className="p-3 sm:p-5 flex-1 flex flex-col">
@@ -5021,7 +5021,7 @@ const HomePage = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => goToBulletin ? goToBulletin() : navigate("bulletin")}
-                className=" vnexus-mobile-bulletin-red-navh-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
+                className="vnexus-mobile-bulletin-red-nav h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
               >
                 <i className="fa-solid fa-bullhorn mr-2"></i>揪團佈告欄
               </button>
@@ -11477,7 +11477,7 @@ function App() {
                     </button>
                     <button
                       onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-                      className="lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
+                      className="vnexus-mobile-filter-toggle lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <i className="fa-solid fa-filter"></i> 篩選
                     </button>
@@ -11502,7 +11502,7 @@ function App() {
                           setShuffleSeed(Date.now());
                         }
                       }}
-                      className="bg-[#181B25] border border-[#2A2F3D] rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto"
+                      className="vnexus-vtuber-sort-select bg-[#181B25] border border-[#2A2F3D] rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto"
                     >
                       <option value="newest">✨ 最近動態 (直播中/更新)</option>
 
@@ -12072,7 +12072,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
+                  <h2 className="vnexus-bulletin-page-title text-4xl sm:text-5xl font-extrabold text-white flex items-center gap-3 leading-tight">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>

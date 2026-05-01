@@ -149,9 +149,6 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
     line-height: 1.2 !important;
     font-weight: 800 !important;
     white-space: nowrap !important;
-    border: 1px solid rgba(139, 92, 246, .24) !important;
-    background: rgba(139, 92, 246, .10) !important;
-    color: #c4b5fd !important;
 }
 
 .vnexus-vtuber-grid-search-sort {
@@ -242,4 +239,54 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
 
 @media (min-width: 1280px) {
     .vnexus-vtuber-grid-list { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+
+/* ✅ VTuber 寶典：分類標籤要永遠蓋在漸黑圖層上方 */
+.vnexus-article-category-badge {
+    position: absolute !important;
+    z-index: 20 !important;
+}
+
+/* ✅ 尋找 VTuber 夥伴：桌機版移除「篩選」按鈕，手機版保留 */
+@media (min-width: 1024px) {
+    .vnexus-mobile-filter-toggle {
+        display: none !important;
+    }
+}
+@media (max-width: 1023px) {
+    .vnexus-mobile-filter-toggle {
+        display: inline-flex !important;
+    }
+}
+
+/* ✅ 尋找 VTuber 夥伴：排序下拉式選單縮小，避免工具列過寬 */
+.vnexus-vtuber-sort-select {
+    width: auto !important;
+    max-width: 220px !important;
+    min-height: 36px !important;
+    padding: .4rem .7rem !important;
+    border-radius: .625rem !important;
+    font-size: .8125rem !important;
+    line-height: 1.2 !important;
+}
+@media (max-width: 639px) {
+    .vnexus-vtuber-sort-select {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 38px !important;
+        font-size: .875rem !important;
+    }
+}
+
+/* ✅ 揪團佈告欄主標題放大，並避免 Tailwind 載入延遲時縮回去 */
+.vnexus-bulletin-page-title {
+    font-size: 2.5rem !important;
+    line-height: 1.08 !important;
+    font-weight: 900 !important;
+}
+@media (min-width: 640px) {
+    .vnexus-bulletin-page-title {
+        font-size: 3.25rem !important;
+    }
 }
