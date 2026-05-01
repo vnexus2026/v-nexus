@@ -1450,19 +1450,10 @@ const isVisible = (v, currentUser) => {
         return false;
     if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
         return false;
-    // 修正：處理 Firebase Timestamp 物件轉換為數字
-    const getTime = (val) => {
-        if (!val)
-            return Date.now();
-        if (typeof val === "number")
-            return val;
-        if (val.toMillis)
-            return val.toMillis();
-        return Date.now();
-    };
-    const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
-    if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000)
-        return false;
+    // ✅ 重要修正：不要再用「30 天未活躍」把公開名片從尋找 VTuber 夥伴頁隱藏。
+    // 之前這裡會讓較久沒有更新 / lastActiveAt 沒同步到 JSON 的名片被濾掉，
+    // 導致頁數從正常約 20 頁縮成 13 頁，看起來像沒有讀到全部名片。
+    // 「最近動態」排序仍會把活躍名片排前面，但不再把舊名片整個下架。
     return true;
 };
 const getActivityStatusMeta = (status) => {
@@ -4721,6 +4712,7 @@ function App() {
     const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
     const [isSendingInvite, setIsSendingInvite] = useState(false);
     const isFetchingJson = useRef(false);
+    const hasForcedGridVtuberJsonRefresh = useRef(false);
     const fetchPublicVtubersJson = async ({ force = false } = {}) => {
         if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
             return realVtubers;
@@ -4750,6 +4742,18 @@ function App() {
             isFetchingJson.current = false;
         }
     };
+    useEffect(() => {
+        if (currentView !== "grid")
+            return;
+        if (hasForcedGridVtuberJsonRefresh.current)
+            return;
+        hasForcedGridVtuberJsonRefresh.current = true;
+        // ✅ 進入「尋找 VTuber 夥伴」時強制抓一次最新 Storage JSON。
+        // 這不會增加 Firestore reads，但可以避免手機/瀏覽器沿用舊 localStorage 快取，造成頁數少於實際名片數。
+        fetchPublicVtubersJson({ force: true }).catch((error) => {
+            console.warn("尋找 VTuber 夥伴頁強制更新公開 JSON 失敗，沿用目前快取：", error);
+        });
+    }, [currentView]);
     const clearUnreadChatRooms = async (roomsToClear = []) => {
         if (!user?.uid)
             return;
@@ -4794,9 +4798,9 @@ function App() {
     const handleChatLauncherClick = () => {
         const nextOpen = !isChatListOpen;
         setIsChatListOpen(nextOpen);
-        if (nextOpen && hasUnreadChat) {
-            clearUnreadChatRooms(allChatRooms);
-        }
+        // ✅ 保留聊天室列表內每個對話的未讀紅點。
+        // 之前一打開訊息列表就把所有 unreadBy 清掉，會造成列表欄位內看不到哪一則未讀。
+        // 現在只在使用者點進單一聊天室時清除該對話未讀；列表打開時只隱藏浮動按鈕上的總紅點。
     };
     const handleDeleteChat = async (e, roomId) => {
         e.stopPropagation(); // 防止觸發開啟聊天室

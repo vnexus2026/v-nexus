@@ -658,10 +658,10 @@ const LazyImage = ({
     setHasError(!safeSrc);
 
     // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
-    // 導致 skeleton shimmer 永遠閃爍。超過時間後直接顯示灰色底，不再讓瀏覽器破圖 icon 出現。
+    // 導致 skeleton shimmer 永遠閃爍。超過時間後只停止閃爍，不把慢載入圖片誤判成壞圖。
+    // 真正讀取失敗仍交給 onError 統一改成灰色佔位。
     if (!safeSrc) return;
     const timer = setTimeout(() => {
-      setHasError(true);
       setLoaded(true);
     }, 9000);
 
@@ -1786,16 +1786,10 @@ const isVisible = (v, currentUser) => {
   if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
     return false;
 
-  // 修正：處理 Firebase Timestamp 物件轉換為數字
-  const getTime = (val) => {
-    if (!val) return Date.now();
-    if (typeof val === "number") return val;
-    if (val.toMillis) return val.toMillis();
-    return Date.now();
-  };
-
-  const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
-  if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
+  // ✅ 重要修正：不要再用「30 天未活躍」把公開名片從尋找 VTuber 夥伴頁隱藏。
+  // 之前這裡會讓較久沒有更新 / lastActiveAt 沒同步到 JSON 的名片被濾掉，
+  // 導致頁數從正常約 20 頁縮成 13 頁，看起來像沒有讀到全部名片。
+  // 「最近動態」排序仍會把活躍名片排前面，但不再把舊名片整個下架。
   return true;
 };
 
@@ -7395,6 +7389,7 @@ function App() {
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
   const [chatTarget, setChatTarget] = useState(null);
   const [allChatRooms, setAllChatRooms] = React.useState([]);
+  const clearedUnreadRoomIdsRef = useRef(new Set());
 
   useEffect(() => {
     if (!user) {
@@ -7406,7 +7401,19 @@ function App() {
       where("participants", "array-contains", user.uid),
     );
     const unsub = onSnapshot(q, (snap) => {
-      setAllChatRooms(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map((room) => {
+        if (!clearedUnreadRoomIdsRef.current.has(room.id)) return room;
+        const unreadBy = Array.isArray(room.unreadBy) ? room.unreadBy : [];
+        if (!unreadBy.includes(user.uid)) {
+          clearedUnreadRoomIdsRef.current.delete(room.id);
+          return room;
+        }
+        return {
+          ...room,
+          unreadBy: unreadBy.filter((uid) => uid !== user.uid),
+        };
+      });
+      setAllChatRooms(rooms);
     });
     return unsub;
   }, [user]);
@@ -7487,6 +7494,7 @@ function App() {
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const isFetchingJson = useRef(false);
+  const hasForcedGridVtuberJsonRefresh = useRef(false);
 
   const fetchPublicVtubersJson = async ({ force = false } = {}) => {
     if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
@@ -7515,27 +7523,69 @@ function App() {
     }
   };
 
+
+  useEffect(() => {
+    if (currentView !== "grid") return;
+    if (hasForcedGridVtuberJsonRefresh.current) return;
+    hasForcedGridVtuberJsonRefresh.current = true;
+
+    // ✅ 進入「尋找 VTuber 夥伴」時強制抓一次最新 Storage JSON。
+    // 這不會增加 Firestore reads，但可以避免手機/瀏覽器沿用舊 localStorage 快取，造成頁數少於實際名片數。
+    fetchPublicVtubersJson({ force: true }).catch((error) => {
+      console.warn("尋找 VTuber 夥伴頁強制更新公開 JSON 失敗，沿用目前快取：", error);
+    });
+  }, [currentView]);
+
+  const clearUnreadChatRooms = async (roomsToClear = []) => {
+    if (!user?.uid) return;
+    const unreadRooms = (Array.isArray(roomsToClear) ? roomsToClear : [])
+      .filter((room) => room?.id && Array.isArray(room.unreadBy) && room.unreadBy.includes(user.uid));
+
+    if (unreadRooms.length === 0) return;
+
+    const unreadRoomIds = new Set(unreadRooms.map((room) => room.id));
+    unreadRoomIds.forEach((roomId) => clearedUnreadRoomIdsRef.current.add(roomId));
+
+    // 先本地更新，讓手機點擊後紅點立即消失；資料庫同步在背景完成。
+    setAllChatRooms((prev) => prev.map((room) => {
+      if (!unreadRoomIds.has(room.id)) return room;
+      return {
+        ...room,
+        unreadBy: Array.isArray(room.unreadBy)
+          ? room.unreadBy.filter((uid) => uid !== user.uid)
+          : [],
+      };
+    }));
+
+    try {
+      const batch = writeBatch(db);
+      unreadRooms.forEach((room) => {
+        batch.update(doc(db, getPath("chat_rooms"), room.id), {
+          unreadBy: arrayRemove(user.uid),
+        });
+      });
+      await batch.commit();
+    } catch (e) {
+      console.error("Clear unread chats error:", e);
+    }
+  };
+
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
 
-    if (user) {
+    if (user?.uid && targetVtuber?.id) {
       const roomId = generateRoomId(user.uid, targetVtuber.id);
-      const roomRef = doc(
-        db,
-        `artifacts/${APP_ID}/public/data/chat_rooms`,
-        roomId,
-      );
-
-      // 從未讀名單中移除自己
-      try {
-        await updateDoc(roomRef, {
-          unreadBy: arrayRemove(user.uid),
-        });
-      } catch (e) {
-        console.error("Clear unread error:", e);
-      }
+      await clearUnreadChatRooms([{ id: roomId, unreadBy: [user.uid] }]);
     }
+  };
+
+  const handleChatLauncherClick = () => {
+    const nextOpen = !isChatListOpen;
+    setIsChatListOpen(nextOpen);
+    // ✅ 保留聊天室列表內每個對話的未讀紅點。
+    // 之前一打開訊息列表就把所有 unreadBy 清掉，會造成列表欄位內看不到哪一則未讀。
+    // 現在只在使用者點進單一聊天室時清除該對話未讀；列表打開時只隱藏浮動按鈕上的總紅點。
   };
   const handleDeleteChat = async (e, roomId) => {
     e.stopPropagation(); // 防止觸發開啟聊天室
@@ -13941,7 +13991,7 @@ function App() {
               </div>
             )}
             <button
-              onClick={() => setIsChatListOpen(!isChatListOpen)}
+              onClick={handleChatLauncherClick}
               className="bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative"
             >
               <i
