@@ -7,19 +7,17 @@
   <title>V-Nexus | 專為 VTuber 打造的聯動平台</title>
   <link rel="icon" href="https://duk.tw/u1jpPE.png">
 
-  <!-- Unbundled fast boot: warm up the biggest external resources before Babel starts compiling script.js. -->
+  <!-- Unbundled precompiled test: warm up the biggest external resources before compiled-script.js executes. -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="//firebasestorage.googleapis.com">
-  <link rel="preload" href="script.js" as="script">
+  <link rel="modulepreload" href="compiled-script.js">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
 
   <!-- Desktop premium font: mobile keeps original font to avoid layout shift -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -339,11 +337,11 @@
         if (loader) loader.style.display = "none";
       }, 220);
     };
-    // 未打包快速啟動版：loading 不再等 Babel/React 完整掛載，先讓使用者看到準備畫面。
+    // 未打包預編譯測試版：loading 不再等 React 完整掛載，先讓使用者看到準備畫面。
     setTimeout(window.__vnexusHideBootLoader, 650);
   </script>
 
-  <script src="script.js" type="text/babel" data-type="module"></script>
+  <script type="module" src="compiled-script.js"></script>
 
 </body>
 
