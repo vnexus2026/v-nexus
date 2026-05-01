@@ -599,11 +599,11 @@ const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) 
         setLoaded(false);
         setHasError(!safeSrc);
         // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
-        // 導致 skeleton shimmer 永遠閃爍。超過時間後直接顯示灰色底，不再讓瀏覽器破圖 icon 出現。
+        // 導致 skeleton shimmer 永遠閃爍。超過時間後只停止閃爍，不把慢載入圖片誤判成壞圖。
+        // 真正讀取失敗仍交給 onError 統一改成灰色佔位。
         if (!safeSrc)
             return;
         const timer = setTimeout(() => {
-            setHasError(true);
             setLoaded(true);
         }, 9000);
         return () => clearTimeout(timer);
@@ -4630,6 +4630,7 @@ function App() {
     const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
     const [chatTarget, setChatTarget] = useState(null);
     const [allChatRooms, setAllChatRooms] = React.useState([]);
+    const clearedUnreadRoomIdsRef = useRef(new Set());
     useEffect(() => {
         if (!user) {
             setAllChatRooms([]);
@@ -4637,7 +4638,20 @@ function App() {
         }
         const q = query(collection(db, getPath("chat_rooms")), where("participants", "array-contains", user.uid));
         const unsub = onSnapshot(q, (snap) => {
-            setAllChatRooms(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            const rooms = snap.docs.map((d) => ({ id: d.id, ...d.data() })).map((room) => {
+                if (!clearedUnreadRoomIdsRef.current.has(room.id))
+                    return room;
+                const unreadBy = Array.isArray(room.unreadBy) ? room.unreadBy : [];
+                if (!unreadBy.includes(user.uid)) {
+                    clearedUnreadRoomIdsRef.current.delete(room.id);
+                    return room;
+                }
+                return {
+                    ...room,
+                    unreadBy: unreadBy.filter((uid) => uid !== user.uid),
+                };
+            });
+            setAllChatRooms(rooms);
         });
         return unsub;
     }, [user]);
@@ -4736,21 +4750,52 @@ function App() {
             isFetchingJson.current = false;
         }
     };
+    const clearUnreadChatRooms = async (roomsToClear = []) => {
+        if (!user?.uid)
+            return;
+        const unreadRooms = (Array.isArray(roomsToClear) ? roomsToClear : [])
+            .filter((room) => room?.id && Array.isArray(room.unreadBy) && room.unreadBy.includes(user.uid));
+        if (unreadRooms.length === 0)
+            return;
+        const unreadRoomIds = new Set(unreadRooms.map((room) => room.id));
+        unreadRoomIds.forEach((roomId) => clearedUnreadRoomIdsRef.current.add(roomId));
+        // 先本地更新，讓手機點擊後紅點立即消失；資料庫同步在背景完成。
+        setAllChatRooms((prev) => prev.map((room) => {
+            if (!unreadRoomIds.has(room.id))
+                return room;
+            return {
+                ...room,
+                unreadBy: Array.isArray(room.unreadBy)
+                    ? room.unreadBy.filter((uid) => uid !== user.uid)
+                    : [],
+            };
+        }));
+        try {
+            const batch = writeBatch(db);
+            unreadRooms.forEach((room) => {
+                batch.update(doc(db, getPath("chat_rooms"), room.id), {
+                    unreadBy: arrayRemove(user.uid),
+                });
+            });
+            await batch.commit();
+        }
+        catch (e) {
+            console.error("Clear unread chats error:", e);
+        }
+    };
     const handleOpenChat = async (targetVtuber) => {
         setChatTarget(targetVtuber);
         setIsChatListOpen(false);
-        if (user) {
+        if (user?.uid && targetVtuber?.id) {
             const roomId = generateRoomId(user.uid, targetVtuber.id);
-            const roomRef = doc(db, `artifacts/${APP_ID}/public/data/chat_rooms`, roomId);
-            // 從未讀名單中移除自己
-            try {
-                await updateDoc(roomRef, {
-                    unreadBy: arrayRemove(user.uid),
-                });
-            }
-            catch (e) {
-                console.error("Clear unread error:", e);
-            }
+            await clearUnreadChatRooms([{ id: roomId, unreadBy: [user.uid] }]);
+        }
+    };
+    const handleChatLauncherClick = () => {
+        const nextOpen = !isChatListOpen;
+        setIsChatListOpen(nextOpen);
+        if (nextOpen && hasUnreadChat) {
+            clearUnreadChatRooms(allChatRooms);
         }
     };
     const handleDeleteChat = async (e, roomId) => {
@@ -8934,7 +8979,7 @@ function App() {
                         React.createElement("button", { onClick: () => setIsChatListOpen(false), className: "hover:bg-[#7C3AED] w-6 h-6 rounded-full flex items-center justify-center transition-colors" },
                             React.createElement("i", { className: "fa-solid fa-xmark" }))),
                     React.createElement(ChatListContent, { currentUser: user, vtubers: typeof realVtubers !== "undefined" ? realVtubers : [], onOpenChat: handleOpenChat, onDeleteChat: handleDeleteChat, allChatRooms: allChatRooms }))),
-                React.createElement("button", { onClick: () => setIsChatListOpen(!isChatListOpen), className: "bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative" },
+                React.createElement("button", { onClick: handleChatLauncherClick, className: "bg-[#8B5CF6] hover:bg-[#8B5CF6] text-white w-14 h-14 rounded-full shadow-sm flex items-center justify-center transition-transform border border-[#A78BFA]/30 relative" },
                     React.createElement("i", { className: `fa-solid ${isChatListOpen ? "fa-xmark text-xl" : "fa-message text-2xl"}` }),
                     !isChatListOpen && hasUnreadChat && (React.createElement("span", { className: "absolute -top-1 -right-1 flex h-5 w-5" },
                         React.createElement("span", { className: "animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" }),
