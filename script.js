@@ -7143,7 +7143,9 @@ const ChatListContent = ({
 }) => {
   const { onlineUsers } = useContext(AppContext);
   const [missingUsers, setMissingUsers] = useState({});
+  const [latestRoomPreviews, setLatestRoomPreviews] = useState({});
   const fetchedIds = useRef(new Set());
+  const fetchedPreviewKeys = useRef(new Set());
 
   useEffect(() => {
     allChatRooms.forEach((room) => {
@@ -7183,9 +7185,76 @@ const ChatListContent = ({
     });
   }, [allChatRooms, vtubers, currentUser.uid]);
 
-  const rooms = [...allChatRooms].sort(
-    (a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0),
-  );
+  // ✅ 修正聊天室列表最後訊息不同步：
+  // 舊版或異常流程可能只把 messages 子集合寫入成功，卻沒有同步更新 chat_rooms 主文件的 lastMessage。
+  // 因此列表打開時會讀取每個房間 messages 的最新一筆做畫面校正，必要時順手補回主文件。
+  useEffect(() => {
+    if (!currentUser?.uid || !Array.isArray(allChatRooms) || allChatRooms.length === 0) return;
+
+    let cancelled = false;
+
+    allChatRooms.forEach((room) => {
+      if (!room?.id) return;
+      const previewKey = `${room.id}:${room.lastTimestamp || 0}:${room.lastMessage || ""}`;
+      if (fetchedPreviewKeys.current.has(previewKey)) return;
+      fetchedPreviewKeys.current.add(previewKey);
+
+      const latestQuery = query(
+        collection(db, getMsgPath(room.id)),
+        orderBy("createdAt", "desc"),
+        limit(1),
+      );
+
+      getDocs(latestQuery)
+        .then(async (snap) => {
+          if (cancelled || snap.empty) return;
+          const latestDoc = snap.docs[0];
+          const latest = latestDoc.data() || {};
+          const latestText = typeof latest.text === "string" ? latest.text : "";
+          const latestTimestamp = Number(latest.createdAt || 0);
+          if (!latestText && !latestTimestamp) return;
+
+          setLatestRoomPreviews((prev) => ({
+            ...prev,
+            [room.id]: {
+              lastMessage: latestText || "（沒有文字訊息）",
+              lastTimestamp: latestTimestamp || Number(room.lastTimestamp || 0),
+            },
+          }));
+
+          const roomTimestamp = Number(room.lastTimestamp || 0);
+          const roomMessage = typeof room.lastMessage === "string" ? room.lastMessage : "";
+          const shouldRepairRoomDoc = latestTimestamp > roomTimestamp || (latestText && latestText !== roomMessage);
+
+          if (shouldRepairRoomDoc) {
+            try {
+              await updateDoc(doc(db, getPath("chat_rooms"), room.id), {
+                lastMessage: latestText || roomMessage || "（沒有文字訊息）",
+                lastTimestamp: latestTimestamp || Date.now(),
+              });
+            } catch (error) {
+              // 權限或網路失敗時只影響下次列表仍需校正，不影響使用者看最新訊息。
+              console.warn("聊天室最後訊息主文件同步失敗，已先用子集合最新訊息顯示：", error);
+            }
+          }
+        })
+        .catch((error) => {
+          console.warn("讀取聊天室最新訊息失敗：", error);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allChatRooms, currentUser?.uid]);
+
+  const getRoomPreview = (room) => latestRoomPreviews[room.id] || {};
+
+  const rooms = [...allChatRooms].sort((a, b) => {
+    const aPreview = getRoomPreview(a);
+    const bPreview = getRoomPreview(b);
+    return (Number(bPreview.lastTimestamp || b.lastTimestamp || 0)) - (Number(aPreview.lastTimestamp || a.lastTimestamp || 0));
+  });
 
   if (rooms.length === 0)
     return (
@@ -7216,6 +7285,9 @@ const ChatListContent = ({
 
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
         const isOnline = onlineUsers.has(target.id);
+        const preview = getRoomPreview(room);
+        const displayLastMessage = preview.lastMessage || room.lastMessage || "尚無訊息";
+        const displayLastTimestamp = preview.lastTimestamp || room.lastTimestamp;
 
         return (
           <div
@@ -7242,13 +7314,13 @@ const ChatListContent = ({
                   {target.name}
                 </span>
                 <span className="text-[10px] text-[#64748B]">
-                  {formatTime(room.lastTimestamp)}
+                  {formatTime(displayLastTimestamp)}
                 </span>
               </div>
               <p
                 className={`text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}`}
               >
-                {room.lastMessage}
+                {displayLastMessage}
               </p>
             </div>
 

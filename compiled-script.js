@@ -4466,7 +4466,9 @@ const getStableRandom = (id) => {
 const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allChatRooms, }) => {
     const { onlineUsers } = useContext(AppContext);
     const [missingUsers, setMissingUsers] = useState({});
+    const [latestRoomPreviews, setLatestRoomPreviews] = useState({});
     const fetchedIds = useRef(new Set());
+    const fetchedPreviewKeys = useRef(new Set());
     useEffect(() => {
         allChatRooms.forEach((room) => {
             // 🌟 核心修復 1：直接從 roomId 切割出雙方的 UID，不再依賴 participants 陣列
@@ -4503,7 +4505,68 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             }
         });
     }, [allChatRooms, vtubers, currentUser.uid]);
-    const rooms = [...allChatRooms].sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
+    // ✅ 修正聊天室列表最後訊息不同步：
+    // 舊版或異常流程可能只把 messages 子集合寫入成功，卻沒有同步更新 chat_rooms 主文件的 lastMessage。
+    // 因此列表打開時會讀取每個房間 messages 的最新一筆做畫面校正，必要時順手補回主文件。
+    useEffect(() => {
+        if (!currentUser?.uid || !Array.isArray(allChatRooms) || allChatRooms.length === 0)
+            return;
+        let cancelled = false;
+        allChatRooms.forEach((room) => {
+            if (!room?.id)
+                return;
+            const previewKey = `${room.id}:${room.lastTimestamp || 0}:${room.lastMessage || ""}`;
+            if (fetchedPreviewKeys.current.has(previewKey))
+                return;
+            fetchedPreviewKeys.current.add(previewKey);
+            const latestQuery = query(collection(db, getMsgPath(room.id)), orderBy("createdAt", "desc"), limit(1));
+            getDocs(latestQuery)
+                .then(async (snap) => {
+                if (cancelled || snap.empty)
+                    return;
+                const latestDoc = snap.docs[0];
+                const latest = latestDoc.data() || {};
+                const latestText = typeof latest.text === "string" ? latest.text : "";
+                const latestTimestamp = Number(latest.createdAt || 0);
+                if (!latestText && !latestTimestamp)
+                    return;
+                setLatestRoomPreviews((prev) => ({
+                    ...prev,
+                    [room.id]: {
+                        lastMessage: latestText || "（沒有文字訊息）",
+                        lastTimestamp: latestTimestamp || Number(room.lastTimestamp || 0),
+                    },
+                }));
+                const roomTimestamp = Number(room.lastTimestamp || 0);
+                const roomMessage = typeof room.lastMessage === "string" ? room.lastMessage : "";
+                const shouldRepairRoomDoc = latestTimestamp > roomTimestamp || (latestText && latestText !== roomMessage);
+                if (shouldRepairRoomDoc) {
+                    try {
+                        await updateDoc(doc(db, getPath("chat_rooms"), room.id), {
+                            lastMessage: latestText || roomMessage || "（沒有文字訊息）",
+                            lastTimestamp: latestTimestamp || Date.now(),
+                        });
+                    }
+                    catch (error) {
+                        // 權限或網路失敗時只影響下次列表仍需校正，不影響使用者看最新訊息。
+                        console.warn("聊天室最後訊息主文件同步失敗，已先用子集合最新訊息顯示：", error);
+                    }
+                }
+            })
+                .catch((error) => {
+                console.warn("讀取聊天室最新訊息失敗：", error);
+            });
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [allChatRooms, currentUser?.uid]);
+    const getRoomPreview = (room) => latestRoomPreviews[room.id] || {};
+    const rooms = [...allChatRooms].sort((a, b) => {
+        const aPreview = getRoomPreview(a);
+        const bPreview = getRoomPreview(b);
+        return (Number(bPreview.lastTimestamp || b.lastTimestamp || 0)) - (Number(aPreview.lastTimestamp || a.lastTimestamp || 0));
+    });
     if (rooms.length === 0)
         return (React.createElement("div", { className: "p-6 text-center text-[#94A3B8] text-sm" },
             React.createElement("p", { className: "text-[#F8FAFC] font-bold mb-1" }, "\u9019\u88E1\u9084\u6C92\u6709\u8A0A\u606F"),
@@ -4519,6 +4582,9 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             return (React.createElement("div", { key: room.id, className: "p-3 text-center text-gray-600 text-xs" }, "\u8F09\u5165\u5C0D\u8A71\u8CC7\u8A0A\u4E2D..."));
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
         const isOnline = onlineUsers.has(target.id);
+        const preview = getRoomPreview(room);
+        const displayLastMessage = preview.lastMessage || room.lastMessage || "尚無訊息";
+        const displayLastTimestamp = preview.lastTimestamp || room.lastTimestamp;
         return (React.createElement("div", { key: room.id, onClick: () => onOpenChat(target), 
             // 🌟 優化 1：加上 active:bg-[#181B25]，讓手機點擊時有按下去的視覺回饋
             className: "flex items-center gap-3 p-3 border-b border-[#2A2F3D] hover:bg-[#181B25] active:bg-[#181B25] cursor-pointer transition-colors group relative" },
@@ -4528,8 +4594,8 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             React.createElement("div", { className: "flex-1 min-w-0" },
                 React.createElement("div", { className: "flex justify-between items-center mb-1" },
                     React.createElement("span", { className: `text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-[#CBD5E1]"}` }, target.name),
-                    React.createElement("span", { className: "text-[10px] text-[#64748B]" }, formatTime(room.lastTimestamp))),
-                React.createElement("p", { className: `text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}` }, room.lastMessage)),
+                    React.createElement("span", { className: "text-[10px] text-[#64748B]" }, formatTime(displayLastTimestamp))),
+                React.createElement("p", { className: `text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}` }, displayLastMessage)),
             React.createElement("div", { className: "flex items-center gap-2" },
                 isUnread && (React.createElement("div", { className: "w-2 h-2 bg-[#EF4444] rounded-full shadow-sm" })),
                 React.createElement("button", { onClick: (e) => {
