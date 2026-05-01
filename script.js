@@ -4354,6 +4354,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     if (!requestForm.requestEndDate) return showToast("請選擇徵求截止日期，截止後委託名片會自動下架。");
     if (!requestForm.deadline) return showToast("請選擇希望完成日期");
     const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
+    if (selectedRequestStyles.length === 0) return showToast("請至少選擇一個喜歡的風格。");
     if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim()) return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
     const requestEndTime = getDateEndOfDayTime(requestForm.requestEndDate);
     const deadlineAt = getDateEndOfDayTime(requestForm.deadline);
@@ -4530,8 +4531,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             <h3 className="text-white text-xl font-extrabold mb-5">{requestForm.id ? "編輯委託需求" : "發布新的委託需求"}</h3>
             <div className="vnexus-request-form-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 *</label>
-                <input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 <span className="text-[#EF4444]">*</span></label>
+                <input required value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
               </div>
               <div className="vnexus-request-required-field">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型 <span className="text-[#EF4444]">*</span></label>
@@ -4551,7 +4552,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <input required type="date" value={requestForm.deadline} min={requestForm.requestEndDate || getDateInputValue(Date.now())} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
               </div>
               <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#94A3B8] text-xs font-normal">可多選</span></label>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#EF4444]">*</span> <span className="text-[#94A3B8] text-xs font-normal">可多選（至少選一樣）</span></label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {CREATOR_STYLE_OPTIONS.map((style) => {
                     const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
@@ -4586,8 +4587,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <input value={requestForm.referenceUrl} onChange={(e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value })} className={inputCls} placeholder="可放參考圖、影片或 Notion / X / Google Drive 連結" />
               </div>
               <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 *</label>
-                <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 <span className="text-[#EF4444]">*</span></label>
+                <textarea required value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
               </div>
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-5">
@@ -11995,7 +11996,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
+                  <h2 className="vnexus-bulletin-page-title text-4xl sm:text-5xl font-black text-white flex items-center gap-3 leading-tight">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
