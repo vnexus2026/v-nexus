@@ -64,61 +64,6 @@ const { useState, useEffect, useMemo, useRef, createContext, useContext } = Reac
 // 🌟 建立全域的 AppContext
 const AppContext = createContext(null);
 
-// ✅ 單一路由錯誤邊界：避免某個分頁初始化失敗時把整個網站變成白屏或純文字。
-class VnexusRouteErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, info) {
-    console.error("V-Nexus route render error:", error, info);
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
-      this.setState({ hasError: false, error: null });
-    }
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-12 min-h-[60vh] flex items-center justify-center">
-        <div className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-6 sm:p-8 text-center shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center mx-auto mb-4">
-            <i className="fa-solid fa-triangle-exclamation text-2xl"></i>
-          </div>
-          <h2 className="text-white text-2xl font-extrabold mb-2">{this.props.title || "此分頁暫時無法顯示"}</h2>
-          <p className="text-[#94A3B8] text-sm leading-relaxed mb-5">
-            已保護網站不會整站白屏。請重新整理，或先回首頁再進入此分頁。
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold transition-colors"
-            >
-              重新整理
-            </button>
-            <button
-              type="button"
-              onClick={this.props.onReset}
-              className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-3 rounded-xl font-bold transition-colors"
-            >
-              回首頁
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-}
-
 // --- V-Nexus 社群色彩系統 (UI/UX 調整基準) ---
 // 背景 #0F111A / #11131C，卡片 #181B25，hover #1D2130，分隔線 #2A2F3D
 // 主紫 #8B5CF6；資訊藍 #38BDF8；成功綠 #22C55E；警示黃 #F59E0B；危險紅 #EF4444
@@ -292,31 +237,6 @@ const ARTICLES_CACHE_TS = "vnexus_articles_ts";
 const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
 const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
 
-const safeJsonParse = (raw, fallback, storageKey = "") => {
-  if (typeof raw !== "string" || raw.trim() === "") return fallback;
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
-  } catch (error) {
-    console.warn(`⚠️ 快取資料解析失敗，已重置 ${storageKey || "unknown"}：`, error);
-    if (storageKey && typeof localStorage !== "undefined") {
-      try { localStorage.removeItem(storageKey); } catch (e) { }
-    }
-    return fallback;
-  }
-};
-
-const readLocalStorageJson = (storageKey, fallback) => {
-  if (typeof localStorage === "undefined") return fallback;
-  try {
-    return safeJsonParse(localStorage.getItem(storageKey), fallback, storageKey);
-  } catch (error) {
-    console.warn(`⚠️ localStorage 讀取失敗 ${storageKey}：`, error);
-    return fallback;
-  }
-};
-
-
 const getPath = (collectionName) =>
   `artifacts/${APP_ID}/public/data/${collectionName}`;
 
@@ -452,6 +372,64 @@ const initVnexusImageLoadingUX = (() => {
         .vnexus-drag-scroll.is-dragging {
           cursor: grabbing;
         }
+
+
+
+        /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
+        @media (max-width: 639px) {
+          .vnexus-commission-page * { box-sizing: border-box; }
+          .vnexus-commission-hero { width: 100% !important; background: #181B25 !important; border: 1px solid #2A2F3D !important; border-radius: 1.25rem !important; padding: 1rem !important; margin-bottom: 1.25rem !important; overflow: hidden !important; }
+          .vnexus-commission-hero > p:first-child { display: block !important; color: #38BDF8 !important; font-size: 10px !important; line-height: 1.25 !important; font-weight: 900 !important; letter-spacing: .18em !important; text-transform: uppercase !important; margin: 0 0 .5rem 0 !important; }
+          .vnexus-commission-hero > div { display: flex !important; flex-direction: column !important; gap: .75rem !important; }
+          .vnexus-commission-hero h2 { color: #fff !important; font-size: 1.5rem !important; line-height: 1.18 !important; font-weight: 950 !important; margin: 0 !important; letter-spacing: -.02em !important; }
+          .vnexus-commission-hero p:not(:first-child) { color: #94A3B8 !important; font-size: .875rem !important; line-height: 1.7 !important; margin: .5rem 0 0 0 !important; max-width: 100% !important; }
+          .vnexus-commission-hero-actions { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .5rem !important; width: 100% !important; }
+          .vnexus-commission-hero-actions button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 42px !important; border-radius: .875rem !important; border: 0 !important; padding: .625rem .75rem !important; font-size: .875rem !important; line-height: 1.2 !important; font-weight: 900 !important; white-space: nowrap !important; }
+          .vnexus-commission-controls { width: 100% !important; background: #11131C !important; border: 1px solid #2A2F3D !important; border-radius: 1.25rem !important; padding: .75rem !important; margin-bottom: 1rem !important; overflow: hidden !important; }
+          .vnexus-commission-controls-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; align-items: end !important; gap: .65rem !important; }
+          .vnexus-commission-controls-grid > div:first-child { grid-column: 1 / -1 !important; min-width: 0 !important; }
+          .vnexus-commission-controls p, .vnexus-commission-controls label { display: block !important; color: #94A3B8 !important; font-size: 10px !important; line-height: 1.25 !important; font-weight: 900 !important; letter-spacing: .14em !important; text-transform: uppercase !important; margin: 0 0 .45rem 0 !important; }
+          .vnexus-commission-role-row { display: flex !important; flex-wrap: nowrap !important; gap: .375rem !important; overflow-x: auto !important; overflow-y: hidden !important; padding: 0 .125rem .25rem .125rem !important; margin: 0 !important; scrollbar-width: none !important; }
+          .vnexus-commission-role-row::-webkit-scrollbar { display: none !important; }
+          .vnexus-commission-role-row button { flex: 0 0 auto !important; border-radius: 999px !important; border: 1px solid #2A2F3D !important; background: #181B25 !important; color: #CBD5E1 !important; padding: .45rem .7rem !important; font-size: 11px !important; line-height: 1.15 !important; font-weight: 900 !important; white-space: nowrap !important; }
+          .vnexus-commission-role-row button[class*="bg-[#38BDF8]"] { background: #38BDF8 !important; border-color: #38BDF8 !important; color: #0F111A !important; }
+          .vnexus-commission-controls select { display: block !important; width: 100% !important; height: 34px !important; border-radius: .875rem !important; border: 1px solid #2A2F3D !important; background: #181B25 !important; color: #fff !important; padding: .4rem .65rem !important; font-size: 12px !important; outline: none !important; }
+          .vnexus-commission-shuffle { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-width: 62px !important; height: 34px !important; border-radius: .875rem !important; border: 0 !important; background: #38BDF8 !important; color: #0F111A !important; padding: .45rem .75rem !important; font-size: 12px !important; line-height: 1.15 !important; font-weight: 950 !important; white-space: nowrap !important; }
+          .vnexus-floating-chat { position: fixed !important; inset: 0 !important; width: 100vw !important; max-width: none !important; height: 100dvh !important; max-height: none !important; border-radius: 0 !important; border-left: 0 !important; z-index: 9999 !important; transform: none !important; }
+        }
+
+        /* ✅ 手機版：繪師 / 建模師 / 剪輯師委託專區卡片排版（仿使用者提供截圖） */
+        @media (max-width: 639px) {
+          .vnexus-commission-page {
+            max-width: 100% !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+          }
+          .vnexus-commission-grid {
+            gap: 1rem !important;
+          }
+          .vnexus-creator-market-card {
+            border-radius: 1.5rem !important;
+            background: #151923 !important;
+            border-color: #2A2F3D !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,.18) !important;
+          }
+          .vnexus-creator-market-card > div:first-child {
+            aspect-ratio: 1 / 1 !important;
+            min-height: 0 !important;
+          }
+          .vnexus-creator-showcase-img {
+            opacity: .92 !important;
+            transform: none !important;
+          }
+          .vnexus-creator-market-card .line-clamp-4 {
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .vnexus-image-skeleton,
           img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
@@ -475,6 +453,12 @@ const initVnexusImageLoadingUX = (() => {
       const target = event.target;
       if (target && target.tagName === "IMG") {
         const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
+        // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
+        if (target.closest?.(".vnexus-creator-market-card")) {
+          target.classList.add("vnexus-image-error");
+          target.classList.remove("vnexus-image-loaded");
+          return;
+        }
         rememberBrokenImageUrl(failedSrc);
         target.classList.add("vnexus-image-error");
         target.classList.remove("vnexus-image-loaded");
@@ -521,126 +505,6 @@ const initVnexusImageLoadingUX = (() => {
 
 initVnexusImageLoadingUX();
 
-const initVnexusCommissionMobileUX = (() => {
-  let initialized = false;
-  return () => {
-    if (initialized || typeof document === "undefined") return;
-    initialized = true;
-
-    if (document.getElementById("vnexus-commission-mobile-style")) return;
-    const style = document.createElement("style");
-    style.id = "vnexus-commission-mobile-style";
-    style.textContent = `
-      .vnexus-commission-page,
-      .vnexus-commission-page * {
-        box-sizing: border-box;
-      }
-
-      .vnexus-commission-page {
-        width: 100%;
-        overflow-x: hidden;
-      }
-
-      .vnexus-commission-page img,
-      .vnexus-commission-page video,
-      .vnexus-commission-page canvas {
-        max-width: 100%;
-      }
-
-      .vnexus-commission-role-row,
-      .vnexus-commission-filter-scroll {
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-      }
-
-      .vnexus-commission-role-row::-webkit-scrollbar,
-      .vnexus-commission-filter-scroll::-webkit-scrollbar {
-        display: none;
-      }
-
-      @media (max-width: 639px) {
-        .vnexus-commission-hero {
-          width: 100%;
-          max-width: 100%;
-        }
-
-        .vnexus-commission-hero h2 {
-          overflow-wrap: anywhere;
-          line-height: 1.18;
-        }
-
-        .vnexus-commission-hero-actions {
-          display: grid !important;
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          width: 100%;
-        }
-
-        .vnexus-commission-hero-actions > * {
-          min-width: 0;
-          width: 100%;
-        }
-
-        .vnexus-commission-controls-grid {
-          display: grid !important;
-          grid-template-columns: minmax(0, 1fr) auto !important;
-          align-items: end;
-          width: 100%;
-        }
-
-        .vnexus-commission-controls-grid > :first-child {
-          grid-column: 1 / -1;
-          min-width: 0;
-        }
-
-        .vnexus-commission-controls-grid select {
-          min-width: 0;
-          max-width: 100%;
-        }
-
-        .vnexus-commission-shuffle {
-          min-width: 74px;
-        }
-
-        .vnexus-commission-result-count {
-          justify-content: flex-start !important;
-        }
-
-        .vnexus-commission-grid {
-          display: grid !important;
-          grid-template-columns: minmax(0, 1fr) !important;
-          gap: 1.25rem !important;
-          width: 100%;
-        }
-
-        .vnexus-creator-market-card {
-          display: flex !important;
-          flex-direction: column !important;
-          min-width: 0;
-          width: 100%;
-          max-width: 100%;
-          overflow: hidden;
-        }
-
-        .vnexus-creator-market-card [class*="line-clamp"] {
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .vnexus-creator-showcase-img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  };
-})();
-
-initVnexusCommissionMobileUX();
-
 const LazyImage = ({
   src,
   containerCls = "",
@@ -655,6 +519,15 @@ const LazyImage = ({
   useEffect(() => {
     setLoaded(false);
     setHasError(!safeSrc);
+
+    // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
+    // 導致 skeleton shimmer 永遠閃爍。超過時間只停止載入動畫，不判定壞圖、不移除圖片。
+    if (!safeSrc) return;
+    const timer = setTimeout(() => {
+      setLoaded(true);
+    }, 9000);
+
+    return () => clearTimeout(timer);
   }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
@@ -672,7 +545,7 @@ const LazyImage = ({
         <img
           src={safeSrc}
           alt={alt}
-          className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100 vnexus-image-loaded" : "opacity-0"} ${imgCls}`}
+          className={`relative z-10 w-full h-full object-cover transition-opacity duration-300 ease-out ${loaded ? "opacity-100" : "opacity-0"} ${imgCls}`}
           onLoad={(e) => {
             e.currentTarget.classList.add("vnexus-image-loaded");
             forgetBrokenImageUrl(safeSrc);
@@ -837,7 +710,7 @@ const FloatingChat = ({
     }
   };
   return (
-    <div className="fixed inset-0 sm:inset-y-4 sm:left-auto sm:right-4 z-[100] w-full sm:w-[380px] lg:w-[420px] h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#0F111A] border-l sm:border border-[#2A2F3D] sm:rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in-up">
+    <div className="vnexus-floating-chat fixed inset-0 sm:inset-y-4 sm:left-auto sm:right-4 z-[100] w-full sm:w-[380px] lg:w-[420px] h-[100dvh] sm:h-[calc(100vh-2rem)] bg-[#0F111A] border-l sm:border border-[#2A2F3D] sm:rounded-2xl shadow-xl flex flex-col overflow-hidden animate-fade-in-up">
       {/* Header */}
       <div className="bg-[#181B25] border-b border-[#2A2F3D] p-4 flex-shrink-0">
         <div className="flex justify-between items-start gap-3">
@@ -1009,11 +882,9 @@ const sanitizeUrl = (url) => {
     return "about:blank";
   }
 
-  // 圖片曾經載入失敗時，先不要再塞進 <img src>，避免重複 404/403 洗 console。
-  // 若原始網址後續修復，可在瀏覽器 Console 執行 vnexusClearBrokenImageCache() 後重新整理。
-  if (isKnownBrokenImageUrl(u)) return "";
-
-  // ✅ Storage / App Check 相容：保留 Firebase Storage download token，避免圖片 403。
+  // ✅ 手機版重新整理修正：不要因為一次暫時載入失敗就把圖片 URL 永久視為壞圖。
+  // 先前 isKnownBrokenImageUrl(u) 會讓 sanitizeUrl 回傳空字串，導致再次重新整理後頭像 / 作品圖直接消失。
+  // 這裡一律保留原始安全 URL，讓瀏覽器每次都能重新嘗試載入。
 
   return u;
 };
@@ -1350,7 +1221,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                   {a.coverUrl && (
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+                      <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
                       <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
@@ -1904,7 +1775,7 @@ const CollabCard = React.memo(({
           className="w-full h-full object-cover group-transition-transform duration-700"
           alt="聯動封面"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
+        <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
         <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-[#2A2F3D] text-white px-3 py-1.5 rounded-xl flex flex-col items-center shadow-sm transform -rotate-2">
           <span className="text-[10px] text-[#94A3B8] font-bold uppercase tracking-wider mb-0.5">
             {c.date}
@@ -2105,7 +1976,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
   return (
     <article
       onClick={onSelect}
-      className="vnexus-vtuber-card group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col"
+      className="group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col"
     >
       <div className="h-20 relative overflow-hidden bg-[#11131C] border-b border-[#2A2F3D]">
         <LazyImage
@@ -2117,7 +1988,7 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
         <div className="absolute inset-0 bg-[#0F111A]/35"></div>
       </div>
 
-      <div className="vnexus-vtuber-card-body p-4 flex-1 flex flex-col">
+      <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-start gap-3 -mt-10 mb-3 relative z-10">
           <LazyImage
             src={sanitizeUrl(v.avatar)}
@@ -4479,7 +4350,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const authorOf = (uid) => (realVtubers || []).find((v) => v.id === uid);
 
   return (
-    <div ref={commissionTopRef} className="vnexus-commission-page max-w-7xl mx-auto px-4 py-8 animate-fade-in-up min-h-[100dvh] overflow-x-hidden">
+    <div ref={commissionTopRef} className="vnexus-commission-page max-w-6xl mx-auto px-4 py-6 sm:py-10 animate-fade-in-up min-h-[100dvh] overflow-x-hidden">
       <div className="vnexus-commission-hero mb-5 sm:mb-8 bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-4 sm:p-8 shadow-sm">
         <p className="text-[10px] sm:text-xs font-bold text-[#38BDF8] tracking-[0.18em] uppercase mb-2 sm:mb-3">{isBoardOnly ? "Commission Board" : "Creator Market"}</p>
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-5">
@@ -4555,37 +4426,37 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               const creatorBudgetRange = normalizeCreatorBudgetRange(v.creatorBudgetRange);
               const displayStyles = creatorStyles.length > 0 ? creatorStyles : (Array.isArray(v.tags) ? v.tags : []);
               return <React.Fragment key={v.id}>
-                <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
-                <div className="aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
+                <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
-                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
-                    {creatorStatus && <span className="bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
+                  <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
+                  <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
+                    <div className="vnexus-critical-role-list flex flex-wrap gap-1.5 sm:gap-2 min-w-0 pr-1">{roles.map((role) => <span key={role} className="vnexus-critical-role-badge bg-[#38BDF8] text-[#0F111A] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold shadow-sm">{role}</span>)}</div>
+                    {creatorStatus && <span className="vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap">{creatorStatus}</span>}
                   </div>
-                  <div className="absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
+                  <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
                     <div className="flex items-end gap-3">
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+                      <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
+                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-white text-base sm:text-xl font-black truncate flex items-center gap-2 drop-shadow">{v.name || "未命名創作者"}{v.isVerified && <span className="text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full">已認證</span>}</h3>
-                        <p className="text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
+                        <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
+                        <p className="vnexus-critical-meta text-[#BAE6FD] text-xs font-bold mt-1 truncate">{roles.join(" / ") || "創作服務"}{creatorBudgetRange ? `｜${creatorBudgetRange}` : ""}</p>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <p className="hidden sm:block text-[#CBD5E1] text-sm leading-relaxed line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
-                  <div className="flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
+                <div className="vnexus-critical-body p-5 flex-1 flex flex-col">
+                  <p className="vnexus-critical-description block text-[#CBD5E1] text-sm sm:text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 mb-4 min-h-[4rem]">{v.description || "尚未填寫作品與委託說明，先看看他的名片了解更多。"}</p>
+                  <div className="vnexus-critical-style-tags flex flex-nowrap gap-2 mb-4 overflow-hidden min-h-[1.75rem]" title={displayStyles.length > 0 ? displayStyles.map((style) => style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style).join("、") : "尚未填寫風格"}>
                     {displayStyles.slice(0, 4).map((style) => <span key={style} className="bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 max-w-[7.5rem] truncate">{style === "其他(自由填寫)" && v.creatorOtherStyleText ? v.creatorOtherStyleText : style}</span>)}
                     {displayStyles.length > 4 && <span className="bg-[#38BDF8]/10 border border-[#38BDF8]/30 text-[#7DD3FC] px-2.5 py-1 rounded-full text-xs font-black whitespace-nowrap flex-shrink-0">+{displayStyles.length - 4}</span>}
                     {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0">尚未填寫風格</span>}
                   </div>
-                  <div className="mt-auto grid grid-cols-2 gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
-                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-1.5 sm:py-2 rounded-lg font-bold transition-colors text-[11px] sm:text-xs inline-flex items-center justify-center gap-1 sm:gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
+                  <div className="vnexus-critical-actions mt-auto grid grid-cols-2 gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }} className="vnexus-critical-primary-btn bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5"><i className="fa-regular fa-comment-dots"></i>私訊檔期</button>
+                    <button onClick={(e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }} className={`vnexus-critical-secondary-btn ${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5`}><i className="fa-solid fa-images"></i>觀看作品集</button>
                   </div>
                 </div>
               </article>
@@ -4701,7 +4572,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-4">
                     <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
-                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
                     </button>
                     <div className="min-w-0 flex-1">
                       <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
@@ -4739,7 +4610,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         <div className="flex -space-x-2">
                           {applicantProfiles.slice(0, 5).map((a) => (
                             <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
                             </button>
                           ))}
                           {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
@@ -5086,7 +4957,7 @@ const HomePage = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 onClick={() => goToBulletin ? goToBulletin() : navigate("bulletin")}
-                className="h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
+                className=" vnexus-mobile-bulletin-red-navh-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md"
               >
                 <i className="fa-solid fa-bullhorn mr-2"></i>揪團佈告欄
               </button>
@@ -5327,7 +5198,7 @@ const HomePage = ({
                 >
                   <div className="h-36 bg-[#11131C] overflow-hidden">
                     {v.banner ? (
-                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} />
                     ) : (
                       <div className="w-full h-full bg-[#1D2130]"></div>
                     )}
@@ -7176,19 +7047,10 @@ const ChatListContent = ({
 };
 
 function App() {
-  const getRouteFromLocation = () => {
-    const hash = (window.location.hash || "").replace(/^#/, "").replace(/^\/+|\/+$/g, "");
-    if (hash) return decodeURIComponent(hash);
-
-    const path = (window.location.pathname || "/").replace(/^\/+|\/+$/g, "");
-    if (path && !["index.html", "404.html"].includes(path)) return decodeURIComponent(path);
-    return "";
-  };
-
   const getInitialView = () => {
-    const route = getRouteFromLocation();
-    if (route.startsWith("profile/")) return "profile";
-    return route === "profile" ? "grid" : route || "home";
+    const hash = window.location.hash.replace("#", "");
+    if (hash.startsWith("profile/")) return "profile";
+    return hash === "profile" ? "grid" : hash || "home";
   };
 
   const [currentView, setCurrentView] = useState(getInitialView());
@@ -7196,7 +7058,8 @@ function App() {
   const [selectedVTuber, setSelectedVTuber] = useState(null);
   const [user, setUser] = useState(null);
   const [realVtubers, setRealVtubers] = useState(() => {
-    return readLocalStorageJson(VTUBER_CACHE_KEY, []);
+    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
+    return cached ? JSON.parse(cached) : [];
   });
   const isAdmin = user && user.email === "apex.dasa@gmail.com";
   const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
@@ -7211,7 +7074,11 @@ function App() {
   const [statusWallFilter, setStatusWallFilter] = useState("all");
   const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
   const [viewedStoryMap, setViewedStoryMap] = useState(() => {
-    return readLocalStorageJson("vnexus_viewed_status_stories", {});
+    try {
+      return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
+    } catch (error) {
+      return {};
+    }
   });
 
   const markStatusStoryViewed = (vtuber) => {
@@ -7372,8 +7239,8 @@ function App() {
     }
   }, [currentView, selectedVTuber]);
   const [profileIdFromHash, setProfileIdFromHash] = useState(() => {
-    const route = getRouteFromLocation();
-    return route.startsWith("profile/") ? route.split("/")[1] : null;
+    const hash = window.location.hash.replace("#", "");
+    return hash.startsWith("profile/") ? hash.split("/")[1] : null;
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -7397,7 +7264,10 @@ function App() {
   const [realUpdates, setRealUpdates] = useState([]);
   const [realCollabs, setRealCollabs] = useState([]);
   const [realArticles, setRealArticles] = useState(() => {
-    return readLocalStorageJson(ARTICLES_CACHE_KEY, []);
+    try {
+      const cached = localStorage.getItem(ARTICLES_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
   });
   const viewedArticles = useRef(new Set());
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
@@ -7610,7 +7480,7 @@ function App() {
 
   const [readUpdateIds, setReadUpdateIds] = useState(() => {
     try {
-      return readLocalStorageJson("readUpdates", []);
+      return JSON.parse(localStorage.getItem("readUpdates") || "[]");
     } catch {
       return [];
     }
@@ -7700,7 +7570,7 @@ function App() {
     const storageKey = `vnexus_views_${user.uid}`;
     let viewHistory = {};
     try {
-      viewHistory = readLocalStorageJson(storageKey, {});
+      viewHistory = JSON.parse(localStorage.getItem(storageKey)) || {};
     } catch (e) { }
 
     const lastViewed = viewHistory[id] || 0;
@@ -8031,23 +7901,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const handleRouteChange = () => {
-      const route = getRouteFromLocation();
-      if (route.startsWith("profile/")) {
-        setProfileIdFromHash(route.split("/")[1]);
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash.startsWith("profile/")) {
+        setProfileIdFromHash(hash.split("/")[1]);
         setCurrentView("profile");
       } else {
         setProfileIdFromHash(null);
-        setCurrentView(route === "profile" ? "grid" : route || "home");
+        setCurrentView(hash === "profile" ? "grid" : hash || "home");
       }
     };
-    handleRouteChange();
-    window.addEventListener("hashchange", handleRouteChange);
-    window.addEventListener("popstate", handleRouteChange);
-    return () => {
-      window.removeEventListener("hashchange", handleRouteChange);
-      window.removeEventListener("popstate", handleRouteChange);
-    };
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
   // 替換原本處理 profileIdFromHash 的 useEffect
@@ -8295,9 +8161,9 @@ function App() {
 
         // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
         if (isBCacheValid && isCCacheValid && isUCacheValid) {
-          setRealBulletins(safeJsonParse(bCache, [], BULLETINS_CACHE_KEY));
-          setRealCollabs(safeJsonParse(cCache, [], COLLABS_CACHE_KEY));
-          setRealUpdates(safeJsonParse(uCache, [], "vnexus_updates_data")); // 👈 直接從快取拿，徹底解決閉包問題
+          setRealBulletins(JSON.parse(bCache));
+          setRealCollabs(JSON.parse(cCache));
+          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
           setIsLoadingActivities(false);
         } else {
           setIsLoadingActivities(true);
@@ -8344,7 +8210,7 @@ function App() {
       const forceRefresh = currentView === "admin";
 
       if (isACacheValid && !forceRefresh) {
-        setRealArticles(safeJsonParse(aCache, [], ARTICLES_CACHE_KEY));
+        setRealArticles(JSON.parse(aCache));
         return;
       }
 
@@ -11105,43 +10971,31 @@ function App() {
           )}
 
           {currentView === "commissions" && (
-            <VnexusRouteErrorBoundary
-              resetKey={currentView}
-              title="委託專區暫時無法顯示"
-              onReset={() => navigate("home")}
-            >
-              <CommissionPlanningPage
-                mode="creators"
-                navigate={navigate}
-                realVtubers={realVtubers}
-                onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                onOpenChat={(v) => {
-                  if (!user) return showToast("請先登入！");
-                  if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                  setChatTarget(v);
-                }}
-              />
-            </VnexusRouteErrorBoundary>
+            <CommissionPlanningPage
+              mode="creators"
+              navigate={navigate}
+              realVtubers={realVtubers}
+              onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+              onOpenChat={(v) => {
+                if (!user) return showToast("請先登入！");
+                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                setChatTarget(v);
+              }}
+            />
           )}
 
           {currentView === "commission-board" && (
-            <VnexusRouteErrorBoundary
-              resetKey={currentView}
-              title="委託佈告欄暫時無法顯示"
-              onReset={() => navigate("home")}
-            >
-              <CommissionPlanningPage
-                mode="board"
-                navigate={navigate}
-                realVtubers={realVtubers}
-                onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                onOpenChat={(v) => {
-                  if (!user) return showToast("請先登入！");
-                  if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
-                  setChatTarget(v);
-                }}
-              />
-            </VnexusRouteErrorBoundary>
+            <CommissionPlanningPage
+              mode="board"
+              navigate={navigate}
+              realVtubers={realVtubers}
+              onNavigateProfile={(v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+              onOpenChat={(v) => {
+                if (!user) return showToast("請先登入！");
+                if (!isVerifiedUser) return showToast("需通過認證才能發送私訊！");
+                setChatTarget(v);
+              }}
+            />
           )}
 
           {currentView === "dashboard" && (
@@ -11265,14 +11119,9 @@ function App() {
           )}
 
           {currentView === "grid" && (
-            <VnexusRouteErrorBoundary
-              resetKey={currentView}
-              title="尋找 VTuber 夥伴暫時無法顯示"
-              onReset={() => navigate("home")}
-            >
-              <div id="vtuber-partner-page-top" className="vnexus-vtuber-page max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
+            <div id="vtuber-partner-page-top" className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up">
               <aside
-                className={`vnexus-vtuber-filter w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
+                className={`w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}`}
               >
                 <div className="hidden lg:block relative">
                   <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"></i>
@@ -11428,8 +11277,8 @@ function App() {
                   </div>
                 </div>
               </aside>
-              <div className="vnexus-vtuber-main flex-1">
-                <div className="vnexus-vtuber-toolbar flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
+              <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:items-center justify-between gap-4 mb-6">
                   <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                       尋找 VTuber 夥伴{" "}
@@ -11539,7 +11388,7 @@ function App() {
                   </p>
                 ) : (
                   <>
-                    <div className="vnexus-vtuber-card-grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {paginatedVTubers.map((v) => (
                         <VTuberCard
                           key={v.id}
@@ -11593,8 +11442,7 @@ function App() {
                   </>
                 )}
               </div>
-              </div>
-            </VnexusRouteErrorBoundary>
+            </div>
           )}
 
           {currentView === "profile" && !selectedVTuber && isLoading && (
@@ -12085,7 +11933,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className="text-3xl font-extrabold text-white flex items-center gap-3">
+                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
