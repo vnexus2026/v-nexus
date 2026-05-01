@@ -225,6 +225,20 @@ const APP_ID = "v-nexus-official";
 const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
 const VTUBER_CACHE_KEY = "vnexus_vtubers_data";
 const VTUBER_CACHE_TS = "vnexus_vtubers_ts";
+// ✅ VTuber 名片清單原本應有 24 頁；若快取 / 公開 JSON 只剩 13 頁等不完整狀態，前端會強制重抓完整名單。
+const VTUBER_GRID_ITEMS_PER_PAGE = 18;
+const VTUBER_EXPECTED_MIN_PAGE_COUNT = 24;
+const getVtuberPageCount = (list, itemsPerPage = VTUBER_GRID_ITEMS_PER_PAGE) => Math.max(1, Math.ceil((Array.isArray(list) ? list.length : 0) / itemsPerPage));
+const isVtuberListUnexpectedlyShort = (list) => Array.isArray(list) && list.length > 0 && getVtuberPageCount(list) < VTUBER_EXPECTED_MIN_PAGE_COUNT;
+const readCachedVtuberListSafely = () => {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const cached = JSON.parse(localStorage.getItem(VTUBER_CACHE_KEY) || "[]");
+    return Array.isArray(cached) ? cached : [];
+  } catch (error) {
+    return [];
+  }
+};
 const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
 const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
 const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
@@ -1222,7 +1236,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                     <div className="h-40 overflow-hidden relative">
                       <img src={sanitizeUrl(a.coverUrl)} className="w-full h-full object-cover group-transition-transform duration-500" />
                       <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent"></div>
-                      <span className="absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
+                      <span className="vnexus-article-category-badge absolute bottom-2 left-3 z-20 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow">{a.category}</span>
                     </div>
                   )}
                   <div className="p-3 sm:p-5 flex-1 flex flex-col">
@@ -1659,8 +1673,8 @@ const isVisible = (v, currentUser) => {
     return Date.now();
   };
 
-  const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
-  if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
+  // ✅ 名片清單恢復原本完整頁數：不再因 30 天未更新就把已認證名片整張隱藏。
+  // 休息 / 畢業 / 黑名單仍維持不顯示，這裡只移除「近期活躍」造成 24 頁縮成 13 頁的前端顯示限制。
   return true;
 };
 
@@ -4642,17 +4656,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   );
 };
 
-// Shared helper for status/story previews. Keep this outside App so HomePage can use it before App props are created.
-const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
-  const raw = String(vtuber?.statusMessage || "")
-    .replace(/^🔴\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!raw) return fallback;
-  const chars = Array.from(raw);
-  return chars.length > 10 ? chars.slice(0, 10).join("") + "…" : raw;
-};
-
 const HomePage = ({
   navigate,
   onOpenRules,
@@ -5020,7 +5023,6 @@ const HomePage = ({
                 <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-1">
                   {activeStatuses.map((v) => {
                     const isLiveMsg = String(v.statusMessage || "").includes("🔴");
-                    const previewText = getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態");
                     return (
                       <button
                         key={`home-story-${v.id}`}
@@ -5028,7 +5030,7 @@ const HomePage = ({
                           setSelectedVTuber(v);
                           navigate(`profile/${v.id}`);
                         }}
-                        className="flex-shrink-0 w-20 text-center group"
+                        className="flex-shrink-0 w-14 text-center group"
                         title={v.statusMessage}
                       >
                         <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
@@ -5042,7 +5044,6 @@ const HomePage = ({
                           </div>
                         </div>
                         <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
-                        <p className="text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight" title={previewText}>{previewText}</p>
                       </button>
                     );
                   })}
@@ -7078,51 +7079,6 @@ function App() {
   const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
   const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
 
-  const vtuberById = useMemo(() => {
-    const map = new Map();
-    (realVtubers || []).forEach((v) => {
-      if (v?.id) map.set(String(v.id), v);
-    });
-    return map;
-  }, [realVtubers]);
-
-  const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
-    const raw = String(vtuber?.statusMessage || "")
-      .replace(/^🔴\s*/, "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!raw) return fallback;
-    const chars = Array.from(raw);
-    return chars.length > 10 ? `${chars.slice(0, 10).join("")}…` : raw;
-  };
-
-  const getReactionUsers = (ids = []) => {
-    const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).filter(Boolean).map((id) => String(id)))];
-    return uniqueIds.map((uid) => {
-      const profile = vtuberById.get(uid);
-      return {
-        uid,
-        name: profile?.name || (uid === user?.uid ? myProfile?.name : "創作者"),
-        avatar: profile?.avatar || "",
-      };
-    });
-  };
-
-  const renderReactionUserLine = (label, users, colorClass = "text-[#CBD5E1]") => {
-    if (!users || users.length === 0) return null;
-    const names = users.map((u) => u.name).filter(Boolean);
-    const visibleNames = names.slice(0, 6).join("、");
-    const moreCount = Math.max(0, names.length - 6);
-    return (
-      <div className="flex flex-wrap items-center gap-1 text-[11px] leading-relaxed text-[#94A3B8]">
-        <span className={`font-extrabold ${colorClass}`}>{label}</span>
-        <span className="break-words">
-          {visibleNames}{moreCount > 0 ? ` 等 ${names.length} 人` : ""}
-        </span>
-      </div>
-    );
-  };
-
 
 
   // 🌟 新增：限時動態 (Stories) 狀態
@@ -8182,6 +8138,11 @@ function App() {
         // 🌟 關鍵修復 3：預設快取 24 小時。
         // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
         let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
+        const cachedVtubers = readCachedVtuberListSafely();
+        if (isVtuberListUnexpectedlyShort(cachedVtubers)) {
+          console.warn(`⚠️ 本機名片快取只有 ${getVtuberPageCount(cachedVtubers)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁，將重抓完整名單。`);
+          isExpired = true;
+        }
 
         // 管理員進入後台時，確保擁有包含待審核的完整資料
         const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
@@ -8950,7 +8911,7 @@ function App() {
     shuffleSeed,
   ]);
 
-  const ITEMS_PER_PAGE = 18;
+  const ITEMS_PER_PAGE = VTUBER_GRID_ITEMS_PER_PAGE;
   const totalPages = Math.max(
     1,
     Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE),
@@ -11371,7 +11332,7 @@ function App() {
                     </h2>
                     <button
                       onClick={() => setIsTipsModalOpen(true)}
-                      className="bg-[#F59E0B]/10 text-[#F59E0B] px-3 py-1.5 rounded-lg text-sm font-bold"
+                      className="vnexus-grid-btn-tips bg-[#F59E0B]/10 text-[#F59E0B] px-3 py-1.5 rounded-lg text-sm font-bold"
                     >
                       <i className="fa-solid fa-lightbulb"></i> 邀約小技巧
                     </button>
@@ -11387,7 +11348,7 @@ function App() {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                         showToast("🎲 已重新洗牌名片順序！");
                       }}
-                      className="bg-[#8B5CF6]/10 text-[#A78BFA] hover:bg-[#8B5CF6] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#8B5CF6]/20"
+                      className="vnexus-grid-btn-shuffle bg-[#8B5CF6]/10 text-[#A78BFA] hover:bg-[#8B5CF6] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#8B5CF6]/20"
                     >
                       <i className="fa-solid fa-shuffle mr-1"></i> 重新洗牌
                     </button>
@@ -11402,17 +11363,17 @@ function App() {
                           navigate("match");
                         }
                       }}
-                      className="bg-pink-500/10 text-pink-400 hover:bg-pink-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-pink-500/20"
+                      className="vnexus-grid-btn-match bg-pink-500/10 text-pink-400 hover:bg-pink-500 hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-pink-500/20"
                     >
                       <i className="fa-solid fa-dice mr-1"></i> 聯動隨機配對 {!isVerifiedUser && " 🔒"}
                     </button>
 
-                    <button onClick={() => navigate('blacklist')} className="bg-[#3B171D]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#EF4444]/50">
+                    <button onClick={() => navigate('blacklist')} className="vnexus-grid-btn-blacklist bg-[#3B171D]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#EF4444]/50">
                       <i className="fa-solid fa-ban mr-1"></i> 黑單避雷區
                     </button>
                     <button
                       onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
-                      className="lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
+                      className="vnexus-grid-btn-filter lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors"
                     >
                       <i className="fa-solid fa-filter"></i> 篩選
                     </button>
@@ -12007,7 +11968,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
+                  <h2 className="vnexus-bulletin-title text-2xl font-bold text-white flex items-center gap-2">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
@@ -12853,12 +12814,11 @@ function App() {
                         const titleText = hasActiveStory
                           ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                           : `${v.name || '創作者'} 最近更新了名片資料`;
-                        const previewText = hasActiveStory ? getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態") : "最近更新";
                         return (
                           <button
                             key={`story-ring-${v.id}`}
                             onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                            className="flex-shrink-0 w-20 text-center group"
+                            className="flex-shrink-0 w-16 text-center group"
                             title={titleText}
                           >
                             <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
@@ -12867,7 +12827,6 @@ function App() {
                               </div>
                             </div>
                             <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
-                            <p className="text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight" title={previewText}>{previewText}</p>
                           </button>
                         );
                       })
@@ -12961,10 +12920,8 @@ function App() {
                   ) : (
                     activeStoryUsers.map((v) => {
                       const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                      const plusUsers = getReactionUsers(v.statusReactions?.plus_one || []);
-                      const fireUsers = getReactionUsers(v.statusReactions?.fire || []);
-                      const plusCount = plusUsers.length;
-                      const fireCount = fireUsers.length;
+                      const plusCount = v.statusReactions?.plus_one?.length || 0;
+                      const fireCount = v.statusReactions?.fire?.length || 0;
                       const displayMessage = String(v.statusMessage || "").replace(/^🔴\s*/, "").trim();
                       const commentKey = `${v.id}_${Number(v.statusMessageUpdatedAt || 0)}`;
                       const isCommentsOpen = !!openStatusCommentKeys[commentKey];
@@ -13044,13 +13001,6 @@ function App() {
                                   </button>
                                 )}
                               </div>
-
-                              {(fireCount > 0 || plusCount > 0) && (
-                                <div className="mt-2 space-y-1 rounded-xl border border-[#2A2F3D]/70 bg-[#11131C]/70 px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                                  {renderReactionUserLine("🔥 幫推", fireUsers, "text-[#FCD34D]")}
-                                  {renderReactionUserLine("👋 +1", plusUsers, "text-[#C4B5FD]")}
-                                </div>
-                              )}
 
                               {isCommentsOpen && (
                                 <StatusCommentsBox

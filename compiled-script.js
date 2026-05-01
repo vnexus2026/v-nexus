@@ -3,11 +3,8 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc, orderBy, limit, writeBatch, deleteField, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
 import { getFunctions, httpsCallable, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-// --- 務必確認這行有在頂部 ---
-import { getMessaging, getToken, onMessage, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 import { getStorage, ref, uploadString, getDownloadURL, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 // --------------------------------------------------
 // 🌟 引入 createContext 與 useContext
 const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
@@ -106,14 +103,8 @@ catch (error) {
     console.warn("App Check:", error);
 }
 const auth = getAuth(app);
-// 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
-let analytics = null;
-try {
-    analytics = getAnalytics(app);
-}
-catch (error) {
-    console.warn("Analytics 初始化被阻擋:", error);
-}
+// ✅ 未打包快速啟動版：把非首屏模組延後到瀏覽器空閒時才初始化。
+// 這不改 Firebase / Firestore / Functions 安全邏輯，只避免首頁一進站就載入 Analytics 與 FCM Messaging。
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
@@ -121,50 +112,208 @@ const db = initializeFirestore(app, {
 });
 const storage = getStorage(app);
 const functionsInstance = getFunctions(app);
-// ✅ 前景推播監聽：App 開著時收到訊息，也能即時顯示通知
-let messagingInstance = null;
-try {
-    messagingInstance = getMessaging(app);
-    onMessage(messagingInstance, (payload) => {
-        const title = payload.notification?.title || "V-Nexus 通知";
-        const body = payload.notification?.body || "";
-        const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
-        // 如果瀏覽器已授權通知權限，就顯示原生通知泡泡
-        if (Notification.permission === "granted") {
-            new Notification(title, {
-                body: body,
-                icon: icon,
-                badge: "https://duk.tw/u1jpPE.png",
-                vibrate: [200, 100, 200],
+const runWhenIdle = (callback, timeout = 1800) => {
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        return window.requestIdleCallback(callback, { timeout });
+    }
+    return setTimeout(callback, Math.min(timeout, 1200));
+};
+let analytics = null;
+let analyticsLogEvent = null;
+let analyticsImportPromise = null;
+const pendingAnalyticsEvents = [];
+const initDeferredAnalytics = () => {
+    if (analyticsImportPromise)
+        return analyticsImportPromise;
+    analyticsImportPromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js")
+        .then(({ getAnalytics, logEvent }) => {
+        try {
+            analytics = getAnalytics(app);
+            analyticsLogEvent = logEvent;
+            pendingAnalyticsEvents.splice(0).forEach(({ name, params }) => {
+                try {
+                    analyticsLogEvent(analytics, name, params);
+                }
+                catch (error) { }
             });
+            console.info("✅ Analytics 已延後初始化");
         }
-        else {
-            // 沒有通知權限時，退而求其次在 console 記錄
-            // （你也可以在這裡改成呼叫 showToast，但 showToast 在這個作用域外，建議用 console）
-            console.info(`📨 前景推播收到：${title} - ${body}`);
+        catch (error) {
+            console.warn("Analytics 初始化被阻擋:", error);
         }
+    })
+        .catch((error) => console.warn("Analytics 模組延後載入失敗:", error));
+    return analyticsImportPromise;
+};
+const trackAnalyticsEvent = (name, params = {}) => {
+    if (analytics && analyticsLogEvent) {
+        try {
+            analyticsLogEvent(analytics, name, params);
+        }
+        catch (error) { }
+        return;
+    }
+    if (pendingAnalyticsEvents.length < 25)
+        pendingAnalyticsEvents.push({ name, params });
+    runWhenIdle(() => initDeferredAnalytics(), 2600);
+};
+let messagingInstance = null;
+let messagingModulePromise = null;
+let foregroundMessagingStarted = false;
+const loadMessagingModule = () => {
+    if (!messagingModulePromise) {
+        messagingModulePromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js");
+    }
+    return messagingModulePromise;
+};
+const initForegroundMessaging = async () => {
+    if (foregroundMessagingStarted)
+        return messagingInstance;
+    if (typeof window === "undefined" || !("Notification" in window))
+        return null;
+    // 沒授權通知前不需要初始化 FCM 前景監聽，避免首頁首屏多載入一包 messaging SDK。
+    if (Notification.permission !== "granted")
+        return null;
+    try {
+        const { getMessaging, onMessage } = await loadMessagingModule();
+        messagingInstance = getMessaging(app);
+        onMessage(messagingInstance, (payload) => {
+            const title = payload.notification?.title || "V-Nexus 通知";
+            const body = payload.notification?.body || "";
+            const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
+            if (Notification.permission === "granted") {
+                new Notification(title, {
+                    body,
+                    icon,
+                    badge: "https://duk.tw/u1jpPE.png",
+                    vibrate: [200, 100, 200],
+                });
+            }
+            else {
+                console.info(`📨 前景推播收到：${title} - ${body}`);
+            }
+        });
+        foregroundMessagingStarted = true;
+        console.info("✅ FCM 前景推播監聽已延後啟動");
+    }
+    catch (error) {
+        console.warn("⚠️ Messaging 延後初始化失敗（可能是瀏覽器不支援或被封鎖）:", error);
+    }
+    return messagingInstance;
+};
+let serviceWorkerRegistrationPromise = null;
+const registerVnexusServiceWorker = () => {
+    if (!("serviceWorker" in navigator))
+        return Promise.resolve(null);
+    if (serviceWorkerRegistrationPromise)
+        return serviceWorkerRegistrationPromise;
+    serviceWorkerRegistrationPromise = navigator.serviceWorker
+        .register("/firebase-messaging-sw.js")
+        .then((reg) => {
+        console.log("SW 延後註冊成功:", reg.scope);
+        return reg;
+    })
+        .catch((err) => {
+        console.error("SW 延後註冊失敗:", err);
+        return null;
     });
-    console.info("✅ FCM 前景推播監聽已啟動");
-}
-catch (e) {
-    console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
-}
+    return serviceWorkerRegistrationPromise;
+};
+// 首屏出來後再補 Analytics / 已授權推播監聽 / Service Worker。
+runWhenIdle(() => initDeferredAnalytics(), 2600);
+runWhenIdle(() => initForegroundMessaging(), 3200);
+runWhenIdle(() => registerVnexusServiceWorker(), 3600);
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
 const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
 const VTUBER_CACHE_KEY = "vnexus_vtubers_data";
 const VTUBER_CACHE_TS = "vnexus_vtubers_ts";
-const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
-const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
-const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
+const PUBLIC_VTUBERS_JSON_URL = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+const PUBLIC_VTUBER_CACHE_LIMIT = 5 * 60 * 1000; // 公開名片 JSON 5 分鐘內不重複抓；Storage 無 Firestore reads 成本。
+// ✅ VTuber 名片清單原本應有 24 頁；若公開 JSON / 快取只有 13 頁等不完整狀態，不覆蓋完整資料並改走 Firestore 備援。
+const VTUBER_GRID_ITEMS_PER_PAGE = 18;
+const VTUBER_EXPECTED_MIN_PAGE_COUNT = 24;
+const getVtuberPageCount = (list, itemsPerPage = VTUBER_GRID_ITEMS_PER_PAGE) => Math.max(1, Math.ceil((Array.isArray(list) ? list.length : 0) / itemsPerPage));
+const isVtuberListUnexpectedlyShort = (list) => Array.isArray(list) && list.length > 0 && getVtuberPageCount(list) < VTUBER_EXPECTED_MIN_PAGE_COUNT;
+const STATS_CACHE_KEY = "vnexus_stats_data";
+const STATS_CACHE_TS = "vnexus_stats_ts";
+const STATS_CACHE_LIMIT = 30 * 60 * 1000; // 統計/廣播資料 30 分鐘快取；不再每個使用者長時間監聽。
 const BULLETINS_CACHE_KEY = "vnexus_bulletins_data";
 const BULLETINS_CACHE_TS = "vnexus_bulletins_ts";
 const COLLABS_CACHE_KEY = "vnexus_collabs_data";
 const COLLABS_CACHE_TS = "vnexus_collabs_ts";
+const UPDATES_CACHE_KEY = "vnexus_updates_data";
+const UPDATES_CACHE_TS = "vnexus_updates_ts";
 const ARTICLES_CACHE_KEY = "vnexus_articles_data";
 const ARTICLES_CACHE_TS = "vnexus_articles_ts";
-const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
-const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
+const SETTINGS_CACHE_KEY = "vnexus_settings_data";
+const SETTINGS_CACHE_TS = "vnexus_settings_ts";
+const ACTIVITY_CACHE_LIMIT = 5 * 60 * 1000; // 首頁活動 / 揪團 / 聯動：5 分鐘快取。
+const ARTICLES_CACHE_LIMIT = 60 * 60 * 1000; // 文章 / 公告：1 小時快取。
+const SETTINGS_CACHE_LIMIT = 60 * 60 * 1000; // 站規 / 邀約小技巧 / 預設圖：1 小時快取。
+const safeJsonParse = (raw, fallback = null) => {
+    if (!raw || typeof raw !== "string")
+        return fallback;
+    try {
+        return JSON.parse(raw);
+    }
+    catch (error) {
+        return fallback;
+    }
+};
+const readLocalCache = (key, fallback = null) => {
+    if (typeof localStorage === "undefined")
+        return fallback;
+    return safeJsonParse(localStorage.getItem(key), fallback);
+};
+const writeLocalCache = (key, value) => {
+    if (typeof localStorage === "undefined")
+        return false;
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+    }
+    catch (error) {
+        console.warn(`寫入快取失敗：${key}`, error);
+        return false;
+    }
+};
+const removeLocalCache = (...keys) => {
+    if (typeof localStorage === "undefined")
+        return;
+    keys.forEach((key) => {
+        try {
+            localStorage.removeItem(key);
+        }
+        catch (error) { }
+    });
+};
+const readCacheTimestamp = (key) => {
+    if (typeof localStorage === "undefined")
+        return 0;
+    const value = Number(localStorage.getItem(key) || 0);
+    return Number.isFinite(value) ? value : 0;
+};
+const isCacheFresh = (tsKey, maxAgeMs) => {
+    const ts = readCacheTimestamp(tsKey);
+    return Boolean(ts && Date.now() - ts < maxAgeMs);
+};
+const markCacheTimestamp = (key, timestamp = Date.now()) => {
+    if (typeof localStorage === "undefined")
+        return;
+    try {
+        localStorage.setItem(key, String(timestamp));
+    }
+    catch (error) { }
+};
+const getCachedArray = (dataKey, tsKey = null) => {
+    const data = readLocalCache(dataKey, []);
+    if (!Array.isArray(data)) {
+        removeLocalCache(dataKey, ...(tsKey ? [tsKey] : []));
+        return [];
+    }
+    return data;
+};
 const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectionName}`;
 const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join("_");
 const getRoomPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}`;
@@ -908,7 +1057,7 @@ const ArticlesPage = ({ articles, onPublish, onDelete, onIncrementView }) => {
                     a.coverUrl && (React.createElement("div", { className: "h-40 overflow-hidden relative" },
                         React.createElement("img", { src: sanitizeUrl(a.coverUrl), className: "w-full h-full object-cover group-transition-transform duration-500" }),
                         React.createElement("div", { className: "vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-gray-950/70 to-transparent" }),
-                        React.createElement("span", { className: "absolute bottom-2 left-3 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow" }, a.category))),
+                        React.createElement("span", { className: "vnexus-article-category-badge absolute bottom-2 left-3 z-20 bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow" }, a.category))),
                     React.createElement("div", { className: "p-3 sm:p-5 flex-1 flex flex-col" },
                         !a.coverUrl && React.createElement("span", { className: "bg-[#38BDF8] text-[#0F111A] text-[10px] font-bold px-2 py-0.5 rounded shadow w-fit mb-2" }, a.category),
                         React.createElement("h3", { className: "font-bold text-white text-lg mb-2 line-clamp-2 group-hover:text-[#38BDF8] transition-colors" }, a.title),
@@ -1292,19 +1441,9 @@ const isVisible = (v, currentUser) => {
         return false;
     if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
         return false;
-    // 修正：處理 Firebase Timestamp 物件轉換為數字
-    const getTime = (val) => {
-        if (!val)
-            return Date.now();
-        if (typeof val === "number")
-            return val;
-        if (val.toMillis)
-            return val.toMillis();
-        return Date.now();
-    };
-    const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
-    if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000)
-        return false;
+    // ✅ 重要：尋找 VTuber 夥伴必須顯示全部有效名片。
+    // 之前曾用「30 天未活躍」隱藏名片，會讓頁數從 24 頁掉回 13 頁。
+    // 活躍時間只應該影響「最近動態」排序，不應該影響是否顯示。
     return true;
 };
 const getActivityStatusMeta = (status) => {
@@ -3053,17 +3192,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         " \u9801"),
                     React.createElement("button", { onClick: () => goCommissionRequestPage(safeRequestPage + 1), disabled: safeRequestPage === totalRequestPages, className: `px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}` }, "\u4E0B\u4E00\u9801"))))))));
 };
-// Shared helper for status/story previews. Keep this outside App so HomePage can use it before App props are created.
-const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
-    const raw = String(vtuber?.statusMessage || "")
-        .replace(/^🔴\s*/, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    if (!raw)
-        return fallback;
-    const chars = Array.from(raw);
-    return chars.length > 10 ? chars.slice(0, 10).join("") + "…" : raw;
-};
 const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants, user, isVerifiedUser, onApply, onNavigateProfile, onOpenStoryComposer, }) => {
     const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
     const [isShuffling, setIsShuffling] = useState(false);
@@ -3264,7 +3392,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             React.createElement("i", { className: "fa-solid fa-triangle-exclamation mr-2" }),
                             "\u806F\u52D5\u898F\u7BC4")),
                     React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
-                        React.createElement("button", { onClick: () => goToBulletin ? goToBulletin() : navigate("bulletin"), className: " vnexus-mobile-bulletin-red-navh-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
+                        React.createElement("button", { onClick: () => goToBulletin ? goToBulletin() : navigate("bulletin"), className: "vnexus-mobile-bulletin-red-nav h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
                             React.createElement("i", { className: "fa-solid fa-bullhorn mr-2" }),
                             "\u63EA\u5718\u4F48\u544A\u6B04"),
                         React.createElement("button", { onClick: goToCommissionRequests, className: "h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white border border-[#8B5CF6]/50 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
@@ -3287,16 +3415,14 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                                 React.createElement("button", { onClick: () => navigate("status_wall"), className: "text-[11px] font-bold text-[#F59E0B] hover:text-[#FBBF24] transition-colors whitespace-nowrap" }, "\u770B\u5168\u90E8"))),
                         activeStatuses.length > 0 ? (React.createElement("div", { className: "flex gap-3 overflow-x-auto custom-scrollbar pb-1" }, activeStatuses.map((v) => {
                             const isLiveMsg = String(v.statusMessage || "").includes("🔴");
-                            const previewText = getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態");
                             return (React.createElement("button", { key: `home-story-${v.id}`, onClick: () => {
                                     setSelectedVTuber(v);
                                     navigate(`profile/${v.id}`);
-                                }, className: "flex-shrink-0 w-20 text-center group", title: v.statusMessage },
+                                }, className: "flex-shrink-0 w-14 text-center group", title: v.statusMessage },
                                 React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}` },
                                     React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                         React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => { e.currentTarget.style.display = "none"; }, alt: v.name || "VTuber" }))),
-                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name),
-                                React.createElement("p", { className: "text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight", title: previewText }, previewText)));
+                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name)));
                         }))) : (React.createElement("button", { onClick: () => navigate("status_wall"), className: "w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors" },
                             React.createElement("p", { className: "text-[#F8FAFC] text-sm font-bold" }, "\u9084\u6C92\u6709\u4EBA\u767C\u52D5\u614B"),
                             React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u52D5\u614B\u7246\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
@@ -4298,54 +4424,10 @@ function App() {
     const [previousView, setPreviousView] = useState("grid");
     const [selectedVTuber, setSelectedVTuber] = useState(null);
     const [user, setUser] = useState(null);
-    const [realVtubers, setRealVtubers] = useState(() => {
-        const cached = localStorage.getItem(VTUBER_CACHE_KEY);
-        return cached ? JSON.parse(cached) : [];
-    });
+    const [realVtubers, setRealVtubers] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS));
     const isAdmin = user && user.email === "apex.dasa@gmail.com";
     const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
     const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
-    const vtuberById = useMemo(() => {
-        const map = new Map();
-        (realVtubers || []).forEach((v) => {
-            if (v?.id)
-                map.set(String(v.id), v);
-        });
-        return map;
-    }, [realVtubers]);
-    const getStatusPreviewText = (vtuber, fallback = "最近更新") => {
-        const raw = String(vtuber?.statusMessage || "")
-            .replace(/^🔴\s*/, "")
-            .replace(/\s+/g, " ")
-            .trim();
-        if (!raw)
-            return fallback;
-        const chars = Array.from(raw);
-        return chars.length > 10 ? `${chars.slice(0, 10).join("")}…` : raw;
-    };
-    const getReactionUsers = (ids = []) => {
-        const uniqueIds = [...new Set((Array.isArray(ids) ? ids : []).filter(Boolean).map((id) => String(id)))];
-        return uniqueIds.map((uid) => {
-            const profile = vtuberById.get(uid);
-            return {
-                uid,
-                name: profile?.name || (uid === user?.uid ? myProfile?.name : "創作者"),
-                avatar: profile?.avatar || "",
-            };
-        });
-    };
-    const renderReactionUserLine = (label, users, colorClass = "text-[#CBD5E1]") => {
-        if (!users || users.length === 0)
-            return null;
-        const names = users.map((u) => u.name).filter(Boolean);
-        const visibleNames = names.slice(0, 6).join("、");
-        const moreCount = Math.max(0, names.length - 6);
-        return (React.createElement("div", { className: "flex flex-wrap items-center gap-1 text-[11px] leading-relaxed text-[#94A3B8]" },
-            React.createElement("span", { className: `font-extrabold ${colorClass}` }, label),
-            React.createElement("span", { className: "break-words" },
-                visibleNames,
-                moreCount > 0 ? ` 等 ${names.length} 人` : "")));
-    };
     // 🌟 新增：限時動態 (Stories) 狀態
     const [realStories, setRealStories] = useState([]);
     const [storyInput, setStoryInput] = useState("");
@@ -4354,7 +4436,7 @@ function App() {
     const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
     const [viewedStoryMap, setViewedStoryMap] = useState(() => {
         try {
-            return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
+            return readLocalCache("vnexus_viewed_status_stories", {}) || {};
         }
         catch (error) {
             return {};
@@ -4486,18 +4568,16 @@ function App() {
     };
     // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
     useEffect(() => {
-        if (analytics) {
-            logEvent(analytics, 'page_view', {
-                page_title: currentView,
-                page_location: window.location.href,
-                page_path: `/${currentView}`
-            });
-        }
+        trackAnalyticsEvent('page_view', {
+            page_title: currentView,
+            page_location: window.location.href,
+            page_path: `/${currentView}`
+        });
     }, [currentView]);
     // 🌟 新增 GA4 監控 2：追蹤使用者具體查看了「誰」的名片 (view_item)
     useEffect(() => {
-        if (analytics && currentView === 'profile' && selectedVTuber) {
-            logEvent(analytics, 'view_item', {
+        if (currentView === 'profile' && selectedVTuber) {
+            trackAnalyticsEvent('view_item', {
                 item_id: selectedVTuber.id,
                 item_name: selectedVTuber.name,
                 item_category: 'vtuber_profile'
@@ -4516,12 +4596,8 @@ function App() {
             setSortOrder("random");
         }
     }, [user, sortOrder]);
-    const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
-        return !localStorage.getItem(BULLETINS_CACHE_KEY);
-    });
-    const [isLoading, setIsLoading] = useState(() => {
-        return !localStorage.getItem(VTUBER_CACHE_KEY);
-    });
+    const [isLoadingActivities, setIsLoadingActivities] = useState(() => getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS).length === 0);
+    const [isLoading, setIsLoading] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS).length === 0);
     const [currentTime, setCurrentTime] = useState(Date.now());
     const [siteStats, setSiteStats] = useState({ pageViews: null });
     const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
@@ -4529,15 +4605,7 @@ function App() {
     const [realBulletins, setRealBulletins] = useState([]);
     const [realUpdates, setRealUpdates] = useState([]);
     const [realCollabs, setRealCollabs] = useState([]);
-    const [realArticles, setRealArticles] = useState(() => {
-        try {
-            const cached = localStorage.getItem(ARTICLES_CACHE_KEY);
-            return cached ? JSON.parse(cached) : [];
-        }
-        catch {
-            return [];
-        }
-    });
+    const [realArticles, setRealArticles] = useState(() => getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS));
     const viewedArticles = useRef(new Set());
     const [shuffleSeed, setShuffleSeed] = useState(Date.now());
     const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
@@ -4620,6 +4688,43 @@ function App() {
     const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
     const [isSendingInvite, setIsSendingInvite] = useState(false);
     const isFetchingJson = useRef(false);
+    const fetchPublicVtubersJson = async ({ force = false } = {}) => {
+        if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
+            return realVtubers;
+        }
+        if (isFetchingJson.current)
+            return realVtubers;
+        isFetchingJson.current = true;
+        try {
+            const separator = PUBLIC_VTUBERS_JSON_URL.includes("?") ? "&" : "?";
+            const response = await fetch(`${PUBLIC_VTUBERS_JSON_URL}${force ? `${separator}t=${Date.now()}` : ""}`, {
+                cache: force ? "reload" : "default",
+            });
+            if (!response.ok)
+                throw new Error(`public vtubers json ${response.status}`);
+            const payload = await response.json();
+            const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.vtubers) ? payload.vtubers : []);
+            if (!Array.isArray(list))
+                throw new Error("public vtubers json format invalid");
+            if (isVtuberListUnexpectedlyShort(list)) {
+                const cachedFullList = getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
+                console.warn(`⚠️ 公開名片 JSON 目前只有 ${getVtuberPageCount(list)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁；本次不覆蓋完整快取，改用 Firestore 備援。`);
+                if (cachedFullList.length > list.length && !isVtuberListUnexpectedlyShort(cachedFullList)) {
+                    return cachedFullList;
+                }
+                return null;
+            }
+            syncVtuberCache(list);
+            return list;
+        }
+        catch (error) {
+            console.warn("公開名片 JSON 讀取失敗，將使用既有快取或 Firestore 備援：", error);
+            return null;
+        }
+        finally {
+            isFetchingJson.current = false;
+        }
+    };
     const handleOpenChat = async (targetVtuber) => {
         setChatTarget(targetVtuber);
         setIsChatListOpen(false);
@@ -4685,7 +4790,9 @@ function App() {
             if (permission !== "granted") {
                 return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟。");
             }
+            await registerVnexusServiceWorker();
             const registration = await navigator.serviceWorker.ready;
+            const { getMessaging, getToken } = await loadMessagingModule();
             const messaging = getMessaging(app);
             const currentToken = await getToken(messaging, {
                 serviceWorkerRegistration: registration,
@@ -4698,6 +4805,7 @@ function App() {
                     notificationsEnabled: true,
                     fcmTokenUpdatedAt: Date.now(),
                 }, { merge: true });
+                await initForegroundMessaging();
                 showToast("✅ 手機推播已成功啟動！");
                 alert("🎉 恭喜！您的設備已成功綁定推播功能。");
             }
@@ -4717,7 +4825,7 @@ function App() {
     const [openBulletinModalId, setOpenBulletinModalId] = useState(null);
     const [readUpdateIds, setReadUpdateIds] = useState(() => {
         try {
-            return JSON.parse(localStorage.getItem("readUpdates") || "[]");
+            return readLocalCache("readUpdates", []) || [];
         }
         catch {
             return [];
@@ -4914,7 +5022,8 @@ function App() {
             return showToast("請先登入！");
         showToast("⏳ 正在發送測試推播...");
         try {
-            // 1. 先嘗試本地顯示 (確保 Service Worker 運作中)
+            // 1. 先嘗試本地顯示（確保 Service Worker 運作中）
+            await registerVnexusServiceWorker();
             const registration = await navigator.serviceWorker.ready;
             if (registration) {
                 await registration.showNotification("V-Nexus 系統測試", {
@@ -5071,15 +5180,19 @@ function App() {
     useEffect(() => {
         const loader = document.getElementById("loading-screen");
         if (loader) {
-            // 強制 300ms 後開始淡出，不論資料是否加載完成
+            // ✅ 進站體感修正：不要等資料或額外 800ms。HTML/CSS 已先自動淡出；React 掛載後立刻清掉遮罩。
             const timer = setTimeout(() => {
+                if (typeof window.__vnexusHideBootLoader === "function") {
+                    window.__vnexusHideBootLoader();
+                    return;
+                }
                 loader.style.opacity = "0";
+                loader.style.visibility = "hidden";
                 loader.style.pointerEvents = "none";
-                // 動畫結束後徹底隱藏
                 setTimeout(() => {
                     loader.style.display = "none";
-                }, 800);
-            }, 800);
+                }, 220);
+            }, 30);
             return () => clearTimeout(timer);
         }
     }, []);
@@ -5126,13 +5239,7 @@ function App() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [notifRef]);
     useEffect(() => {
-        // 註冊 Service Worker
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker
-                .register("/firebase-messaging-sw.js")
-                .then((reg) => console.log("SW 註冊成功:", reg.scope))
-                .catch((err) => console.error("SW 註冊失敗:", err));
-        }
+        // Service Worker 已改成進站後 idle 延後註冊；啟用推播時會主動確保註冊完成。
         const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
             // 關鍵：當偵測到帳號變動（包含登出）
             if (!u || (user && u.uid !== user.uid)) {
@@ -5157,76 +5264,103 @@ function App() {
             sessionStorage.setItem("hasCountedView", "true");
         }
     }, [currentView]);
-    // 🌟 獨立出全站設定與廣播監聽 (只在網頁載入時執行一次，不再受 currentView 影響)
+    // 🌟 全站統計 / 靜態設定：改成快取 + 偶爾刷新，不再讓每位訪客常駐監聽 settings。
+    // 即時性真正需要保留的是通知、私訊、自己的私密資料；公開大清單由 Storage JSON 承擔。
     useEffect(() => {
-        const unsubStats = onSnapshot(doc(db, getPath("settings"), "stats"), async (docSnap) => {
-            if (docSnap.exists()) {
-                const statsData = docSnap.data();
-                setSiteStats(statsData);
-                localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
-                localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
-                const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
-                const processedUpdate = localStorage.getItem("processed_global_update") || '0';
-                // 🌟 終極防呆：確保這個更新時間大於快取時間，且「我們還沒處理過這個特定的更新時間」
-                // 這樣就算使用者的電腦時鐘比伺服器慢，也不會陷入無限重複抓取的迴圈！
-                if (statsData.lastGlobalUpdate &&
-                    statsData.lastGlobalUpdate > parseInt(cachedTs) &&
-                    statsData.lastGlobalUpdate.toString() !== processedUpdate) {
-                    // 🌟 關鍵修復：如果已經在抓取中了，就直接擋掉，防止無限迴圈！
-                    if (isFetchingJson.current)
+        let isMounted = true;
+        const applyStatsAndRefreshPublicJsonIfNeeded = async (statsData) => {
+            if (!statsData || !isMounted)
+                return;
+            setSiteStats(statsData);
+            writeLocalCache(STATS_CACHE_KEY, statsData);
+            markCacheTimestamp(STATS_CACHE_TS);
+            const cachedTs = readCacheTimestamp(VTUBER_CACHE_TS);
+            const processedUpdate = typeof localStorage !== "undefined"
+                ? localStorage.getItem("processed_global_update") || "0"
+                : "0";
+            if (statsData.lastGlobalUpdate &&
+                Number(statsData.lastGlobalUpdate) > cachedTs &&
+                String(statsData.lastGlobalUpdate) !== processedUpdate) {
+                try {
+                    localStorage.setItem("processed_global_update", String(statsData.lastGlobalUpdate));
+                }
+                catch (error) { }
+                console.log("🔔 偵測到公開名片更新，改抓 Storage JSON，不讀 Firestore 整包。 ");
+                setTimeout(async () => {
+                    if (!isMounted)
                         return;
-                    isFetchingJson.current = true;
-                    console.log("🔔 偵測到全站更新，等待後端打包資料...");
-                    // 立刻記錄已處理，防止重複觸發
-                    localStorage.setItem("processed_global_update", statsData.lastGlobalUpdate.toString());
-                    setTimeout(async () => {
-                        if (isAdmin) {
-                            try {
-                                const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                                const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                                syncVtuberCache(data);
-                            }
-                            catch (e) {
-                                console.error("背景更新名單失敗", e);
-                            }
+                    if (isAdmin) {
+                        try {
+                            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+                            syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                            sessionStorage.setItem("has_full_admin_data", "true");
                         }
-                        else {
-                            try {
-                                const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-                                const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
-                                if (response.ok) {
-                                    const data = await response.json();
-                                    syncVtuberCache(data);
-                                    console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
-                                }
-                            }
-                            catch (e) {
-                                console.error("背景更新 JSON 失敗", e);
-                            }
+                        catch (e) {
+                            console.error("管理員背景更新完整名單失敗", e);
                         }
-                        // 🌟 抓取完畢，解開鎖
-                        isFetchingJson.current = false;
-                    }, 4000);
+                    }
+                    else {
+                        await fetchPublicVtubersJson({ force: true });
+                    }
+                }, 4000);
+            }
+        };
+        const loadStatsAndSettings = async () => {
+            const cachedStats = readLocalCache(STATS_CACHE_KEY, null);
+            if (cachedStats && isMounted)
+                setSiteStats(cachedStats);
+            if (!cachedStats || !isCacheFresh(STATS_CACHE_TS, STATS_CACHE_LIMIT)) {
+                try {
+                    const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
+                    if (statsSnap.exists())
+                        await applyStatsAndRefreshPublicJsonIfNeeded(statsSnap.data());
+                }
+                catch (error) {
+                    console.warn("讀取統計資料失敗，沿用快取。", error);
                 }
             }
-        });
-        // 抓取其他靜態設定 (站規、小技巧等，只需抓一次)
-        if (!hasFetchedSettings.current) {
-            hasFetchedSettings.current = true;
-            Promise.all([
-                getDoc(doc(db, getPath("settings"), "tips")),
-                getDoc(doc(db, getPath("settings"), "rules")),
-                getDoc(doc(db, getPath("settings"), "bulletinImages")),
-            ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
-                if (tipsSnap.exists())
-                    setRealTips(tipsSnap.data().content);
-                if (rulesSnap.exists())
-                    setRealRules(rulesSnap.data().content);
-                if (imgSnap.exists())
-                    setDefaultBulletinImages(imgSnap.data().images);
-            });
-        }
-        return () => unsubStats();
+            else {
+                await applyStatsAndRefreshPublicJsonIfNeeded(cachedStats);
+            }
+            if (!hasFetchedSettings.current) {
+                hasFetchedSettings.current = true;
+                const cachedSettings = readLocalCache(SETTINGS_CACHE_KEY, null);
+                if (cachedSettings && isMounted) {
+                    if (cachedSettings.tips !== undefined)
+                        setRealTips(cachedSettings.tips);
+                    if (cachedSettings.rules !== undefined)
+                        setRealRules(cachedSettings.rules);
+                    if (Array.isArray(cachedSettings.bulletinImages))
+                        setDefaultBulletinImages(cachedSettings.bulletinImages);
+                }
+                if (!cachedSettings || !isCacheFresh(SETTINGS_CACHE_TS, SETTINGS_CACHE_LIMIT)) {
+                    try {
+                        const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
+                            getDoc(doc(db, getPath("settings"), "tips")),
+                            getDoc(doc(db, getPath("settings"), "rules")),
+                            getDoc(doc(db, getPath("settings"), "bulletinImages")),
+                        ]);
+                        const nextSettings = {
+                            tips: tipsSnap.exists() ? tipsSnap.data().content : realTips,
+                            rules: rulesSnap.exists() ? rulesSnap.data().content : realRules,
+                            bulletinImages: imgSnap.exists() ? (imgSnap.data().images || []) : defaultBulletinImages,
+                        };
+                        if (!isMounted)
+                            return;
+                        setRealTips(nextSettings.tips);
+                        setRealRules(nextSettings.rules);
+                        setDefaultBulletinImages(nextSettings.bulletinImages);
+                        writeLocalCache(SETTINGS_CACHE_KEY, nextSettings);
+                        markCacheTimestamp(SETTINGS_CACHE_TS);
+                    }
+                    catch (error) {
+                        console.warn("讀取站規/邀約小技巧/預設揪團圖失敗，沿用快取。", error);
+                    }
+                }
+            }
+        };
+        loadStatsAndSettings();
+        return () => { isMounted = false; };
     }, [isAdmin]);
     // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
     const vtubersRef = useRef(realVtubers);
@@ -5264,114 +5398,140 @@ function App() {
         });
         return () => unsubN();
     }, [user?.uid]);
-    // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
+    // --- 公開資料分層讀取：名片大清單走 Storage JSON；活動資料 5 分鐘快取；後台才讀完整 Firestore。 ---
     useEffect(() => {
+        let isMounted = true;
         const fetchLargeData = async () => {
             const needsVtuberList = [
                 "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
             ].includes(currentView);
             if (needsVtuberList) {
-                const now = Date.now();
-                const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
-                // 🌟 關鍵修復 3：預設快取 24 小時。
-                // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
-                let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
-                // 管理員進入後台時，確保擁有包含待審核的完整資料
-                const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
-                if (isAdmin && currentView === 'admin' && !hasFullData) {
-                    isExpired = true;
+                const cachedVtubers = getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
+                const cachedVtubersLookShort = isVtuberListUnexpectedlyShort(cachedVtubers);
+                if (cachedVtubers.length > 0 && !cachedVtubersLookShort) {
+                    setRealVtubers(cachedVtubers);
+                    setIsLoading(false);
                 }
-                if (isExpired) {
+                else if (cachedVtubersLookShort) {
+                    console.warn(`⚠️ 本機名片快取只有 ${getVtuberPageCount(cachedVtubers)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁，將重抓完整名單。`);
+                    removeLocalCache(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
+                }
+                const hasFullAdminData = sessionStorage.getItem("has_full_admin_data") === "true";
+                const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullAdminData;
+                const shouldRefreshPublicJson = !shouldFetchFullForAdmin && (!cachedVtubers.length || cachedVtubersLookShort || !isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT));
+                if (shouldFetchFullForAdmin) {
                     try {
                         const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                        const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                        syncVtuberCache(data);
-                        if (isAdmin)
-                            sessionStorage.setItem("has_full_admin_data", "true");
+                        if (!isMounted)
+                            return;
+                        syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                        sessionStorage.setItem("has_full_admin_data", "true");
                     }
                     catch (e) {
-                        console.error("讀取名單失敗", e);
+                        console.error("管理員讀取完整名單失敗", e);
+                    }
+                    finally {
+                        if (isMounted)
+                            setIsLoading(false);
                     }
                 }
-                setIsLoading(false);
-            }
-            // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
-            const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
-            if (needsActivityData) {
-                const now = Date.now();
-                const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
-                const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
-                const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
-                const cTs = localStorage.getItem(COLLABS_CACHE_TS);
-                // 🌟 新增：讀取 Updates 的快取
-                const uCache = localStorage.getItem("vnexus_updates_data");
-                const uTs = localStorage.getItem("vnexus_updates_ts");
-                const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
-                const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
-                const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
-                // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
-                if (isBCacheValid && isCCacheValid && isUCacheValid) {
-                    setRealBulletins(JSON.parse(bCache));
-                    setRealCollabs(JSON.parse(cCache));
-                    setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
-                    setIsLoadingActivities(false);
+                else if (shouldRefreshPublicJson) {
+                    const publicList = await fetchPublicVtubersJson({ force: cachedVtubers.length === 0 || cachedVtubersLookShort });
+                    if (!publicList && (cachedVtubers.length === 0 || cachedVtubersLookShort)) {
+                        // 最後備援：public JSON 尚未建立 / 名片數異常不足且本機沒有完整快取時才讀 Firestore，避免訪客每次都讀整包。
+                        try {
+                            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+                            if (!isMounted)
+                                return;
+                            syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+                            console.warn("⚠️ public_api/vtubers.json 尚未可用，本次使用 Firestore 備援。請部署後端並等待/觸發 JSON 生成。 ");
+                        }
+                        catch (e) {
+                            console.error("公開名單備援讀取失敗", e);
+                        }
+                    }
+                    if (isMounted)
+                        setIsLoading(false);
                 }
                 else {
-                    setIsLoadingActivities(true);
+                    setIsLoading(false);
+                }
+            }
+            const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
+            if (needsActivityData) {
+                const cachedBulletins = getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS);
+                const cachedCollabs = getCachedArray(COLLABS_CACHE_KEY, COLLABS_CACHE_TS);
+                const cachedUpdates = getCachedArray(UPDATES_CACHE_KEY, UPDATES_CACHE_TS);
+                if (cachedBulletins.length || cachedCollabs.length || cachedUpdates.length) {
+                    setRealBulletins(cachedBulletins);
+                    setRealCollabs(cachedCollabs);
+                    setRealUpdates(cachedUpdates);
+                    setIsLoadingActivities(false);
+                }
+                const allActivityCachesFresh = isCacheFresh(BULLETINS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
+                    isCacheFresh(COLLABS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
+                    isCacheFresh(UPDATES_CACHE_TS, ACTIVITY_CACHE_LIMIT);
+                if (!allActivityCachesFresh || currentView === "admin") {
+                    if (!cachedBulletins.length && !cachedCollabs.length && !cachedUpdates.length)
+                        setIsLoadingActivities(true);
                     try {
                         const nowTime = Date.now();
                         const [bSnap, cSnap, uSnap] = await Promise.all([
-                            getDocs(query(collection(db, getPath('bulletins')), where("recruitEndTime", ">", nowTime))),
-                            getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
-                            getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+                            getDocs(query(collection(db, getPath("bulletins")), where("recruitEndTime", ">", nowTime))),
+                            getDocs(query(collection(db, getPath("collabs")), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
+                            getDocs(query(collection(db, getPath("updates")), orderBy("createdAt", "desc"), limit(15))),
                         ]);
-                        const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        if (!isMounted)
+                            return;
+                        const bData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                        const cData = cSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                        const uData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
                         syncBulletinCache(bData);
                         syncCollabCache(cData);
-                        // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
                         setRealUpdates(uData);
-                        localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
-                        localStorage.setItem("vnexus_updates_ts", Date.now().toString());
+                        writeLocalCache(UPDATES_CACHE_KEY, uData);
+                        markCacheTimestamp(UPDATES_CACHE_TS);
                     }
                     catch (e) {
                         console.error("抓取活動資料失敗:", e);
                     }
                     finally {
-                        setIsLoadingActivities(false);
+                        if (isMounted)
+                            setIsLoadingActivities(false);
                     }
                 }
             }
         };
         fetchLargeData();
+        return () => { isMounted = false; };
     }, [currentView, isAdmin]);
     useEffect(() => {
-        const needsArticleData = ['articles', 'admin'].includes(currentView);
+        const needsArticleData = ["articles", "admin"].includes(currentView);
         if (!needsArticleData)
             return;
+        let isMounted = true;
         const fetchArticles = async () => {
-            const now = Date.now();
-            const aCache = localStorage.getItem(ARTICLES_CACHE_KEY);
-            const aTs = localStorage.getItem(ARTICLES_CACHE_TS);
-            const isACacheValid = aCache && aTs && now - parseInt(aTs) < ARTICLES_CACHE_LIMIT;
+            const cachedArticles = getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS);
+            if (cachedArticles.length > 0)
+                setRealArticles(cachedArticles);
             const forceRefresh = currentView === "admin";
-            if (isACacheValid && !forceRefresh) {
-                setRealArticles(JSON.parse(aCache));
+            if (!forceRefresh && cachedArticles.length > 0 && isCacheFresh(ARTICLES_CACHE_TS, ARTICLES_CACHE_LIMIT))
                 return;
-            }
             try {
                 const aSnap = await getDocs(collection(db, getPath("articles")));
+                if (!isMounted)
+                    return;
                 const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
                 setRealArticles(aData);
-                localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(aData));
-                localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
+                writeLocalCache(ARTICLES_CACHE_KEY, aData);
+                markCacheTimestamp(ARTICLES_CACHE_TS);
             }
             catch (e) {
                 console.error("抓取文章失敗:", e);
             }
         };
         fetchArticles();
+        return () => { isMounted = false; };
     }, [currentView]);
     const hasFetchedPrivate = useRef(false);
     useEffect(() => {
@@ -5622,9 +5782,7 @@ function App() {
             await signInWithPopup(auth, provider);
             showToast("🎉 登入成功！");
             // 🌟 新增 GA4 監控 3：記錄使用者成功登入
-            if (analytics) {
-                logEvent(analytics, 'login', { method: 'Google' });
-            }
+            trackAnalyticsEvent('login', { method: 'Google' });
         }
         catch (e) {
             showToast("登入失敗");
@@ -5971,7 +6129,7 @@ function App() {
         sortOrder,
         shuffleSeed,
     ]);
-    const ITEMS_PER_PAGE = 18;
+    const ITEMS_PER_PAGE = VTUBER_GRID_ITEMS_PER_PAGE;
     const totalPages = Math.max(1, Math.ceil(filteredVTubers.length / ITEMS_PER_PAGE));
     const paginatedVTubers = filteredVTubers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
     const scrollVtuberGridToTop = () => {
@@ -6019,20 +6177,23 @@ function App() {
                 document.body.style.overflowX = "hidden";
         });
     }, [currentView]);
-    const syncVtuberCache = (newList) => {
-        setRealVtubers(newList);
-        localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
-        localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
+    const syncVtuberCache = (newList, timestamp = Date.now()) => {
+        const safeList = Array.isArray(newList) ? newList : [];
+        setRealVtubers(safeList);
+        writeLocalCache(VTUBER_CACHE_KEY, safeList);
+        markCacheTimestamp(VTUBER_CACHE_TS, timestamp);
     };
-    const syncBulletinCache = (newList) => {
-        setRealBulletins(newList);
-        localStorage.setItem(BULLETINS_CACHE_KEY, JSON.stringify(newList));
-        localStorage.setItem(BULLETINS_CACHE_TS, Date.now().toString());
+    const syncBulletinCache = (newList, timestamp = Date.now()) => {
+        const safeList = Array.isArray(newList) ? newList : [];
+        setRealBulletins(safeList);
+        writeLocalCache(BULLETINS_CACHE_KEY, safeList);
+        markCacheTimestamp(BULLETINS_CACHE_TS, timestamp);
     };
-    const syncCollabCache = (newList) => {
-        setRealCollabs(newList);
-        localStorage.setItem(COLLABS_CACHE_KEY, JSON.stringify(newList));
-        localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
+    const syncCollabCache = (newList, timestamp = Date.now()) => {
+        const safeList = Array.isArray(newList) ? newList : [];
+        setRealCollabs(safeList);
+        writeLocalCache(COLLABS_CACHE_KEY, safeList);
+        markCacheTimestamp(COLLABS_CACHE_TS, timestamp);
     };
     const handleSaveProfile = async (e, customForm = profileForm) => {
         if (e)
@@ -7063,6 +7224,13 @@ function App() {
                 await setDoc(doc(db, getPath("settings"), "rules"), { content: rulesContent }, { merge: true });
                 setRealRules(rulesContent);
             }
+            const nextSettingsCache = {
+                tips: tipsContent !== undefined ? tipsContent : realTips,
+                rules: rulesContent !== undefined ? rulesContent : realRules,
+                bulletinImages: defaultBulletinImages,
+            };
+            writeLocalCache(SETTINGS_CACHE_KEY, nextSettingsCache);
+            markCacheTimestamp(SETTINGS_CACHE_TS);
             showToast("系統設定已更新！");
         }
         catch (err) {
@@ -7754,7 +7922,7 @@ function App() {
                                 React.createElement("button", { onClick: () => navigate('blacklist'), className: "bg-[#3B171D]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#EF4444]/50" },
                                     React.createElement("i", { className: "fa-solid fa-ban mr-1" }),
                                     " \u9ED1\u55AE\u907F\u96F7\u5340"),
-                                React.createElement("button", { onClick: () => setIsMobileFilterOpen(!isMobileFilterOpen), className: "lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors" },
+                                React.createElement("button", { onClick: () => setIsMobileFilterOpen(!isMobileFilterOpen), className: "vnexus-mobile-filter-toggle lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors" },
                                     React.createElement("i", { className: "fa-solid fa-filter" }),
                                     " \u7BE9\u9078")),
                             React.createElement("div", { className: "vnexus-vtuber-grid-search-sort flex flex-col gap-3 w-full sm:w-auto" },
@@ -7767,7 +7935,7 @@ function App() {
                                         if (e.target.value === "random" || e.target.value === "compatibility") {
                                             setShuffleSeed(Date.now());
                                         }
-                                    }, className: "bg-[#181B25] border border-[#2A2F3D] rounded-xl p-2.5 text-[16px] sm:text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto" },
+                                    }, className: "vnexus-vtuber-sort-select bg-[#181B25] border border-[#2A2F3D] rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-[#8B5CF6] outline-none w-full sm:w-auto" },
                                     React.createElement("option", { value: "newest" }, "\u2728 \u6700\u8FD1\u52D5\u614B (\u76F4\u64AD\u4E2D/\u66F4\u65B0)"),
                                     user && (React.createElement("option", { value: "compatibility" }, "\uD83D\uDC96 \u6700\u5951\u5408\u5925\u4F34")),
                                     React.createElement("option", { value: "random" }, "\uD83D\uDD00 \u96A8\u6A5F\u6392\u5217"),
@@ -8006,7 +8174,7 @@ function App() {
                 currentView === "bulletin" && (React.createElement("div", { className: "max-w-5xl mx-auto px-4 py-8 animate-fade-in-up" },
                     React.createElement("div", { className: "flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8" },
                         React.createElement("div", null,
-                            React.createElement("h2", { className: " vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3" },
+                            React.createElement("h2", { className: "vnexus-bulletin-page-title text-4xl sm:text-5xl font-extrabold text-white flex items-center gap-3 leading-tight" },
                                 React.createElement("i", { className: "fa-solid fa-bullhorn text-[#A78BFA]" }),
                                 "\u63EA\u5718\u4F48\u544A\u6B04"),
                             React.createElement("p", { className: "text-[#94A3B8] mt-2 text-xs sm:text-sm leading-relaxed max-w-3xl" },
@@ -8403,14 +8571,12 @@ function App() {
                                 const titleText = hasActiveStory
                                     ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                                     : `${v.name || '創作者'} 最近更新了名片資料`;
-                                const previewText = hasActiveStory ? getStatusPreviewText(v, isLiveMsg ? "直播中" : "更新動態") : "最近更新";
                                 return (React.createElement("button", { key: `story-ring-${v.id}`, onClick: () => { if (hasActiveStory)
-                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-20 text-center group", title: titleText },
+                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-16 text-center group", title: titleText },
                                     React.createElement("div", { className: `w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}` },
                                         React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                             React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => { e.currentTarget.style.display = 'none'; } }))),
-                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name),
-                                    React.createElement("p", { className: "text-[10px] text-[#94A3B8] mt-0.5 truncate leading-tight", title: previewText }, previewText)));
+                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name)));
                             })))),
                         isVerifiedUser && myProfile && (React.createElement("div", { className: "mb-4 bg-[#181B25]/55 border-y sm:border border-[#2A2F3D] sm:rounded-2xl px-4 sm:px-5 py-4" },
                             React.createElement("form", { onSubmit: async (e) => {
@@ -8442,10 +8608,8 @@ function App() {
                             React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u767C\u5E03\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u77E5\u9053\u4F60\u73FE\u5728\u60F3\u505A\u4EC0\u9EBC\u3002"),
                             isVerifiedUser && (React.createElement("button", { onClick: () => setTimeout(() => document.getElementById('status-wall-inline-input')?.focus(), 50), className: "mt-5 bg-[#F59E0B] hover:bg-[#D97706] text-[#0F111A] px-5 py-2.5 rounded-full text-sm font-bold transition-colors" }, "\u767C\u5E03\u7B2C\u4E00\u5247\u52D5\u614B")))) : (activeStoryUsers.map((v) => {
                             const isLiveMsg = String(v.statusMessage || "").includes('🔴');
-                            const plusUsers = getReactionUsers(v.statusReactions?.plus_one || []);
-                            const fireUsers = getReactionUsers(v.statusReactions?.fire || []);
-                            const plusCount = plusUsers.length;
-                            const fireCount = fireUsers.length;
+                            const plusCount = v.statusReactions?.plus_one?.length || 0;
+                            const fireCount = v.statusReactions?.fire?.length || 0;
                             const displayMessage = String(v.statusMessage || "").replace(/^🔴\s*/, "").trim();
                             const commentKey = `${v.id}_${Number(v.statusMessageUpdatedAt || 0)}`;
                             const isCommentsOpen = !!openStatusCommentKeys[commentKey];
@@ -8480,9 +8644,6 @@ function App() {
                                                     handlePostStory(e, "", false); }, className: "h-9 px-3 rounded-full border border-[#2A2F3D] bg-[#11131C] hover:bg-[#1D2130] text-[#CBD5E1] text-xs font-bold transition-colors inline-flex items-center gap-1.5" },
                                                 React.createElement("i", { className: "fa-solid fa-eraser" }),
                                                 " \u6E05\u9664"))),
-                                        (fireCount > 0 || plusCount > 0) && (React.createElement("div", { className: "mt-2 space-y-1 rounded-xl border border-[#2A2F3D]/70 bg-[#11131C]/70 px-3 py-2", onClick: (e) => e.stopPropagation() },
-                                            renderReactionUserLine("🔥 幫推", fireUsers, "text-[#FCD34D]"),
-                                            renderReactionUserLine("👋 +1", plusUsers, "text-[#C4B5FD]"))),
                                         isCommentsOpen && (React.createElement(StatusCommentsBox, { storyOwner: v, currentUser: user, myProfile: myProfile, isAdmin: isAdmin, isVerifiedUser: isVerifiedUser, realVtubers: realVtubers, showToast: showToast }))))));
                         })))));
                 })(),
