@@ -416,14 +416,11 @@ function persistBrokenImageUrlMap() {
 }
 
 function rememberBrokenImageUrl(url) {
-  const normalized = normalizeImageCacheUrl(url);
-  if (!normalized) return;
-  const lower = normalized.toLowerCase();
-  // data/blob/about 不應該被記錄；Firebase Storage 偶發 403 也先記錄 7 天，使用者可清除快取恢復。
-  if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("about:")) return;
-  const map = loadBrokenImageUrlMap();
-  map.set(normalized, Date.now());
-  persistBrokenImageUrlMap();
+  // 圖片錯誤不再寫入長時間壞圖快取。
+  // 手機網路、Storage 暫時 403/timeout、Service Worker 切換都可能造成單次載入失敗；
+  // 若把 URL 記成 7 天壞圖，下一次正常圖片也會被直接蓋成灰底。
+  // 因此改為：只在當次 <img> onError 時顯示灰底，不阻止之後重新嘗試載入。
+  return;
 }
 
 function forgetBrokenImageUrl(url) {
@@ -434,18 +431,10 @@ function forgetBrokenImageUrl(url) {
 }
 
 function isKnownBrokenImageUrl(url) {
-  const normalized = normalizeImageCacheUrl(url);
-  if (!normalized) return false;
-  const map = loadBrokenImageUrlMap();
-  const ts = Number(map.get(normalized) || 0);
-  if (!ts) return false;
-  if (Date.now() - ts > BROKEN_IMAGE_CACHE_TTL) {
-    map.delete(normalized);
-    persistBrokenImageUrlMap();
-    return false;
-  }
-  return true;
+  // 不再使用持久化壞圖快取預先隱藏圖片，避免暫時性載入失敗影響正常名片圖片。
+  return false;
 }
+
 
 if (typeof window !== "undefined") {
   window.vnexusClearBrokenImageCache = () => {
@@ -456,6 +445,12 @@ if (typeof window !== "undefined") {
 }
 
 const VNEXUS_GRAY_IMAGE_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#1D2130"/><path d="M52 92l18-18 17 17 13-13 24 24H36l16-10z" fill="#334155" opacity=".55"/><circle cx="58" cy="55" r="10" fill="#475569" opacity=".45"/></svg>')}`;
+
+try {
+  // 清掉舊版曾經寫入的壞圖快取。舊快取可能讓已恢復的正常圖片直接變灰底。
+  if (typeof localStorage !== "undefined") localStorage.removeItem(BROKEN_IMAGE_CACHE_KEY);
+  vnexusBrokenImageUrlMap = new Map();
+} catch (e) { }
 
 function setImageToGrayPlaceholder(img, failedSrc = "", options = {}) {
   if (!img) return;
@@ -656,16 +651,9 @@ const LazyImage = ({
   useEffect(() => {
     setLoaded(false);
     setHasError(!safeSrc);
-
-    // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
-    // 導致 skeleton shimmer 永遠閃爍。超過時間後直接顯示灰色底，不再讓瀏覽器破圖 icon 出現。
-    if (!safeSrc) return;
-    const timer = setTimeout(() => {
-      setHasError(true);
-      setLoaded(true);
-    }, 9000);
-
-    return () => clearTimeout(timer);
+    // 不再設定 9 秒 timeout。
+    // 圖片載入慢時應該繼續等待，不能把正常圖片誤判為壞圖並移除。
+    // 真正沒有網址或圖片連結失效時，交由 !safeSrc / onError 顯示灰底。
   }, [safeSrc]);
 
   // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
