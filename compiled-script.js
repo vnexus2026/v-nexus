@@ -362,13 +362,17 @@ function persistBrokenImageUrlMap() {
     }
 }
 function rememberBrokenImageUrl(url) {
-    // 圖片錯誤不再寫入長時間壞圖快取。
-    // 手機網路、Storage 暫時 403/timeout、Service Worker 切換都可能造成單次載入失敗；
-    // 若把 URL 記成 7 天壞圖，下一次正常圖片也會被直接蓋成灰底。
-    // 因此改為：只在當次 <img> onError 時顯示灰底，不阻止之後重新嘗試載入。
-    return;
+    const normalized = normalizeImageCacheUrl(url);
+    if (!normalized)
+        return;
+    const lower = normalized.toLowerCase();
+    // data/blob/about 不應該被記錄；Firebase Storage 偶發 403 也先記錄 7 天，使用者可清除快取恢復。
+    if (lower.startsWith("data:") || lower.startsWith("blob:") || lower.startsWith("about:"))
+        return;
+    const map = loadBrokenImageUrlMap();
+    map.set(normalized, Date.now());
+    persistBrokenImageUrlMap();
 }
-
 function forgetBrokenImageUrl(url) {
     const normalized = normalizeImageCacheUrl(url);
     if (!normalized)
@@ -378,10 +382,20 @@ function forgetBrokenImageUrl(url) {
         persistBrokenImageUrlMap();
 }
 function isKnownBrokenImageUrl(url) {
-    // 不再使用持久化壞圖快取預先隱藏圖片，避免暫時性載入失敗影響正常名片圖片。
-    return false;
+    const normalized = normalizeImageCacheUrl(url);
+    if (!normalized)
+        return false;
+    const map = loadBrokenImageUrlMap();
+    const ts = Number(map.get(normalized) || 0);
+    if (!ts)
+        return false;
+    if (Date.now() - ts > BROKEN_IMAGE_CACHE_TTL) {
+        map.delete(normalized);
+        persistBrokenImageUrlMap();
+        return false;
+    }
+    return true;
 }
-
 if (typeof window !== "undefined") {
     window.vnexusClearBrokenImageCache = () => {
         try {
@@ -391,37 +405,6 @@ if (typeof window !== "undefined") {
         vnexusBrokenImageUrlMap = new Map();
         console.info("✅ V-Nexus 圖片錯誤快取已清除，重新整理後會再次嘗試載入圖片。界面：vnexusClearBrokenImageCache()");
     };
-}
-const VNEXUS_GRAY_IMAGE_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#1D2130"/><path d="M52 92l18-18 17 17 13-13 24 24H36l16-10z" fill="#334155" opacity=".55"/><circle cx="58" cy="55" r="10" fill="#475569" opacity=".45"/></svg>')}`;
-try {
-    // 清掉舊版曾經寫入的壞圖快取。舊快取可能讓已恢復的正常圖片直接變灰底。
-    if (typeof localStorage !== "undefined")
-        localStorage.removeItem(BROKEN_IMAGE_CACHE_KEY);
-    vnexusBrokenImageUrlMap = new Map();
-}
-catch (e) { }
-
-function setImageToGrayPlaceholder(img, failedSrc = "", options = {}) {
-    if (!img)
-        return;
-    const { remember = true } = options || {};
-    const current = failedSrc || img.currentSrc || img.src || img.getAttribute?.("src") || "";
-    if (current === VNEXUS_GRAY_IMAGE_PLACEHOLDER || img.dataset?.vnexusPlaceholder === "gray")
-        return;
-    if (remember && current)
-        rememberBrokenImageUrl(current);
-    try {
-        img.dataset.vnexusPlaceholder = "gray";
-    }
-    catch (e) { }
-    img.classList?.add("vnexus-image-error", "vnexus-image-loaded");
-    img.removeAttribute?.("srcset");
-    img.removeAttribute?.("sizes");
-    img.style.opacity = "1";
-    img.style.visibility = "visible";
-    img.style.backgroundColor = "#1D2130";
-    img.style.objectFit = img.style.objectFit || "cover";
-    img.src = VNEXUS_GRAY_IMAGE_PLACEHOLDER;
 }
 const initVnexusImageLoadingUX = (() => {
     let initialized = false;
@@ -450,9 +433,7 @@ const initVnexusImageLoadingUX = (() => {
           animation: vnexusImageShimmer 1.05s ease-in-out infinite;
         }
         img.vnexus-image-error {
-          opacity: 1 !important;
-          visibility: visible !important;
-          background: #1D2130 !important;
+          opacity: 0 !important;
         }
         .vnexus-drag-scroll {
           scrollbar-width: none;
@@ -545,19 +526,26 @@ const initVnexusImageLoadingUX = (() => {
             const target = event.target;
             if (target && target.tagName === "IMG") {
                 const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
-                if (failedSrc === VNEXUS_GRAY_IMAGE_PLACEHOLDER || target.dataset?.vnexusPlaceholder === "gray")
-                    return;
                 // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
-                setImageToGrayPlaceholder(target, failedSrc, {
-                    remember: !target.closest?.(".vnexus-creator-market-card")
-                });
+                if (target.closest?.(".vnexus-creator-market-card")) {
+                    target.classList.add("vnexus-image-error");
+                    target.classList.remove("vnexus-image-loaded");
+                    return;
+                }
+                rememberBrokenImageUrl(failedSrc);
+                target.classList.add("vnexus-image-error");
+                target.classList.remove("vnexus-image-loaded");
+                target.removeAttribute("srcset");
+                target.removeAttribute("src");
             }
         }, true);
         const hideKnownBrokenImages = (root = document) => {
             root.querySelectorAll?.("img").forEach((img) => {
                 const src = img.currentSrc || img.src || img.getAttribute("src") || "";
                 if (src && isKnownBrokenImageUrl(src)) {
-                    setImageToGrayPlaceholder(img, src, { remember: false });
+                    img.classList.add("vnexus-image-error");
+                    img.removeAttribute("srcset");
+                    img.removeAttribute("src");
                 }
             });
         };
@@ -571,7 +559,9 @@ const initVnexusImageLoadingUX = (() => {
                         if (node.tagName === "IMG") {
                             const src = node.currentSrc || node.src || node.getAttribute("src") || "";
                             if (src && isKnownBrokenImageUrl(src)) {
-                                setImageToGrayPlaceholder(node, src, { remember: false });
+                                node.classList.add("vnexus-image-error");
+                                node.removeAttribute("srcset");
+                                node.removeAttribute("src");
                             }
                         }
                         else {
@@ -592,9 +582,9 @@ const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) 
     useEffect(() => {
         setLoaded(false);
         setHasError(!safeSrc);
-        // 不再設定 9 秒 timeout。
-        // 圖片載入慢時應該繼續等待，不能把正常圖片誤判為壞圖並移除。
-        // 真正沒有網址或圖片連結失效時，交由 !safeSrc / onError 顯示灰底。
+        // ✅ 不再用固定 9 秒 timeout 判斷圖片完成或失敗。
+        // 有些 Storage / 外部圖片在手機網路下會超過 9 秒才載入；
+        // 只有真的沒有網址或瀏覽器觸發 onError 時，才改成灰底。
     }, [safeSrc]);
     // 圖片壞掉時不要顯示瀏覽器破圖 icon，直接保留灰色底。
     // 圖片載入中加上更明顯的深色 shimmer，讓使用者知道畫面正在載入，而不是卡住。
@@ -818,15 +808,6 @@ const sanitizeUrl = (url) => {
     // 先前 isKnownBrokenImageUrl(u) 會讓 sanitizeUrl 回傳空字串，導致再次重新整理後頭像 / 作品圖直接消失。
     // 這裡一律保留原始安全 URL，讓瀏覽器每次都能重新嘗試載入。
     return u;
-};
-const getStatusPreviewText = (vtuber, maxChars = 10) => {
-    const raw = String(vtuber?.statusMessage || "")
-        .replace(/https?:\/\/\S+/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    if (!raw)
-        return "最近更新";
-    return Array.from(raw).slice(0, maxChars).join("");
 };
 const StatusCommentCount = ({ storyOwner }) => {
     const ownerId = storyOwner?.id || "";
@@ -1267,44 +1248,6 @@ const formatDateOnly = (value) => {
         return String(value);
     return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 };
-const getDateEndOfDayMs = (dateStr) => {
-    if (!dateStr)
-        return null;
-    const d = new Date(`${dateStr}T23:59:59`);
-    const ms = d.getTime();
-    return Number.isFinite(ms) ? ms : null;
-};
-const getTodayStartMs = () => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-};
-const formatDateInputLocal = (value) => {
-    if (!value)
-        return "";
-    const d = value instanceof Date ? value : new Date(value);
-    if (isNaN(d.getTime()))
-        return "";
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-const getCommissionRequestEndTime = (request) => {
-    if (!request)
-        return 0;
-    const rawTime = Number(request.requestEndTime || 0);
-    if (Number.isFinite(rawTime) && rawTime > 0)
-        return rawTime;
-    const dateStr = request.requestEndDate || request.requestDeadlineDate || "";
-    const dateTime = getDateEndOfDayMs(dateStr);
-    return Number.isFinite(dateTime) && dateTime > 0 ? dateTime : 0;
-};
-const isCommissionRequestActive = (request, now = Date.now()) => {
-    if (!request || request.status === "closed")
-        return false;
-    const requestEndTime = getCommissionRequestEndTime(request);
-    // 舊資料若尚未設定「徵求截止日期」，先保留顯示，避免既有委託突然全部消失。
-    if (!requestEndTime)
-        return true;
-    return requestEndTime >= now;
-};
 const formatSchedule = (v) => {
     if (v.isScheduleAnytime)
         return "我都可以 (隨時可約)";
@@ -1485,9 +1428,19 @@ const isVisible = (v, currentUser) => {
         return false;
     if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
         return false;
-    // ✅ 尋找 VTuber 夥伴應顯示所有有效名片。
-    // 之前這裡會把 30 天未活躍的名片整個隱藏，導致頁數從約 24 頁掉到 13 頁。
-    // 活躍度只保留給「最近動態」排序使用，不再作為是否顯示的條件。
+    // 修正：處理 Firebase Timestamp 物件轉換為數字
+    const getTime = (val) => {
+        if (!val)
+            return Date.now();
+        if (typeof val === "number")
+            return val;
+        if (val.toMillis)
+            return val.toMillis();
+        return Date.now();
+    };
+    const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
+    if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000)
+        return false;
     return true;
 };
 const getActivityStatusMeta = (status) => {
@@ -1820,7 +1773,7 @@ const BulletinCard = React.memo(({ b, user, isVerifiedUser, onNavigateProfile, o
                 React.createElement("div", { className: "flex items-center justify-between gap-3" },
                     React.createElement("button", { onClick: (event) => { event.preventDefault(); event.stopPropagation(); setShowApplicants(true); }, className: "min-w-0 flex items-center gap-2 text-left rounded-xl hover:bg-[#11131C] transition-colors p-2 -m-2" },
                         React.createElement("div", { className: "flex -space-x-2 flex-shrink-0" },
-                            b.applicantsData?.slice(0, 3).map((a) => (React.createElement("img", { key: a.id, src: sanitizeUrl(a.avatar), className: "w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]", onError: (event) => setImageToGrayPlaceholder(event.currentTarget) }))),
+                            b.applicantsData?.slice(0, 3).map((a) => (React.createElement("img", { key: a.id, src: sanitizeUrl(a.avatar), className: "w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]", onError: (event) => { event.currentTarget.style.display = 'none'; } }))),
                             (!b.applicantsData || b.applicantsData.length === 0) && React.createElement("div", { className: "w-7 h-7 rounded-full bg-[#1D2130] ring-2 ring-[#181B25]" })),
                         React.createElement("div", { className: "min-w-0" },
                             React.createElement("p", { className: "text-xs text-[#F8FAFC] font-bold truncate" },
@@ -1845,7 +1798,7 @@ const BulletinCard = React.memo(({ b, user, isVerifiedUser, onNavigateProfile, o
                         React.createElement("i", { className: "fa-solid fa-xmark text-xl" }))),
                 React.createElement("div", { className: "p-4 overflow-y-auto space-y-3" }, b.applicantsData?.length > 0 ? b.applicantsData.map((a) => (React.createElement("div", { key: a.id, className: "flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-colors cursor-pointer group", onClick: (event) => { event.stopPropagation(); setShowApplicants(false); onNavigateProfile(a, true); } },
                     React.createElement("div", { className: "flex items-center gap-4 min-w-0" },
-                        React.createElement("img", { src: sanitizeUrl(a.avatar), className: "w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]", onError: (event) => setImageToGrayPlaceholder(event.currentTarget) }),
+                        React.createElement("img", { src: sanitizeUrl(a.avatar), className: "w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]", onError: (event) => { event.currentTarget.style.display = 'none'; } }),
                         React.createElement("div", { className: "min-w-0" },
                             React.createElement("p", { className: "font-bold text-white text-sm truncate group-hover:text-[#C4B5FD] transition-colors" }, a.name),
                             React.createElement("p", { className: "text-[10px] text-[#94A3B8] mt-1" }, "\u9EDE\u64CA\u67E5\u770B\u540D\u7247"))),
@@ -2893,7 +2846,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const [requestStyleFilter, setRequestStyleFilter] = useState("All");
     const [requestPage, setRequestPage] = useState(1);
     const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-    const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+    const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
     const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
     const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
     const requestFilters = ["All", "繪圖", "建模", "剪輯"];
@@ -2946,7 +2899,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
     const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
     const filteredRequests = (requests || []).filter((r) => {
-        if (!isCommissionRequestActive(r))
+        if (!r || r.status === "closed")
             return false;
         const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
         const styles = Array.isArray(r.styles) ? r.styles : [];
@@ -2962,61 +2915,17 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         navigate(`profile/${v.id}`); };
     const openPortfolio = (url) => { if (!url)
         return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
-    const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestDeadline: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+    const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
     const handleSaveRequest = async () => {
         if (!user)
             return showToast("請先登入");
-        const title = String(requestForm.title || "").trim();
-        const description = String(requestForm.description || "").trim();
-        const requestType = String(requestForm.requestType || "").trim();
-        const budgetRange = String(requestForm.budgetRange || "").trim();
-        const requestDeadline = String(requestForm.requestDeadline || "").trim();
-        const completionDeadline = String(requestForm.deadline || "").trim();
+        if (!requestForm.title.trim() || !requestForm.description.trim())
+            return showToast("請填寫委託標題與需求說明");
         const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
-        if (!title)
-            return showToast("請填寫需求標題");
-        if (!requestType)
-            return showToast("請選擇需求類型");
-        if (!budgetRange)
-            return showToast("請選擇預算區間");
-        if (!requestDeadline)
-            return showToast("請選擇徵求截止日期");
-        if (!completionDeadline)
-            return showToast("請選擇希望完成日期");
-        if (selectedRequestStyles.length === 0)
-            return showToast("請至少選擇一個喜歡的風格。");
         if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim())
             return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
-        if (!description)
-            return showToast("請填寫需求說明");
-        const requestEndTime = getDateEndOfDayMs(requestDeadline);
-        const deadlineAt = getDateEndOfDayMs(completionDeadline);
-        if (!requestEndTime)
-            return showToast("徵求截止日期格式錯誤");
-        if (!deadlineAt)
-            return showToast("希望完成日期格式錯誤");
-        if (requestEndTime < getTodayStartMs())
-            return showToast("徵求截止日期不能早於今天");
-        if (deadlineAt < requestEndTime)
-            return showToast("希望完成日期不能早於徵求截止日期");
-        const payload = {
-            userId: user.uid,
-            title,
-            description,
-            requestType: requestType || "其他",
-            budgetRange: budgetRange || "歡迎私訊報價",
-            requestEndTime,
-            requestEndDate: requestDeadline,
-            requestDeadlineDate: requestDeadline,
-            deadline: deadlineAt,
-            deadlineDate: completionDeadline,
-            completionDate: completionDeadline,
-            styles: selectedRequestStyles.slice(0, 12),
-            styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80),
-            referenceUrl: String(requestForm.referenceUrl || "").trim(),
-            status: "open",
-            updatedAt: Date.now(),
-        };
+        const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
+        const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
         try {
             if (requestForm.id) {
                 await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true });
@@ -3034,23 +2943,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
             showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`);
         }
     };
-    const handleEditRequest = (r) => {
-        setRequestForm({
-            id: r.id,
-            title: r.title || "",
-            description: r.description || "",
-            requestType: r.requestType || "繪圖",
-            budgetRange: r.budgetRange || "歡迎私訊報價",
-            requestDeadline: r.requestEndDate || r.requestDeadlineDate || formatDateInputLocal(r.requestEndTime),
-            deadline: r.deadlineDate || r.completionDate || formatDateInputLocal(r.deadline),
-            styles: Array.isArray(r.styles) ? r.styles : [],
-            styleOtherText: r.styleOtherText || "",
-            referenceUrl: r.referenceUrl || "",
-        });
-        setIsRequestFormOpen(true);
-        setActiveTab("requests");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    };
+    const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
     const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？"))
         return; try {
         await deleteDoc(doc(db, getPath("commission_requests"), id));
@@ -3136,7 +3029,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     return React.createElement(React.Fragment, { key: v.id },
                         React.createElement("article", { onClick: () => openProfile(v), className: "flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto", title: "\u67E5\u770B\u8A73\u7D30\u540D\u7247" },
                             React.createElement("div", { className: "vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden" },
-                                showcase ? React.createElement("img", { src: showcase, alt: v.name || "作品展示", className: "vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }) : null,
+                                showcase ? React.createElement("img", { src: showcase, alt: v.name || "作品展示", className: "vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : null,
                                 !showcase && React.createElement("div", { className: "w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]" },
                                     React.createElement("i", { className: "fa-solid fa-image text-3xl mb-3 opacity-60" }),
                                     "\u4F5C\u54C1\u5C55\u793A\u5340\u898F\u5283\u4E2D"),
@@ -3146,7 +3039,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     creatorStatus && React.createElement("span", { className: "vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap" }, creatorStatus)),
                                 React.createElement("div", { className: "vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]" },
                                     React.createElement("div", { className: "flex items-end gap-3" },
-                                        React.createElement("div", { className: "vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg" }, v.avatar ? React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "創作者頭像", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }) : null),
+                                        React.createElement("div", { className: "vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg" }, v.avatar ? React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "創作者頭像", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : null),
                                         React.createElement("div", { className: "min-w-0 flex-1" },
                                             React.createElement("h3", { className: "vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight" },
                                                 v.name || "未命名創作者",
@@ -3191,26 +3084,23 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     React.createElement("button", { onClick: () => { resetRequestForm(); setIsRequestFormOpen(!isRequestFormOpen); }, className: "h-[34px] sm:h-[42px] bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl font-bold transition-colors whitespace-nowrap flex-shrink-0 text-xs sm:text-base justify-self-end self-end col-start-2 sm:col-start-auto mt-1 sm:mt-0" }, isRequestFormOpen ? "收起需求表單" : "發布委託需求"))),
             isRequestFormOpen && (React.createElement("div", { className: "bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm" },
                 React.createElement("h3", { className: "text-white text-xl font-extrabold mb-5" }, requestForm.id ? "編輯委託需求" : "發布新的委託需求"),
-                React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" },
-                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
+                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
+                    React.createElement("div", { className: "md:col-span-3" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u6A19\u984C *"),
-                        React.createElement("input", { required: true, value: requestForm.title, onChange: (e) => setRequestForm({ ...requestForm, title: e.target.value }), className: inputCls, placeholder: "\u4F8B\u5982\uFF1A\u60F3\u627E\u53EF\u611B\u98A8\u683C\u982D\u8CBC\u7E6A\u5E2B" })),
+                        React.createElement("input", { value: requestForm.title, onChange: (e) => setRequestForm({ ...requestForm, title: e.target.value }), className: inputCls, placeholder: "\u4F8B\u5982\uFF1A\u60F3\u627E\u53EF\u611B\u98A8\u683C\u982D\u8CBC\u7E6A\u5E2B" })),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u985E\u578B *"),
-                        React.createElement("select", { required: true, value: requestForm.requestType, onChange: (e) => setRequestForm({ ...requestForm, requestType: e.target.value }), className: inputCls }, ["繪圖", "建模", "剪輯", "其他"].map((x) => React.createElement("option", { key: x, value: x }, x)))),
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u985E\u578B"),
+                        React.createElement("select", { value: requestForm.requestType, onChange: (e) => setRequestForm({ ...requestForm, requestType: e.target.value }), className: inputCls }, ["繪圖", "建模", "剪輯", "其他"].map((x) => React.createElement("option", { key: x, value: x }, x)))),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9810\u7B97\u5340\u9593 *"),
-                        React.createElement("select", { required: true, value: requestForm.budgetRange, onChange: (e) => setRequestForm({ ...requestForm, budgetRange: e.target.value }), className: inputCls }, REQUEST_BUDGET_OPTIONS.map((x) => React.createElement("option", { key: x, value: x }, x)))),
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9810\u7B97\u5340\u9593"),
+                        React.createElement("select", { value: requestForm.budgetRange, onChange: (e) => setRequestForm({ ...requestForm, budgetRange: e.target.value }), className: inputCls }, REQUEST_BUDGET_OPTIONS.map((x) => React.createElement("option", { key: x, value: x }, x)))),
                     React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5FB5\u6C42\u622A\u6B62\u65E5\u671F *"),
-                        React.createElement("input", { required: true, type: "date", value: requestForm.requestDeadline || "", onChange: (e) => setRequestForm({ ...requestForm, requestDeadline: e.target.value }), className: inputCls })),
-                    React.createElement("div", null,
-                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5E0C\u671B\u5B8C\u6210\u65E5\u671F *"),
-                        React.createElement("input", { required: true, type: "date", value: requestForm.deadline, onChange: (e) => setRequestForm({ ...requestForm, deadline: e.target.value }), className: inputCls })),
-                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
+                        React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u5E0C\u671B\u5B8C\u6210\u65E5\u671F"),
+                        React.createElement("input", { type: "date", value: requestForm.deadline, onChange: (e) => setRequestForm({ ...requestForm, deadline: e.target.value }), className: inputCls })),
+                    React.createElement("div", { className: "md:col-span-3" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-3" },
-                            "\u559C\u6B61\u7684\u98A8\u683C * ",
-                            React.createElement("span", { className: "text-[#94A3B8] text-xs font-normal" }, "\u53EF\u591A\u9078\uFF08\u81F3\u5C11\u9078\u4E00\u9805\uFF09")),
+                            "\u559C\u6B61\u7684\u98A8\u683C ",
+                            React.createElement("span", { className: "text-[#94A3B8] text-xs font-normal" }, "\u53EF\u591A\u9078")),
                         React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2" }, CREATOR_STYLE_OPTIONS.map((style) => {
                             const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
                             return (React.createElement("label", { key: style, className: "flex items-center gap-2 cursor-pointer rounded-xl border px-3 py-2 transition-colors " + (checked ? "bg-[#8B5CF6]/10 border-[#8B5CF6]/40 text-[#C4B5FD]" : "bg-[#11131C] border-[#2A2F3D] text-[#CBD5E1] hover:bg-[#1D2130]") },
@@ -3222,12 +3112,12 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                 React.createElement("span", { className: "text-sm font-bold" }, style)));
                         })),
                         Array.isArray(requestForm.styles) && requestForm.styles.includes(REQUEST_STYLE_OTHER) && (React.createElement("input", { value: requestForm.styleOtherText || "", onChange: (e) => setRequestForm({ ...requestForm, styleOtherText: e.target.value }), className: inputCls + " mt-3", placeholder: "\u8ACB\u586B\u5BEB\u5176\u4ED6\u559C\u6B61\u7684\u98A8\u683C" }))),
-                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
+                    React.createElement("div", { className: "md:col-span-3" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u53C3\u8003\u9023\u7D50"),
                         React.createElement("input", { value: requestForm.referenceUrl, onChange: (e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value }), className: inputCls, placeholder: "\u53EF\u653E\u53C3\u8003\u5716\u3001\u5F71\u7247\u6216 Notion / X / Google Drive \u9023\u7D50" })),
-                    React.createElement("div", { className: "sm:col-span-2 lg:col-span-4" },
+                    React.createElement("div", { className: "md:col-span-3" },
                         React.createElement("label", { className: "block text-sm font-bold text-[#CBD5E1] mb-2" }, "\u9700\u6C42\u8AAA\u660E *"),
-                        React.createElement("textarea", { required: true, value: requestForm.description, onChange: (e) => setRequestForm({ ...requestForm, description: e.target.value }), className: inputCls + " min-h-[140px]", placeholder: "\u7C21\u55AE\u63CF\u8FF0\u4F60\u60F3\u505A\u4EC0\u9EBC\u3001\u7528\u9014\u3001\u5E0C\u671B\u98A8\u683C\u8207\u6CE8\u610F\u4E8B\u9805\u3002" }))),
+                        React.createElement("textarea", { value: requestForm.description, onChange: (e) => setRequestForm({ ...requestForm, description: e.target.value }), className: inputCls + " min-h-[140px]", placeholder: "\u7C21\u55AE\u63CF\u8FF0\u4F60\u60F3\u505A\u4EC0\u9EBC\u3001\u7528\u9014\u3001\u5E0C\u671B\u98A8\u683C\u8207\u6CE8\u610F\u4E8B\u9805\u3002" }))),
                 React.createElement("div", { className: "flex flex-col sm:flex-row justify-end gap-3 mt-5" },
                     React.createElement("button", { onClick: () => { resetRequestForm(); setIsRequestFormOpen(false); }, className: "bg-[#1D2130] hover:bg-[#2A2F3D] text-white px-5 py-3 rounded-xl font-bold" }, "\u53D6\u6D88"),
                     React.createElement("button", { onClick: handleSaveRequest, className: "bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-6 py-3 rounded-xl font-bold" }, requestForm.id ? "儲存修改" : "發布需求")))),
@@ -3244,7 +3134,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
                     return (React.createElement("article", { key: r.id, className: "bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col" },
                         React.createElement("div", { className: "flex items-start gap-3 mb-4" },
-                            React.createElement("button", { onClick: () => author && openProfile(author), className: "w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0", title: "\u67E5\u770B\u767C\u6848\u8005\u540D\u7247" }, author?.avatar ? React.createElement("img", { src: sanitizeUrl(author.avatar), alt: author?.name || "發案者", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }) : React.createElement("div", { className: "w-full h-full flex items-center justify-center text-[#64748B]" },
+                            React.createElement("button", { onClick: () => author && openProfile(author), className: "w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0", title: "\u67E5\u770B\u767C\u6848\u8005\u540D\u7247" }, author?.avatar ? React.createElement("img", { src: sanitizeUrl(author.avatar), alt: author?.name || "發案者", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : React.createElement("div", { className: "w-full h-full flex items-center justify-center text-[#64748B]" },
                                 React.createElement("i", { className: "fa-solid fa-user" }))),
                             React.createElement("div", { className: "min-w-0 flex-1" },
                                 React.createElement("span", { className: "inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2" }, r.requestType || "委託"),
@@ -3259,9 +3149,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     displayStyles.slice(0, 6).map((s) => React.createElement("span", { key: s, className: "bg-[#11131C] border border-[#2A2F3D] text-[#CBD5E1] px-2.5 py-1 rounded-full text-xs font-bold" }, s)),
                                     displayStyles.length === 0 && React.createElement("span", { className: "bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold" }, "\u98A8\u683C\u53EF\u8A0E\u8AD6")),
                                 React.createElement("div", { className: "text-xs text-[#94A3B8] space-y-1 mb-4" },
-                                    React.createElement("p", null,
-                                        "\u5FB5\u6C42\u622A\u6B62\uFF1A",
-                                        React.createElement("span", { className: "text-white font-bold" }, getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定")),
                                     React.createElement("p", null,
                                         "\u5E0C\u671B\u5B8C\u6210\uFF1A",
                                         React.createElement("span", { className: "text-white font-bold" }, r.deadline ? formatDateOnly(r.deadline) : "可討論")),
@@ -3280,7 +3167,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     React.createElement("span", { className: "text-[11px] text-[#94A3B8]" }, "\u6700\u591A 5 \u4F4D")),
                                 React.createElement("div", { className: "flex items-center gap-2" },
                                     React.createElement("div", { className: "flex -space-x-2" },
-                                        applicantProfiles.slice(0, 5).map((a) => (React.createElement("button", { key: a.id, onClick: () => openProfile(a), className: "w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]", title: a.name || "接案人" }, a.avatar ? React.createElement("img", { src: sanitizeUrl(a.avatar), alt: a.name || "接案人", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }) : React.createElement("span", { className: "w-full h-full flex items-center justify-center text-[#64748B] text-xs" },
+                                        applicantProfiles.slice(0, 5).map((a) => (React.createElement("button", { key: a.id, onClick: () => openProfile(a), className: "w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]", title: a.name || "接案人" }, a.avatar ? React.createElement("img", { src: sanitizeUrl(a.avatar), alt: a.name || "接案人", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : React.createElement("span", { className: "w-full h-full flex items-center justify-center text-[#64748B] text-xs" },
                                             React.createElement("i", { className: "fa-solid fa-user" }))))),
                                         applicantProfiles.length === 0 && React.createElement("div", { className: "w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs" },
                                             React.createElement("i", { className: "fa-regular fa-user" }))),
@@ -3416,9 +3303,9 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
     }, [realVtubers]);
     const featuredCommissionRequests = useMemo(() => {
         return (homeCommissionRequests || [])
-            .filter((r) => isCommissionRequestActive(r, currentTime || Date.now()))
+            .filter((r) => r && r.status !== "closed")
             .slice(0, 3);
-    }, [homeCommissionRequests, currentTime]);
+    }, [homeCommissionRequests]);
     const myHomeProfile = useMemo(() => {
         return user ? realVtubers.find((v) => v.id === user.uid) : null;
     }, [realVtubers, user]);
@@ -3528,12 +3415,11 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             return (React.createElement("button", { key: `home-story-${v.id}`, onClick: () => {
                                     setSelectedVTuber(v);
                                     navigate(`profile/${v.id}`);
-                                }, className: "flex-shrink-0 w-[76px] text-center group", title: v.statusMessage },
+                                }, className: "flex-shrink-0 w-14 text-center group", title: v.statusMessage },
                                 React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}` },
                                     React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
-                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => setImageToGrayPlaceholder(e.currentTarget), alt: v.name || "VTuber" }))),
-                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name),
-                                React.createElement("p", { className: "text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate", title: v.statusMessage || "" }, getStatusPreviewText(v))));
+                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => { e.currentTarget.style.display = "none"; }, alt: v.name || "VTuber" }))),
+                                React.createElement("p", { className: "text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors" }, v.name)));
                         }))) : (React.createElement("button", { onClick: () => navigate("status_wall"), className: "w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors" },
                             React.createElement("p", { className: "text-[#F8FAFC] text-sm font-bold" }, "\u9084\u6C92\u6709\u4EBA\u767C\u52D5\u614B"),
                             React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u52D5\u614B\u7246\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
@@ -3584,10 +3470,10 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             setSelectedVTuber(v);
                             navigate(`profile/${v.id}`);
                         }, className: "block w-full text-left" },
-                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
+                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
                         React.createElement("div", { className: "p-4" },
                             React.createElement("div", { className: "flex items-center gap-3 mb-3" },
-                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }),
+                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => { e.currentTarget.style.display = "none"; } }),
                                 React.createElement("div", { className: "min-w-0" },
                                     React.createElement("h3", { className: "text-[#F8FAFC] font-extrabold truncate" }, v.name || "未命名創作者"),
                                     React.createElement("div", { className: "flex flex-wrap gap-1 mt-1" }, (v.creatorRoles || []).slice(0, 2).map((role) => (React.createElement("span", { key: role, className: "text-[10px] font-bold text-[#38BDF8] bg-[#38BDF8]/10 border border-[#38BDF8]/25 rounded-full px-2 py-0.5" }, role)))))),
@@ -3605,7 +3491,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                     return (React.createElement("article", { key: `home-commission-request-${r.id}`, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 text-left hover:bg-[#1D2130] transition-colors h-full flex flex-col" },
                         React.createElement("div", { className: "flex items-start justify-between gap-3 mb-4" },
                             React.createElement("div", { className: "flex items-center gap-3 min-w-0" },
-                                React.createElement("img", { src: sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"), alt: author?.name || "發案者", className: "w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }),
+                                React.createElement("img", { src: sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"), alt: author?.name || "發案者", className: "w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0", onError: (e) => { e.currentTarget.style.display = "none"; } }),
                                 React.createElement("div", { className: "min-w-0" },
                                     React.createElement("p", { className: "text-[#F8FAFC] font-bold truncate" }, author?.name || "匿名發案者"),
                                     React.createElement("p", { className: "text-[#94A3B8] text-xs" }, formatTime(r.createdAt)))),
@@ -3614,12 +3500,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                         React.createElement("p", { className: "text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1" }, r.description || "發案者尚未填寫詳細需求。"),
                         React.createElement("div", { className: "flex flex-wrap gap-2 mb-4" },
                             React.createElement("span", { className: "bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold" }, r.budgetRange || "預算可討論"),
-                            React.createElement("span", { className: "bg-[#F59E0B]/10 text-[#FBBF24] border border-[#F59E0B]/25 rounded-full px-2.5 py-1 text-xs font-bold" },
-                                "徵求到 ",
-                                getCommissionRequestEndTime(r) ? formatDateOnly(getCommissionRequestEndTime(r)) : "未設定"),
-                            React.createElement("span", { className: "bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold" },
-                                "希望完成 ",
-                                r.deadline ? formatDateOnly(r.deadline) : "日期可討論"),
+                            React.createElement("span", { className: "bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold" }, r.deadline ? formatDateOnly(r.deadline) : "日期可討論"),
                             styles.map((style) => React.createElement("span", { key: `${r.id}-${style}`, className: "bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold" }, style))),
                         React.createElement("div", { className: "flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]" },
                             React.createElement("p", { className: "text-xs text-[#94A3B8]" },
@@ -4454,9 +4335,7 @@ const getStableRandom = (id) => {
 const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allChatRooms, }) => {
     const { onlineUsers } = useContext(AppContext);
     const [missingUsers, setMissingUsers] = useState({});
-    const [latestRoomPreviews, setLatestRoomPreviews] = useState({});
     const fetchedIds = useRef(new Set());
-    const fetchedPreviewKeys = useRef(new Set());
     useEffect(() => {
         allChatRooms.forEach((room) => {
             // 🌟 核心修復 1：直接從 roomId 切割出雙方的 UID，不再依賴 participants 陣列
@@ -4493,68 +4372,7 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             }
         });
     }, [allChatRooms, vtubers, currentUser.uid]);
-    // ✅ 修正聊天室列表最後訊息不同步：
-    // 舊版或異常流程可能只把 messages 子集合寫入成功，卻沒有同步更新 chat_rooms 主文件的 lastMessage。
-    // 因此列表打開時會讀取每個房間 messages 的最新一筆做畫面校正，必要時順手補回主文件。
-    useEffect(() => {
-        if (!currentUser?.uid || !Array.isArray(allChatRooms) || allChatRooms.length === 0)
-            return;
-        let cancelled = false;
-        allChatRooms.forEach((room) => {
-            if (!room?.id)
-                return;
-            const previewKey = `${room.id}:${room.lastTimestamp || 0}:${room.lastMessage || ""}`;
-            if (fetchedPreviewKeys.current.has(previewKey))
-                return;
-            fetchedPreviewKeys.current.add(previewKey);
-            const latestQuery = query(collection(db, getMsgPath(room.id)), orderBy("createdAt", "desc"), limit(1));
-            getDocs(latestQuery)
-                .then(async (snap) => {
-                if (cancelled || snap.empty)
-                    return;
-                const latestDoc = snap.docs[0];
-                const latest = latestDoc.data() || {};
-                const latestText = typeof latest.text === "string" ? latest.text : "";
-                const latestTimestamp = Number(latest.createdAt || 0);
-                if (!latestText && !latestTimestamp)
-                    return;
-                setLatestRoomPreviews((prev) => ({
-                    ...prev,
-                    [room.id]: {
-                        lastMessage: latestText || "（沒有文字訊息）",
-                        lastTimestamp: latestTimestamp || Number(room.lastTimestamp || 0),
-                    },
-                }));
-                const roomTimestamp = Number(room.lastTimestamp || 0);
-                const roomMessage = typeof room.lastMessage === "string" ? room.lastMessage : "";
-                const shouldRepairRoomDoc = latestTimestamp > roomTimestamp || (latestText && latestText !== roomMessage);
-                if (shouldRepairRoomDoc) {
-                    try {
-                        await updateDoc(doc(db, getPath("chat_rooms"), room.id), {
-                            lastMessage: latestText || roomMessage || "（沒有文字訊息）",
-                            lastTimestamp: latestTimestamp || Date.now(),
-                        });
-                    }
-                    catch (error) {
-                        // 權限或網路失敗時只影響下次列表仍需校正，不影響使用者看最新訊息。
-                        console.warn("聊天室最後訊息主文件同步失敗，已先用子集合最新訊息顯示：", error);
-                    }
-                }
-            })
-                .catch((error) => {
-                console.warn("讀取聊天室最新訊息失敗：", error);
-            });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [allChatRooms, currentUser?.uid]);
-    const getRoomPreview = (room) => latestRoomPreviews[room.id] || {};
-    const rooms = [...allChatRooms].sort((a, b) => {
-        const aPreview = getRoomPreview(a);
-        const bPreview = getRoomPreview(b);
-        return (Number(bPreview.lastTimestamp || b.lastTimestamp || 0)) - (Number(aPreview.lastTimestamp || a.lastTimestamp || 0));
-    });
+    const rooms = [...allChatRooms].sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
     if (rooms.length === 0)
         return (React.createElement("div", { className: "p-6 text-center text-[#94A3B8] text-sm" },
             React.createElement("p", { className: "text-[#F8FAFC] font-bold mb-1" }, "\u9019\u88E1\u9084\u6C92\u6709\u8A0A\u606F"),
@@ -4570,9 +4388,6 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             return (React.createElement("div", { key: room.id, className: "p-3 text-center text-gray-600 text-xs" }, "\u8F09\u5165\u5C0D\u8A71\u8CC7\u8A0A\u4E2D..."));
         const isUnread = room.unreadBy && room.unreadBy.includes(currentUser.uid);
         const isOnline = onlineUsers.has(target.id);
-        const preview = getRoomPreview(room);
-        const displayLastMessage = preview.lastMessage || room.lastMessage || "尚無訊息";
-        const displayLastTimestamp = preview.lastTimestamp || room.lastTimestamp;
         return (React.createElement("div", { key: room.id, onClick: () => onOpenChat(target), 
             // 🌟 優化 1：加上 active:bg-[#181B25]，讓手機點擊時有按下去的視覺回饋
             className: "flex items-center gap-3 p-3 border-b border-[#2A2F3D] hover:bg-[#181B25] active:bg-[#181B25] cursor-pointer transition-colors group relative" },
@@ -4582,8 +4397,8 @@ const ChatListContent = ({ currentUser, vtubers, onOpenChat, onDeleteChat, allCh
             React.createElement("div", { className: "flex-1 min-w-0" },
                 React.createElement("div", { className: "flex justify-between items-center mb-1" },
                     React.createElement("span", { className: `text-sm truncate ${isUnread ? "font-black text-white" : "font-bold text-[#CBD5E1]"}` }, target.name),
-                    React.createElement("span", { className: "text-[10px] text-[#64748B]" }, formatTime(displayLastTimestamp))),
-                React.createElement("p", { className: `text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}` }, displayLastMessage)),
+                    React.createElement("span", { className: "text-[10px] text-[#64748B]" }, formatTime(room.lastTimestamp))),
+                React.createElement("p", { className: `text-xs truncate ${isUnread ? "text-[#A78BFA] font-bold" : "text-[#94A3B8]"}` }, room.lastMessage)),
             React.createElement("div", { className: "flex items-center gap-2" },
                 isUnread && (React.createElement("div", { className: "w-2 h-2 bg-[#EF4444] rounded-full shadow-sm" })),
                 React.createElement("button", { onClick: (e) => {
@@ -4607,7 +4422,6 @@ function App() {
     const [selectedVTuber, setSelectedVTuber] = useState(null);
     const [user, setUser] = useState(null);
     const [realVtubers, setRealVtubers] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS));
-    const [leaderboardFallback, setLeaderboardFallback] = useState([]);
     const isAdmin = user && user.email === "apex.dasa@gmail.com";
     const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
     const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
@@ -5347,53 +5161,29 @@ function App() {
     const pendingVtubersCount = useMemo(() => realVtubers.filter((v) => !v.isVerified &&
         !v.isBlacklisted &&
         v.verificationStatus !== "rejected").length, [realVtubers]);
-    useEffect(() => {
-        const shouldFetchLeaderboard = currentView === "bulletin" || isLeaderboardModalOpen;
-        if (!shouldFetchLeaderboard)
-            return;
-        const hasJsonSuccessCount = realVtubers.some((v) => Number(v?.successCount || 0) > 0);
-        if (hasJsonSuccessCount && leaderboardFallback.length > 0)
-            return;
-        let cancelled = false;
-        const fetchLeaderboardFallback = async () => {
-            try {
-                // ✅ 最新版修復：公開 vtubers.json 可能是舊版白名單，沒有 successCount。
-                // 排行榜只在揪團頁需要，因此這裡只補讀有成功次數的少量名片，不回到整包 Firestore 讀取。
-                const q = query(collection(db, getPath("vtubers")), where("successCount", ">", 0), orderBy("successCount", "desc"), limit(50));
-                const snap = await getDocs(q);
-                if (cancelled)
-                    return;
-                setLeaderboardFallback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-            }
-            catch (error) {
-                console.warn("揪團排行榜補讀失敗：", error);
-            }
-        };
-        fetchLeaderboardFallback();
-        return () => { cancelled = true; };
-    }, [currentView, isLeaderboardModalOpen, realVtubers, leaderboardFallback.length]);
     const leaderboardData = useMemo(() => {
-        const byId = new Map();
-        leaderboardFallback.forEach((v) => {
-            const successCount = Number(v?.successCount || 0);
-            if (v?.id && successCount > 0) {
-                byId.set(v.id, { ...v, successCount });
-            }
-        });
-        realVtubers.forEach((v) => {
-            const successCount = Number(v?.successCount ?? byId.get(v?.id)?.successCount ?? 0);
-            if (v?.id && successCount > 0) {
-                byId.set(v.id, { ...(byId.get(v.id) || {}), ...v, successCount });
-            }
-        });
-        return Array.from(byId.values())
-            .filter((v) => v?.id && v.isVerified !== false && !v.isBlacklisted && v.activityStatus !== "sleep" && v.activityStatus !== "graduated")
-            .sort((a, b) => Number(b.successCount || 0) - Number(a.successCount || 0));
-    }, [realVtubers, leaderboardFallback]);
+        return realVtubers
+            .filter((v) => v.successCount && v.successCount > 0)
+            .sort((a, b) => b.successCount - a.successCount);
+    }, [realVtubers]);
     useEffect(() => {
-        // ✅ 短暫完整啟動版：不在 React 一掛載就立刻關閉 loading。
-        // 右上角登入/頭像需要等 Firebase Auth 第一次回報狀態；由 onAuthStateChanged 觸發 __vnexusSignalBootReady。
-        // index.html 仍有 max fallback，避免 Auth 異常時卡住。
+        const loader = document.getElementById("loading-screen");
+        if (loader) {
+            // ✅ 進站體感修正：不要等資料或額外 800ms。HTML/CSS 已先自動淡出；React 掛載後立刻清掉遮罩。
+            const timer = setTimeout(() => {
+                if (typeof window.__vnexusHideBootLoader === "function") {
+                    window.__vnexusHideBootLoader();
+                    return;
+                }
+                loader.style.opacity = "0";
+                loader.style.visibility = "hidden";
+                loader.style.pointerEvents = "none";
+                setTimeout(() => {
+                    loader.style.display = "none";
+                }, 220);
+            }, 30);
+            return () => clearTimeout(timer);
+        }
     }, []);
     useEffect(() => {
         const handleHashChange = () => {
@@ -5447,10 +5237,6 @@ function App() {
             }
             setUser(u);
             setProfileForm(getEmptyProfile(u?.uid));
-            // ✅ Firebase Auth 第一次完成後再關閉啟動畫面，避免右上角登入按鈕/頭像跳動。
-            if (typeof window !== "undefined" && typeof window.__vnexusSignalBootReady === "function") {
-                window.__vnexusSignalBootReady();
-            }
         });
         const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
         return () => {
@@ -5565,6 +5351,39 @@ function App() {
         loadStatsAndSettings();
         return () => { isMounted = false; };
     }, [isAdmin]);
+    // ✅ 管理員中心 / 揪團頁的預設圖片庫不可完全依賴 1 小時快取。
+    // 若 localStorage 曾快取到空陣列，超級管理員中心會誤以為原本上傳的圖片全消失。
+    // 進入超級管理員中心時強制讀 Firestore 正本；揪團頁在本地沒有預設圖時也補讀一次。
+    useEffect(() => {
+        const shouldForceReadBulletinImages = (isAdmin && currentView === "admin") ||
+            (currentView === "bulletin" && (!Array.isArray(defaultBulletinImages) || defaultBulletinImages.length === 0));
+        if (!shouldForceReadBulletinImages)
+            return;
+        let cancelled = false;
+        const refreshDefaultBulletinImages = async () => {
+            try {
+                const imgSnap = await getDoc(doc(db, getPath("settings"), "bulletinImages"));
+                if (cancelled || !imgSnap.exists())
+                    return;
+                const images = imgSnap.data()?.images;
+                if (!Array.isArray(images))
+                    return;
+                setDefaultBulletinImages(images);
+                const cachedSettings = readLocalCache(SETTINGS_CACHE_KEY, {}) || {};
+                writeLocalCache(SETTINGS_CACHE_KEY, {
+                    ...cachedSettings,
+                    bulletinImages: images,
+                });
+                markCacheTimestamp(SETTINGS_CACHE_TS);
+            }
+            catch (error) {
+                console.warn("重新讀取招募佈告欄預設圖片庫失敗，沿用目前資料。", error);
+            }
+        };
+        refreshDefaultBulletinImages();
+        return () => { cancelled = true; };
+    }, [isAdmin, currentView]);
+
     // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
     const vtubersRef = useRef(realVtubers);
     const chatTargetRef = useRef(chatTarget);
@@ -8770,12 +8589,11 @@ function App() {
                                     ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                                     : `${v.name || '創作者'} 最近更新了名片資料`;
                                 return (React.createElement("button", { key: `story-ring-${v.id}`, onClick: () => { if (hasActiveStory)
-                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-[82px] text-center group", title: titleText },
+                                        markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 w-16 text-center group", title: titleText },
                                     React.createElement("div", { className: `w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}` },
                                         React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
-                                            React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) }))),
-                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name),
-                                    React.createElement("p", { className: "text-[10px] text-[#94A3B8] leading-tight mt-0.5 truncate", title: titleText }, hasActiveStory ? getStatusPreviewText(v) : "最近更新")));
+                                            React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => { e.currentTarget.style.display = 'none'; } }))),
+                                    React.createElement("p", { className: `text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, v.name)));
                             })))),
                         isVerifiedUser && myProfile && (React.createElement("div", { className: "mb-4 bg-[#181B25]/55 border-y sm:border border-[#2A2F3D] sm:rounded-2xl px-4 sm:px-5 py-4" },
                             React.createElement("form", { onSubmit: async (e) => {
@@ -8785,7 +8603,7 @@ function App() {
                                         setStoryInput("");
                                 }, className: "flex items-start gap-3" },
                                 React.createElement("button", { type: "button", onClick: () => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id || user?.uid}`); }, className: "flex-shrink-0 mt-0.5", title: "\u67E5\u770B\u6211\u7684\u540D\u7247" },
-                                    React.createElement("img", { src: sanitizeUrl(myProfile.avatar), className: "w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]", onError: (e) => setImageToGrayPlaceholder(e.currentTarget) })),
+                                    React.createElement("img", { src: sanitizeUrl(myProfile.avatar), className: "w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]", onError: (e) => { e.currentTarget.style.display = 'none'; } })),
                                 React.createElement("div", { className: "min-w-0 flex-1" },
                                     React.createElement("textarea", { id: "status-wall-inline-input", maxLength: "40", rows: "1", value: storyInput, onChange: (e) => setStoryInput(e.target.value), className: "w-full bg-transparent border-0 outline-none resize-none text-white placeholder:text-[#64748B] text-[16px] leading-relaxed min-h-[42px] py-2", placeholder: "\u73FE\u5728\u60F3\u627E\u4EBA\u505A\u4EC0\u9EBC\uFF1F" }),
                                     React.createElement("div", { className: "flex items-center justify-between gap-3 pt-2 border-t border-[#2A2F3D]/70" },
@@ -8815,7 +8633,7 @@ function App() {
                             return (React.createElement("article", { key: v.id, className: "px-4 sm:px-5 py-4 hover:bg-[#1D2130]/55 transition-colors" },
                                 React.createElement("div", { className: "flex gap-3 sm:gap-4" },
                                     React.createElement("button", { type: "button", onClick: () => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 self-start", title: "\u67E5\u770B\u540D\u7247" },
-                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: `w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`, onError: (e) => setImageToGrayPlaceholder(e.currentTarget) })),
+                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: `w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`, onError: (e) => { e.currentTarget.style.display = 'none'; } })),
                                     React.createElement("div", { className: "min-w-0 flex-1" },
                                         React.createElement("div", { className: "flex items-center gap-2 min-w-0 text-xs text-[#94A3B8] mb-1" },
                                             React.createElement("span", { className: "font-bold text-[#CBD5E1] truncate" }, v.name),
@@ -9128,7 +8946,7 @@ function App() {
                                         " | \u9EDE\u64CA\u67E5\u770B\u540D\u7247"))),
                             React.createElement("i", { className: "fa-solid fa-chevron-right text-gray-600 group-hover:text-[#A78BFA] transition-colors" })));
                     }))))),
-            user && !chatTarget && (React.createElement("div", { className: "vnexus-chat-launcher fixed bottom-4 right-4 z-[90]" },
+            user && !chatTarget && (React.createElement("div", { className: "fixed bottom-4 right-4 z-[90]" },
                 isChatListOpen && (React.createElement("div", { className: "absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden animate-fade-in-up" },
                     React.createElement("div", { className: "bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-md" },
                         React.createElement("span", { className: "font-bold text-sm flex items-center gap-2" },
