@@ -1810,16 +1810,9 @@ const isVisible = (v, currentUser) => {
   if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
     return false;
 
-  // 修正：處理 Firebase Timestamp 物件轉換為數字
-  const getTime = (val) => {
-    if (!val) return Date.now();
-    if (typeof val === "number") return val;
-    if (val.toMillis) return val.toMillis();
-    return Date.now();
-  };
-
-  const lastActive = getTime(v.lastActiveAt || v.updatedAt || v.createdAt);
-  if (Date.now() - lastActive > 30 * 24 * 60 * 60 * 1000) return false;
+  // ✅ 尋找 VTuber 夥伴應顯示所有有效名片。
+  // 之前這裡會把 30 天未活躍的名片整個隱藏，導致頁數從約 24 頁掉到 13 頁。
+  // 活躍度只保留給「最近動態」排序使用，不再作為是否顯示的條件。
   return true;
 };
 
