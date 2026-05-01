@@ -38,12 +38,6 @@ import {
   getFunctions,
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-// --- 務必確認這行有在頂部 ---
-import {
-  getMessaging,
-  getToken,
-  onMessage,
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
 import {
   getStorage,
@@ -52,10 +46,6 @@ import {
   getDownloadURL,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-import {
-  getAnalytics,
-  logEvent
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 // --------------------------------------------------
 
 // 🌟 引入 createContext 與 useContext
@@ -173,14 +163,8 @@ try {
 
 const auth = getAuth(app);
 
-// 🌟 新增：初始化 Analytics (加上 try-catch 防止被擋廣告軟體攔截而當機)
-let analytics = null;
-try {
-  analytics = getAnalytics(app);
-} catch (error) {
-  console.warn("Analytics 初始化被阻擋:", error);
-}
-
+// ✅ 未打包快速啟動版：把非首屏模組延後到瀏覽器空閒時才初始化。
+// 這不改 Firebase / Firestore / Functions 安全邏輯，只避免首頁一進站就載入 Analytics 與 FCM Messaging。
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
@@ -191,34 +175,110 @@ const storage = getStorage(app);
 
 const functionsInstance = getFunctions(app);
 
-// ✅ 前景推播監聽：App 開著時收到訊息，也能即時顯示通知
+const runWhenIdle = (callback, timeout = 1800) => {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    return window.requestIdleCallback(callback, { timeout });
+  }
+  return setTimeout(callback, Math.min(timeout, 1200));
+};
+
+let analytics = null;
+let analyticsLogEvent = null;
+let analyticsImportPromise = null;
+const pendingAnalyticsEvents = [];
+
+const initDeferredAnalytics = () => {
+  if (analyticsImportPromise) return analyticsImportPromise;
+  analyticsImportPromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js")
+    .then(({ getAnalytics, logEvent }) => {
+      try {
+        analytics = getAnalytics(app);
+        analyticsLogEvent = logEvent;
+        pendingAnalyticsEvents.splice(0).forEach(({ name, params }) => {
+          try { analyticsLogEvent(analytics, name, params); } catch (error) { }
+        });
+        console.info("✅ Analytics 已延後初始化");
+      } catch (error) {
+        console.warn("Analytics 初始化被阻擋:", error);
+      }
+    })
+    .catch((error) => console.warn("Analytics 模組延後載入失敗:", error));
+  return analyticsImportPromise;
+};
+
+const trackAnalyticsEvent = (name, params = {}) => {
+  if (analytics && analyticsLogEvent) {
+    try { analyticsLogEvent(analytics, name, params); } catch (error) { }
+    return;
+  }
+  if (pendingAnalyticsEvents.length < 25) pendingAnalyticsEvents.push({ name, params });
+  runWhenIdle(() => initDeferredAnalytics(), 2600);
+};
+
 let messagingInstance = null;
-try {
-  messagingInstance = getMessaging(app);
-  onMessage(messagingInstance, (payload) => {
-    const title = payload.notification?.title || "V-Nexus 通知";
-    const body = payload.notification?.body || "";
-    const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
+let messagingModulePromise = null;
+let foregroundMessagingStarted = false;
 
-    // 如果瀏覽器已授權通知權限，就顯示原生通知泡泡
-    if (Notification.permission === "granted") {
-      new Notification(title, {
-        body: body,
-        icon: icon,
-        badge: "https://duk.tw/u1jpPE.png",
-        vibrate: [200, 100, 200],
-      });
-    } else {
-      // 沒有通知權限時，退而求其次在 console 記錄
-      // （你也可以在這裡改成呼叫 showToast，但 showToast 在這個作用域外，建議用 console）
-      console.info(`📨 前景推播收到：${title} - ${body}`);
-    }
-  });
-  console.info("✅ FCM 前景推播監聽已啟動");
-} catch (e) {
-  console.warn("⚠️ Messaging 初始化失敗（可能是瀏覽器不支援或被封鎖）:", e);
-}
+const loadMessagingModule = () => {
+  if (!messagingModulePromise) {
+    messagingModulePromise = import("https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js");
+  }
+  return messagingModulePromise;
+};
 
+const initForegroundMessaging = async () => {
+  if (foregroundMessagingStarted) return messagingInstance;
+  if (typeof window === "undefined" || !("Notification" in window)) return null;
+  // 沒授權通知前不需要初始化 FCM 前景監聽，避免首頁首屏多載入一包 messaging SDK。
+  if (Notification.permission !== "granted") return null;
+
+  try {
+    const { getMessaging, onMessage } = await loadMessagingModule();
+    messagingInstance = getMessaging(app);
+    onMessage(messagingInstance, (payload) => {
+      const title = payload.notification?.title || "V-Nexus 通知";
+      const body = payload.notification?.body || "";
+      const icon = payload.notification?.icon || "https://duk.tw/u1jpPE.png";
+      if (Notification.permission === "granted") {
+        new Notification(title, {
+          body,
+          icon,
+          badge: "https://duk.tw/u1jpPE.png",
+          vibrate: [200, 100, 200],
+        });
+      } else {
+        console.info(`📨 前景推播收到：${title} - ${body}`);
+      }
+    });
+    foregroundMessagingStarted = true;
+    console.info("✅ FCM 前景推播監聽已延後啟動");
+  } catch (error) {
+    console.warn("⚠️ Messaging 延後初始化失敗（可能是瀏覽器不支援或被封鎖）:", error);
+  }
+  return messagingInstance;
+};
+
+let serviceWorkerRegistrationPromise = null;
+const registerVnexusServiceWorker = () => {
+  if (!("serviceWorker" in navigator)) return Promise.resolve(null);
+  if (serviceWorkerRegistrationPromise) return serviceWorkerRegistrationPromise;
+  serviceWorkerRegistrationPromise = navigator.serviceWorker
+    .register("/firebase-messaging-sw.js")
+    .then((reg) => {
+      console.log("SW 延後註冊成功:", reg.scope);
+      return reg;
+    })
+    .catch((err) => {
+      console.error("SW 延後註冊失敗:", err);
+      return null;
+    });
+  return serviceWorkerRegistrationPromise;
+};
+
+// 首屏出來後再補 Analytics / 已授權推播監聽 / Service Worker。
+runWhenIdle(() => initDeferredAnalytics(), 2600);
+runWhenIdle(() => initForegroundMessaging(), 3200);
+runWhenIdle(() => registerVnexusServiceWorker(), 3600);
 
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
@@ -7280,19 +7340,17 @@ function App() {
 
   // 🌟 新增 GA4 監控 1：追蹤使用者切換到了哪個頁面 (page_view)
   useEffect(() => {
-    if (analytics) {
-      logEvent(analytics, 'page_view', {
-        page_title: currentView,
-        page_location: window.location.href,
-        page_path: `/${currentView}`
-      });
-    }
+    trackAnalyticsEvent('page_view', {
+      page_title: currentView,
+      page_location: window.location.href,
+      page_path: `/${currentView}`
+    });
   }, [currentView]);
 
   // 🌟 新增 GA4 監控 2：追蹤使用者具體查看了「誰」的名片 (view_item)
   useEffect(() => {
-    if (analytics && currentView === 'profile' && selectedVTuber) {
-      logEvent(analytics, 'view_item', {
+    if (currentView === 'profile' && selectedVTuber) {
+      trackAnalyticsEvent('view_item', {
         item_id: selectedVTuber.id,
         item_name: selectedVTuber.name,
         item_category: 'vtuber_profile'
@@ -7525,7 +7583,9 @@ function App() {
         return alert("❌ 您拒絕了通知權限。請到瀏覽器設定中開啟。");
       }
 
+      await registerVnexusServiceWorker();
       const registration = await navigator.serviceWorker.ready;
+      const { getMessaging, getToken } = await loadMessagingModule();
       const messaging = getMessaging(app);
       const currentToken = await getToken(messaging, {
         serviceWorkerRegistration: registration,
@@ -7541,6 +7601,7 @@ function App() {
           fcmTokenUpdatedAt: Date.now(),
         }, { merge: true });
 
+        await initForegroundMessaging();
         showToast("✅ 手機推播已成功啟動！");
         alert("🎉 恭喜！您的設備已成功綁定推播功能。");
       } else {
@@ -7765,7 +7826,8 @@ function App() {
     if (!user) return showToast("請先登入！");
     showToast("⏳ 正在發送測試推播...");
     try {
-      // 1. 先嘗試本地顯示 (確保 Service Worker 運作中)
+      // 1. 先嘗試本地顯示（確保 Service Worker 運作中）
+      await registerVnexusServiceWorker();
       const registration = await navigator.serviceWorker.ready;
       if (registration) {
         await registration.showNotification("V-Nexus 系統測試", {
@@ -7978,8 +8040,8 @@ function App() {
         loader.style.pointerEvents = "none";
         setTimeout(() => {
           loader.style.display = "none";
-        }, 260);
-      }, 80);
+        }, 220);
+      }, 30);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -8032,13 +8094,7 @@ function App() {
   }, [notifRef]);
 
   useEffect(() => {
-    // 註冊 Service Worker
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/firebase-messaging-sw.js")
-        .then((reg) => console.log("SW 註冊成功:", reg.scope))
-        .catch((err) => console.error("SW 註冊失敗:", err));
-    }
+    // Service Worker 已改成進站後 idle 延後註冊；啟用推播時會主動確保註冊完成。
     const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
       // 關鍵：當偵測到帳號變動（包含登出）
       if (!u || (user && u.uid !== user.uid)) {
@@ -8621,9 +8677,7 @@ function App() {
       showToast("🎉 登入成功！");
 
       // 🌟 新增 GA4 監控 3：記錄使用者成功登入
-      if (analytics) {
-        logEvent(analytics, 'login', { method: 'Google' });
-      }
+      trackAnalyticsEvent('login', { method: 'Google' });
     } catch (e) {
       showToast("登入失敗");
     }
