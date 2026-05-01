@@ -455,6 +455,27 @@ if (typeof window !== "undefined") {
   };
 }
 
+const VNEXUS_GRAY_IMAGE_PLACEHOLDER = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#1D2130"/><path d="M52 92l18-18 17 17 13-13 24 24H36l16-10z" fill="#334155" opacity=".55"/><circle cx="58" cy="55" r="10" fill="#475569" opacity=".45"/></svg>')}`;
+
+function setImageToGrayPlaceholder(img, failedSrc = "", options = {}) {
+  if (!img) return;
+  const { remember = true } = options || {};
+  const current = failedSrc || img.currentSrc || img.src || img.getAttribute?.("src") || "";
+  if (current === VNEXUS_GRAY_IMAGE_PLACEHOLDER || img.dataset?.vnexusPlaceholder === "gray") return;
+
+  if (remember && current) rememberBrokenImageUrl(current);
+
+  try { img.dataset.vnexusPlaceholder = "gray"; } catch (e) { }
+  img.classList?.add("vnexus-image-error", "vnexus-image-loaded");
+  img.removeAttribute?.("srcset");
+  img.removeAttribute?.("sizes");
+  img.style.opacity = "1";
+  img.style.visibility = "visible";
+  img.style.backgroundColor = "#1D2130";
+  img.style.objectFit = img.style.objectFit || "cover";
+  img.src = VNEXUS_GRAY_IMAGE_PLACEHOLDER;
+}
+
 const initVnexusImageLoadingUX = (() => {
   let initialized = false;
   return () => {
@@ -482,7 +503,9 @@ const initVnexusImageLoadingUX = (() => {
           animation: vnexusImageShimmer 1.05s ease-in-out infinite;
         }
         img.vnexus-image-error {
-          opacity: 0 !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          background: #1D2130 !important;
         }
         .vnexus-drag-scroll {
           scrollbar-width: none;
@@ -577,17 +600,11 @@ const initVnexusImageLoadingUX = (() => {
       const target = event.target;
       if (target && target.tagName === "IMG") {
         const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
+        if (failedSrc === VNEXUS_GRAY_IMAGE_PLACEHOLDER || target.dataset?.vnexusPlaceholder === "gray") return;
         // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
-        if (target.closest?.(".vnexus-creator-market-card")) {
-          target.classList.add("vnexus-image-error");
-          target.classList.remove("vnexus-image-loaded");
-          return;
-        }
-        rememberBrokenImageUrl(failedSrc);
-        target.classList.add("vnexus-image-error");
-        target.classList.remove("vnexus-image-loaded");
-        target.removeAttribute("srcset");
-        target.removeAttribute("src");
+        setImageToGrayPlaceholder(target, failedSrc, {
+          remember: !target.closest?.(".vnexus-creator-market-card")
+        });
       }
     }, true);
 
@@ -595,9 +612,7 @@ const initVnexusImageLoadingUX = (() => {
       root.querySelectorAll?.("img").forEach((img) => {
         const src = img.currentSrc || img.src || img.getAttribute("src") || "";
         if (src && isKnownBrokenImageUrl(src)) {
-          img.classList.add("vnexus-image-error");
-          img.removeAttribute("srcset");
-          img.removeAttribute("src");
+          setImageToGrayPlaceholder(img, src, { remember: false });
         }
       });
     };
@@ -612,9 +627,7 @@ const initVnexusImageLoadingUX = (() => {
             if (node.tagName === "IMG") {
               const src = node.currentSrc || node.src || node.getAttribute("src") || "";
               if (src && isKnownBrokenImageUrl(src)) {
-                node.classList.add("vnexus-image-error");
-                node.removeAttribute("srcset");
-                node.removeAttribute("src");
+                setImageToGrayPlaceholder(node, src, { remember: false });
               }
             } else {
               hideKnownBrokenImages(node);
@@ -645,9 +658,10 @@ const LazyImage = ({
     setHasError(!safeSrc);
 
     // 防止外部圖片 / Storage 圖片在手機網路不穩時沒有觸發 onError，
-    // 導致 skeleton shimmer 永遠閃爍。超過時間只停止載入動畫，不判定壞圖、不移除圖片。
+    // 導致 skeleton shimmer 永遠閃爍。超過時間後直接顯示灰色底，不再讓瀏覽器破圖 icon 出現。
     if (!safeSrc) return;
     const timer = setTimeout(() => {
+      setHasError(true);
       setLoaded(true);
     }, 9000);
 
@@ -676,10 +690,7 @@ const LazyImage = ({
             setLoaded(true);
           }}
           onError={(e) => {
-            rememberBrokenImageUrl(safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
-            e.currentTarget.classList.add("vnexus-image-error");
-            e.currentTarget.removeAttribute("srcset");
-            e.currentTarget.removeAttribute("src");
+            setImageToGrayPlaceholder(e.currentTarget, safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
             setHasError(true);
             setLoaded(true);
           }}
@@ -2397,7 +2408,7 @@ const BulletinCard = React.memo(({
             <button onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowApplicants(true); }} className="min-w-0 flex items-center gap-2 text-left rounded-xl hover:bg-[#11131C] transition-colors p-2 -m-2">
               <div className="flex -space-x-2 flex-shrink-0">
                 {b.applicantsData?.slice(0, 3).map((a) => (
-                  <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                  <img key={a.id} src={sanitizeUrl(a.avatar)} className="w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]" onError={(event) => setImageToGrayPlaceholder(event.currentTarget)} />
                 ))}
                 {(!b.applicantsData || b.applicantsData.length === 0) && <div className="w-7 h-7 rounded-full bg-[#1D2130] ring-2 ring-[#181B25]"></div>}
               </div>
@@ -2439,7 +2450,7 @@ const BulletinCard = React.memo(({
               {b.applicantsData?.length > 0 ? b.applicantsData.map((a) => (
                 <div key={a.id} className="flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-colors cursor-pointer group" onClick={(event) => { event.stopPropagation(); setShowApplicants(false); onNavigateProfile(a, true); }}>
                   <div className="flex items-center gap-4 min-w-0">
-                    <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
+                    <img src={sanitizeUrl(a.avatar)} className="w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]" onError={(event) => setImageToGrayPlaceholder(event.currentTarget)} />
                     <div className="min-w-0">
                       <p className="font-bold text-white text-sm truncate group-hover:text-[#C4B5FD] transition-colors">{a.name}</p>
                       <p className="text-[10px] text-[#94A3B8] mt-1">點擊查看名片</p>
@@ -4552,7 +4563,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
               return <React.Fragment key={v.id}>
                 <article onClick={() => openProfile(v)} className="flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto" title="查看詳細名片">
                 <div className="vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden">
-                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
+                  {showcase ? <img src={showcase} alt={v.name || "作品展示"} className="vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : null}
                   {!showcase && <div className="w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]"><i className="fa-solid fa-image text-3xl mb-3 opacity-60"></i>作品展示區規劃中</div>}
                   <div className="vnexus-critical-gradient absolute inset-0 bg-gradient-to-t from-[#0F111A] via-[#0F111A]/65 sm:via-[#0F111A]/15 to-transparent z-[1]"></div>
                   <div className="vnexus-critical-top-badges absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-start justify-between gap-2 z-[2]">
@@ -4562,7 +4573,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   <div className="vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]">
                     <div className="flex items-end gap-3">
                       <div className="vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg">
-                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : null}
+                        {v.avatar ? <img src={sanitizeUrl(v.avatar)} alt={v.name || "創作者頭像"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <h3 className="vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight">{v.name || "未命名創作者"}{v.isVerified && <span className="vnexus-critical-verified text-[#22C55E] text-xs font-bold bg-black/40 px-2 py-0.5 rounded-full flex-shrink-0">已認證</span>}</h3>
@@ -4696,7 +4707,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                 <article key={r.id} className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-4">
                     <button onClick={() => author && openProfile(author)} className="w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0" title="查看發案者名片">
-                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
+                      {author?.avatar ? <img src={sanitizeUrl(author.avatar)} alt={author?.name || "發案者"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : <div className="w-full h-full flex items-center justify-center text-[#64748B]"><i className="fa-solid fa-user"></i></div>}
                     </button>
                     <div className="min-w-0 flex-1">
                       <span className="inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2">{r.requestType || "委託"}</span>
@@ -4734,7 +4745,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         <div className="flex -space-x-2">
                           {applicantProfiles.slice(0, 5).map((a) => (
                             <button key={a.id} onClick={() => openProfile(a)} className="w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]" title={a.name || "接案人"}>
-                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
+                              {a.avatar ? <img src={sanitizeUrl(a.avatar)} alt={a.name || "接案人"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} /> : <span className="w-full h-full flex items-center justify-center text-[#64748B] text-xs"><i className="fa-solid fa-user"></i></span>}
                             </button>
                           ))}
                           {applicantProfiles.length === 0 && <div className="w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs"><i className="fa-regular fa-user"></i></div>}
@@ -5148,7 +5159,7 @@ const HomePage = ({
                             <img
                               src={sanitizeUrl(v.avatar)}
                               className="w-full h-full rounded-full object-cover bg-[#1D2130]"
-                              onError={(e) => { e.currentTarget.style.display = "none"; }}
+                              onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
                               alt={v.name || "VTuber"}
                             />
                           </div>
@@ -5322,14 +5333,14 @@ const HomePage = ({
                 >
                   <div className="h-36 bg-[#11131C] overflow-hidden">
                     {v.banner ? (
-                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); }} />
+                      <img src={sanitizeUrl(v.banner)} alt={v.name || "creator"} className="vnexus-critical-avatar-img w-full h-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
                     ) : (
                       <div className="w-full h-full bg-[#1D2130]"></div>
                     )}
                   </div>
                   <div className="p-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <img src={sanitizeUrl(v.avatar)} alt={v.name || "creator"} className="w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={sanitizeUrl(v.avatar)} alt={v.name || "creator"} className="w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
                       <div className="min-w-0">
                         <h3 className="text-[#F8FAFC] font-extrabold truncate">{v.name || "未命名創作者"}</h3>
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -5383,7 +5394,7 @@ const HomePage = ({
                 <article key={`home-commission-request-${r.id}`} className="flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 text-left hover:bg-[#1D2130] transition-colors h-full flex flex-col">
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={author?.name || "發案者"} className="w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={author?.name || "發案者"} className="w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
                       <div className="min-w-0">
                         <p className="text-[#F8FAFC] font-bold truncate">{author?.name || "匿名發案者"}</p>
                         <p className="text-[#94A3B8] text-xs">{formatTime(r.createdAt)}</p>
@@ -12976,7 +12987,7 @@ function App() {
                           >
                             <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
                               <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
-                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => setImageToGrayPlaceholder(e.currentTarget)} />
                               </div>
                             </div>
                             <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
@@ -13007,7 +13018,7 @@ function App() {
                         <img
                           src={sanitizeUrl(myProfile.avatar)}
                           className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
                         />
                       </button>
 
@@ -13094,7 +13105,7 @@ function App() {
                               <img
                                 src={sanitizeUrl(v.avatar)}
                                 className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`}
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                onError={(e) => setImageToGrayPlaceholder(e.currentTarget)}
                               />
                             </button>
 
@@ -13906,7 +13917,7 @@ function App() {
           </div>
         )}
         {user && !chatTarget && (
-          <div className="fixed bottom-4 right-4 z-[90]">
+          <div className="vnexus-chat-launcher fixed bottom-4 right-4 z-[90]">
             {isChatListOpen && (
               <div className="absolute bottom-16 right-0 w-[90vw] sm:w-80 bg-[#0F111A] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden animate-fade-in-up">
                 <div className="bg-[#8B5CF6] p-3 flex justify-between items-center text-white shadow-md">

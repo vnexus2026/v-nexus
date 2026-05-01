@@ -290,3 +290,29 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
         font-size: 3.25rem !important;
     }
 }
+
+/* ✅ 圖片讀取失敗時不要顯示瀏覽器破圖 icon，維持灰色佔位 */
+img.vnexus-image-error,
+img.vnexus-local-img-failed,
+img[data-vnexus-placeholder="gray"] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: #1D2130 !important;
+    object-fit: cover !important;
+}
+
+
+/* ✅ 聊天室浮動按鈕：避免被首頁淡入容器或手機安全區影響，固定在視窗右下角 */
+.vnexus-chat-launcher {
+    position: fixed !important;
+    right: max(1rem, env(safe-area-inset-right)) !important;
+    bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    z-index: 9000 !important;
+}
+
+@media (max-width: 639px) {
+    .vnexus-chat-launcher {
+        right: max(1rem, env(safe-area-inset-right)) !important;
+        bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    }
+}
