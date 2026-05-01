@@ -6,12 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>V-Nexus | 專為 VTuber 打造的聯動平台</title>
   <link rel="icon" href="https://duk.tw/u1jpPE.png">
-  <link rel="preconnect" href="https://cdn.tailwindcss.com">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-  <link rel="preconnect" href="https://unpkg.com">
-  <link rel="preconnect" href="https://www.gstatic.com">
-  <link rel="preconnect" href="https://firebasestorage.googleapis.com">
-  <link rel="dns-prefetch" href="https://www.googleapis.com">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -66,7 +60,7 @@
     .vnexus-vtuber-grid-search-sort{display:flex!important;flex-direction:column!important;gap:.75rem!important;width:100%!important;min-width:0!important;}.vnexus-vtuber-grid-search-sort input,.vnexus-vtuber-grid-search-sort select,.vnexus-vtuber-filter-panel input,.vnexus-vtuber-filter-panel select{display:block!important;width:100%!important;max-width:100%!important;border-radius:.75rem!important;border:1px solid #2A2F3D!important;background:#181B25!important;color:#fff!important;font-size:16px!important;outline:none!important;}
     .vnexus-vtuber-grid-list{display:grid!important;grid-template-columns:repeat(1,minmax(0,1fr))!important;gap:1.5rem!important;width:100%!important;min-width:0!important;}.vnexus-vtuber-card{display:flex!important;flex-direction:column!important;height:100%!important;min-width:0!important;overflow:hidden!important;border-radius:1rem!important;background:#181B25!important;border:1px solid #2A2F3D!important;color:#E2E8F0!important;cursor:pointer!important;}.vnexus-vtuber-card-banner{position:relative!important;height:5rem!important;overflow:hidden!important;background:#11131C!important;border-bottom:1px solid #2A2F3D!important;flex-shrink:0!important;}.vnexus-vtuber-card-body{padding:1rem!important;flex:1 1 auto!important;display:flex!important;flex-direction:column!important;min-width:0!important;}
     @media(max-width:639px){.vnexus-vtuber-grid-page{max-width:100%!important;padding:1rem!important;gap:1rem!important;min-height:100dvh!important;}.vnexus-vtuber-grid-actions h2{flex:1 0 100%!important;font-size:1.45rem!important;}.vnexus-vtuber-grid-actions button{flex:1 1 calc(50% - .5rem)!important;font-size:13px!important;padding:.55rem .65rem!important;}.vnexus-vtuber-grid-list{gap:1rem!important;}.vnexus-vtuber-card{border-radius:1.25rem!important;}}
-    @media(min-width:768px){.vnexus-vtuber-grid-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}@media(min-width:1024px){.vnexus-vtuber-grid-page{flex-direction:row!important;}.vnexus-vtuber-filter-panel{width:18rem!important;display:block!important;}.vnexus-vtuber-filter-panel.hidden{display:block!important;}.vnexus-vtuber-grid-toolbar{flex-direction:row!important;align-items:flex-start!important;}.vnexus-vtuber-grid-search-sort{width:auto!important;}}@media(min-width:1024px){.vnexus-vtuber-grid-list{grid-template-columns:repeat(3,minmax(0,1fr))!important;}}
+    @media(min-width:768px){.vnexus-vtuber-grid-list{grid-template-columns:repeat(2,minmax(0,1fr))!important;}}@media(min-width:1024px){.vnexus-vtuber-grid-page{flex-direction:row!important;}.vnexus-vtuber-filter-panel{width:18rem!important;display:block!important;}.vnexus-vtuber-filter-panel.hidden{display:block!important;}.vnexus-vtuber-grid-toolbar{flex-direction:row!important;align-items:flex-start!important;}.vnexus-vtuber-grid-search-sort{width:auto!important;}}@media(min-width:1280px){.vnexus-vtuber-grid-list{grid-template-columns:repeat(3,minmax(0,1fr))!important;}}
     /* Chat layout: mobile fullscreen, desktop right-side panel */
     @media (max-width: 639px) {
       .vnexus-floating-chat {
@@ -220,39 +214,6 @@
       }
     }
 
-
-    /* Commission request form: desktop keeps four required meta fields in one row; mobile wraps safely. */
-    .vnexus-request-form-grid {
-      display:grid !important;
-      grid-template-columns:repeat(1,minmax(0,1fr)) !important;
-      gap:1rem !important;
-      width:100% !important;
-      min-width:0 !important;
-    }
-    .vnexus-request-form-grid > * { min-width:0 !important; }
-    .vnexus-request-required-field select,
-    .vnexus-request-required-field input[type="date"] { min-height:48px !important; }
-    @media (min-width:640px) {
-      .vnexus-request-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
-      .vnexus-request-form-grid > .sm\:col-span-2 { grid-column:span 2 / span 2 !important; }
-    }
-    @media (min-width:1024px) {
-      .vnexus-request-form-grid { grid-template-columns:repeat(4,minmax(0,1fr)) !important; }
-      .vnexus-request-form-grid > .lg\:col-span-4 { grid-column:span 4 / span 4 !important; }
-    }
-
-
-
-    /* Bulletin board page title: larger, stable fallback beyond Tailwind. */
-    .vnexus-bulletin-page-title {
-      font-size:2.25rem !important;
-      line-height:1.08 !important;
-      font-weight:950 !important;
-      letter-spacing:-0.03em !important;
-    }
-    @media (min-width:640px) {
-      .vnexus-bulletin-page-title { font-size:3rem !important; }
-    }
 
     /* Image timeout fix: stop shimmer without hiding/removing late-loading images */
     img:not(.vnexus-image-loaded):not(.vnexus-image-error) {

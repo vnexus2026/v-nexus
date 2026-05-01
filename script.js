@@ -222,65 +222,84 @@ try {
 
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
-const ONE_DAY = 24 * 60 * 60 * 1000;
+const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
 const VTUBER_CACHE_KEY = "vnexus_vtubers_data";
 const VTUBER_CACHE_TS = "vnexus_vtubers_ts";
+const PUBLIC_VTUBERS_JSON_URL = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+const PUBLIC_VTUBER_CACHE_LIMIT = 5 * 60 * 1000; // 公開名片 JSON 5 分鐘內不重複抓；Storage 無 Firestore reads 成本。
 const STATS_CACHE_KEY = "vnexus_stats_data";
 const STATS_CACHE_TS = "vnexus_stats_ts";
-const STATS_CACHE_LIMIT = 30 * 60 * 1000;
+const STATS_CACHE_LIMIT = 30 * 60 * 1000; // 統計/廣播資料 30 分鐘快取；不再每個使用者長時間監聽。
 const BULLETINS_CACHE_KEY = "vnexus_bulletins_data";
 const BULLETINS_CACHE_TS = "vnexus_bulletins_ts";
 const COLLABS_CACHE_KEY = "vnexus_collabs_data";
 const COLLABS_CACHE_TS = "vnexus_collabs_ts";
+const UPDATES_CACHE_KEY = "vnexus_updates_data";
+const UPDATES_CACHE_TS = "vnexus_updates_ts";
 const ARTICLES_CACHE_KEY = "vnexus_articles_data";
 const ARTICLES_CACHE_TS = "vnexus_articles_ts";
-// 使用者體感優先：活動資料 5 分鐘更新一次；有舊快取時先顯示舊資料，再背景刷新。
-const ACTIVITY_CACHE_LIMIT = 5 * 60 * 1000;
-const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
-const SETTINGS_CACHE_LIMIT = 1 * 60 * 60 * 1000;
-const VTUBER_PUBLIC_JSON_URL = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-const SETTINGS_CACHE_KEYS = {
-  tips: "vnexus_settings_tips_cache",
-  rules: "vnexus_settings_rules_cache",
-  bulletinImages: "vnexus_settings_bulletin_images_cache",
-};
+const SETTINGS_CACHE_KEY = "vnexus_settings_data";
+const SETTINGS_CACHE_TS = "vnexus_settings_ts";
+const ACTIVITY_CACHE_LIMIT = 5 * 60 * 1000; // 首頁活動 / 揪團 / 聯動：5 分鐘快取。
+const ARTICLES_CACHE_LIMIT = 60 * 60 * 1000; // 文章 / 公告：1 小時快取。
+const SETTINGS_CACHE_LIMIT = 60 * 60 * 1000; // 站規 / 邀約小技巧 / 預設圖：1 小時快取。
 
-function readLocalStorageJSON(key, fallback = null) {
-  if (typeof localStorage === "undefined") return fallback;
+const safeJsonParse = (raw, fallback = null) => {
+  if (!raw || typeof raw !== "string") return fallback;
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    return JSON.parse(raw);
   } catch (error) {
-    console.warn(`快取 ${key} 解析失敗，已清除。`, error);
-    try { localStorage.removeItem(key); } catch (e) { }
     return fallback;
   }
-}
+};
 
-function writeLocalStorageJSON(key, value) {
+const readLocalCache = (key, fallback = null) => {
+  if (typeof localStorage === "undefined") return fallback;
+  return safeJsonParse(localStorage.getItem(key), fallback);
+};
+
+const writeLocalCache = (key, value) => {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.warn(`寫入快取失敗：${key}`, error);
+    return false;
+  }
+};
+
+const removeLocalCache = (...keys) => {
   if (typeof localStorage === "undefined") return;
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (error) { }
-}
+  keys.forEach((key) => {
+    try { localStorage.removeItem(key); } catch (error) { }
+  });
+};
 
-function readTimedCache(key, ttlMs, fallback = null) {
-  const payload = readLocalStorageJSON(key, null);
-  if (!payload || typeof payload !== "object") return fallback;
-  const ts = Number(payload.ts || 0);
-  if (!ts || Date.now() - ts > ttlMs) return fallback;
-  return payload.value ?? fallback;
-}
+const readCacheTimestamp = (key) => {
+  if (typeof localStorage === "undefined") return 0;
+  const value = Number(localStorage.getItem(key) || 0);
+  return Number.isFinite(value) ? value : 0;
+};
 
-function writeTimedCache(key, value) {
-  writeLocalStorageJSON(key, { ts: Date.now(), value });
-}
+const isCacheFresh = (tsKey, maxAgeMs) => {
+  const ts = readCacheTimestamp(tsKey);
+  return Boolean(ts && Date.now() - ts < maxAgeMs);
+};
 
-async function fetchPublicVtubersJson(forceFresh = false) {
-  const url = forceFresh ? `${VTUBER_PUBLIC_JSON_URL}&t=${Date.now()}` : VTUBER_PUBLIC_JSON_URL;
-  const response = await fetch(url, { cache: forceFresh ? "reload" : "default" });
-  if (!response.ok) throw new Error(`public vtubers json ${response.status}`);
-  const data = await response.json();
-  return Array.isArray(data) ? data : [];
-}
+const markCacheTimestamp = (key, timestamp = Date.now()) => {
+  if (typeof localStorage === "undefined") return;
+  try { localStorage.setItem(key, String(timestamp)); } catch (error) { }
+};
+
+const getCachedArray = (dataKey, tsKey = null) => {
+  const data = readLocalCache(dataKey, []);
+  if (!Array.isArray(data)) {
+    removeLocalCache(dataKey, ...(tsKey ? [tsKey] : []));
+    return [];
+  }
+  return data;
+};
 
 const getPath = (collectionName) =>
   `artifacts/${APP_ID}/public/data/${collectionName}`;
@@ -1503,29 +1522,6 @@ const formatDateOnly = (value) => {
   const d = value instanceof Date ? value : new Date(value);
   if (isNaN(d.getTime())) return String(value);
   return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
-};
-
-const getDateInputValue = (value) => {
-  if (!value) return "";
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const d = value instanceof Date ? value : new Date(value);
-  if (isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-const getDateEndOfDayTime = (dateStr) => {
-  if (!dateStr) return null;
-  const d = new Date(`${dateStr}T23:59:59`);
-  const time = d.getTime();
-  return Number.isFinite(time) ? time : null;
-};
-
-const isCommissionRequestActive = (request, now = Date.now()) => {
-  if (!request || request.status === "closed") return false;
-  const endTime = Number(request.requestEndTime || 0);
-  // 舊資料沒有徵求截止日期時先繼續顯示，避免既有委託需求突然全部消失。
-  if (!endTime) return true;
-  return endTime >= now;
 };
 const formatSchedule = (v) => {
   if (v.isScheduleAnytime) return "我都可以 (隨時可約)";
@@ -4311,9 +4307,8 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const [requestFilter, setRequestFilter] = useState("All");
   const [requestStyleFilter, setRequestStyleFilter] = useState("All");
   const [requestPage, setRequestPage] = useState(1);
-  const [commissionRequestNow, setCommissionRequestNow] = useState(Date.now());
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
-  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestEndDate: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const [requestForm, setRequestForm] = useState({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
   const roleFilters = ["All", "繪師", "建模師", "剪輯師"];
   const creatorStyleFilters = ["All", ...CREATOR_STYLE_OPTIONS];
   const requestFilters = ["All", "繪圖", "建模", "剪輯"];
@@ -4352,14 +4347,9 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   useEffect(() => { setCommissionPage(1); }, [activeRoleFilter, activeCreatorStyleFilter]);
   useEffect(() => { setRequestPage(1); }, [requestFilter, requestStyleFilter]);
   useEffect(() => {
-    const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(200));
+    const q = query(collection(db, getPath("commission_requests")), orderBy("createdAt", "desc"), limit(80));
     const unsub = onSnapshot(q, (snap) => setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), (err) => console.warn("委託佈告欄讀取失敗:", err));
     return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCommissionRequestNow(Date.now()), 60000);
-    return () => clearInterval(timer);
   }, []);
 
   const creatorList = (Array.isArray(realVtubers) ? realVtubers : []).filter((v) => v && v.isVerified && !v.isBlacklisted && Array.isArray(v.creatorRoles) && v.creatorRoles.length > 0 && !String(v.id || "").startsWith("mock")).sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
@@ -4377,7 +4367,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
   const safeCommissionPage = Math.min(commissionPage, totalCommissionPages);
   const pagedCreatorList = shuffledCreatorList.slice((safeCommissionPage - 1) * COMMISSION_PAGE_SIZE, safeCommissionPage * COMMISSION_PAGE_SIZE);
   const filteredRequests = (requests || []).filter((r) => {
-    if (!isCommissionRequestActive(r, commissionRequestNow)) return false;
+    if (!r || r.status === "closed") return false;
     const typeOk = requestFilter === "All" || r.requestType === requestFilter || (Array.isArray(r.requestTypes) && r.requestTypes.includes(requestFilter));
     const styles = Array.isArray(r.styles) ? r.styles : [];
     const styleOk = requestStyleFilter === "All" || styles.includes(requestStyleFilter);
@@ -4389,32 +4379,22 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
 
   const openProfile = (v) => { if (onNavigateProfile) onNavigateProfile(v); else navigate(`profile/${v.id}`); };
   const openPortfolio = (url) => { if (!url) return; const raw = String(url).trim(); const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`; window.open(sanitizeUrl(normalized), "_blank", "noopener,noreferrer"); };
-  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", requestEndDate: "", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
+  const resetRequestForm = () => setRequestForm({ id: null, title: "", description: "", requestType: "繪圖", budgetRange: "歡迎私訊報價", deadline: "", styles: [], styleOtherText: "", referenceUrl: "" });
 
   const handleSaveRequest = async () => {
     if (!user) return showToast("請先登入");
     if (!requestForm.title.trim() || !requestForm.description.trim()) return showToast("請填寫委託標題與需求說明");
-    if (!requestForm.requestType) return showToast("請選擇需求類型");
-    if (!requestForm.budgetRange) return showToast("請選擇預算區間");
-    if (!requestForm.requestEndDate) return showToast("請選擇徵求截止日期，截止後委託名片會自動下架。");
-    if (!requestForm.deadline) return showToast("請選擇希望完成日期");
     const selectedRequestStyles = Array.isArray(requestForm.styles) ? requestForm.styles : [];
-    if (selectedRequestStyles.length === 0) return showToast("請至少選擇一個喜歡的風格。");
     if (selectedRequestStyles.includes(REQUEST_STYLE_OTHER) && !String(requestForm.styleOtherText || "").trim()) return showToast("請填寫其他喜歡的風格，或取消勾選其他。");
-    const requestEndTime = getDateEndOfDayTime(requestForm.requestEndDate);
-    const deadlineAt = getDateEndOfDayTime(requestForm.deadline);
-    if (!Number.isFinite(requestEndTime)) return showToast("徵求截止日期格式不正確，請重新選擇。");
-    if (!Number.isFinite(deadlineAt)) return showToast("希望完成日期格式不正確，請重新選擇。");
-    if (requestEndTime < Date.now()) return showToast("徵求截止日期不能早於今天。");
-    if (deadlineAt < requestEndTime) return showToast("希望完成日期不能早於徵求截止日期。");
-    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType, budgetRange: requestForm.budgetRange, requestEndTime, requestEndDate: requestForm.requestEndDate || "", deadline: deadlineAt, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
+    const deadlineAt = requestForm.deadline ? new Date(`${requestForm.deadline}T23:59:59`).getTime() : null;
+    const payload = { userId: user.uid, title: requestForm.title.trim(), description: requestForm.description.trim(), requestType: requestForm.requestType || "其他", budgetRange: requestForm.budgetRange || "歡迎私訊報價", deadline: Number.isFinite(deadlineAt) ? deadlineAt : null, deadlineDate: requestForm.deadline || "", styles: selectedRequestStyles.slice(0, 12), styleOtherText: String(requestForm.styleOtherText || "").trim().slice(0, 80), referenceUrl: requestForm.referenceUrl.trim(), status: "open", updatedAt: Date.now() };
     try {
       if (requestForm.id) { await setDoc(doc(db, getPath("commission_requests"), requestForm.id), payload, { merge: true }); showToast("✅ 委託需求已更新"); }
-      else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布，會在徵求截止日後自動下架"); }
+      else { await addDoc(collection(db, getPath("commission_requests")), { ...payload, applicants: [], createdAt: Date.now() }); showToast("✅ 委託需求已發布"); }
       resetRequestForm(); setIsRequestFormOpen(false);
     } catch (err) { console.error("委託需求儲存失敗:", err); showToast(`❌ 儲存失敗：${err.code || err.message || "請稍後再試"}`); }
   };
-  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", requestEndDate: r.requestEndDate || getDateInputValue(r.requestEndTime), deadline: r.deadlineDate || getDateInputValue(r.deadline), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const handleEditRequest = (r) => { setRequestForm({ id: r.id, title: r.title || "", description: r.description || "", requestType: r.requestType || "繪圖", budgetRange: r.budgetRange || "歡迎私訊報價", deadline: r.deadlineDate || (r.deadline ? new Date(r.deadline).toISOString().slice(0, 10) : ""), styles: Array.isArray(r.styles) ? r.styles : [], styleOtherText: r.styleOtherText || "", referenceUrl: r.referenceUrl || "" }); setIsRequestFormOpen(true); setActiveTab("requests"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRequest = async (id) => { if (!confirm("確定要刪除這則委託需求嗎？")) return; try { await deleteDoc(doc(db, getPath("commission_requests"), id)); showToast("✅ 已刪除委託需求"); } catch (err) { console.error("委託需求刪除失敗:", err); showToast("刪除失敗"); } };
   const handleApplyRequest = async (r) => {
     if (!user) return showToast("請先登入");
@@ -4422,7 +4402,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
     const applicants = Array.isArray(r.applicants) ? r.applicants : [];
     const isApplying = !applicants.includes(user.uid);
     if (isApplying && applicants.length >= 5) return showToast("這則委託已達 5 名提案人上限");
-    if (isApplying && !isCommissionRequestActive(r)) return showToast("這則委託需求已超過徵求截止日期，無法再提案。");
     try {
       const applyCommissionRequest = httpsCallable(functionsInstance, "applyCommissionRequest");
       const result = await applyCommissionRequest({ requestId: r.id, action: isApplying ? "apply" : "cancel" });
@@ -4574,30 +4553,25 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
         {isRequestFormOpen && (
           <div className="bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 sm:p-6 shadow-sm">
             <h3 className="text-white text-xl font-extrabold mb-5">{requestForm.id ? "編輯委託需求" : "發布新的委託需求"}</h3>
-            <div className="vnexus-request-form-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 <span className="text-[#EF4444]">*</span></label>
-                <input required value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求標題 *</label>
+                <input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} className={inputCls} placeholder="例如：想找可愛風格頭貼繪師" />
               </div>
-              <div className="vnexus-request-required-field">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型 <span className="text-[#EF4444]">*</span></label>
-                <select required value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求類型</label>
+                <select value={requestForm.requestType} onChange={(e) => setRequestForm({ ...requestForm, requestType: e.target.value })} className={inputCls}>{["繪圖", "建模", "剪輯", "其他"].map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
-              <div className="vnexus-request-required-field">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間 <span className="text-[#EF4444]">*</span></label>
-                <select required value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">預算區間</label>
+                <select value={requestForm.budgetRange} onChange={(e) => setRequestForm({ ...requestForm, budgetRange: e.target.value })} className={inputCls}>{REQUEST_BUDGET_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select>
               </div>
-              <div className="vnexus-request-required-field">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">徵求截止日期 <span className="text-[#EF4444]">*</span></label>
-                <input required type="date" value={requestForm.requestEndDate || ""} min={getDateInputValue(Date.now())} onChange={(e) => setRequestForm({ ...requestForm, requestEndDate: e.target.value })} className={inputCls} />
-                <p className="text-[11px] text-[#94A3B8] mt-1">到期後會自動從委託佈告欄下架。</p>
+              <div>
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期</label>
+                <input type="date" value={requestForm.deadline} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
               </div>
-              <div className="vnexus-request-required-field">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">希望完成日期 <span className="text-[#EF4444]">*</span></label>
-                <input required type="date" value={requestForm.deadline} min={requestForm.requestEndDate || getDateInputValue(Date.now())} onChange={(e) => setRequestForm({ ...requestForm, deadline: e.target.value })} className={inputCls} />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#EF4444]">*</span> <span className="text-[#94A3B8] text-xs font-normal">可多選（至少選一樣）</span></label>
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-3">喜歡的風格 <span className="text-[#94A3B8] text-xs font-normal">可多選</span></label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                   {CREATOR_STYLE_OPTIONS.map((style) => {
                     const checked = Array.isArray(requestForm.styles) && requestForm.styles.includes(style);
@@ -4627,13 +4601,13 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                   />
                 )}
               </div>
-              <div className="sm:col-span-2 lg:col-span-4">
+              <div className="md:col-span-3">
                 <label className="block text-sm font-bold text-[#CBD5E1] mb-2">參考連結</label>
                 <input value={requestForm.referenceUrl} onChange={(e) => setRequestForm({ ...requestForm, referenceUrl: e.target.value })} className={inputCls} placeholder="可放參考圖、影片或 Notion / X / Google Drive 連結" />
               </div>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 <span className="text-[#EF4444]">*</span></label>
-                <textarea required value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
+              <div className="md:col-span-3">
+                <label className="block text-sm font-bold text-[#CBD5E1] mb-2">需求說明 *</label>
+                <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} className={inputCls + " min-h-[140px]"} placeholder="簡單描述你想做什麼、用途、希望風格與注意事項。" />
               </div>
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-3 mt-5">
@@ -4686,7 +4660,6 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         {displayStyles.length === 0 && <span className="bg-[#11131C] border border-[#2A2F3D] text-[#94A3B8] px-2.5 py-1 rounded-full text-xs font-bold">風格可討論</span>}
                       </div>
                       <div className="text-xs text-[#94A3B8] space-y-1 mb-4">
-                        <p>徵求截止：<span className="text-[#FDE68A] font-bold">{r.requestEndTime ? formatDateOnly(r.requestEndTime) : "未設定"}</span></p>
                         <p>希望完成：<span className="text-white font-bold">{r.deadline ? formatDateOnly(r.deadline) : "可討論"}</span></p>
                         <p>預算：<span className="text-white font-bold">{r.budgetRange || "歡迎私訊"}</span></p>
                         <p>目前有 <span className="text-[#38BDF8] font-bold">{applicants.length}/5</span> 位創作者表示有興趣</p>
@@ -4778,7 +4751,7 @@ const HomePage = ({
     const q = query(
       collection(db, getPath("commission_requests")),
       orderBy("createdAt", "desc"),
-      limit(60),
+      limit(12),
     );
     const unsub = onSnapshot(
       q,
@@ -4899,9 +4872,9 @@ const HomePage = ({
 
   const featuredCommissionRequests = useMemo(() => {
     return (homeCommissionRequests || [])
-      .filter((r) => isCommissionRequestActive(r, currentTime))
+      .filter((r) => r && r.status !== "closed")
       .slice(0, 3);
-  }, [homeCommissionRequests, currentTime]);
+  }, [homeCommissionRequests]);
 
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
@@ -5362,8 +5335,7 @@ const HomePage = ({
                   <p className="text-[#94A3B8] text-sm leading-relaxed line-clamp-3 mb-4 flex-1">{r.description || "發案者尚未填寫詳細需求。"}</p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     <span className="bg-[#38BDF8]/10 text-[#7DD3FC] border border-[#38BDF8]/25 rounded-full px-2.5 py-1 text-xs font-bold">{r.budgetRange || "預算可討論"}</span>
-                    <span className="bg-[#F59E0B]/10 text-[#FDE68A] border border-[#F59E0B]/25 rounded-full px-2.5 py-1 text-xs font-bold">徵求至 {r.requestEndTime ? formatDateOnly(r.requestEndTime) : "未設定"}</span>
-                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? `希望完成 ${formatDateOnly(r.deadline)}` : "完成日可討論"}</span>
+                    <span className="bg-[#11131C] text-[#CBD5E1] border border-[#2A2F3D] rounded-full px-2.5 py-1 text-xs font-bold">{r.deadline ? formatDateOnly(r.deadline) : "日期可討論"}</span>
                     {styles.map((style) => <span key={`${r.id}-${style}`} className="bg-[#8B5CF6]/10 text-[#C4B5FD] border border-[#8B5CF6]/25 rounded-full px-2.5 py-1 text-xs font-bold">{style}</span>)}
                   </div>
                   <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#2A2F3D]">
@@ -7149,9 +7121,7 @@ function App() {
   const [previousView, setPreviousView] = useState("grid");
   const [selectedVTuber, setSelectedVTuber] = useState(null);
   const [user, setUser] = useState(null);
-  const [realVtubers, setRealVtubers] = useState(() => {
-    return readLocalStorageJSON(VTUBER_CACHE_KEY, []);
-  });
+  const [realVtubers, setRealVtubers] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS));
   const isAdmin = user && user.email === "apex.dasa@gmail.com";
   const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
   const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
@@ -7166,7 +7136,7 @@ function App() {
   const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
   const [viewedStoryMap, setViewedStoryMap] = useState(() => {
     try {
-      return readLocalStorageJSON("vnexus_viewed_status_stories", {});
+      return readLocalCache("vnexus_viewed_status_stories", {}) || {};
     } catch (error) {
       return {};
     }
@@ -7183,7 +7153,7 @@ function App() {
           .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
           .slice(0, 300);
         const compact = Object.fromEntries(entries);
-        writeLocalStorageJSON("vnexus_viewed_status_stories", compact);
+        localStorage.setItem("vnexus_viewed_status_stories", JSON.stringify(compact));
         return compact;
       } catch (error) {
         return next;
@@ -7341,25 +7311,16 @@ function App() {
       setSortOrder("random");
     }
   }, [user, sortOrder]);
-  const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
-    return !localStorage.getItem(BULLETINS_CACHE_KEY) && !localStorage.getItem(COLLABS_CACHE_KEY);
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    const cached = readLocalStorageJSON(VTUBER_CACHE_KEY, []);
-    return !Array.isArray(cached) || cached.length === 0;
-  });
+  const [isLoadingActivities, setIsLoadingActivities] = useState(() => getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS).length === 0);
+  const [isLoading, setIsLoading] = useState(() => getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS).length === 0);
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [siteStats, setSiteStats] = useState(() => readLocalStorageJSON(STATS_CACHE_KEY, { pageViews: null }) || { pageViews: null });
+  const [siteStats, setSiteStats] = useState({ pageViews: null });
   const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
   const [privateDocs, setPrivateDocs] = useState({});
-  const [realBulletins, setRealBulletins] = useState(() => readLocalStorageJSON(BULLETINS_CACHE_KEY, []));
-  const [realUpdates, setRealUpdates] = useState(() => readLocalStorageJSON("vnexus_updates_data", []));
-  const [realCollabs, setRealCollabs] = useState(() => readLocalStorageJSON(COLLABS_CACHE_KEY, []));
-  const [realArticles, setRealArticles] = useState(() => {
-    try {
-      return readLocalStorageJSON(ARTICLES_CACHE_KEY, []);
-    } catch { return []; }
-  });
+  const [realBulletins, setRealBulletins] = useState([]);
+  const [realUpdates, setRealUpdates] = useState([]);
+  const [realCollabs, setRealCollabs] = useState([]);
+  const [realArticles, setRealArticles] = useState(() => getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS));
   const viewedArticles = useRef(new Set());
   const [shuffleSeed, setShuffleSeed] = useState(Date.now());
   const [isBulletinFormOpen, setIsBulletinFormOpen] = useState(false);
@@ -7457,6 +7418,34 @@ function App() {
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const isFetchingJson = useRef(false);
+
+  const fetchPublicVtubersJson = async ({ force = false } = {}) => {
+    if (!force && isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT) && realVtubers.length > 0) {
+      return realVtubers;
+    }
+
+    if (isFetchingJson.current) return realVtubers;
+    isFetchingJson.current = true;
+
+    try {
+      const separator = PUBLIC_VTUBERS_JSON_URL.includes("?") ? "&" : "?";
+      const response = await fetch(`${PUBLIC_VTUBERS_JSON_URL}${force ? `${separator}t=${Date.now()}` : ""}`, {
+        cache: force ? "reload" : "default",
+      });
+      if (!response.ok) throw new Error(`public vtubers json ${response.status}`);
+      const payload = await response.json();
+      const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.vtubers) ? payload.vtubers : []);
+      if (!Array.isArray(list)) throw new Error("public vtubers json format invalid");
+      syncVtuberCache(list);
+      return list;
+    } catch (error) {
+      console.warn("公開名片 JSON 讀取失敗，將使用既有快取或 Firestore 備援：", error);
+      return null;
+    } finally {
+      isFetchingJson.current = false;
+    }
+  };
+
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -7571,7 +7560,7 @@ function App() {
 
   const [readUpdateIds, setReadUpdateIds] = useState(() => {
     try {
-      return readLocalStorageJSON("readUpdates", []);
+      return readLocalCache("readUpdates", []) || [];
     } catch {
       return [];
     }
@@ -7583,7 +7572,7 @@ function App() {
   const handleMarkAllUpdatesRead = () => {
     const allIds = realUpdates.map((u) => u.id);
     setReadUpdateIds(allIds);
-    writeLocalStorageJSON("readUpdates", allIds);
+    localStorage.setItem("readUpdates", JSON.stringify(allIds));
     showToast("✅ 已全部標示為已讀");
   };
 
@@ -7659,7 +7648,10 @@ function App() {
 
     // 使用 LocalStorage 紀錄該使用者的觀看時間戳記
     const storageKey = `vnexus_views_${user.uid}`;
-    let viewHistory = readLocalStorageJSON(storageKey, {});
+    let viewHistory = {};
+    try {
+      viewHistory = JSON.parse(localStorage.getItem(storageKey)) || {};
+    } catch (e) { }
 
     const lastViewed = viewHistory[id] || 0;
     const now = Date.now();
@@ -7672,12 +7664,12 @@ function App() {
 
     // 更新最新觀看時間
     viewHistory[id] = now;
-    writeLocalStorageJSON(storageKey, viewHistory);
+    localStorage.setItem(storageKey, JSON.stringify(viewHistory));
 
     // 1. 畫面數字瞬間 +1
     setRealArticles(prev => {
       const list = prev.map(a => a.id === id ? { ...a, views: (a.views || 0) + 1 } : a);
-      writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
+      localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
       return list;
     });
 
@@ -7693,7 +7685,7 @@ function App() {
       await updateDoc(doc(db, getPath('articles'), id), updatedForm);
       setRealArticles(prev => {
         const list = prev.map(a => a.id === id ? { ...a, ...updatedForm } : a);
-        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
         return list;
       });
       showToast("✅ 文章修改成功！");
@@ -7735,7 +7727,7 @@ function App() {
       const newArticle = { id: docRef.id, ...safeForm, userId: user.uid, status, createdAt: Date.now() };
       setRealArticles(prev => {
         const list = [newArticle, ...prev];
-        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
         return list;
       });
       showToast(isAdmin ? "✅ 文章已直接發布！" : "✅ 文章已送出，等待管理員審核！");
@@ -7750,7 +7742,7 @@ function App() {
       await updateDoc(doc(db, getPath('articles'), id), { status: 'published' });
       setRealArticles(prev => {
         const list = prev.map(a => a.id === id ? { ...a, status: 'published' } : a);
-        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
         return list;
       });
       showToast("✅ 文章已核准發布！");
@@ -7763,7 +7755,7 @@ function App() {
       await deleteDoc(doc(db, getPath('articles'), id));
       setRealArticles(prev => {
         const list = prev.filter(a => a.id !== id);
-        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
+        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
         return list;
       });
       showToast("✅ 文章已刪除");
@@ -7975,15 +7967,15 @@ function App() {
   useEffect(() => {
     const loader = document.getElementById("loading-screen");
     if (loader) {
-      // 進站體感優化：App 掛載後快速淡出，不再額外等太久。
+      // 強制 300ms 後開始淡出，不論資料是否加載完成
       const timer = setTimeout(() => {
         loader.style.opacity = "0";
         loader.style.pointerEvents = "none";
         // 動畫結束後徹底隱藏
         setTimeout(() => {
           loader.style.display = "none";
-        }, 250);
-      }, 250);
+        }, 800);
+      }, 800);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -8074,91 +8066,98 @@ function App() {
     }
   }, [currentView]);
 
-  // 🌟 獨立出全站設定與廣播監聽 (只在網頁載入時執行一次，不再受 currentView 影響)
+  // 🌟 全站統計 / 靜態設定：改成快取 + 偶爾刷新，不再讓每位訪客常駐監聽 settings。
+  // 即時性真正需要保留的是通知、私訊、自己的私密資料；公開大清單由 Storage JSON 承擔。
   useEffect(() => {
-    const unsubStats = onSnapshot(doc(db, getPath("settings"), "stats"), async (docSnap) => {
-      if (docSnap.exists()) {
-        const statsData = docSnap.data();
-        setSiteStats(statsData);
-        writeLocalStorageJSON(STATS_CACHE_KEY, statsData);
-        localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
+    let isMounted = true;
 
-        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
-        const processedUpdate = localStorage.getItem("processed_global_update") || '0';
+    const applyStatsAndRefreshPublicJsonIfNeeded = async (statsData) => {
+      if (!statsData || !isMounted) return;
+      setSiteStats(statsData);
+      writeLocalCache(STATS_CACHE_KEY, statsData);
+      markCacheTimestamp(STATS_CACHE_TS);
 
-        // 🌟 終極防呆：確保這個更新時間大於快取時間，且「我們還沒處理過這個特定的更新時間」
-        // 這樣就算使用者的電腦時鐘比伺服器慢，也不會陷入無限重複抓取的迴圈！
-        if (
-          statsData.lastGlobalUpdate &&
-          statsData.lastGlobalUpdate > parseInt(cachedTs) &&
-          statsData.lastGlobalUpdate.toString() !== processedUpdate
-        ) {
-          // 🌟 關鍵修復：如果已經在抓取中了，就直接擋掉，防止無限迴圈！
-          if (isFetchingJson.current) return;
-          isFetchingJson.current = true;
+      const cachedTs = readCacheTimestamp(VTUBER_CACHE_TS);
+      const processedUpdate = typeof localStorage !== "undefined"
+        ? localStorage.getItem("processed_global_update") || "0"
+        : "0";
 
-          console.log("🔔 偵測到全站更新，等待後端打包資料...");
+      if (
+        statsData.lastGlobalUpdate &&
+        Number(statsData.lastGlobalUpdate) > cachedTs &&
+        String(statsData.lastGlobalUpdate) !== processedUpdate
+      ) {
+        try { localStorage.setItem("processed_global_update", String(statsData.lastGlobalUpdate)); } catch (error) { }
+        console.log("🔔 偵測到公開名片更新，改抓 Storage JSON，不讀 Firestore 整包。 ");
 
-          // 立刻記錄已處理，防止重複觸發
-          localStorage.setItem("processed_global_update", statsData.lastGlobalUpdate.toString());
-
-          setTimeout(async () => {
-            if (isAdmin) {
-              try {
-                const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                syncVtuberCache(data);
-              } catch (e) { console.error("背景更新名單失敗", e); }
-            } else {
-              try {
-                const data = await fetchPublicVtubersJson(true);
-                syncVtuberCache(data);
-                console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
-              } catch (e) { console.error("背景更新 JSON 失敗", e); }
+        setTimeout(async () => {
+          if (!isMounted) return;
+          if (isAdmin) {
+            try {
+              const vSnap = await getDocs(collection(db, getPath("vtubers")));
+              syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+              sessionStorage.setItem("has_full_admin_data", "true");
+            } catch (e) {
+              console.error("管理員背景更新完整名單失敗", e);
             }
-            // 🌟 抓取完畢，解開鎖
-            isFetchingJson.current = false;
-          }, 4000);
+          } else {
+            await fetchPublicVtubersJson({ force: true });
+          }
+        }, 4000);
+      }
+    };
+
+    const loadStatsAndSettings = async () => {
+      const cachedStats = readLocalCache(STATS_CACHE_KEY, null);
+      if (cachedStats && isMounted) setSiteStats(cachedStats);
+
+      if (!cachedStats || !isCacheFresh(STATS_CACHE_TS, STATS_CACHE_LIMIT)) {
+        try {
+          const statsSnap = await getDoc(doc(db, getPath("settings"), "stats"));
+          if (statsSnap.exists()) await applyStatsAndRefreshPublicJsonIfNeeded(statsSnap.data());
+        } catch (error) {
+          console.warn("讀取統計資料失敗，沿用快取。", error);
+        }
+      } else {
+        await applyStatsAndRefreshPublicJsonIfNeeded(cachedStats);
+      }
+
+      if (!hasFetchedSettings.current) {
+        hasFetchedSettings.current = true;
+        const cachedSettings = readLocalCache(SETTINGS_CACHE_KEY, null);
+        if (cachedSettings && isMounted) {
+          if (cachedSettings.tips !== undefined) setRealTips(cachedSettings.tips);
+          if (cachedSettings.rules !== undefined) setRealRules(cachedSettings.rules);
+          if (Array.isArray(cachedSettings.bulletinImages)) setDefaultBulletinImages(cachedSettings.bulletinImages);
+        }
+
+        if (!cachedSettings || !isCacheFresh(SETTINGS_CACHE_TS, SETTINGS_CACHE_LIMIT)) {
+          try {
+            const [tipsSnap, rulesSnap, imgSnap] = await Promise.all([
+              getDoc(doc(db, getPath("settings"), "tips")),
+              getDoc(doc(db, getPath("settings"), "rules")),
+              getDoc(doc(db, getPath("settings"), "bulletinImages")),
+            ]);
+            const nextSettings = {
+              tips: tipsSnap.exists() ? tipsSnap.data().content : realTips,
+              rules: rulesSnap.exists() ? rulesSnap.data().content : realRules,
+              bulletinImages: imgSnap.exists() ? (imgSnap.data().images || []) : defaultBulletinImages,
+            };
+            if (!isMounted) return;
+            setRealTips(nextSettings.tips);
+            setRealRules(nextSettings.rules);
+            setDefaultBulletinImages(nextSettings.bulletinImages);
+            writeLocalCache(SETTINGS_CACHE_KEY, nextSettings);
+            markCacheTimestamp(SETTINGS_CACHE_TS);
+          } catch (error) {
+            console.warn("讀取站規/邀約小技巧/預設揪團圖失敗，沿用快取。", error);
+          }
         }
       }
-    });
+    };
 
-    // 抓取其他靜態設定：先用 1 小時快取，避免每次進站固定多讀 3 筆設定文件。
-    if (!hasFetchedSettings.current) {
-      hasFetchedSettings.current = true;
-      const cachedTips = readTimedCache(SETTINGS_CACHE_KEYS.tips, SETTINGS_CACHE_LIMIT, null);
-      const cachedRules = readTimedCache(SETTINGS_CACHE_KEYS.rules, SETTINGS_CACHE_LIMIT, null);
-      const cachedImages = readTimedCache(SETTINGS_CACHE_KEYS.bulletinImages, SETTINGS_CACHE_LIMIT, null);
-      if (cachedTips) setRealTips(cachedTips);
-      if (cachedRules) setRealRules(cachedRules);
-      if (Array.isArray(cachedImages)) setDefaultBulletinImages(cachedImages);
-
-      if (!cachedTips || !cachedRules || !Array.isArray(cachedImages)) {
-        Promise.all([
-          cachedTips ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "tips")),
-          cachedRules ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "rules")),
-          Array.isArray(cachedImages) ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "bulletinImages")),
-        ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
-          if (tipsSnap?.exists()) {
-            const content = tipsSnap.data().content;
-            setRealTips(content);
-            writeTimedCache(SETTINGS_CACHE_KEYS.tips, content);
-          }
-          if (rulesSnap?.exists()) {
-            const content = rulesSnap.data().content;
-            setRealRules(content);
-            writeTimedCache(SETTINGS_CACHE_KEYS.rules, content);
-          }
-          if (imgSnap?.exists()) {
-            const images = imgSnap.data().images || [];
-            setDefaultBulletinImages(images);
-            writeTimedCache(SETTINGS_CACHE_KEYS.bulletinImages, images);
-          }
-        }).catch((e) => console.warn("讀取靜態設定失敗:", e));
-      }
-    }
-
-    return () => unsubStats();
+    loadStatsAndSettings();
+    return () => { isMounted = false; };
   }, [isAdmin]);
 
   // 2. 使用 useRef 緩存動態變數，避免監聽器因為陣列長度改變而頻繁重建
@@ -8215,10 +8214,9 @@ function App() {
     return () => unsubN();
   }, [user?.uid]);
 
-  // --- 優化版：名片清單與佈告欄抓取 ---
-  // 目標：首次進站先顯示本機快取，非管理員優先讀 Storage JSON，避免首頁卡在整包 Firestore 讀取。
+  // --- 公開資料分層讀取：名片大清單走 Storage JSON；活動資料 5 分鐘快取；後台才讀完整 Firestore。 ---
   useEffect(() => {
-    let cancelled = false;
+    let isMounted = true;
 
     const fetchLargeData = async () => {
       const needsVtuberList = [
@@ -8226,47 +8224,41 @@ function App() {
       ].includes(currentView);
 
       if (needsVtuberList) {
-        const now = Date.now();
-        const cachedList = readLocalStorageJSON(VTUBER_CACHE_KEY, []);
-        const cachedTs = Number(localStorage.getItem(VTUBER_CACHE_TS) || 0);
-        const hasCachedList = Array.isArray(cachedList) && cachedList.length > 0;
-
-        // 有舊資料就先進站，不要讓使用者等資料庫/JSON 回來。
-        if (hasCachedList) {
+        const cachedVtubers = getCachedArray(VTUBER_CACHE_KEY, VTUBER_CACHE_TS);
+        if (cachedVtubers.length > 0) {
+          setRealVtubers(cachedVtubers);
           setIsLoading(false);
-          if (realVtubers.length === 0) setRealVtubers(cachedList);
         }
 
-        // 名片清單改成較短快取；但非管理員從 Storage JSON 更新，不增加 Firestore 讀取量。
-        let isExpired = !cachedTs || (now - cachedTs > 10 * 60 * 1000);
+        const hasFullAdminData = sessionStorage.getItem("has_full_admin_data") === "true";
+        const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullAdminData;
+        const shouldRefreshPublicJson = !shouldFetchFullForAdmin && (!cachedVtubers.length || !isCacheFresh(VTUBER_CACHE_TS, PUBLIC_VTUBER_CACHE_LIMIT));
 
-        const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
-        if (isAdmin && currentView === "admin" && !hasFullData) {
-          isExpired = true;
-        }
-
-        if (isExpired || !hasCachedList) {
+        if (shouldFetchFullForAdmin) {
           try {
-            let data = [];
-            if (isAdmin && currentView === "admin") {
-              const vSnap = await getDocs(collection(db, getPath("vtubers")));
-              data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-              sessionStorage.setItem("has_full_admin_data", "true");
-            } else {
-              try {
-                data = await fetchPublicVtubersJson(true);
-              } catch (jsonErr) {
-                console.warn("公開名片 JSON 讀取失敗，改用 Firestore 備援。", jsonErr);
-                const vSnap = await getDocs(collection(db, getPath("vtubers")));
-                data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-              }
-            }
-            if (!cancelled && Array.isArray(data) && data.length > 0) syncVtuberCache(data);
+            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+            if (!isMounted) return;
+            syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            sessionStorage.setItem("has_full_admin_data", "true");
           } catch (e) {
-            console.error("讀取名單失敗", e);
+            console.error("管理員讀取完整名單失敗", e);
           } finally {
-            if (!cancelled) setIsLoading(false);
+            if (isMounted) setIsLoading(false);
           }
+        } else if (shouldRefreshPublicJson) {
+          const publicList = await fetchPublicVtubersJson({ force: cachedVtubers.length === 0 });
+          if (!publicList && cachedVtubers.length === 0) {
+            // 最後備援：只有 public JSON 尚未建立且本機沒有任何快取時才讀 Firestore，避免訪客每次都讀整包。
+            try {
+              const vSnap = await getDocs(collection(db, getPath("vtubers")));
+              if (!isMounted) return;
+              syncVtuberCache(vSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+              console.warn("⚠️ public_api/vtubers.json 尚未可用，本次使用 Firestore 備援。請部署後端並等待/觸發 JSON 生成。 ");
+            } catch (e) {
+              console.error("公開名單備援讀取失敗", e);
+            }
+          }
+          if (isMounted) setIsLoading(false);
         } else {
           setIsLoading(false);
         }
@@ -8274,92 +8266,79 @@ function App() {
 
       const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
       if (needsActivityData) {
-        const now = Date.now();
-        const bCache = readLocalStorageJSON(BULLETINS_CACHE_KEY, []);
-        const cCache = readLocalStorageJSON(COLLABS_CACHE_KEY, []);
-        const uCache = readLocalStorageJSON("vnexus_updates_data", []);
-        const bTs = Number(localStorage.getItem(BULLETINS_CACHE_TS) || 0);
-        const cTs = Number(localStorage.getItem(COLLABS_CACHE_TS) || 0);
-        const uTs = Number(localStorage.getItem("vnexus_updates_ts") || 0);
-        const hasAnyActivityCache =
-          (Array.isArray(bCache) && bCache.length > 0) ||
-          (Array.isArray(cCache) && cCache.length > 0) ||
-          (Array.isArray(uCache) && uCache.length > 0);
+        const cachedBulletins = getCachedArray(BULLETINS_CACHE_KEY, BULLETINS_CACHE_TS);
+        const cachedCollabs = getCachedArray(COLLABS_CACHE_KEY, COLLABS_CACHE_TS);
+        const cachedUpdates = getCachedArray(UPDATES_CACHE_KEY, UPDATES_CACHE_TS);
 
-        // 先拿舊快取補畫面，再背景刷新。這是進站體感改善最大的部分。
-        if (hasAnyActivityCache) {
-          if (Array.isArray(bCache)) setRealBulletins(bCache);
-          if (Array.isArray(cCache)) setRealCollabs(cCache);
-          if (Array.isArray(uCache)) setRealUpdates(uCache);
+        if (cachedBulletins.length || cachedCollabs.length || cachedUpdates.length) {
+          setRealBulletins(cachedBulletins);
+          setRealCollabs(cachedCollabs);
+          setRealUpdates(cachedUpdates);
           setIsLoadingActivities(false);
         }
 
-        const isBCacheValid = bTs && (now - bTs < ACTIVITY_CACHE_LIMIT);
-        const isCCacheValid = cTs && (now - cTs < ACTIVITY_CACHE_LIMIT);
-        const isUCacheValid = uTs && (now - uTs < ACTIVITY_CACHE_LIMIT);
+        const allActivityCachesFresh =
+          isCacheFresh(BULLETINS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
+          isCacheFresh(COLLABS_CACHE_TS, ACTIVITY_CACHE_LIMIT) &&
+          isCacheFresh(UPDATES_CACHE_TS, ACTIVITY_CACHE_LIMIT);
 
-        if (isBCacheValid && isCCacheValid && isUCacheValid) {
-          setIsLoadingActivities(false);
-        } else {
-          setIsLoadingActivities(!hasAnyActivityCache);
+        if (!allActivityCachesFresh || currentView === "admin") {
+          if (!cachedBulletins.length && !cachedCollabs.length && !cachedUpdates.length) setIsLoadingActivities(true);
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
               getDocs(query(collection(db, getPath("bulletins")), where("recruitEndTime", ">", nowTime))),
               getDocs(query(collection(db, getPath("collabs")), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
-              getDocs(query(collection(db, getPath("updates")), orderBy("createdAt", "desc"), limit(15)))
+              getDocs(query(collection(db, getPath("updates")), orderBy("createdAt", "desc"), limit(15))),
             ]);
-            if (cancelled) return;
-            const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
+            if (!isMounted) return;
+            const bData = bSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const cData = cSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const uData = uSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
             syncBulletinCache(bData);
             syncCollabCache(cData);
             setRealUpdates(uData);
-            writeLocalStorageJSON("vnexus_updates_data", uData);
-            localStorage.setItem("vnexus_updates_ts", Date.now().toString());
+            writeLocalCache(UPDATES_CACHE_KEY, uData);
+            markCacheTimestamp(UPDATES_CACHE_TS);
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            if (!cancelled) setIsLoadingActivities(false);
+            if (isMounted) setIsLoadingActivities(false);
           }
         }
       }
     };
 
     fetchLargeData();
-    return () => { cancelled = true; };
+    return () => { isMounted = false; };
   }, [currentView, isAdmin]);
 
   useEffect(() => {
-    const needsArticleData = ['articles', 'admin'].includes(currentView);
+    const needsArticleData = ["articles", "admin"].includes(currentView);
     if (!needsArticleData) return;
 
+    let isMounted = true;
     const fetchArticles = async () => {
-      const now = Date.now();
-      const aCache = readLocalStorageJSON(ARTICLES_CACHE_KEY, []);
-      const aTs = Number(localStorage.getItem(ARTICLES_CACHE_TS) || 0);
-      const isACacheValid = Array.isArray(aCache) && aCache.length > 0 && aTs && now - aTs < ARTICLES_CACHE_LIMIT;
-      const forceRefresh = currentView === "admin";
+      const cachedArticles = getCachedArray(ARTICLES_CACHE_KEY, ARTICLES_CACHE_TS);
+      if (cachedArticles.length > 0) setRealArticles(cachedArticles);
 
-      if (Array.isArray(aCache) && aCache.length > 0 && !forceRefresh) {
-        setRealArticles(aCache);
-        if (isACacheValid) return;
-      }
+      const forceRefresh = currentView === "admin";
+      if (!forceRefresh && cachedArticles.length > 0 && isCacheFresh(ARTICLES_CACHE_TS, ARTICLES_CACHE_LIMIT)) return;
 
       try {
         const aSnap = await getDocs(collection(db, getPath("articles")));
+        if (!isMounted) return;
         const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRealArticles(aData);
-        writeLocalStorageJSON(ARTICLES_CACHE_KEY, aData);
-        localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
+        writeLocalCache(ARTICLES_CACHE_KEY, aData);
+        markCacheTimestamp(ARTICLES_CACHE_TS);
       } catch (e) {
         console.error("抓取文章失敗:", e);
       }
     };
 
     fetchArticles();
+    return () => { isMounted = false; };
   }, [currentView]);
 
   const hasFetchedPrivate = useRef(false);
@@ -9079,24 +9058,24 @@ function App() {
     });
   }, [currentView]);
 
-  const syncVtuberCache = (newList) => {
+  const syncVtuberCache = (newList, timestamp = Date.now()) => {
     const safeList = Array.isArray(newList) ? newList : [];
     setRealVtubers(safeList);
-    writeLocalStorageJSON(VTUBER_CACHE_KEY, safeList);
-    localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
+    writeLocalCache(VTUBER_CACHE_KEY, safeList);
+    markCacheTimestamp(VTUBER_CACHE_TS, timestamp);
   };
-  const syncBulletinCache = (newList) => {
+  const syncBulletinCache = (newList, timestamp = Date.now()) => {
     const safeList = Array.isArray(newList) ? newList : [];
     setRealBulletins(safeList);
-    writeLocalStorageJSON(BULLETINS_CACHE_KEY, safeList);
-    localStorage.setItem(BULLETINS_CACHE_TS, Date.now().toString());
+    writeLocalCache(BULLETINS_CACHE_KEY, safeList);
+    markCacheTimestamp(BULLETINS_CACHE_TS, timestamp);
   };
 
-  const syncCollabCache = (newList) => {
+  const syncCollabCache = (newList, timestamp = Date.now()) => {
     const safeList = Array.isArray(newList) ? newList : [];
     setRealCollabs(safeList);
-    writeLocalStorageJSON(COLLABS_CACHE_KEY, safeList);
-    localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
+    writeLocalCache(COLLABS_CACHE_KEY, safeList);
+    markCacheTimestamp(COLLABS_CACHE_TS, timestamp);
   };
 
   const handleSaveProfile = async (e, customForm = profileForm) => {
@@ -10285,6 +10264,13 @@ function App() {
         );
         setRealRules(rulesContent);
       }
+      const nextSettingsCache = {
+        tips: tipsContent !== undefined ? tipsContent : realTips,
+        rules: rulesContent !== undefined ? rulesContent : realRules,
+        bulletinImages: defaultBulletinImages,
+      };
+      writeLocalCache(SETTINGS_CACHE_KEY, nextSettingsCache);
+      markCacheTimestamp(SETTINGS_CACHE_TS);
       showToast("系統設定已更新！");
     } catch (err) {
       showToast("更新失敗");
@@ -12086,7 +12072,7 @@ function App() {
             <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in-up">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                  <h2 className="vnexus-bulletin-page-title text-4xl sm:text-5xl font-black text-white flex items-center gap-3 leading-tight">
+                  <h2 className=" vnexus-mobile-bulletin-red-navtext-3xl font-extrabold text-white flex items-center gap-3">
                     <i className="fa-solid fa-bullhorn text-[#A78BFA]"></i>
                     揪團佈告欄
                   </h2>
