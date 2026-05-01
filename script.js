@@ -222,20 +222,65 @@ try {
 
 const provider = new GoogleAuthProvider();
 const APP_ID = "v-nexus-official";
-const ONE_DAY = 1 * 60 * 60 * 1000; // 1小時的毫秒數
+const ONE_DAY = 24 * 60 * 60 * 1000;
 const VTUBER_CACHE_KEY = "vnexus_vtubers_data";
 const VTUBER_CACHE_TS = "vnexus_vtubers_ts";
-const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
-const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
-const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
+const STATS_CACHE_KEY = "vnexus_stats_data";
+const STATS_CACHE_TS = "vnexus_stats_ts";
+const STATS_CACHE_LIMIT = 30 * 60 * 1000;
 const BULLETINS_CACHE_KEY = "vnexus_bulletins_data";
 const BULLETINS_CACHE_TS = "vnexus_bulletins_ts";
 const COLLABS_CACHE_KEY = "vnexus_collabs_data";
 const COLLABS_CACHE_TS = "vnexus_collabs_ts";
 const ARTICLES_CACHE_KEY = "vnexus_articles_data";
 const ARTICLES_CACHE_TS = "vnexus_articles_ts";
-const ACTIVITY_CACHE_LIMIT = 15 * 60 * 1000; // 快取 15 分鐘 (毫秒)
+// 使用者體感優先：活動資料 5 分鐘更新一次；有舊快取時先顯示舊資料，再背景刷新。
+const ACTIVITY_CACHE_LIMIT = 5 * 60 * 1000;
 const ARTICLES_CACHE_LIMIT = 1 * 60 * 60 * 1000;
+const SETTINGS_CACHE_LIMIT = 1 * 60 * 60 * 1000;
+const VTUBER_PUBLIC_JSON_URL = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
+const SETTINGS_CACHE_KEYS = {
+  tips: "vnexus_settings_tips_cache",
+  rules: "vnexus_settings_rules_cache",
+  bulletinImages: "vnexus_settings_bulletin_images_cache",
+};
+
+function readLocalStorageJSON(key, fallback = null) {
+  if (typeof localStorage === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (error) {
+    console.warn(`快取 ${key} 解析失敗，已清除。`, error);
+    try { localStorage.removeItem(key); } catch (e) { }
+    return fallback;
+  }
+}
+
+function writeLocalStorageJSON(key, value) {
+  if (typeof localStorage === "undefined") return;
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (error) { }
+}
+
+function readTimedCache(key, ttlMs, fallback = null) {
+  const payload = readLocalStorageJSON(key, null);
+  if (!payload || typeof payload !== "object") return fallback;
+  const ts = Number(payload.ts || 0);
+  if (!ts || Date.now() - ts > ttlMs) return fallback;
+  return payload.value ?? fallback;
+}
+
+function writeTimedCache(key, value) {
+  writeLocalStorageJSON(key, { ts: Date.now(), value });
+}
+
+async function fetchPublicVtubersJson(forceFresh = false) {
+  const url = forceFresh ? `${VTUBER_PUBLIC_JSON_URL}&t=${Date.now()}` : VTUBER_PUBLIC_JSON_URL;
+  const response = await fetch(url, { cache: forceFresh ? "reload" : "default" });
+  if (!response.ok) throw new Error(`public vtubers json ${response.status}`);
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
 
 const getPath = (collectionName) =>
   `artifacts/${APP_ID}/public/data/${collectionName}`;
@@ -7105,8 +7150,7 @@ function App() {
   const [selectedVTuber, setSelectedVTuber] = useState(null);
   const [user, setUser] = useState(null);
   const [realVtubers, setRealVtubers] = useState(() => {
-    const cached = localStorage.getItem(VTUBER_CACHE_KEY);
-    return cached ? JSON.parse(cached) : [];
+    return readLocalStorageJSON(VTUBER_CACHE_KEY, []);
   });
   const isAdmin = user && user.email === "apex.dasa@gmail.com";
   const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
@@ -7122,7 +7166,7 @@ function App() {
   const [openStatusCommentKeys, setOpenStatusCommentKeys] = useState({});
   const [viewedStoryMap, setViewedStoryMap] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("vnexus_viewed_status_stories") || "{}");
+      return readLocalStorageJSON("vnexus_viewed_status_stories", {});
     } catch (error) {
       return {};
     }
@@ -7139,7 +7183,7 @@ function App() {
           .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
           .slice(0, 300);
         const compact = Object.fromEntries(entries);
-        localStorage.setItem("vnexus_viewed_status_stories", JSON.stringify(compact));
+        writeLocalStorageJSON("vnexus_viewed_status_stories", compact);
         return compact;
       } catch (error) {
         return next;
@@ -7298,22 +7342,22 @@ function App() {
     }
   }, [user, sortOrder]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(() => {
-    return !localStorage.getItem(BULLETINS_CACHE_KEY);
+    return !localStorage.getItem(BULLETINS_CACHE_KEY) && !localStorage.getItem(COLLABS_CACHE_KEY);
   });
   const [isLoading, setIsLoading] = useState(() => {
-    return !localStorage.getItem(VTUBER_CACHE_KEY);
+    const cached = readLocalStorageJSON(VTUBER_CACHE_KEY, []);
+    return !Array.isArray(cached) || cached.length === 0;
   });
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [siteStats, setSiteStats] = useState({ pageViews: null });
+  const [siteStats, setSiteStats] = useState(() => readLocalStorageJSON(STATS_CACHE_KEY, { pageViews: null }) || { pageViews: null });
   const [viewParticipantsCollab, setViewParticipantsCollab] = useState(null);
   const [privateDocs, setPrivateDocs] = useState({});
-  const [realBulletins, setRealBulletins] = useState([]);
-  const [realUpdates, setRealUpdates] = useState([]);
-  const [realCollabs, setRealCollabs] = useState([]);
+  const [realBulletins, setRealBulletins] = useState(() => readLocalStorageJSON(BULLETINS_CACHE_KEY, []));
+  const [realUpdates, setRealUpdates] = useState(() => readLocalStorageJSON("vnexus_updates_data", []));
+  const [realCollabs, setRealCollabs] = useState(() => readLocalStorageJSON(COLLABS_CACHE_KEY, []));
   const [realArticles, setRealArticles] = useState(() => {
     try {
-      const cached = localStorage.getItem(ARTICLES_CACHE_KEY);
-      return cached ? JSON.parse(cached) : [];
+      return readLocalStorageJSON(ARTICLES_CACHE_KEY, []);
     } catch { return []; }
   });
   const viewedArticles = useRef(new Set());
@@ -7527,7 +7571,7 @@ function App() {
 
   const [readUpdateIds, setReadUpdateIds] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem("readUpdates") || "[]");
+      return readLocalStorageJSON("readUpdates", []);
     } catch {
       return [];
     }
@@ -7539,7 +7583,7 @@ function App() {
   const handleMarkAllUpdatesRead = () => {
     const allIds = realUpdates.map((u) => u.id);
     setReadUpdateIds(allIds);
-    localStorage.setItem("readUpdates", JSON.stringify(allIds));
+    writeLocalStorageJSON("readUpdates", allIds);
     showToast("✅ 已全部標示為已讀");
   };
 
@@ -7615,10 +7659,7 @@ function App() {
 
     // 使用 LocalStorage 紀錄該使用者的觀看時間戳記
     const storageKey = `vnexus_views_${user.uid}`;
-    let viewHistory = {};
-    try {
-      viewHistory = JSON.parse(localStorage.getItem(storageKey)) || {};
-    } catch (e) { }
+    let viewHistory = readLocalStorageJSON(storageKey, {});
 
     const lastViewed = viewHistory[id] || 0;
     const now = Date.now();
@@ -7631,12 +7672,12 @@ function App() {
 
     // 更新最新觀看時間
     viewHistory[id] = now;
-    localStorage.setItem(storageKey, JSON.stringify(viewHistory));
+    writeLocalStorageJSON(storageKey, viewHistory);
 
     // 1. 畫面數字瞬間 +1
     setRealArticles(prev => {
       const list = prev.map(a => a.id === id ? { ...a, views: (a.views || 0) + 1 } : a);
-      localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+      writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
       return list;
     });
 
@@ -7652,7 +7693,7 @@ function App() {
       await updateDoc(doc(db, getPath('articles'), id), updatedForm);
       setRealArticles(prev => {
         const list = prev.map(a => a.id === id ? { ...a, ...updatedForm } : a);
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
         return list;
       });
       showToast("✅ 文章修改成功！");
@@ -7694,7 +7735,7 @@ function App() {
       const newArticle = { id: docRef.id, ...safeForm, userId: user.uid, status, createdAt: Date.now() };
       setRealArticles(prev => {
         const list = [newArticle, ...prev];
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
         return list;
       });
       showToast(isAdmin ? "✅ 文章已直接發布！" : "✅ 文章已送出，等待管理員審核！");
@@ -7709,7 +7750,7 @@ function App() {
       await updateDoc(doc(db, getPath('articles'), id), { status: 'published' });
       setRealArticles(prev => {
         const list = prev.map(a => a.id === id ? { ...a, status: 'published' } : a);
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
         return list;
       });
       showToast("✅ 文章已核准發布！");
@@ -7722,7 +7763,7 @@ function App() {
       await deleteDoc(doc(db, getPath('articles'), id));
       setRealArticles(prev => {
         const list = prev.filter(a => a.id !== id);
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(list));
+        writeLocalStorageJSON(ARTICLES_CACHE_KEY, list);
         return list;
       });
       showToast("✅ 文章已刪除");
@@ -7934,15 +7975,15 @@ function App() {
   useEffect(() => {
     const loader = document.getElementById("loading-screen");
     if (loader) {
-      // 強制 300ms 後開始淡出，不論資料是否加載完成
+      // 進站體感優化：App 掛載後快速淡出，不再額外等太久。
       const timer = setTimeout(() => {
         loader.style.opacity = "0";
         loader.style.pointerEvents = "none";
         // 動畫結束後徹底隱藏
         setTimeout(() => {
           loader.style.display = "none";
-        }, 800);
-      }, 800);
+        }, 250);
+      }, 250);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -8039,7 +8080,7 @@ function App() {
       if (docSnap.exists()) {
         const statsData = docSnap.data();
         setSiteStats(statsData);
-        localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(statsData));
+        writeLocalStorageJSON(STATS_CACHE_KEY, statsData);
         localStorage.setItem(STATS_CACHE_TS, Date.now().toString());
 
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS) || '0';
@@ -8070,13 +8111,9 @@ function App() {
               } catch (e) { console.error("背景更新名單失敗", e); }
             } else {
               try {
-                const jsonUrl = "https://firebasestorage.googleapis.com/v0/b/v-nexus.firebasestorage.app/o/public_api%2Fvtubers.json?alt=media";
-                const response = await fetch(`${jsonUrl}&t=${Date.now()}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  syncVtuberCache(data);
-                  console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
-                }
+                const data = await fetchPublicVtubersJson(true);
+                syncVtuberCache(data);
+                console.log("✅ 成功抓取最新 JSON 動態！畫面已自動更新");
               } catch (e) { console.error("背景更新 JSON 失敗", e); }
             }
             // 🌟 抓取完畢，解開鎖
@@ -8086,18 +8123,39 @@ function App() {
       }
     });
 
-    // 抓取其他靜態設定 (站規、小技巧等，只需抓一次)
+    // 抓取其他靜態設定：先用 1 小時快取，避免每次進站固定多讀 3 筆設定文件。
     if (!hasFetchedSettings.current) {
       hasFetchedSettings.current = true;
-      Promise.all([
-        getDoc(doc(db, getPath("settings"), "tips")),
-        getDoc(doc(db, getPath("settings"), "rules")),
-        getDoc(doc(db, getPath("settings"), "bulletinImages")),
-      ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
-        if (tipsSnap.exists()) setRealTips(tipsSnap.data().content);
-        if (rulesSnap.exists()) setRealRules(rulesSnap.data().content);
-        if (imgSnap.exists()) setDefaultBulletinImages(imgSnap.data().images);
-      });
+      const cachedTips = readTimedCache(SETTINGS_CACHE_KEYS.tips, SETTINGS_CACHE_LIMIT, null);
+      const cachedRules = readTimedCache(SETTINGS_CACHE_KEYS.rules, SETTINGS_CACHE_LIMIT, null);
+      const cachedImages = readTimedCache(SETTINGS_CACHE_KEYS.bulletinImages, SETTINGS_CACHE_LIMIT, null);
+      if (cachedTips) setRealTips(cachedTips);
+      if (cachedRules) setRealRules(cachedRules);
+      if (Array.isArray(cachedImages)) setDefaultBulletinImages(cachedImages);
+
+      if (!cachedTips || !cachedRules || !Array.isArray(cachedImages)) {
+        Promise.all([
+          cachedTips ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "tips")),
+          cachedRules ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "rules")),
+          Array.isArray(cachedImages) ? Promise.resolve(null) : getDoc(doc(db, getPath("settings"), "bulletinImages")),
+        ]).then(([tipsSnap, rulesSnap, imgSnap]) => {
+          if (tipsSnap?.exists()) {
+            const content = tipsSnap.data().content;
+            setRealTips(content);
+            writeTimedCache(SETTINGS_CACHE_KEYS.tips, content);
+          }
+          if (rulesSnap?.exists()) {
+            const content = rulesSnap.data().content;
+            setRealRules(content);
+            writeTimedCache(SETTINGS_CACHE_KEYS.rules, content);
+          }
+          if (imgSnap?.exists()) {
+            const images = imgSnap.data().images || [];
+            setDefaultBulletinImages(images);
+            writeTimedCache(SETTINGS_CACHE_KEYS.bulletinImages, images);
+          }
+        }).catch((e) => console.warn("讀取靜態設定失敗:", e));
+      }
     }
 
     return () => unsubStats();
@@ -8157,8 +8215,11 @@ function App() {
     return () => unsubN();
   }, [user?.uid]);
 
-  // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
+  // --- 優化版：名片清單與佈告欄抓取 ---
+  // 目標：首次進站先顯示本機快取，非管理員優先讀 Storage JSON，避免首頁卡在整包 Firestore 讀取。
   useEffect(() => {
+    let cancelled = false;
+
     const fetchLargeData = async () => {
       const needsVtuberList = [
         "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
@@ -8166,83 +8227,109 @@ function App() {
 
       if (needsVtuberList) {
         const now = Date.now();
-        const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+        const cachedList = readLocalStorageJSON(VTUBER_CACHE_KEY, []);
+        const cachedTs = Number(localStorage.getItem(VTUBER_CACHE_TS) || 0);
+        const hasCachedList = Array.isArray(cachedList) && cachedList.length > 0;
 
-        // 🌟 關鍵修復 3：預設快取 24 小時。
-        // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
-        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
+        // 有舊資料就先進站，不要讓使用者等資料庫/JSON 回來。
+        if (hasCachedList) {
+          setIsLoading(false);
+          if (realVtubers.length === 0) setRealVtubers(cachedList);
+        }
 
-        // 管理員進入後台時，確保擁有包含待審核的完整資料
+        // 名片清單改成較短快取；但非管理員從 Storage JSON 更新，不增加 Firestore 讀取量。
+        let isExpired = !cachedTs || (now - cachedTs > 10 * 60 * 1000);
+
         const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
-        if (isAdmin && currentView === 'admin' && !hasFullData) {
+        if (isAdmin && currentView === "admin" && !hasFullData) {
           isExpired = true;
         }
 
-        if (isExpired) {
+        if (isExpired || !hasCachedList) {
           try {
-            const vSnap = await getDocs(collection(db, getPath("vtubers")));
-            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            syncVtuberCache(data);
-            if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
-          } catch (e) { console.error("讀取名單失敗", e); }
+            let data = [];
+            if (isAdmin && currentView === "admin") {
+              const vSnap = await getDocs(collection(db, getPath("vtubers")));
+              data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+              sessionStorage.setItem("has_full_admin_data", "true");
+            } else {
+              try {
+                data = await fetchPublicVtubersJson(true);
+              } catch (jsonErr) {
+                console.warn("公開名片 JSON 讀取失敗，改用 Firestore 備援。", jsonErr);
+                const vSnap = await getDocs(collection(db, getPath("vtubers")));
+                data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+              }
+            }
+            if (!cancelled && Array.isArray(data) && data.length > 0) syncVtuberCache(data);
+          } catch (e) {
+            console.error("讀取名單失敗", e);
+          } finally {
+            if (!cancelled) setIsLoading(false);
+          }
+        } else {
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
 
-      // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
-      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
+      const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
-        const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
-        const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
-        const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
-        const cTs = localStorage.getItem(COLLABS_CACHE_TS);
+        const bCache = readLocalStorageJSON(BULLETINS_CACHE_KEY, []);
+        const cCache = readLocalStorageJSON(COLLABS_CACHE_KEY, []);
+        const uCache = readLocalStorageJSON("vnexus_updates_data", []);
+        const bTs = Number(localStorage.getItem(BULLETINS_CACHE_TS) || 0);
+        const cTs = Number(localStorage.getItem(COLLABS_CACHE_TS) || 0);
+        const uTs = Number(localStorage.getItem("vnexus_updates_ts") || 0);
+        const hasAnyActivityCache =
+          (Array.isArray(bCache) && bCache.length > 0) ||
+          (Array.isArray(cCache) && cCache.length > 0) ||
+          (Array.isArray(uCache) && uCache.length > 0);
 
-        // 🌟 新增：讀取 Updates 的快取
-        const uCache = localStorage.getItem("vnexus_updates_data");
-        const uTs = localStorage.getItem("vnexus_updates_ts");
+        // 先拿舊快取補畫面，再背景刷新。這是進站體感改善最大的部分。
+        if (hasAnyActivityCache) {
+          if (Array.isArray(bCache)) setRealBulletins(bCache);
+          if (Array.isArray(cCache)) setRealCollabs(cCache);
+          if (Array.isArray(uCache)) setRealUpdates(uCache);
+          setIsLoadingActivities(false);
+        }
 
-        const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
-        const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
-        const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
+        const isBCacheValid = bTs && (now - bTs < ACTIVITY_CACHE_LIMIT);
+        const isCCacheValid = cTs && (now - cTs < ACTIVITY_CACHE_LIMIT);
+        const isUCacheValid = uTs && (now - uTs < ACTIVITY_CACHE_LIMIT);
 
-        // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
         if (isBCacheValid && isCCacheValid && isUCacheValid) {
-          setRealBulletins(JSON.parse(bCache));
-          setRealCollabs(JSON.parse(cCache));
-          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
           setIsLoadingActivities(false);
         } else {
-          setIsLoadingActivities(true);
+          setIsLoadingActivities(!hasAnyActivityCache);
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
-              getDocs(query(collection(db, getPath('bulletins')), where("recruitEndTime", ">", nowTime))),
-              getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
-              getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
+              getDocs(query(collection(db, getPath("bulletins")), where("recruitEndTime", ">", nowTime))),
+              getDocs(query(collection(db, getPath("collabs")), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
+              getDocs(query(collection(db, getPath("updates")), orderBy("createdAt", "desc"), limit(15)))
             ]);
+            if (cancelled) return;
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
             syncBulletinCache(bData);
             syncCollabCache(cData);
-
-            // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
             setRealUpdates(uData);
-            localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
+            writeLocalStorageJSON("vnexus_updates_data", uData);
             localStorage.setItem("vnexus_updates_ts", Date.now().toString());
-
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            setIsLoadingActivities(false);
+            if (!cancelled) setIsLoadingActivities(false);
           }
         }
       }
     };
 
     fetchLargeData();
+    return () => { cancelled = true; };
   }, [currentView, isAdmin]);
 
   useEffect(() => {
@@ -8251,21 +8338,21 @@ function App() {
 
     const fetchArticles = async () => {
       const now = Date.now();
-      const aCache = localStorage.getItem(ARTICLES_CACHE_KEY);
-      const aTs = localStorage.getItem(ARTICLES_CACHE_TS);
-      const isACacheValid = aCache && aTs && now - parseInt(aTs) < ARTICLES_CACHE_LIMIT;
+      const aCache = readLocalStorageJSON(ARTICLES_CACHE_KEY, []);
+      const aTs = Number(localStorage.getItem(ARTICLES_CACHE_TS) || 0);
+      const isACacheValid = Array.isArray(aCache) && aCache.length > 0 && aTs && now - aTs < ARTICLES_CACHE_LIMIT;
       const forceRefresh = currentView === "admin";
 
-      if (isACacheValid && !forceRefresh) {
-        setRealArticles(JSON.parse(aCache));
-        return;
+      if (Array.isArray(aCache) && aCache.length > 0 && !forceRefresh) {
+        setRealArticles(aCache);
+        if (isACacheValid) return;
       }
 
       try {
         const aSnap = await getDocs(collection(db, getPath("articles")));
         const aData = aSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setRealArticles(aData);
-        localStorage.setItem(ARTICLES_CACHE_KEY, JSON.stringify(aData));
+        writeLocalStorageJSON(ARTICLES_CACHE_KEY, aData);
         localStorage.setItem(ARTICLES_CACHE_TS, now.toString());
       } catch (e) {
         console.error("抓取文章失敗:", e);
@@ -8993,19 +9080,22 @@ function App() {
   }, [currentView]);
 
   const syncVtuberCache = (newList) => {
-    setRealVtubers(newList);
-    localStorage.setItem(VTUBER_CACHE_KEY, JSON.stringify(newList));
+    const safeList = Array.isArray(newList) ? newList : [];
+    setRealVtubers(safeList);
+    writeLocalStorageJSON(VTUBER_CACHE_KEY, safeList);
     localStorage.setItem(VTUBER_CACHE_TS, Date.now().toString());
   };
   const syncBulletinCache = (newList) => {
-    setRealBulletins(newList);
-    localStorage.setItem(BULLETINS_CACHE_KEY, JSON.stringify(newList));
+    const safeList = Array.isArray(newList) ? newList : [];
+    setRealBulletins(safeList);
+    writeLocalStorageJSON(BULLETINS_CACHE_KEY, safeList);
     localStorage.setItem(BULLETINS_CACHE_TS, Date.now().toString());
   };
 
   const syncCollabCache = (newList) => {
-    setRealCollabs(newList);
-    localStorage.setItem(COLLABS_CACHE_KEY, JSON.stringify(newList));
+    const safeList = Array.isArray(newList) ? newList : [];
+    setRealCollabs(safeList);
+    writeLocalStorageJSON(COLLABS_CACHE_KEY, safeList);
     localStorage.setItem(COLLABS_CACHE_TS, Date.now().toString());
   };
 
