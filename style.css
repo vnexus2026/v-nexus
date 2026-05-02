@@ -243,3 +243,61 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
 @media (min-width: 1280px) {
     .vnexus-vtuber-grid-list { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
+
+/* ✅ 限時動態圈名稱固定顯示：手機橫向列底部保留空間，避免 10 字元名稱被裁掉。 */
+.vnexus-story-name-label {
+  display: block !important;
+  min-height: 1.45rem !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* ✅ 限時動態圈名稱固定顯示：頭像與名稱分離，避免手機橫向捲動區把文字裁掉。 */
+.vnexus-story-strip {
+  align-items: flex-start !important;
+  padding-bottom: 1.25rem !important;
+  min-height: 5.6rem !important;
+  overflow-x: auto !important;
+}
+
+.vnexus-story-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 5rem !important;
+  flex: 0 0 5rem !important;
+  min-height: 5.25rem !important;
+  overflow: visible !important;
+}
+
+.vnexus-story-avatar-button {
+  display: block !important;
+  width: 100% !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+.vnexus-story-name-button,
+.vnexus-story-name-label {
+  display: block !important;
+  width: 100% !important;
+  min-height: 1.45rem !important;
+  max-height: none !important;
+  margin-top: .375rem !important;
+  padding: 0 .125rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #F8FAFC !important;
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+}

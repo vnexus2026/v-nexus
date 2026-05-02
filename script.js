@@ -239,21 +239,6 @@ const readCachedVtuberListSafely = () => {
     return [];
   }
 };
-const readArrayLocalCacheSafely = (key) => {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    const cached = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(cached) ? cached : [];
-  } catch (error) {
-    return [];
-  }
-};
-const runVnexusIdleTask = (callback, timeout = 900) => {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    return window.requestIdleCallback(callback, { timeout });
-  }
-  return setTimeout(callback, Math.min(timeout, 700));
-};
 const STATS_CACHE_KEY = "vnexus_stats_data"; // ⚠️ 新增這行
 const STATS_CACHE_TS = "vnexus_stats_ts"; // ⚠️ 新增這行
 const STATS_CACHE_LIMIT = 1 * 30 * 60 * 1000; // ⚠️ 新增這行 (快取1小時)
@@ -1473,6 +1458,12 @@ const formatRelativeTime = (ts) => {
   if (mins < 60) return ` ${mins} 分鐘前發布`;
   if (hours < 24) return ` ${hours} 小時前發布`;
   return ` ${days} 天前發布`;
+};
+
+const limitDisplayText = (value, maxLength = 10) => {
+  const text = String(value || "").trim();
+  if (!text) return "創作者";
+  return Array.from(text).slice(0, maxLength).join("");
 };
 
 const formatDateTimeLocalStr = (dtStr) => {
@@ -4692,9 +4683,13 @@ const HomePage = ({
   onApply,
   onNavigateProfile,
   onOpenStoryComposer,
+  onSubmitFeedback,
 }) => {
   const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
   const [isShuffling, setIsShuffling] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   const handleShuffleStatus = () => {
     if (isShuffling) return;
@@ -4844,6 +4839,21 @@ const HomePage = ({
   const myHomeProfile = useMemo(() => {
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
   }, [realVtubers, user]);
+
+  const handleFeedbackSubmit = async (e) => {
+    e.preventDefault();
+    if (!feedbackText.trim() || isSubmittingFeedback) return;
+    setIsSubmittingFeedback(true);
+    try {
+      const ok = await onSubmitFeedback?.(feedbackText.trim(), myHomeProfile);
+      if (ok !== false) {
+        setFeedbackText("");
+        setIsFeedbackModalOpen(false);
+      }
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   const onboardingState = useMemo(() => {
     const profile = myHomeProfile || {};
@@ -4997,6 +5007,14 @@ const HomePage = ({
                 <i className="fa-solid fa-clipboard-list mr-2"></i>委託佈告欄
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsFeedbackModalOpen(true)}
+              className="w-full min-h-12 bg-[#22C55E]/10 hover:bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/30 px-5 py-3 rounded-xl font-bold transition-colors flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-center"
+            >
+              <span><i className="fa-solid fa-message mr-2"></i>功能回饋及問題回報</span>
+              <span className="text-[11px] sm:text-xs font-medium text-[#BBF7D0]">有任何想要的功能或問題，請直接填寫並回報。</span>
+            </button>
           </div>
         </div>
 
@@ -5035,31 +5053,44 @@ const HomePage = ({
               </div>
 
               {activeStatuses.length > 0 ? (
-                <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-1">
+                <div className="vnexus-story-strip flex gap-3 overflow-x-auto custom-scrollbar pb-5 items-start">
                   {activeStatuses.map((v) => {
                     const isLiveMsg = String(v.statusMessage || "").includes("🔴");
+                    const openStoryProfile = () => {
+                      setSelectedVTuber(v);
+                      navigate(`profile/${v.id}`);
+                    };
                     return (
-                      <button
+                      <div
                         key={`home-story-${v.id}`}
-                        onClick={() => {
-                          setSelectedVTuber(v);
-                          navigate(`profile/${v.id}`);
-                        }}
-                        className="flex-shrink-0 w-14 text-center group"
+                        className="vnexus-story-item flex-shrink-0 w-20 text-center group"
                         title={v.statusMessage}
                       >
-                        <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
-                          <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
-                            <img
-                              src={sanitizeUrl(v.avatar)}
-                              className="w-full h-full rounded-full object-cover bg-[#1D2130]"
-                              onError={(e) => { e.currentTarget.style.display = "none"; }}
-                              alt={v.name || "VTuber"}
-                            />
+                        <button
+                          type="button"
+                          onClick={openStoryProfile}
+                          className="vnexus-story-avatar-button block w-full"
+                          aria-label={`查看 ${v.name || "VTuber"} 的名片`}
+                        >
+                          <div className={`w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}`}>
+                            <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
+                              <img
+                                src={sanitizeUrl(v.avatar)}
+                                className="w-full h-full rounded-full object-cover bg-[#1D2130]"
+                                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                alt={v.name || "VTuber"}
+                              />
+                            </div>
                           </div>
-                        </div>
-                        <p className="text-[10px] text-[#F8FAFC] mt-1.5 truncate group-hover:text-[#F59E0B] transition-colors">{v.name}</p>
-                      </button>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openStoryProfile}
+                          className="vnexus-story-name-button group-hover:text-[#F59E0B] transition-colors"
+                        >
+                          {limitDisplayText(v.name || "VTuber", 10)}
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -5470,6 +5501,68 @@ const HomePage = ({
         )}
       </div>
 
+      {isFeedbackModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => !isSubmittingFeedback && setIsFeedbackModalOpen(false)}
+        >
+          <form
+            onSubmit={handleFeedbackSubmit}
+            className="w-full max-w-lg bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#181B25] flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-white font-black text-lg flex items-center gap-2">
+                  <i className="fa-solid fa-message text-[#22C55E]"></i>
+                  功能回饋及問題回報
+                </h3>
+                <p className="text-[#94A3B8] text-xs mt-1">你填寫的內容不會公開顯示，僅供管理員在後台查看。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSubmittingFeedback && setIsFeedbackModalOpen(false)}
+                className="text-[#94A3B8] hover:text-white transition-colors"
+              >
+                <i className="fa-solid fa-xmark text-xl"></i>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-[#22C55E]/10 border border-[#22C55E]/20 rounded-xl px-4 py-3 text-[#BBF7D0] text-sm leading-relaxed">
+                如果有任何想要的功能、遇到錯誤、畫面跑版或使用流程不順，請直接填寫並回報。
+              </div>
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                maxLength="800"
+                rows="6"
+                className="w-full bg-[#181B25] border border-[#2A2F3D] rounded-xl p-3 text-white placeholder:text-[#64748B] outline-none focus:border-[#22C55E] resize-none"
+                placeholder="請描述你想要的功能，或遇到的問題..."
+                autoFocus
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className={`text-[10px] ${feedbackText.length >= 760 ? "text-[#F59E0B]" : "text-[#94A3B8]"}`}>{feedbackText.length} / 800</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => !isSubmittingFeedback && setIsFeedbackModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-[#181B25] hover:bg-[#1D2130] text-[#CBD5E1] font-bold text-sm transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingFeedback || !feedbackText.trim()}
+                    className={`px-5 py-2 rounded-xl font-black text-sm transition-colors ${feedbackText.trim() && !isSubmittingFeedback ? "bg-[#22C55E] hover:bg-[#16A34A] text-[#0F111A]" : "bg-[#1D2130] text-[#64748B] cursor-not-allowed"}`}
+                  >
+                    {isSubmittingFeedback ? "送出中..." : "送出回報"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
 
     </section>
   );
@@ -5734,6 +5827,9 @@ const AdminPage = ({
   massEmailCurrent,     // 🌟 新增
   massEmailTotal,       // 🌟 新增
   massEmailLog,
+  feedbackReports = [],
+  onUpdateFeedbackReport,
+  onDeleteFeedbackReport,
 }) => {
   const [editingArticleId, setEditingArticleId] = useState(null);
   const [articleEditForm, setArticleEditForm] = useState({ title: '', category: '', content: '', coverUrl: '' });
@@ -5776,6 +5872,10 @@ const AdminPage = ({
   const blacklistedVtubers = vtubers
     .filter((v) => v.isBlacklisted)
     .sort((a, b) => getAdminSortTime(b) - getAdminSortTime(a));
+
+  const sortedFeedbackReports = [...(Array.isArray(feedbackReports) ? feedbackReports : [])]
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  const openFeedbackCount = sortedFeedbackReports.filter((r) => r.status !== "resolved").length;
 
   const [isRejectedExpanded, setIsRejectedExpanded] = useState(false);
 
@@ -5966,6 +6066,7 @@ const AdminPage = ({
             { id: "collabs", icon: "fa-broadcast-tower", label: "時間表" },
             { id: "updates", icon: "fa-newspaper", label: "發布消息" },
             { id: 'articles', icon: 'fa-book-open', label: '寶典審核' },
+            { id: "feedback", icon: "fa-message", label: "功能回饋" },
             { id: "settings", icon: "fa-gear", label: "設定規範" },
           ].map((t) => (
             <button
@@ -5977,6 +6078,11 @@ const AdminPage = ({
               {t.id === "vtubers" && pendingVtubers.length > 0 && (
                 <span className="bg-white text-red-600 px-2 py-0.5 rounded-full text-xs ml-1">
                   {pendingVtubers.length}
+                </span>
+              )}
+              {t.id === "feedback" && openFeedbackCount > 0 && (
+                <span className="bg-[#22C55E] text-[#0F111A] px-2 py-0.5 rounded-full text-xs ml-1">
+                  {openFeedbackCount}
                 </span>
               )}
             </button>
@@ -6571,6 +6677,71 @@ const AdminPage = ({
             </div>
           )}
 
+          {activeTab === "feedback" && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <i className="fa-solid fa-message text-[#22C55E]"></i>
+                  功能回饋及問題回報
+                </h3>
+                <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
+                  首頁送出的回饋只會在這個後台頁面顯示，前台不會公開列出。
+                </p>
+              </div>
+
+              {sortedFeedbackReports.length === 0 ? (
+                <div className="bg-[#11131C] border border-dashed border-[#2A2F3D] rounded-2xl px-5 py-10 text-center text-[#94A3B8]">
+                  目前還沒有使用者回饋或問題回報。
+                </div>
+              ) : (
+                sortedFeedbackReports.map((report) => {
+                  const profile = vtubers.find((v) => v.id === report.userId);
+                  return (
+                    <div key={report.id} className="bg-[#11131C] border border-[#2A2F3D] rounded-2xl p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white font-black">{report.userName || profile?.name || "使用者"}</span>
+                            {report.status === "resolved" ? (
+                              <span className="text-[10px] bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/25 px-2 py-0.5 rounded-full font-bold">已處理</span>
+                            ) : (
+                              <span className="text-[10px] bg-[#F59E0B]/15 text-[#FCD34D] border border-[#F59E0B]/25 px-2 py-0.5 rounded-full font-bold">待處理</span>
+                            )}
+                          </div>
+                          <div className="text-[#94A3B8] text-xs mt-1 space-x-2">
+                            <span>{formatTime(report.createdAt)}</span>
+                            {report.userEmail && <span>{report.userEmail}</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {report.status !== "resolved" && (
+                            <button
+                              onClick={() => onUpdateFeedbackReport?.(report.id, { status: "resolved" })}
+                              className="px-3 py-1.5 rounded-lg bg-[#22C55E]/15 hover:bg-[#22C55E]/25 text-[#86EFAC] border border-[#22C55E]/25 text-xs font-bold transition-colors"
+                            >
+                              標記已處理
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { if (confirm("確定要刪除這則回饋嗎？")) onDeleteFeedbackReport?.(report.id); }}
+                            className="px-3 py-1.5 rounded-lg bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 text-xs font-bold transition-colors"
+                          >
+                            刪除
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[#E2E8F0] text-sm leading-relaxed whitespace-pre-wrap break-words">{report.message}</p>
+                      <div className="text-[11px] text-[#64748B] flex flex-wrap gap-x-3 gap-y-1">
+                        {report.userId && <span>UID：{report.userId}</span>}
+                        {report.pagePath && <span>來源：{report.pagePath}</span>}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
           {activeTab === "settings" && (
             <div className="space-y-8">
               <div>
@@ -7098,6 +7269,7 @@ function App() {
 
   // 🌟 新增：限時動態 (Stories) 狀態
   const [realStories, setRealStories] = useState([]);
+  const [feedbackReports, setFeedbackReports] = useState([]);
   const [storyInput, setStoryInput] = useState("");
   const [isStoryComposerOpen, setIsStoryComposerOpen] = useState(false);
   const [statusWallFilter, setStatusWallFilter] = useState("all");
@@ -7395,35 +7567,6 @@ function App() {
   const [isChatListOpen, setIsChatListOpen] = useState(false); // 控制聊天列表打開或關閉的開關
   const [isSendingInvite, setIsSendingInvite] = useState(false);
   const isFetchingJson = useRef(false);
-  const isRefreshingFullVtuberList = useRef(false);
-  const isScheduledFullVtuberListRefresh = useRef(false);
-  const refreshFullVtuberList = async (reason = "background") => {
-    if (isRefreshingFullVtuberList.current) return false;
-    isRefreshingFullVtuberList.current = true;
-    try {
-      const vSnap = await getDocs(collection(db, getPath("vtubers")));
-      const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      if (data.length) {
-        syncVtuberCache(data);
-        if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
-        console.info(`✅ 名片完整清單已背景更新：${reason}，共 ${getVtuberPageCount(data)} 頁`);
-        return true;
-      }
-    } catch (e) {
-      console.error("背景補齊完整名單失敗", e);
-    } finally {
-      isRefreshingFullVtuberList.current = false;
-    }
-    return false;
-  };
-  const scheduleFullVtuberListRefresh = (reason = "background", timeout = 900) => {
-    if (isScheduledFullVtuberListRefresh.current || isRefreshingFullVtuberList.current) return;
-    isScheduledFullVtuberListRefresh.current = true;
-    runVnexusIdleTask(() => {
-      isScheduledFullVtuberListRefresh.current = false;
-      refreshFullVtuberList(reason);
-    }, timeout);
-  };
   const handleOpenChat = async (targetVtuber) => {
     setChatTarget(targetVtuber);
     setIsChatListOpen(false);
@@ -8168,11 +8311,9 @@ function App() {
     return () => unsubN();
   }, [user?.uid]);
 
-  // --- 優化版：首頁快速顯示；名片完整清單改成背景補齊，避免首頁卡 3-5 秒 ---
+  // --- 優化版：名片清單與佈告欄抓取 (修正首頁不顯示數字的問題) ---
   useEffect(() => {
-    let isMounted = true;
     const fetchLargeData = async () => {
-      const isHomeFastPaint = currentView === "home";
       const needsVtuberList = [
         "home", "grid", "profile", "match", "blacklist", "dashboard", "admin", "bulletin", "commission-board", "collabs", "articles", "commissions"
       ].includes(currentView);
@@ -8180,61 +8321,58 @@ function App() {
       if (needsVtuberList) {
         const now = Date.now();
         const cachedTs = localStorage.getItem(VTUBER_CACHE_TS);
+
+        // 🌟 關鍵修復 3：預設快取 24 小時。
+        // 不用擔心看不到新資料，因為只要有人發動態，上面的 onSnapshot 就會瞬間打破這個 24 小時限制！
+        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000);
         const cachedVtubers = readCachedVtuberListSafely();
-        const cachedVtubersLookShort = isVtuberListUnexpectedlyShort(cachedVtubers);
-        let isExpired = !cachedTs || (now - parseInt(cachedTs) > 24 * 60 * 60 * 1000) || cachedVtubersLookShort;
-
-        if (cachedVtubers.length > 0) {
-          setRealVtubers(cachedVtubers);
-          setIsLoading(false);
-        } else if (isHomeFastPaint) {
-          // 首頁不等待完整名片；先讓首屏出來，資料回來後自動補上。
-          setIsLoading(false);
+        if (isVtuberListUnexpectedlyShort(cachedVtubers)) {
+          console.warn(`⚠️ 本機名片快取只有 ${getVtuberPageCount(cachedVtubers)} 頁，低於原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁，將重抓完整名單。`);
+          isExpired = true;
         }
 
-        if (cachedVtubersLookShort) {
-          console.warn(`⚠️ 本機名片快取目前只有 ${getVtuberPageCount(cachedVtubers)} 頁；首頁不阻塞，將在背景補回原本 ${VTUBER_EXPECTED_MIN_PAGE_COUNT} 頁。`);
-        }
-
+        // 管理員進入後台時，確保擁有包含待審核的完整資料
         const hasFullData = sessionStorage.getItem("has_full_admin_data") === "true";
-        const shouldFetchFullForAdmin = isAdmin && currentView === "admin" && !hasFullData;
-
-        if (isExpired || shouldFetchFullForAdmin) {
-          if (isHomeFastPaint && !shouldFetchFullForAdmin) {
-            scheduleFullVtuberListRefresh(cachedVtubersLookShort ? "home-cache-short" : "home-cache-expired", 800);
-          } else {
-            await refreshFullVtuberList(shouldFetchFullForAdmin ? "admin-open" : "view-open");
-            if (isMounted) setIsLoading(false);
-          }
-        } else {
-          setIsLoading(false);
+        if (isAdmin && currentView === 'admin' && !hasFullData) {
+          isExpired = true;
         }
+
+        if (isExpired) {
+          try {
+            const vSnap = await getDocs(collection(db, getPath("vtubers")));
+            const data = vSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            syncVtuberCache(data);
+            if (isAdmin) sessionStorage.setItem("has_full_admin_data", "true");
+          } catch (e) { console.error("讀取名單失敗", e); }
+        }
+        setIsLoading(false);
       }
 
-      // 2. 佈告欄、行程與最新消息資料：首頁不阻塞首屏，背景補資料。
-      const needsActivityData = ["home", "bulletin", "collabs", "admin", "commissions", "commission-board"].includes(currentView);
+      // 2. 佈告欄、行程與最新消息資料 (完美快取版，解決 Stale Closure)
+      const needsActivityData = ['home', 'bulletin', 'collabs', 'admin', 'commissions', 'commission-board'].includes(currentView);
       if (needsActivityData) {
         const now = Date.now();
-        const bDataCached = readArrayLocalCacheSafely(BULLETINS_CACHE_KEY);
-        const cDataCached = readArrayLocalCacheSafely(COLLABS_CACHE_KEY);
-        const uDataCached = readArrayLocalCacheSafely("vnexus_updates_data");
+        const bCache = localStorage.getItem(BULLETINS_CACHE_KEY);
         const bTs = localStorage.getItem(BULLETINS_CACHE_TS);
+        const cCache = localStorage.getItem(COLLABS_CACHE_KEY);
         const cTs = localStorage.getItem(COLLABS_CACHE_TS);
+
+        // 🌟 新增：讀取 Updates 的快取
+        const uCache = localStorage.getItem("vnexus_updates_data");
         const uTs = localStorage.getItem("vnexus_updates_ts");
-        const isBCacheValid = bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
-        const isCCacheValid = cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
-        const isUCacheValid = uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
 
-        if (bDataCached.length || cDataCached.length || uDataCached.length) {
-          setRealBulletins(bDataCached);
-          setRealCollabs(cDataCached);
-          setRealUpdates(uDataCached);
-          setIsLoadingActivities(false);
-        } else if (isHomeFastPaint) {
-          setIsLoadingActivities(false);
-        }
+        const isBCacheValid = bCache && bTs && (now - parseInt(bTs) < ACTIVITY_CACHE_LIMIT);
+        const isCCacheValid = cCache && cTs && (now - parseInt(cTs) < ACTIVITY_CACHE_LIMIT);
+        const isUCacheValid = uCache && uTs && (now - parseInt(uTs) < ACTIVITY_CACHE_LIMIT);
 
-        const refreshActivityData = async () => {
+        // 🛡️ 只有當三個快取都有效時，才完全不讀取資料庫
+        if (isBCacheValid && isCCacheValid && isUCacheValid) {
+          setRealBulletins(JSON.parse(bCache));
+          setRealCollabs(JSON.parse(cCache));
+          setRealUpdates(JSON.parse(uCache)); // 👈 直接從快取拿，徹底解決閉包問題
+          setIsLoadingActivities(false);
+        } else {
+          setIsLoadingActivities(true);
           try {
             const nowTime = Date.now();
             const [bSnap, cSnap, uSnap] = await Promise.all([
@@ -8242,35 +8380,28 @@ function App() {
               getDocs(query(collection(db, getPath('collabs')), where("startTimestamp", ">", nowTime - 2 * 60 * 60 * 1000))),
               getDocs(query(collection(db, getPath('updates')), orderBy('createdAt', 'desc'), limit(15)))
             ]);
-            if (!isMounted) return;
             const bData = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const cData = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
             const uData = uSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
             syncBulletinCache(bData);
             syncCollabCache(cData);
+
+            // 🌟 新增：將 Updates 寫入 State 與 LocalStorage 快取
             setRealUpdates(uData);
             localStorage.setItem("vnexus_updates_data", JSON.stringify(uData));
             localStorage.setItem("vnexus_updates_ts", Date.now().toString());
+
           } catch (e) {
             console.error("抓取活動資料失敗:", e);
           } finally {
-            if (isMounted) setIsLoadingActivities(false);
-          }
-        };
-
-        if (!isBCacheValid || !isCCacheValid || !isUCacheValid || currentView === "admin") {
-          if (isHomeFastPaint) {
-            runVnexusIdleTask(() => refreshActivityData(), 1000);
-          } else {
-            if (!bDataCached.length && !cDataCached.length && !uDataCached.length) setIsLoadingActivities(true);
-            await refreshActivityData();
+            setIsLoadingActivities(false);
           }
         }
       }
     };
 
     fetchLargeData();
-    return () => { isMounted = false; };
   }, [currentView, isAdmin]);
 
   useEffect(() => {
@@ -8406,6 +8537,18 @@ function App() {
         })
         .catch((err) => console.error("抓取私密資料失敗:", err));
     }
+  }, [isAdmin, currentView]);
+
+  useEffect(() => {
+    if (!isAdmin || currentView !== "admin") return;
+    getDocs(query(collection(db, getPath("feedback_reports")), orderBy("createdAt", "desc"), limit(100)))
+      .then((snap) => {
+        const reports = snap.docs
+          .map((d) => ({ id: d.id, ...d.data(), source: "feedback_reports" }))
+          .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+        setFeedbackReports(reports);
+      })
+      .catch((err) => console.error("抓取功能回饋失敗，請確認 firestore.rules 已部署 feedback_reports 管理員讀取權限:", err));
   }, [isAdmin, currentView]);
 
   const myNotifications = useMemo(
@@ -9470,6 +9613,99 @@ function App() {
     } catch (err) {
       console.error(err);
       showToast("❌ 發送失敗");
+    }
+  };
+
+  const makeFeedbackReportPayload = (message, profileOverride = null) => {
+    const now = Date.now();
+    const profile = profileOverride || myProfile || realVtubers.find((v) => v.id === user?.uid) || {};
+    return {
+      message,
+      status: "open",
+      userId: user?.uid || "",
+      userName: profile.name || user?.displayName || "使用者",
+      userEmail: user?.email || "",
+      userAvatar: profile.avatar || user?.photoURL || "",
+      pagePath: `${location.pathname || "/"}${location.hash || ""}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+  };
+
+  const saveFeedbackReportViaCallable = async (payload) => {
+    const authToken = user?.getIdToken ? await user.getIdToken() : "";
+    const fn = httpsCallable(functionsInstance, "submitFeedbackReport");
+    const res = await fn({
+      message: payload.message,
+      pagePath: payload.pagePath,
+      authToken,
+    });
+    if (!res?.data?.success) {
+      throw new Error(res?.data?.message || "後端回饋 API 回傳失敗");
+    }
+    return {
+      id: res.data.id,
+      ...payload,
+      ...(res.data.report || {}),
+      source: "feedback_reports",
+    };
+  };
+
+  const saveFeedbackReportDirectly = async (payload) => {
+    const refDoc = await addDoc(collection(db, getPath("feedback_reports")), payload);
+    return { id: refDoc.id, ...payload, source: "feedback_reports" };
+  };
+
+  const handleSubmitFeedbackReport = async (message, profileOverride = null) => {
+    const text = String(message || "").trim();
+    if (!text) return false;
+    if (!user) {
+      showToast("請先登入後再送出回饋，方便管理員回覆與追蹤。");
+      return false;
+    }
+    try {
+      const payload = makeFeedbackReportPayload(text, profileOverride);
+      let savedReport = null;
+      try {
+        savedReport = await saveFeedbackReportViaCallable(payload);
+      } catch (callableErr) {
+        console.warn("功能回饋後端 callable 尚未部署或呼叫失敗，改用 Firestore feedback_reports 直寫：", callableErr);
+        savedReport = await saveFeedbackReportDirectly(payload);
+      }
+      setFeedbackReports((prev) => [savedReport, ...(prev || [])]);
+      showToast("✅ 已送出回饋，感謝你的回報！");
+      return true;
+    } catch (err) {
+      console.error("送出功能回饋失敗，請確認 Functions 或 firestore.rules 已部署 feedback_reports 權限:", err);
+      showToast("❌ 送出失敗：請通知管理員部署新版 Firestore Rules / Functions");
+      return false;
+    }
+  };
+
+  const getFeedbackReportCollectionName = () => "feedback_reports";
+
+  const handleUpdateFeedbackReport = async (id, updates = {}) => {
+    if (!isAdmin || !id) return;
+    try {
+      const safeUpdates = { ...updates, updatedAt: Date.now(), reviewedBy: user?.uid || "" };
+      await updateDoc(doc(db, getPath(getFeedbackReportCollectionName(id)), id), safeUpdates);
+      setFeedbackReports((prev) => prev.map((r) => r.id === id ? { ...r, ...safeUpdates } : r));
+      showToast("✅ 已更新回饋狀態");
+    } catch (err) {
+      console.error("更新功能回饋失敗:", err);
+      showToast("❌ 更新失敗");
+    }
+  };
+
+  const handleDeleteFeedbackReport = async (id) => {
+    if (!isAdmin || !id) return;
+    try {
+      await deleteDoc(doc(db, getPath(getFeedbackReportCollectionName(id)), id));
+      setFeedbackReports((prev) => prev.filter((r) => r.id !== id));
+      showToast("✅ 已刪除回饋");
+    } catch (err) {
+      console.error("刪除功能回饋失敗:", err);
+      showToast("❌ 刪除失敗");
     }
   };
 
@@ -11045,6 +11281,7 @@ function App() {
                 navigate(`profile/${vt.id}`);
               }}
               onOpenStoryComposer={() => setIsStoryComposerOpen(true)}
+              onSubmitFeedback={handleSubmitFeedbackReport}
             />
           )}
 
@@ -12801,6 +13038,42 @@ function App() {
               .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
               .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
             const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
+            const reactionProfileMap = new Map(realVtubers.map((v) => [v.id, v]));
+            const findReactionProfile = (uid) => {
+              if (!uid) return null;
+              return reactionProfileMap.get(uid) || (uid === user?.uid ? (myProfile || null) : null);
+            };
+            const renderReactionNames = (uids = []) => {
+              const uniqueIds = [...new Set(Array.isArray(uids) ? uids : [])].filter(Boolean);
+              if (uniqueIds.length === 0) return null;
+              const visibleIds = uniqueIds.slice(0, 8);
+              return (
+                <>
+                  {visibleIds.map((uid, index) => {
+                    const profile = findReactionProfile(uid);
+                    const displayName = profile?.name || (uid === user?.uid ? "你" : "使用者");
+                    return (
+                      <React.Fragment key={`reaction-name-${uid}`}>
+                        {index > 0 && <span className="text-[#64748B]">、</span>}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (profile) setSelectedVTuber(profile);
+                            navigate(`profile/${uid}`);
+                          }}
+                          className="font-bold text-[#E2E8F0] hover:text-[#38BDF8] hover:underline underline-offset-2 transition-colors"
+                          title="查看名片"
+                        >
+                          {limitDisplayText(displayName, 10)}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+                  {uniqueIds.length > 8 && <span className="text-[#94A3B8]">、等 {uniqueIds.length} 人</span>}
+                </>
+              );
+            };
 
             return (
               <div className="max-w-3xl mx-auto px-4 py-6 animate-fade-in-up">
@@ -12817,7 +13090,7 @@ function App() {
                 {/* 最上方只保留 IG 限動圈圈列 */}
                 <div className="mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3">
                   <div
-                    className="flex gap-4 overflow-x-auto pb-1 vnexus-drag-scroll"
+                    className="vnexus-story-strip flex gap-4 overflow-x-auto pb-5 vnexus-drag-scroll items-start"
                     onMouseDown={(e) => {
                       const el = e.currentTarget;
                       el.dataset.dragging = "1";
@@ -12871,19 +13144,31 @@ function App() {
                           ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                           : `${v.name || '創作者'} 最近更新了名片資料`;
                         return (
-                          <button
+                          <div
                             key={`story-ring-${v.id}`}
-                            onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
-                            className="flex-shrink-0 w-16 text-center group"
+                            className="vnexus-story-item flex-shrink-0 w-20 text-center group"
                             title={titleText}
                           >
-                            <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
-                              <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
-                                <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                            <button
+                              type="button"
+                              onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                              className="vnexus-story-avatar-button block w-full"
+                              aria-label={`查看 ${v.name || "創作者"} 的名片`}
+                            >
+                              <div className={`w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}`}>
+                                <div className="w-full h-full rounded-full bg-[#11131C] p-[2px]">
+                                  <img src={sanitizeUrl(v.avatar)} className="w-full h-full rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} alt={v.name || "創作者"} />
+                                </div>
                               </div>
-                            </div>
-                            <p className={`text-[10px] text-[#F8FAFC] mt-1.5 truncate transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}>{v.name}</p>
-                          </button>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
+                              className={`vnexus-story-name-button transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}
+                            >
+                              {limitDisplayText(v.name || "創作者", 10)}
+                            </button>
+                          </div>
                         );
                       })
                     )}
@@ -13058,6 +13343,17 @@ function App() {
                                 )}
                               </div>
 
+                              {(fireCount > 0 || plusCount > 0) && (
+                                <div className="mt-2 space-y-1 text-[11px] leading-relaxed text-[#94A3B8]">
+                                  {fireCount > 0 && (
+                                    <p><span className="text-[#FCD34D] font-bold">🔥 幫推：</span>{renderReactionNames(v.statusReactions?.fire)}</p>
+                                  )}
+                                  {plusCount > 0 && (
+                                    <p><span className="text-[#C4B5FD] font-bold">👋 +1：</span>{renderReactionNames(v.statusReactions?.plus_one)}</p>
+                                  )}
+                                </div>
+                              )}
+
                               {isCommentsOpen && (
                                 <StatusCommentsBox
                                   storyOwner={v}
@@ -13185,6 +13481,9 @@ function App() {
               massEmailCurrent={massEmailCurrent}
               massEmailTotal={massEmailTotal}
               massEmailLog={massEmailLog}
+              feedbackReports={feedbackReports}
+              onUpdateFeedbackReport={handleUpdateFeedbackReport}
+              onDeleteFeedbackReport={handleDeleteFeedbackReport}
             />
           )}
         </main>
