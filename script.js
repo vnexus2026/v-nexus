@@ -185,6 +185,178 @@ const getPath = (collectionName) => `artifacts/${APP_ID}/public/data/${collectio
 const generateRoomId = (uid1, uid2) => [uid1, uid2].sort().join("_");
 const getRoomPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}`;
 const getMsgPath = (roomId) => `artifacts/${APP_ID}/public/data/chat_rooms/${roomId}/messages`;
+
+const VNEXUS_SITE_URL = "https://www.vnexus2026.com";
+const VNEXUS_DEFAULT_SEO_IMAGE = "https://duk.tw/u1jpPE.png";
+const VNEXUS_SEO_ROUTES = {
+    home: {
+        url: `${VNEXUS_SITE_URL}/`,
+        title: "V-Nexus｜VTuber 聯動、委託佈告欄與創作者名片平台",
+        description: "V-Nexus 是專為 VTuber 與創作者打造的聯動平台，可建立 VTuber 名片、尋找聯動夥伴、發布揪團與委託需求，連結繪師、Live2D 建模師與剪輯師。",
+        keywords: "VTuber,VTuber 聯動,VTuber 夥伴,VTuber 名片,委託佈告欄,繪師委託,Live2D 建模師,剪輯師委託,台灣 VTuber"
+    },
+    grid: {
+        url: `${VNEXUS_SITE_URL}/vtubers/`,
+        title: "尋找 VTuber 夥伴｜VTuber 聯動名片平台｜V-Nexus",
+        description: "在 V-Nexus 尋找適合聯動的 VTuber 夥伴，依照活動類型、語言、時段、平台與風格快速找到可以一起企劃、遊戲、雜談或合作的創作者。",
+        keywords: "尋找 VTuber 夥伴,VTuber 聯動,VTuber 找朋友,VTuber 名片,VTuber 揪團,台灣 VTuber"
+    },
+    bulletin: {
+        url: `${VNEXUS_SITE_URL}/bulletin/`,
+        title: "最近揪團｜VTuber 揪團佈告欄｜V-Nexus",
+        description: "查看 VTuber 最新揪團需求，包含遊戲聯動、雜談企劃、歌回合作、節目企劃與活動招募，讓創作者更容易找到合適的合作對象。",
+        keywords: "VTuber 揪團,VTuber 聯動招募,VTuber 企劃,VTuber 合作,V-Nexus 揪團"
+    },
+    "commission-board": {
+        url: `${VNEXUS_SITE_URL}/commissions/`,
+        title: "委託佈告欄｜VTuber 創作需求發案｜V-Nexus",
+        description: "在 V-Nexus 委託佈告欄發布或查看 VTuber 創作需求，讓繪師、Live2D 建模師、剪輯師與創作者更快媒合。",
+        keywords: "VTuber 委託,委託佈告欄,繪師委託,Live2D 建模委託,剪輯師委託,VTuber 發案"
+    },
+    commissions: {
+        url: `${VNEXUS_SITE_URL}/creators/`,
+        title: "繪師 / 建模師 / 剪輯師委託專區｜V-Nexus",
+        description: "尋找適合 VTuber 的繪師、Live2D 建模師與剪輯師，查看作品集、接案狀態、預算參考與創作風格。",
+        keywords: "繪師委託,Live2D 建模師,剪輯師委託,VTuber 立繪委託,VTuber 創作服務"
+    },
+    collabs: {
+        url: `${VNEXUS_SITE_URL}/collabs/`,
+        title: "即將聯動｜VTuber 聯動活動行程｜V-Nexus",
+        description: "查看 V-Nexus 上即將進行的 VTuber 聯動活動、直播行程與合作企劃，發現更多值得追蹤的創作者。",
+        keywords: "VTuber 聯動活動,VTuber 直播行程,VTuber 合作企劃,即將聯動"
+    },
+    status_wall: {
+        url: `${VNEXUS_SITE_URL}/status-wall/`,
+        title: "今日活躍創作者｜VTuber 動態牆｜V-Nexus",
+        description: "查看 VTuber 與創作者的 24 小時動態、近況、聯動意願與創作狀態，掌握社群最新活躍資訊。",
+        keywords: "VTuber 動態,今日活躍創作者,VTuber 社群,VTuber 近況"
+    },
+    articles: {
+        url: `${VNEXUS_SITE_URL}/articles/`,
+        title: "VTuber 新手教學與創作者資源｜V-Nexus",
+        description: "整理 VTuber 找聯動、寫名片、委託繪師、Live2D 建模、剪輯合作與創作者經營相關教學資源。",
+        keywords: "VTuber 教學,VTuber 新手,VTuber 名片範例,VTuber 委託教學,VTuber 聯動邀約"
+    },
+    match: {
+        url: `${VNEXUS_SITE_URL}/vtubers/`,
+        title: "VTuber 聯動隨機配對｜V-Nexus",
+        description: "使用 V-Nexus 聯動隨機配對，快速探索可能適合一起合作、遊戲、雜談或企劃的 VTuber 夥伴。",
+        keywords: "VTuber 隨機配對,VTuber 聯動配對,VTuber 合作"
+    }
+};
+function sanitizeSeoText(value, maxLength = 160) {
+    return String(value || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/[\u0000-\u001F\u007F]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxLength);
+}
+function ensureMetaTag(attrName, attrValue, content) {
+    if (typeof document === "undefined" || !attrValue)
+        return;
+    let tag = document.head.querySelector(`meta[${attrName}="${attrValue}"]`);
+    if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute(attrName, attrValue);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute("content", content || "");
+}
+function ensureLinkTag(rel, href) {
+    if (typeof document === "undefined" || !rel || !href)
+        return;
+    let tag = document.head.querySelector(`link[rel="${rel}"]`);
+    if (!tag) {
+        tag = document.createElement("link");
+        tag.setAttribute("rel", rel);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute("href", href);
+}
+function ensureJsonLd(data) {
+    if (typeof document === "undefined" || !data)
+        return;
+    let tag = document.getElementById("vnexus-dynamic-jsonld");
+    if (!tag) {
+        tag = document.createElement("script");
+        tag.id = "vnexus-dynamic-jsonld";
+        tag.type = "application/ld+json";
+        document.head.appendChild(tag);
+    }
+    tag.textContent = JSON.stringify(data);
+}
+function resolveVnexusSeoMeta(view, selectedProfile = null) {
+    const cleanView = view === "profile" ? "profile" : (view || "home");
+    if (cleanView === "profile" && selectedProfile) {
+        const name = sanitizeSeoText(selectedProfile.name || "VTuber 創作者", 80);
+        const tags = Array.isArray(selectedProfile.tags) ? selectedProfile.tags.filter(Boolean).slice(0, 5).join("、") : "";
+        const intro = sanitizeSeoText(selectedProfile.description || selectedProfile.bio || selectedProfile.intro || selectedProfile.catchphrase || "", 110);
+        const description = sanitizeSeoText(`${name} 的 V-Nexus 公開名片。${tags ? `擅長或關注：${tags}。` : ""}${intro || "歡迎查看創作者資料、聯動偏好與社群連結。"}`, 160);
+        return {
+            url: `${VNEXUS_SITE_URL}/`,
+            title: `${name}｜VTuber 名片｜V-Nexus`,
+            description,
+            keywords: sanitizeSeoText(`${name},VTuber 名片,VTuber 聯動,V-Nexus,${tags}`, 220),
+            image: sanitizeUrl(selectedProfile.avatar || selectedProfile.banner || VNEXUS_DEFAULT_SEO_IMAGE),
+            type: "profile",
+            profileName: name
+        };
+    }
+    return VNEXUS_SEO_ROUTES[cleanView] || VNEXUS_SEO_ROUTES.home;
+}
+function applyVnexusSeoMeta(view, selectedProfile = null) {
+    if (typeof document === "undefined")
+        return;
+    const meta = resolveVnexusSeoMeta(view, selectedProfile);
+    const title = sanitizeSeoText(meta.title, 90) || VNEXUS_SEO_ROUTES.home.title;
+    const description = sanitizeSeoText(meta.description, 170) || VNEXUS_SEO_ROUTES.home.description;
+    const image = sanitizeUrl(meta.image || VNEXUS_DEFAULT_SEO_IMAGE);
+    const url = meta.url || VNEXUS_SITE_URL;
+    document.title = title;
+    ensureMetaTag("name", "description", description);
+    ensureMetaTag("name", "keywords", meta.keywords || VNEXUS_SEO_ROUTES.home.keywords);
+    ensureMetaTag("name", "robots", ["admin", "inbox", "dashboard"].includes(view) ? "noindex, nofollow" : "index, follow");
+    ensureMetaTag("property", "og:locale", "zh_TW");
+    ensureMetaTag("property", "og:site_name", "V-Nexus");
+    ensureMetaTag("property", "og:type", meta.type === "profile" ? "profile" : "website");
+    ensureMetaTag("property", "og:title", title);
+    ensureMetaTag("property", "og:description", description);
+    ensureMetaTag("property", "og:url", url);
+    ensureMetaTag("property", "og:image", image);
+    ensureMetaTag("name", "twitter:card", "summary_large_image");
+    ensureMetaTag("name", "twitter:title", title);
+    ensureMetaTag("name", "twitter:description", description);
+    ensureMetaTag("name", "twitter:image", image);
+    ensureLinkTag("canonical", url);
+    const jsonLd = meta.type === "profile"
+        ? {
+            "@context": "https://schema.org",
+            "@type": "ProfilePage",
+            name: title,
+            description,
+            url,
+            mainEntity: {
+                "@type": "Person",
+                name: meta.profileName || title.replace("｜VTuber 名片｜V-Nexus", ""),
+                image
+            }
+        }
+        : {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            name: title,
+            description,
+            url,
+            isPartOf: {
+                "@type": "WebSite",
+                name: "V-Nexus",
+                url: VNEXUS_SITE_URL
+            }
+        };
+    ensureJsonLd(jsonLd);
+}
+
 const BROKEN_IMAGE_CACHE_KEY = "vnexus_broken_image_urls_v1";
 const BROKEN_IMAGE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 const BROKEN_IMAGE_CACHE_LIMIT = 500;
@@ -4607,6 +4779,9 @@ function App() {
     const [currentView, setCurrentView] = useState(getInitialView());
     const [previousView, setPreviousView] = useState("grid");
     const [selectedVTuber, setSelectedVTuber] = useState(null);
+    useEffect(() => {
+        applyVnexusSeoMeta(currentView, selectedVTuber);
+    }, [currentView, selectedVTuber]);
     const [user, setUser] = useState(null);
     const [realVtubers, setRealVtubers] = useState(() => {
         const cached = localStorage.getItem(VTUBER_CACHE_KEY);
