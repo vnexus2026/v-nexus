@@ -268,6 +268,31 @@ function isKnownBrokenImageUrl(url) {
     }
     return true;
 }
+const VNEXUS_IMAGE_FALLBACK_SRC = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='transparent'/%3E%3C/svg%3E";
+function applyVnexusImageFallback(target, failedSrc = "", options = {}) {
+    if (!target || target.tagName !== "IMG")
+        return;
+    const img = target;
+    const src = failedSrc || img.currentSrc || img.src || img.getAttribute("src") || "";
+    if (src && options.remember !== false)
+        rememberBrokenImageUrl(src);
+    img.classList.add("vnexus-image-error", "vnexus-local-img-failed");
+    img.classList.remove("vnexus-image-loaded");
+    img.removeAttribute("srcset");
+    img.style.display = "block";
+    img.style.opacity = "1";
+    img.style.visibility = "visible";
+    img.style.backgroundColor = "#1D2130";
+    img.style.backgroundImage = "linear-gradient(135deg, #11131C 0%, #1D2130 100%)";
+    img.style.color = "transparent";
+    img.style.objectFit = img.style.objectFit || "cover";
+    if (img.parentElement) {
+        img.parentElement.classList.add("vnexus-image-fallback-surface");
+    }
+    if (img.getAttribute("src") !== VNEXUS_IMAGE_FALLBACK_SRC) {
+        img.setAttribute("src", VNEXUS_IMAGE_FALLBACK_SRC);
+    }
+}
 if (typeof window !== "undefined") {
     window.vnexusClearBrokenImageCache = () => {
         try {
@@ -304,8 +329,17 @@ const initVnexusImageLoadingUX = (() => {
           background-size: 220% 100%;
           animation: vnexusImageShimmer 1.05s ease-in-out infinite;
         }
-        img.vnexus-image-error {
-          opacity: 0 !important;
+        .vnexus-image-fallback-surface {
+          background-color: #1D2130 !important;
+          background-image: linear-gradient(135deg, #11131C 0%, #1D2130 100%) !important;
+        }
+        img.vnexus-image-error,
+        img.vnexus-local-img-failed {
+          opacity: 1 !important;
+          visibility: visible !important;
+          background-color: #1D2130 !important;
+          background-image: linear-gradient(135deg, #11131C 0%, #1D2130 100%) !important;
+          color: transparent !important;
         }
         .vnexus-drag-scroll {
           scrollbar-width: none;
@@ -391,7 +425,9 @@ const initVnexusImageLoadingUX = (() => {
             const target = event.target;
             if (target && target.tagName === "IMG") {
                 target.classList.add("vnexus-image-loaded");
-                target.classList.remove("vnexus-image-error");
+                if (!target.classList.contains("vnexus-local-img-failed")) {
+                    target.classList.remove("vnexus-image-error");
+                }
             }
         }, true);
         document.addEventListener("error", (event) => {
@@ -400,24 +436,17 @@ const initVnexusImageLoadingUX = (() => {
                 const failedSrc = target.currentSrc || target.src || target.getAttribute("src") || "";
                 // ✅ 手機版委託專區修正：此區圖片若在重新整理瞬間載入失敗，不寫入 7 天壞圖快取，避免第二次刷新後頭像/作品圖直接消失。
                 if (target.closest?.(".vnexus-creator-market-card")) {
-                    target.classList.add("vnexus-image-error");
-                    target.classList.remove("vnexus-image-loaded");
+                    applyVnexusImageFallback(target, failedSrc, { remember: false });
                     return;
                 }
-                rememberBrokenImageUrl(failedSrc);
-                target.classList.add("vnexus-image-error");
-                target.classList.remove("vnexus-image-loaded");
-                target.removeAttribute("srcset");
-                target.removeAttribute("src");
+                applyVnexusImageFallback(target, failedSrc);
             }
         }, true);
         const hideKnownBrokenImages = (root = document) => {
             root.querySelectorAll?.("img").forEach((img) => {
                 const src = img.currentSrc || img.src || img.getAttribute("src") || "";
                 if (src && isKnownBrokenImageUrl(src)) {
-                    img.classList.add("vnexus-image-error");
-                    img.removeAttribute("srcset");
-                    img.removeAttribute("src");
+                    applyVnexusImageFallback(img, src, { remember: false });
                 }
             });
         };
@@ -431,9 +460,7 @@ const initVnexusImageLoadingUX = (() => {
                         if (node.tagName === "IMG") {
                             const src = node.currentSrc || node.src || node.getAttribute("src") || "";
                             if (src && isKnownBrokenImageUrl(src)) {
-                                node.classList.add("vnexus-image-error");
-                                node.removeAttribute("srcset");
-                                node.removeAttribute("src");
+                                applyVnexusImageFallback(node, src, { remember: false });
                             }
                         }
                         else {
@@ -472,10 +499,7 @@ const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) 
                 forgetBrokenImageUrl(safeSrc);
                 setLoaded(true);
             }, onError: (e) => {
-                rememberBrokenImageUrl(safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
-                e.currentTarget.classList.add("vnexus-image-error");
-                e.currentTarget.removeAttribute("srcset");
-                e.currentTarget.removeAttribute("src");
+                applyVnexusImageFallback(e.currentTarget, safeSrc || e.currentTarget.currentSrc || e.currentTarget.src);
                 setHasError(true);
                 setLoaded(true);
             }, loading: "lazy", decoding: "async" }))));
@@ -1725,7 +1749,7 @@ const BulletinCard = React.memo(({ b, user, isVerifiedUser, onNavigateProfile, o
                 React.createElement("div", { className: "flex items-center justify-between gap-3" },
                     React.createElement("button", { onClick: (event) => { event.preventDefault(); event.stopPropagation(); setShowApplicants(true); }, className: "min-w-0 flex items-center gap-2 text-left rounded-xl hover:bg-[#11131C] transition-colors p-2 -m-2" },
                         React.createElement("div", { className: "flex -space-x-2 flex-shrink-0" },
-                            b.applicantsData?.slice(0, 3).map((a) => (React.createElement("img", { key: a.id, src: sanitizeUrl(a.avatar), className: "w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]", onError: (event) => { event.currentTarget.style.display = 'none'; } }))),
+                            b.applicantsData?.slice(0, 3).map((a) => (React.createElement("img", { key: a.id, src: sanitizeUrl(a.avatar), className: "w-7 h-7 rounded-full ring-2 ring-[#181B25] object-cover bg-[#1D2130]", onError: (event) => { applyVnexusImageFallback(event.currentTarget); } }))),
                             (!b.applicantsData || b.applicantsData.length === 0) && React.createElement("div", { className: "w-7 h-7 rounded-full bg-[#1D2130] ring-2 ring-[#181B25]" })),
                         React.createElement("div", { className: "min-w-0" },
                             React.createElement("p", { className: "text-xs text-[#F8FAFC] font-bold truncate" },
@@ -1750,7 +1774,7 @@ const BulletinCard = React.memo(({ b, user, isVerifiedUser, onNavigateProfile, o
                         React.createElement("i", { className: "fa-solid fa-xmark text-xl" }))),
                 React.createElement("div", { className: "p-4 overflow-y-auto space-y-3" }, b.applicantsData?.length > 0 ? b.applicantsData.map((a) => (React.createElement("div", { key: a.id, className: "flex items-center justify-between bg-[#181B25]/50 p-3 rounded-xl border border-[#2A2F3D] hover:border-white/10 transition-colors cursor-pointer group", onClick: (event) => { event.stopPropagation(); setShowApplicants(false); onNavigateProfile(a, true); } },
                     React.createElement("div", { className: "flex items-center gap-4 min-w-0" },
-                        React.createElement("img", { src: sanitizeUrl(a.avatar), className: "w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]", onError: (event) => { event.currentTarget.style.display = 'none'; } }),
+                        React.createElement("img", { src: sanitizeUrl(a.avatar), className: "w-12 h-12 rounded-full object-cover border border-[#2A2F3D] bg-[#1D2130]", onError: (event) => { applyVnexusImageFallback(event.currentTarget); } }),
                         React.createElement("div", { className: "min-w-0" },
                             React.createElement("p", { className: "font-bold text-white text-sm truncate group-hover:text-[#C4B5FD] transition-colors" }, a.name),
                             React.createElement("p", { className: "text-[10px] text-[#94A3B8] mt-1" }, "\u9EDE\u64CA\u67E5\u770B\u540D\u7247"))),
@@ -2981,7 +3005,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     return React.createElement(React.Fragment, { key: v.id },
                         React.createElement("article", { onClick: () => openProfile(v), className: "flex vnexus-creator-market-card vnexus-critical-card group bg-[#181B25] border border-[#2A2F3D] rounded-[1.5rem] overflow-hidden shadow-sm hover:border-[#38BDF8]/60 hover:shadow-xl hover:shadow-[#38BDF8]/10 transition-all cursor-pointer h-full flex-col will-change-auto", title: "\u67E5\u770B\u8A73\u7D30\u540D\u7247" },
                             React.createElement("div", { className: "vnexus-critical-visual aspect-square h-auto bg-[#11131C] relative overflow-hidden" },
-                                showcase ? React.createElement("img", { src: showcase, alt: v.name || "作品展示", className: "vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : null,
+                                showcase ? React.createElement("img", { src: showcase, alt: v.name || "作品展示", className: "vnexus-creator-showcase-img vnexus-critical-showcase w-full h-full object-cover opacity-90 sm:group-hover:scale-105 sm:group-hover:opacity-100 transition-opacity sm:transition-all duration-300 sm:duration-500", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }) : null,
                                 !showcase && React.createElement("div", { className: "w-full h-full flex flex-col items-center justify-center text-[#64748B] text-sm bg-gradient-to-br from-[#11131C] to-[#1D2130]" },
                                     React.createElement("i", { className: "fa-solid fa-image text-3xl mb-3 opacity-60" }),
                                     "\u4F5C\u54C1\u5C55\u793A\u5340\u898F\u5283\u4E2D"),
@@ -2991,7 +3015,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     creatorStatus && React.createElement("span", { className: "vnexus-critical-status-badge bg-[#22C55E]/90 text-[#052E16] px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-black shadow-sm whitespace-nowrap" }, creatorStatus)),
                                 React.createElement("div", { className: "vnexus-critical-profile-row absolute left-3 sm:left-4 right-3 sm:right-4 bottom-3 sm:bottom-4 z-[2]" },
                                     React.createElement("div", { className: "flex items-end gap-3" },
-                                        React.createElement("div", { className: "vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg" }, v.avatar ? React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "創作者頭像", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : null),
+                                        React.createElement("div", { className: "vnexus-critical-avatar w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#11131C] border border-white/20 overflow-hidden flex-shrink-0 shadow-lg" }, v.avatar ? React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "創作者頭像", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }) : null),
                                         React.createElement("div", { className: "min-w-0 flex-1" },
                                             React.createElement("h3", { className: "vnexus-critical-name text-white text-xl sm:text-xl font-black truncate flex items-center gap-2 drop-shadow leading-tight" },
                                                 v.name || "未命名創作者",
@@ -3086,7 +3110,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                     const displayStyles = (Array.isArray(r.styles) ? r.styles : []).map((s) => s === REQUEST_STYLE_OTHER ? (r.styleOtherText || "其他") : s).filter(Boolean);
                     return (React.createElement("article", { key: r.id, className: "bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 shadow-sm hover:bg-[#1D2130] transition-colors h-full flex flex-col" },
                         React.createElement("div", { className: "flex items-start gap-3 mb-4" },
-                            React.createElement("button", { onClick: () => author && openProfile(author), className: "w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0", title: "\u67E5\u770B\u767C\u6848\u8005\u540D\u7247" }, author?.avatar ? React.createElement("img", { src: sanitizeUrl(author.avatar), alt: author?.name || "發案者", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : React.createElement("div", { className: "w-full h-full flex items-center justify-center text-[#64748B]" },
+                            React.createElement("button", { onClick: () => author && openProfile(author), className: "w-12 h-12 rounded-2xl bg-[#11131C] border border-[#2A2F3D] overflow-hidden flex-shrink-0", title: "\u67E5\u770B\u767C\u6848\u8005\u540D\u7247" }, author?.avatar ? React.createElement("img", { src: sanitizeUrl(author.avatar), alt: author?.name || "發案者", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }) : React.createElement("div", { className: "w-full h-full flex items-center justify-center text-[#64748B]" },
                                 React.createElement("i", { className: "fa-solid fa-user" }))),
                             React.createElement("div", { className: "min-w-0 flex-1" },
                                 React.createElement("span", { className: "inline-flex bg-[#8B5CF6]/15 text-[#A78BFA] border border-[#8B5CF6]/30 px-3 py-1 rounded-full text-xs font-extrabold mb-2" }, r.requestType || "委託"),
@@ -3119,7 +3143,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     React.createElement("span", { className: "text-[11px] text-[#94A3B8]" }, "\u6700\u591A 5 \u4F4D")),
                                 React.createElement("div", { className: "flex items-center gap-2" },
                                     React.createElement("div", { className: "flex -space-x-2" },
-                                        applicantProfiles.slice(0, 5).map((a) => (React.createElement("button", { key: a.id, onClick: () => openProfile(a), className: "w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]", title: a.name || "接案人" }, a.avatar ? React.createElement("img", { src: sanitizeUrl(a.avatar), alt: a.name || "接案人", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } }) : React.createElement("span", { className: "w-full h-full flex items-center justify-center text-[#64748B] text-xs" },
+                                        applicantProfiles.slice(0, 5).map((a) => (React.createElement("button", { key: a.id, onClick: () => openProfile(a), className: "w-8 h-8 rounded-full ring-2 ring-[#0F111A] bg-[#1D2130] overflow-hidden border border-[#2A2F3D]", title: a.name || "接案人" }, a.avatar ? React.createElement("img", { src: sanitizeUrl(a.avatar), alt: a.name || "接案人", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }) : React.createElement("span", { className: "w-full h-full flex items-center justify-center text-[#64748B] text-xs" },
                                             React.createElement("i", { className: "fa-solid fa-user" }))))),
                                         applicantProfiles.length === 0 && React.createElement("div", { className: "w-8 h-8 rounded-full bg-[#1D2130] ring-2 ring-[#0F111A] flex items-center justify-center text-[#64748B] text-xs" },
                                             React.createElement("i", { className: "fa-regular fa-user" }))),
@@ -3417,7 +3441,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                                 React.createElement("button", { type: "button", onClick: openStoryProfile, className: "vnexus-story-avatar-button block w-full", "aria-label": `查看 ${v.name || "VTuber"} 的名片` },
                                     React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}` },
                                         React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
-                                            React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => { e.currentTarget.style.display = "none"; }, alt: v.name || "VTuber" })))),
+                                            React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => { applyVnexusImageFallback(e.currentTarget); }, alt: v.name || "VTuber" })))),
                                 React.createElement("button", { type: "button", onClick: openStoryProfile, className: "vnexus-story-name-button group-hover:text-[#F59E0B] transition-colors", style: STORY_NAME_BUTTON_STYLE },
                                     React.createElement("span", { className: "vnexus-story-primary-line", style: STORY_PRIMARY_LINE_STYLE }, getStoryCircleNameText(v, "VTuber")),
                                     React.createElement("span", { className: "vnexus-story-secondary-line", style: STORY_SECONDARY_LINE_STYLE }, getStoryCirclePreviewText(v, "動態")))));
@@ -3471,10 +3495,10 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             setSelectedVTuber(v);
                             navigate(`profile/${v.id}`);
                         }, className: "block w-full text-left" },
-                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { e.currentTarget.classList.add("vnexus-local-img-failed"); e.currentTarget.removeAttribute("src"); } })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
+                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
                         React.createElement("div", { className: "p-4" },
                             React.createElement("div", { className: "flex items-center gap-3 mb-3" },
-                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => { e.currentTarget.style.display = "none"; } }),
+                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }),
                                 React.createElement("div", { className: "min-w-0" },
                                     React.createElement("h3", { className: "text-[#F8FAFC] font-extrabold truncate" }, v.name || "未命名創作者"),
                                     React.createElement("div", { className: "flex flex-wrap gap-1 mt-1" }, (v.creatorRoles || []).slice(0, 2).map((role) => (React.createElement("span", { key: role, className: "text-[10px] font-bold text-[#38BDF8] bg-[#38BDF8]/10 border border-[#38BDF8]/25 rounded-full px-2 py-0.5" }, role)))))),
@@ -3492,7 +3516,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                     return (React.createElement("article", { key: `home-commission-request-${r.id}`, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 text-left hover:bg-[#1D2130] transition-colors h-full flex flex-col" },
                         React.createElement("div", { className: "flex items-start justify-between gap-3 mb-4" },
                             React.createElement("div", { className: "flex items-center gap-3 min-w-0" },
-                                React.createElement("img", { src: sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"), alt: author?.name || "發案者", className: "w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0", onError: (e) => { e.currentTarget.style.display = "none"; } }),
+                                React.createElement("img", { src: sanitizeUrl(author?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"), alt: author?.name || "發案者", className: "w-11 h-11 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D] flex-shrink-0", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }),
                                 React.createElement("div", { className: "min-w-0" },
                                     React.createElement("p", { className: "text-[#F8FAFC] font-bold truncate" }, author?.name || "匿名發案者"),
                                     React.createElement("p", { className: "text-[#94A3B8] text-xs" }, formatTime(r.createdAt)))),
@@ -8682,7 +8706,7 @@ function App() {
                                             markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "vnexus-story-avatar-button block w-full", "aria-label": `查看 ${v.name || "創作者"} 的名片` },
                                         React.createElement("div", { className: `w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}` },
                                             React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
-                                                React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => { e.currentTarget.style.display = 'none'; }, alt: v.name || "創作者" })))),
+                                                React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); }, alt: v.name || "創作者" })))),
                                     React.createElement("button", { type: "button", onClick: () => { if (hasActiveStory)
                                             markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: `vnexus-story-name-button transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`, style: STORY_NAME_BUTTON_STYLE },
                                         React.createElement("span", { className: "vnexus-story-primary-line", style: STORY_PRIMARY_LINE_STYLE }, getStoryCircleNameText(v, "創作者")),
@@ -8696,7 +8720,7 @@ function App() {
                                         setStoryInput("");
                                 }, className: "flex items-start gap-3" },
                                 React.createElement("button", { type: "button", onClick: () => { setSelectedVTuber(myProfile); navigate(`profile/${myProfile.id || user?.uid}`); }, className: "flex-shrink-0 mt-0.5", title: "\u67E5\u770B\u6211\u7684\u540D\u7247" },
-                                    React.createElement("img", { src: sanitizeUrl(myProfile.avatar), className: "w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]", onError: (e) => { e.currentTarget.style.display = 'none'; } })),
+                                    React.createElement("img", { src: sanitizeUrl(myProfile.avatar), className: "w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border border-[#2A2F3D]", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } })),
                                 React.createElement("div", { className: "min-w-0 flex-1" },
                                     React.createElement("textarea", { id: "status-wall-inline-input", maxLength: "40", rows: "1", value: storyInput, onChange: (e) => setStoryInput(e.target.value), className: "w-full bg-transparent border-0 outline-none resize-none text-white placeholder:text-[#64748B] text-[16px] leading-relaxed min-h-[42px] py-2", placeholder: "\u73FE\u5728\u60F3\u627E\u4EBA\u505A\u4EC0\u9EBC\uFF1F" }),
                                     React.createElement("div", { className: "flex items-center justify-between gap-3 pt-2 border-t border-[#2A2F3D]/70" },
@@ -8726,7 +8750,7 @@ function App() {
                             return (React.createElement("article", { key: v.id, className: "px-4 sm:px-5 py-4 hover:bg-[#1D2130]/55 transition-colors" },
                                 React.createElement("div", { className: "flex gap-3 sm:gap-4" },
                                     React.createElement("button", { type: "button", onClick: () => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "flex-shrink-0 self-start", title: "\u67E5\u770B\u540D\u7247" },
-                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: `w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`, onError: (e) => { e.currentTarget.style.display = 'none'; } })),
+                                        React.createElement("img", { src: sanitizeUrl(v.avatar), className: `w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border ${isLiveMsg ? 'border-[#EF4444] ring-2 ring-red-500/25' : 'border-[#2A2F3D] hover:border-[#F59E0B]/70'} transition-colors`, onError: (e) => { applyVnexusImageFallback(e.currentTarget); } })),
                                     React.createElement("div", { className: "min-w-0 flex-1" },
                                         React.createElement("div", { className: "flex items-center gap-2 min-w-0 text-xs text-[#94A3B8] mb-1" },
                                             React.createElement("span", { className: "font-bold text-[#CBD5E1] truncate" }, v.name),
