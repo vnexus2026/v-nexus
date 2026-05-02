@@ -354,6 +354,54 @@ const initVnexusImageLoadingUX = (() => {
           cursor: grabbing;
         }
 
+        /* ✅ 尋找 VTuber 夥伴：恢復四個功能按鈕原本的語意色，避免 index critical CSS 將所有按鈕覆蓋成同色 */
+        .vnexus-vtuber-grid-actions .vnexus-grid-btn-tips {
+          background: rgba(245, 158, 11, .10) !important;
+          color: #F59E0B !important;
+          border-color: rgba(245, 158, 11, .24) !important;
+        }
+        .vnexus-vtuber-grid-actions .vnexus-grid-btn-shuffle {
+          background: rgba(139, 92, 246, .10) !important;
+          color: #A78BFA !important;
+          border-color: rgba(139, 92, 246, .20) !important;
+        }
+        .vnexus-vtuber-grid-actions .vnexus-grid-btn-match {
+          background: rgba(236, 72, 153, .10) !important;
+          color: #F472B6 !important;
+          border-color: rgba(236, 72, 153, .20) !important;
+        }
+        .vnexus-vtuber-grid-actions .vnexus-grid-btn-blacklist {
+          background: rgba(59, 23, 29, .50) !important;
+          color: #EF4444 !important;
+          border-color: rgba(239, 68, 68, .50) !important;
+        }
+        .vnexus-vtuber-grid-actions .vnexus-grid-btn-filter {
+          background: #181B25 !important;
+          color: #CBD5E1 !important;
+          border-color: #2A2F3D !important;
+        }
+        @media (hover: hover) {
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-tips:hover {
+            background: #F59E0B !important;
+            color: #0F111A !important;
+          }
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-shuffle:hover {
+            background: #8B5CF6 !important;
+            color: #FFFFFF !important;
+          }
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-match:hover {
+            background: #EC4899 !important;
+            color: #FFFFFF !important;
+          }
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-blacklist:hover {
+            background: #EF4444 !important;
+            color: #FFFFFF !important;
+          }
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-filter:hover {
+            background: #1D2130 !important;
+            color: #FFFFFF !important;
+          }
+        }
 
 
         /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
