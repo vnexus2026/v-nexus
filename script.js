@@ -404,6 +404,50 @@ const initVnexusImageLoadingUX = (() => {
         }
 
 
+        /* ✅ 高質感下拉選單：沿用繪師 / 建模師 / 剪輯師委託專區的進階篩選風格 */
+        .vnexus-premium-select,
+        .vnexus-vtuber-grid-page select,
+        .vnexus-commission-page select {
+          appearance: none;
+          -webkit-appearance: none;
+          min-height: 42px;
+          border-radius: 0.875rem;
+          border: 1px solid #2A2F3D;
+          background-color: #181B25;
+          color: #FFFFFF;
+          font-weight: 800;
+          letter-spacing: 0.01em;
+          background-image:
+            linear-gradient(135deg, rgba(56, 189, 248, 0.10), rgba(139, 92, 246, 0.10)),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+          background-repeat: no-repeat, no-repeat;
+          background-position: center, right 0.85rem center;
+          background-size: auto, 1rem 1rem;
+          padding-right: 2.35rem !important;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 24px rgba(0,0,0,0.14);
+          transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
+        }
+        .vnexus-premium-select:hover,
+        .vnexus-vtuber-grid-page select:hover,
+        .vnexus-commission-page select:hover {
+          border-color: rgba(56, 189, 248, 0.55);
+          background-color: #1D2130;
+        }
+        .vnexus-premium-select:focus,
+        .vnexus-vtuber-grid-page select:focus,
+        .vnexus-commission-page select:focus {
+          outline: none;
+          border-color: #38BDF8;
+          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255,255,255,0.045), 0 12px 28px rgba(0,0,0,0.18);
+        }
+        .vnexus-premium-select option,
+        .vnexus-vtuber-grid-page select option,
+        .vnexus-commission-page select option {
+          background: #11131C;
+          color: #FFFFFF;
+          font-weight: 700;
+        }
+
         /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
         @media (max-width: 639px) {
           .vnexus-commission-page * { box-sizing: border-box; }
@@ -4882,6 +4926,7 @@ function App() {
     const notifRef = useRef(null);
     const gridScrollY = useRef(0);
     const [currentPage, setCurrentPage] = useState(1);
+    const [commissionViewResetKey, setCommissionViewResetKey] = useState(0);
     // --- 手動啟動通知函式 ---
     const handleEnableNotifications = async () => {
         if (!user)
@@ -5241,23 +5286,85 @@ function App() {
             showToast("❌ 遷移失敗，請檢查 Storage 權限。");
         }
     };
-    const navigate = (view, preserveScroll = false) => {
-        if (!preserveScroll && !view.startsWith("profile/")) {
+    const resetPageUiState = (targetView) => {
+        const cleanTarget = targetView === "profile" ? "grid" : targetView || "home";
+        setIsMobileMenuOpen(false);
+        setIsNotifOpen(false);
+        setIsTipsModalOpen(false);
+        setIsUpdatesModalOpen(false);
+        setConfirmDislikeData(null);
+        if (cleanTarget !== "profile") {
             setViewParticipantsCollab(null);
             setOpenBulletinModalId(null);
         }
-        if (view.startsWith("profile/") && currentView !== "profile") {
+        if (cleanTarget === "grid") {
+            setSearchQuery("");
+            setSelectedTags([]);
+            setSelectedAgency("All");
+            setSelectedPlatform("All");
+            setSelectedNationality("All");
+            setSelectedLanguage("All");
+            setSelectedSchedule("All");
+            setSelectedColor("All");
+            setSelectedZodiac("All");
+            setSortOrder("compatibility");
+            setShuffleSeed(Date.now());
+            setCurrentPage(1);
+            setIsMobileFilterOpen(false);
+        }
+        if (cleanTarget === "bulletin") {
+            setBulletinFilter("All");
+            setIsBulletinFormOpen(false);
+            setNewBulletin({
+                id: null,
+                content: "",
+                collabType: "",
+                collabTypeOther: "",
+                collabSize: "",
+                collabTime: "",
+                recruitEndTime: "",
+                image: "",
+            });
+        }
+        if (cleanTarget === "collabs") {
+            setCollabCategoryTab("All");
+            setPublicCollabForm({
+                dateTime: "",
+                title: "",
+                streamUrl: "",
+                coverUrl: "",
+                category: "遊戲",
+                participants: [],
+            });
+        }
+        if (cleanTarget === "status_wall") {
+            setStatusWallFilter("all");
+            setOpenStatusCommentKeys({});
+            setStoryInput("");
+            setIsStoryComposerOpen(false);
+        }
+        if (cleanTarget === "commissions" || cleanTarget === "commission-board") {
+            setCommissionViewResetKey((key) => key + 1);
+        }
+    };
+    const navigate = (view, preserveScroll = false) => {
+        const cleanView = view.replace("#", "");
+        const isProfileRoute = cleanView.startsWith("profile/");
+        const targetView = isProfileRoute ? "profile" : (cleanView === "profile" ? "grid" : cleanView || "home");
+        if (!preserveScroll && !isProfileRoute) {
+            resetPageUiState(targetView);
+        }
+        if (isProfileRoute && currentView !== "profile") {
             setPreviousView(currentView);
             gridScrollY.current = window.scrollY;
         }
-        const cleanView = view.replace("#", "");
-        if (cleanView.startsWith("profile/")) {
+        if (isProfileRoute) {
             setProfileIdFromHash(cleanView.split("/")[1]);
             setCurrentView("profile");
         }
         else {
             setProfileIdFromHash(null);
-            setCurrentView(cleanView === "profile" ? "grid" : cleanView || "home");
+            setCurrentView(targetView);
         }
         if (window.location.hash !== "#" + view) {
             window.history.pushState(null, null, "#" + view);
@@ -7916,14 +8023,14 @@ function App() {
                         navigate(`profile/${vt.id}`);
                     }, onOpenStoryComposer: () => setIsStoryComposerOpen(true), onSubmitFeedback: handleSubmitFeedbackReport, showToast: showToast })),
                 currentView === "inbox" && user && (React.createElement(InboxPage, { notifications: myNotifications, markAllAsRead: markAllAsRead, onMarkRead: handleMarkNotifRead, onDelete: handleDeleteNotif, onDeleteAll: handleDeleteAllNotifs, onNavigateProfile: handleNotifProfileNav, onBraveResponse: handleBraveInviteResponse, onOpenChat: handleNotifOpenChat })),
-                currentView === "commissions" && (React.createElement(CommissionPlanningPage, { mode: "creators", navigate: navigate, realVtubers: realVtubers, onNavigateProfile: (v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, onOpenChat: (v) => {
+                currentView === "commissions" && (React.createElement(CommissionPlanningPage, { key: `commissions-${commissionViewResetKey}`, mode: "creators", navigate: navigate, realVtubers: realVtubers, onNavigateProfile: (v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, onOpenChat: (v) => {
                         if (!user)
                             return showToast("請先登入！");
                         if (!isVerifiedUser)
                             return showToast("需通過認證才能發送私訊！");
                         setChatTarget(v);
                     } })),
-                currentView === "commission-board" && (React.createElement(CommissionPlanningPage, { mode: "board", navigate: navigate, realVtubers: realVtubers, onNavigateProfile: (v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, onOpenChat: (v) => {
+                currentView === "commission-board" && (React.createElement(CommissionPlanningPage, { key: `commission-board-${commissionViewResetKey}`, mode: "board", navigate: navigate, realVtubers: realVtubers, onNavigateProfile: (v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, onOpenChat: (v) => {
                         if (!user)
                             return showToast("請先登入！");
                         if (!isVerifiedUser)
