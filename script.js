@@ -4753,6 +4753,7 @@ const HomePage = ({
   onNavigateProfile,
   onOpenStoryComposer,
   onSubmitFeedback,
+  showToast,
 }) => {
   const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
   const [isShuffling, setIsShuffling] = useState(false);
@@ -4909,9 +4910,36 @@ const HomePage = ({
     return user ? realVtubers.find((v) => v.id === user.uid) : null;
   }, [realVtubers, user]);
 
+  const canSubmitFeedbackReport = Boolean(
+    user && (
+      isVerifiedUser ||
+      (myHomeProfile?.isVerified === true && myHomeProfile?.isBlacklisted !== true)
+    )
+  );
+
+  const handleOpenFeedbackReport = () => {
+    if (!user) {
+      showToast?.("請先登入並通過名片認證後，才能使用功能回饋及問題回報。");
+      return;
+    }
+    if (!canSubmitFeedbackReport) {
+      showToast?.("需通過名片認證後，才能使用功能回饋及問題回報。");
+      return;
+    }
+    setIsFeedbackModalOpen(true);
+  };
+
   const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     if (!feedbackText.trim() || isSubmittingFeedback) return;
+    if (!user) {
+      showToast?.("請先登入並通過名片認證後，才能送出回饋。");
+      return;
+    }
+    if (!canSubmitFeedbackReport) {
+      showToast?.("需通過名片認證後，才能送出功能回饋及問題回報。");
+      return;
+    }
     setIsSubmittingFeedback(true);
     try {
       const ok = await onSubmitFeedback?.(feedbackText.trim(), myHomeProfile);
@@ -5078,7 +5106,7 @@ const HomePage = ({
             </div>
             <button
               type="button"
-              onClick={() => setIsFeedbackModalOpen(true)}
+              onClick={handleOpenFeedbackReport}
               className="w-full min-h-12 bg-[#22C55E]/10 hover:bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/30 px-5 py-3 rounded-xl font-bold transition-colors flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-center"
             >
               <span><i className="fa-solid fa-message mr-2"></i>功能回饋及問題回報</span>
@@ -5601,7 +5629,7 @@ const HomePage = ({
             </div>
             <div className="p-5 space-y-4">
               <div className="bg-[#22C55E]/10 border border-[#22C55E]/20 rounded-xl px-4 py-3 text-[#BBF7D0] text-sm leading-relaxed">
-                如果有任何想要的功能、遇到錯誤、畫面跑版或使用流程不順，請直接填寫並回報。
+                如果有任何想要的功能、遇到錯誤、畫面跑版或使用流程不順，請直接填寫並回報。此功能僅開放已通過名片認證且未停權的使用者使用。
               </div>
               <textarea
                 value={feedbackText}
@@ -9711,11 +9739,17 @@ function App() {
     const text = String(message || "").trim();
     if (!text) return false;
     if (!user) {
-      showToast("請先登入後再送出回饋，方便管理員回覆與追蹤。");
+      showToast("請先登入並通過名片認證後，才能送出回饋。");
+      return false;
+    }
+    const feedbackProfile = profileOverride || myProfile || realVtubers.find((v) => v.id === user.uid) || null;
+    const canSubmitFeedbackReport = isAdmin || (feedbackProfile?.isVerified === true && feedbackProfile?.isBlacklisted !== true);
+    if (!canSubmitFeedbackReport) {
+      showToast("需通過名片認證後，才能送出功能回饋及問題回報。");
       return false;
     }
     try {
-      const payload = makeFeedbackReportPayload(text, profileOverride);
+      const payload = makeFeedbackReportPayload(text, feedbackProfile);
       let savedReport = null;
       try {
         savedReport = await saveFeedbackReportViaCallable(payload);
@@ -11333,6 +11367,7 @@ function App() {
               }}
               onOpenStoryComposer={() => setIsStoryComposerOpen(true)}
               onSubmitFeedback={handleSubmitFeedbackReport}
+              showToast={showToast}
             />
           )}
 

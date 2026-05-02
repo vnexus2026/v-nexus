@@ -3141,7 +3141,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                         " \u9801"),
                     React.createElement("button", { onClick: () => goCommissionRequestPage(safeRequestPage + 1), disabled: safeRequestPage === totalRequestPages, className: `px-4 py-2 rounded-lg font-bold text-sm ${safeRequestPage === totalRequestPages ? "bg-[#181B25] text-gray-600 cursor-not-allowed" : "bg-[#1D2130] text-white hover:bg-[#2A2F3D]"}` }, "\u4E0B\u4E00\u9801"))))))));
 };
-const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants, user, isVerifiedUser, onApply, onNavigateProfile, onOpenStoryComposer, onSubmitFeedback, }) => {
+const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, siteStats = { pageViews: null }, realCollabs = [], displayCollabs = [], currentTime = Date.now(), isLoadingCollabs, goToBulletin, registeredCount, realVtubers = [], setSelectedVTuber, realBulletins = [], onShowParticipants, user, isVerifiedUser, onApply, onNavigateProfile, onOpenStoryComposer, onSubmitFeedback, showToast, }) => {
     const [statusShuffleSeed, setStatusShuffleSeed] = useState(Date.now());
     const [isShuffling, setIsShuffling] = useState(false);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -3264,10 +3264,31 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
     const myHomeProfile = useMemo(() => {
         return user ? realVtubers.find((v) => v.id === user.uid) : null;
     }, [realVtubers, user]);
+    const canSubmitFeedbackReport = Boolean(user && (isVerifiedUser ||
+        (myHomeProfile?.isVerified === true && myHomeProfile?.isBlacklisted !== true)));
+    const handleOpenFeedbackReport = () => {
+        if (!user) {
+            showToast?.("請先登入並通過名片認證後，才能使用功能回饋及問題回報。");
+            return;
+        }
+        if (!canSubmitFeedbackReport) {
+            showToast?.("需通過名片認證後，才能使用功能回饋及問題回報。");
+            return;
+        }
+        setIsFeedbackModalOpen(true);
+    };
     const handleFeedbackSubmit = async (e) => {
         e.preventDefault();
         if (!feedbackText.trim() || isSubmittingFeedback)
             return;
+        if (!user) {
+            showToast?.("請先登入並通過名片認證後，才能送出回饋。");
+            return;
+        }
+        if (!canSubmitFeedbackReport) {
+            showToast?.("需通過名片認證後，才能送出功能回饋及問題回報。");
+            return;
+        }
         setIsSubmittingFeedback(true);
         try {
             const ok = await onSubmitFeedback?.(feedbackText.trim(), myHomeProfile);
@@ -3366,7 +3387,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                         React.createElement("button", { onClick: goToCommissionRequests, className: "h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white border border-[#8B5CF6]/50 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
                             React.createElement("i", { className: "fa-solid fa-clipboard-list mr-2" }),
                             "\u59D4\u8A17\u4F48\u544A\u6B04")),
-                    React.createElement("button", { type: "button", onClick: () => setIsFeedbackModalOpen(true), className: "w-full min-h-12 bg-[#22C55E]/10 hover:bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/30 px-5 py-3 rounded-xl font-bold transition-colors flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-center" },
+                    React.createElement("button", { type: "button", onClick: handleOpenFeedbackReport, className: "w-full min-h-12 bg-[#22C55E]/10 hover:bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/30 px-5 py-3 rounded-xl font-bold transition-colors flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-center" },
                         React.createElement("span", null,
                             React.createElement("i", { className: "fa-solid fa-message mr-2" }),
                             "\u529F\u80FD\u56DE\u994B\u53CA\u554F\u984C\u56DE\u5831"),
@@ -3545,7 +3566,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                     React.createElement("button", { type: "button", onClick: () => !isSubmittingFeedback && setIsFeedbackModalOpen(false), className: "text-[#94A3B8] hover:text-white transition-colors" },
                         React.createElement("i", { className: "fa-solid fa-xmark text-xl" }))),
                 React.createElement("div", { className: "p-5 space-y-4" },
-                    React.createElement("div", { className: "bg-[#22C55E]/10 border border-[#22C55E]/20 rounded-xl px-4 py-3 text-[#BBF7D0] text-sm leading-relaxed" }, "\u5982\u679C\u6709\u4EFB\u4F55\u60F3\u8981\u7684\u529F\u80FD\u3001\u9047\u5230\u932F\u8AA4\u3001\u756B\u9762\u8DD1\u7248\u6216\u4F7F\u7528\u6D41\u7A0B\u4E0D\u9806\uFF0C\u8ACB\u76F4\u63A5\u586B\u5BEB\u4E26\u56DE\u5831\u3002"),
+                    React.createElement("div", { className: "bg-[#22C55E]/10 border border-[#22C55E]/20 rounded-xl px-4 py-3 text-[#BBF7D0] text-sm leading-relaxed" }, "\u5982\u679C\u6709\u4EFB\u4F55\u60F3\u8981\u7684\u529F\u80FD\u3001\u9047\u5230\u932F\u8AA4\u3001\u756B\u9762\u8DD1\u7248\u6216\u4F7F\u7528\u6D41\u7A0B\u4E0D\u9806\uFF0C\u8ACB\u76F4\u63A5\u586B\u5BEB\u4E26\u56DE\u5831\u3002\u6B64\u529F\u80FD\u50C5\u958B\u653E\u5DF2\u901A\u904E\u540D\u7247\u8A8D\u8B49\u4E14\u672A\u505C\u6B0A\u7684\u4F7F\u7528\u8005\u4F7F\u7528\u3002"),
                     React.createElement("textarea", { value: feedbackText, onChange: (e) => setFeedbackText(e.target.value), maxLength: "800", rows: "6", className: "w-full bg-[#181B25] border border-[#2A2F3D] rounded-xl p-3 text-white placeholder:text-[#64748B] outline-none focus:border-[#22C55E] resize-none", placeholder: "\u8ACB\u63CF\u8FF0\u4F60\u60F3\u8981\u7684\u529F\u80FD\uFF0C\u6216\u9047\u5230\u7684\u554F\u984C...", autoFocus: true }),
                     React.createElement("div", { className: "flex items-center justify-between gap-3" },
                         React.createElement("span", { className: `text-[10px] ${feedbackText.length >= 760 ? "text-[#F59E0B]" : "text-[#94A3B8]"}` },
@@ -6583,11 +6604,17 @@ function App() {
         if (!text)
             return false;
         if (!user) {
-            showToast("請先登入後再送出回饋，方便管理員回覆與追蹤。");
+            showToast("請先登入並通過名片認證後，才能送出回饋。");
+            return false;
+        }
+        const feedbackProfile = profileOverride || myProfile || realVtubers.find((v) => v.id === user.uid) || null;
+        const canSubmitFeedbackReport = isAdmin || (feedbackProfile?.isVerified === true && feedbackProfile?.isBlacklisted !== true);
+        if (!canSubmitFeedbackReport) {
+            showToast("需通過名片認證後，才能送出功能回饋及問題回報。");
             return false;
         }
         try {
-            const payload = makeFeedbackReportPayload(text, profileOverride);
+            const payload = makeFeedbackReportPayload(text, feedbackProfile);
             let savedReport = null;
             try {
                 savedReport = await saveFeedbackReportViaCallable(payload);
@@ -7807,7 +7834,7 @@ function App() {
                     registeredCount: realVtubers.length, realVtubers: realVtubers, setSelectedVTuber: setSelectedVTuber, realBulletins: realBulletins, onShowParticipants: (collab) => setViewParticipantsCollab(collab), user: user, isVerifiedUser: isVerifiedUser, onApply: (id, isApplying) => handleApplyBulletin(id, isApplying, realBulletins.find((b) => b.id === id)?.userId), onNavigateProfile: (vt) => {
                         setSelectedVTuber(vt);
                         navigate(`profile/${vt.id}`);
-                    }, onOpenStoryComposer: () => setIsStoryComposerOpen(true), onSubmitFeedback: handleSubmitFeedbackReport })),
+                    }, onOpenStoryComposer: () => setIsStoryComposerOpen(true), onSubmitFeedback: handleSubmitFeedbackReport, showToast: showToast })),
                 currentView === "inbox" && user && (React.createElement(InboxPage, { notifications: myNotifications, markAllAsRead: markAllAsRead, onMarkRead: handleMarkNotifRead, onDelete: handleDeleteNotif, onDeleteAll: handleDeleteAllNotifs, onNavigateProfile: handleNotifProfileNav, onBraveResponse: handleBraveInviteResponse, onOpenChat: handleNotifOpenChat })),
                 currentView === "commissions" && (React.createElement(CommissionPlanningPage, { mode: "creators", navigate: navigate, realVtubers: realVtubers, onNavigateProfile: (v) => { setSelectedVTuber(v); navigate(`profile/${v.id}`); }, onOpenChat: (v) => {
                         if (!user)
