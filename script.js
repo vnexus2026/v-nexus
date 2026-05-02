@@ -404,27 +404,42 @@ const initVnexusImageLoadingUX = (() => {
         }
 
 
+        /* ✅ 尋找 VTuber 夥伴：電腦版移除篩選按鈕，手機版保留 */
+        @media (min-width: 1024px) {
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-filter {
+            display: none !important;
+          }
+        }
+        @media (max-width: 1023px) {
+          .vnexus-vtuber-grid-actions .vnexus-grid-btn-filter {
+            display: inline-flex !important;
+          }
+        }
+
+
         /* ✅ 高質感下拉選單：沿用繪師 / 建模師 / 剪輯師委託專區的進階篩選風格 */
         .vnexus-premium-select,
         .vnexus-vtuber-grid-page select,
         .vnexus-commission-page select {
           appearance: none;
           -webkit-appearance: none;
-          min-height: 42px;
-          border-radius: 0.875rem;
+          min-height: 38px;
+          border-radius: 0.75rem;
           border: 1px solid #2A2F3D;
           background-color: #181B25;
           color: #FFFFFF;
-          font-weight: 800;
+          font-weight: 750;
           letter-spacing: 0.01em;
           background-image:
             linear-gradient(135deg, rgba(56, 189, 248, 0.10), rgba(139, 92, 246, 0.10)),
             url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
           background-repeat: no-repeat, no-repeat;
-          background-position: center, right 0.85rem center;
-          background-size: auto, 1rem 1rem;
-          padding-right: 2.35rem !important;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 10px 24px rgba(0,0,0,0.14);
+          background-position: center, right 0.7rem center;
+          background-size: auto, 0.9rem 0.9rem;
+          padding: 0.45rem 2.05rem 0.45rem 0.75rem !important;
+          font-size: 0.875rem;
+          line-height: 1.2;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.035), 0 8px 18px rgba(0,0,0,0.12);
           transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease, transform .18s ease;
         }
         .vnexus-premium-select:hover,
@@ -438,7 +453,7 @@ const initVnexusImageLoadingUX = (() => {
         .vnexus-commission-page select:focus {
           outline: none;
           border-color: #38BDF8;
-          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255,255,255,0.045), 0 12px 28px rgba(0,0,0,0.18);
+          box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255,255,255,0.045), 0 10px 22px rgba(0,0,0,0.16);
         }
         .vnexus-premium-select option,
         .vnexus-vtuber-grid-page select option,
@@ -3071,7 +3086,7 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                             setCommissionPage(1);
                             showToast("🎲 已重新洗牌創作者順序");
                         }, className: "vnexus-commission-shuffle h-[34px] sm:h-[42px] bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A] px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl font-extrabold transition-colors whitespace-nowrap flex-shrink-0 inline-flex items-center justify-center gap-1.5 text-xs sm:text-base justify-self-end self-end col-start-2 sm:col-start-auto mt-1 sm:mt-0" },
-                        React.createElement("i", { className: "fa-solid fa-shuffle" }),
+                        React.createElement("i", { className: "fa-solid fa-rotate-right" }),
                         React.createElement("span", { className: "sm:hidden" }, "\u6D17\u724C"),
                         React.createElement("span", { className: "hidden sm:inline" }, "\u91CD\u65B0\u6D17\u724C")))),
             creatorList.length === 0 ? React.createElement("div", { className: "bg-[#181B25] border border-dashed border-[#2A2F3D] rounded-2xl p-8 text-center" },
@@ -3125,10 +3140,10 @@ const CommissionPlanningPage = ({ navigate, realVtubers = [], onNavigateProfile,
                                     displayStyles.length === 0 && React.createElement("span", { className: "bg-[#11131C] border border-[#2A2F3D] text-[#64748B] px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0" }, "\u5C1A\u672A\u586B\u5BEB\u98A8\u683C")),
                                 React.createElement("div", { className: "vnexus-critical-actions mt-auto grid grid-cols-2 gap-2" },
                                     React.createElement("button", { onClick: (e) => { e.stopPropagation(); onOpenChat ? onOpenChat(v) : openProfile(v); }, className: "vnexus-critical-primary-btn bg-[#8B5CF6] hover:bg-[#7C3AED] text-white py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5" },
-                                        React.createElement("i", { className: "fa-regular fa-comment-dots" }),
+                                        React.createElement("i", { className: "fa-solid fa-calendar-days" }),
                                         "\u79C1\u8A0A\u6A94\u671F"),
                                     React.createElement("button", { onClick: (e) => { e.stopPropagation(); v.creatorPortfolioUrl ? openPortfolio(v.creatorPortfolioUrl) : openProfile(v); }, className: `vnexus-critical-secondary-btn ${v.creatorPortfolioUrl ? "bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0F111A]" : "bg-[#1D2130] text-[#94A3B8]"} py-3 sm:py-2 rounded-xl sm:rounded-lg font-bold transition-colors text-sm sm:text-xs inline-flex items-center justify-center gap-1.5` },
-                                        React.createElement("i", { className: "fa-solid fa-images" }),
+                                        React.createElement("i", { className: "fa-solid fa-folder-open" }),
                                         "\u89C0\u770B\u4F5C\u54C1\u96C6")))));
                 })),
                 filteredCreatorList.length > COMMISSION_PAGE_SIZE && React.createElement("div", { className: "mt-8 flex items-center justify-center gap-3" },
