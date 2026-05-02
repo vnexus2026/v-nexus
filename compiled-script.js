@@ -1118,6 +1118,73 @@ const limitDisplayText = (value, maxLength = 10) => {
         return "創作者";
     return Array.from(text).slice(0, maxLength).join("");
 };
+// ✅ IG 限動圈下方顯示兩層資訊：第一層「名字」、第二層「24H 動態牆輸入的文字」。
+// 直播動態會去掉開頭的 🔴，避免 10 字元額度被圖示吃掉。
+const getStoryCircleNameText = (v, fallback = "創作者") => {
+    return limitDisplayText(v?.name || fallback, 10);
+};
+const getStoryCirclePreviewText = (v, fallback = "動態") => {
+    const raw = String(v?.statusMessage || "").replace(/^🔴\s*/, "").trim();
+    return limitDisplayText(raw || fallback, 10);
+};
+// ✅ 限動圈文字保險樣式：直接寫入 inline style，避免被 Tailwind 載入順序、橫向捲動容器或 button 預設樣式影響而看不到。
+const STORY_STRIP_STYLE = {
+    alignItems: "flex-start",
+    overflowX: "auto",
+    overflowY: "visible",
+    paddingBottom: "4px",
+    minHeight: "0",
+};
+const STORY_ITEM_STYLE = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "88px",
+    flex: "0 0 88px",
+    minHeight: "0",
+    overflow: "visible",
+};
+const STORY_NAME_BUTTON_STYLE = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "1px",
+    width: "100%",
+    marginTop: "4px",
+    padding: "0 1px",
+    border: 0,
+    background: "transparent",
+    textAlign: "center",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    overflow: "visible",
+    minHeight: "0",
+    maxHeight: "none",
+    position: "relative",
+    zIndex: 2,
+};
+const STORY_PRIMARY_LINE_STYLE = {
+    display: "block",
+    width: "100%",
+    color: "#F8FAFC",
+    fontSize: "11px",
+    lineHeight: "1.2",
+    fontWeight: 900,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+};
+const STORY_SECONDARY_LINE_STYLE = {
+    display: "block",
+    width: "100%",
+    color: "#94A3B8",
+    fontSize: "10px",
+    lineHeight: "1.25",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+};
 const formatDateTimeLocalStr = (dtStr) => {
     if (!dtStr)
         return "未指定";
@@ -3319,18 +3386,20 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                                     React.createElement("i", { className: "fa-solid fa-plus" }),
                                     " \u6211\u4E5F\u8981\u767C"),
                                 React.createElement("button", { onClick: () => navigate("status_wall"), className: "text-[11px] font-bold text-[#F59E0B] hover:text-[#FBBF24] transition-colors whitespace-nowrap" }, "\u770B\u5168\u90E8"))),
-                        activeStatuses.length > 0 ? (React.createElement("div", { className: "vnexus-story-strip flex gap-3 overflow-x-auto custom-scrollbar pb-5 items-start" }, activeStatuses.map((v) => {
+                        activeStatuses.length > 0 ? (React.createElement("div", { className: "vnexus-story-strip flex gap-3 overflow-x-auto custom-scrollbar pb-5 items-start", style: STORY_STRIP_STYLE }, activeStatuses.map((v) => {
                             const isLiveMsg = String(v.statusMessage || "").includes("🔴");
                             const openStoryProfile = () => {
                                 setSelectedVTuber(v);
                                 navigate(`profile/${v.id}`);
                             };
-                            return (React.createElement("div", { key: `home-story-${v.id}`, className: "vnexus-story-item flex-shrink-0 w-20 text-center group", title: v.statusMessage },
+                            return (React.createElement("div", { key: `home-story-${v.id}`, className: "vnexus-story-item flex-shrink-0 w-20 text-center group", style: STORY_ITEM_STYLE, title: v.statusMessage },
                                 React.createElement("button", { type: "button", onClick: openStoryProfile, className: "vnexus-story-avatar-button block w-full", "aria-label": `查看 ${v.name || "VTuber"} 的名片` },
                                     React.createElement("div", { className: `w-12 h-12 mx-auto rounded-full p-[2px] ${isLiveMsg ? "bg-[#EF4444]" : "bg-[#F59E0B]"}` },
                                         React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                             React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover bg-[#1D2130]", onError: (e) => { e.currentTarget.style.display = "none"; }, alt: v.name || "VTuber" })))),
-                                React.createElement("button", { type: "button", onClick: openStoryProfile, className: "vnexus-story-name-button group-hover:text-[#F59E0B] transition-colors" }, limitDisplayText(v.name || "VTuber", 10))));
+                                React.createElement("button", { type: "button", onClick: openStoryProfile, className: "vnexus-story-name-button group-hover:text-[#F59E0B] transition-colors", style: STORY_NAME_BUTTON_STYLE },
+                                    React.createElement("span", { className: "vnexus-story-primary-line", style: STORY_PRIMARY_LINE_STYLE }, getStoryCircleNameText(v, "VTuber")),
+                                    React.createElement("span", { className: "vnexus-story-secondary-line", style: STORY_SECONDARY_LINE_STYLE }, getStoryCirclePreviewText(v, "動態")))));
                         }))) : (React.createElement("button", { onClick: () => navigate("status_wall"), className: "w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors" },
                             React.createElement("p", { className: "text-[#F8FAFC] text-sm font-bold" }, "\u9084\u6C92\u6709\u4EBA\u767C\u52D5\u614B"),
                             React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u52D5\u614B\u7246\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
@@ -3465,8 +3534,8 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 React.createElement("p", { className: "text-[#F8FAFC] font-bold text-lg" }, "\u9084\u6C92\u6709\u5373\u5C07\u516C\u958B\u7684\u806F\u52D5\u884C\u7A0B"),
                 React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u5B89\u6392\u597D\u5408\u4F5C\u5F8C\uFF0C\u628A\u5F85\u6A5F\u5BA4\u653E\u4E0A\u4F86\uFF0C\u5927\u5BB6\u5C31\u80FD\u4E00\u8D77\u4F86\u652F\u6301\u3002"),
                 React.createElement("button", { onClick: () => navigate("collabs"), className: "mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors" }, "\u67E5\u770B\u806F\u52D5\u8868")))),
-        isFeedbackModalOpen && (React.createElement("div", { className: "fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm", onClick: () => !isSubmittingFeedback && setIsFeedbackModalOpen(false) },
-            React.createElement("form", { onSubmit: handleFeedbackSubmit, className: "w-full max-w-lg bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden", onClick: (e) => e.stopPropagation() },
+        isFeedbackModalOpen && (React.createElement("div", { className: "fixed inset-0 z-[2147483647] flex items-start justify-center px-4 pt-4 sm:pt-8 pb-6 bg-black/75 backdrop-blur-sm overflow-y-auto", onClick: () => !isSubmittingFeedback && setIsFeedbackModalOpen(false) },
+            React.createElement("form", { onSubmit: handleFeedbackSubmit, className: "w-full max-w-lg mt-0 sm:mt-2 bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden max-h-[calc(100dvh-2rem)] overflow-y-auto", onClick: (e) => e.stopPropagation() },
                 React.createElement("div", { className: "px-5 py-4 border-b border-[#2A2F3D] bg-[#181B25] flex items-center justify-between gap-3" },
                     React.createElement("div", null,
                         React.createElement("h3", { className: "text-white font-black text-lg flex items-center gap-2" },
@@ -5535,30 +5604,11 @@ function App() {
             updateDoc(doc(db, getPath("notifications"), n.id), { read: true });
     });
     const handleNotifClick = (n) => {
-        const isBackup = n.message && n.message.startsWith("【寄件備份");
-        if (isBackup) {
-            if (!n.read)
-                updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
-            setIsNotifOpen(false);
-            return;
-        }
-        const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
-        // 🌟 修正：加上防呆，確保點擊通知時即使快取沒這個人，也能強制打開聊天室
-        const sender = realVtubers.find((v) => v.id === targetId) || {
-            id: targetId,
-            name: n.fromUserName || "新創作者",
-            avatar: n.fromUserAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
-        };
-        if (n.type === "chat_notification" || n.type === "collab_invite") {
-            setChatTarget(sender);
-        }
-        else {
-            setSelectedVTuber(sender);
-            navigate(`profile/${sender.id}`);
-        }
-        if (!n.read)
+        // ✅ 小鈴鐺訊息列：點任何一則通知都直接進入「我的信箱」，避免誤跳名片或聊天室。
+        if (n && !n.read)
             updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
         setIsNotifOpen(false);
+        navigate("inbox");
     };
     const handleNotifProfileNav = (userId) => {
         const vt = realVtubers.find((v) => v.id === userId);
@@ -8510,7 +8560,8 @@ function App() {
                     const recentlyUpdatedUsers = [...realVtubers]
                         .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
                         .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
-                    const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
+                    // 24H 動態牆上方 IG 欄位只顯示有 24H 動態的人，名稱下方改顯示動態文字。
+                    const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers].slice(0, 24);
                     const reactionProfileMap = new Map(realVtubers.map((v) => [v.id, v]));
                     const findReactionProfile = (uid) => {
                         if (!uid)
@@ -8548,7 +8599,7 @@ function App() {
                                     " 24H \u52D5\u614B\u7246"),
                                 React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1 leading-relaxed max-w-xl" }, "\u770B\u770B\u8AB0\u6B63\u5728\u76F4\u64AD\u3001\u60F3\u63EA\u5718\u3001\u627E\u4EBA\u804A\u5929\u6216\u5206\u4EAB\u8FD1\u6CC1\u3002\u9EDE\u982D\u50CF\u5C31\u80FD\u5FEB\u901F\u9032\u5165\u5C0D\u65B9\u8CC7\u6599\u9032\u884C\u79C1\u8A0A\u4E92\u52D5\u3002"))),
                         React.createElement("div", { className: "mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3" },
-                            React.createElement("div", { className: "vnexus-story-strip flex gap-4 overflow-x-auto pb-5 vnexus-drag-scroll items-start", onMouseDown: (e) => {
+                            React.createElement("div", { className: "vnexus-story-strip flex gap-4 overflow-x-auto pb-5 vnexus-drag-scroll items-start", style: STORY_STRIP_STYLE, onMouseDown: (e) => {
                                     const el = e.currentTarget;
                                     el.dataset.dragging = "1";
                                     el.dataset.dragStartX = String(e.pageX);
@@ -8591,14 +8642,16 @@ function App() {
                                 const titleText = hasActiveStory
                                     ? (storyViewed ? `${v.name || '創作者'} 的動態已看過` : String(v.statusMessage || ''))
                                     : `${v.name || '創作者'} 最近更新了名片資料`;
-                                return (React.createElement("div", { key: `story-ring-${v.id}`, className: "vnexus-story-item flex-shrink-0 w-20 text-center group", title: titleText },
+                                return (React.createElement("div", { key: `story-ring-${v.id}`, className: "vnexus-story-item flex-shrink-0 w-20 text-center group", style: STORY_ITEM_STYLE, title: titleText },
                                     React.createElement("button", { type: "button", onClick: () => { if (hasActiveStory)
                                             markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: "vnexus-story-avatar-button block w-full", "aria-label": `查看 ${v.name || "創作者"} 的名片` },
                                         React.createElement("div", { className: `w-14 h-14 mx-auto rounded-full p-[2px] ${ringClass}` },
                                             React.createElement("div", { className: "w-full h-full rounded-full bg-[#11131C] p-[2px]" },
                                                 React.createElement("img", { src: sanitizeUrl(v.avatar), className: "w-full h-full rounded-full object-cover", onError: (e) => { e.currentTarget.style.display = 'none'; }, alt: v.name || "創作者" })))),
                                     React.createElement("button", { type: "button", onClick: () => { if (hasActiveStory)
-                                            markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: `vnexus-story-name-button transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}` }, limitDisplayText(v.name || "創作者", 10))));
+                                            markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }, className: `vnexus-story-name-button transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`, style: STORY_NAME_BUTTON_STYLE },
+                                        React.createElement("span", { className: "vnexus-story-primary-line", style: STORY_PRIMARY_LINE_STYLE }, getStoryCircleNameText(v, "創作者")),
+                                        React.createElement("span", { className: "vnexus-story-secondary-line", style: STORY_SECONDARY_LINE_STYLE }, hasActiveStory ? getStoryCirclePreviewText(v, "動態") : "近期更新"))));
                             })))),
                         isVerifiedUser && myProfile && (React.createElement("div", { className: "mb-4 bg-[#181B25]/55 border-y sm:border border-[#2A2F3D] sm:rounded-2xl px-4 sm:px-5 py-4" },
                             React.createElement("form", { onSubmit: async (e) => {

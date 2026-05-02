@@ -1466,6 +1466,75 @@ const limitDisplayText = (value, maxLength = 10) => {
   return Array.from(text).slice(0, maxLength).join("");
 };
 
+// ✅ IG 限動圈下方顯示兩層資訊：第一層「名字」、第二層「24H 動態牆輸入的文字」。
+// 直播動態會去掉開頭的 🔴，避免 10 字元額度被圖示吃掉。
+const getStoryCircleNameText = (v, fallback = "創作者") => {
+  return limitDisplayText(v?.name || fallback, 10);
+};
+const getStoryCirclePreviewText = (v, fallback = "動態") => {
+  const raw = String(v?.statusMessage || "").replace(/^🔴\s*/, "").trim();
+  return limitDisplayText(raw || fallback, 10);
+};
+
+// ✅ 限動圈文字保險樣式：直接寫入 inline style，避免被 Tailwind 載入順序、橫向捲動容器或 button 預設樣式影響而看不到。
+const STORY_STRIP_STYLE = {
+  alignItems: "flex-start",
+  overflowX: "auto",
+  overflowY: "visible",
+  paddingBottom: "4px",
+  minHeight: "0",
+};
+const STORY_ITEM_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  width: "88px",
+  flex: "0 0 88px",
+  minHeight: "0",
+  overflow: "visible",
+};
+const STORY_NAME_BUTTON_STYLE = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "1px",
+  width: "100%",
+  marginTop: "4px",
+  padding: "0 1px",
+  border: 0,
+  background: "transparent",
+  textAlign: "center",
+  whiteSpace: "normal",
+  wordBreak: "break-word",
+  overflow: "visible",
+  minHeight: "0",
+  maxHeight: "none",
+  position: "relative",
+  zIndex: 2,
+};
+const STORY_PRIMARY_LINE_STYLE = {
+  display: "block",
+  width: "100%",
+  color: "#F8FAFC",
+  fontSize: "11px",
+  lineHeight: "1.2",
+  fontWeight: 900,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+const STORY_SECONDARY_LINE_STYLE = {
+  display: "block",
+  width: "100%",
+  color: "#94A3B8",
+  fontSize: "10px",
+  lineHeight: "1.25",
+  fontWeight: 500,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
 const formatDateTimeLocalStr = (dtStr) => {
   if (!dtStr) return "未指定";
   const d = new Date(dtStr);
@@ -5053,7 +5122,7 @@ const HomePage = ({
               </div>
 
               {activeStatuses.length > 0 ? (
-                <div className="vnexus-story-strip flex gap-3 overflow-x-auto custom-scrollbar pb-5 items-start">
+                <div className="vnexus-story-strip flex gap-3 overflow-x-auto custom-scrollbar pb-5 items-start" style={STORY_STRIP_STYLE}>
                   {activeStatuses.map((v) => {
                     const isLiveMsg = String(v.statusMessage || "").includes("🔴");
                     const openStoryProfile = () => {
@@ -5064,6 +5133,7 @@ const HomePage = ({
                       <div
                         key={`home-story-${v.id}`}
                         className="vnexus-story-item flex-shrink-0 w-20 text-center group"
+                        style={STORY_ITEM_STYLE}
                         title={v.statusMessage}
                       >
                         <button
@@ -5087,8 +5157,10 @@ const HomePage = ({
                           type="button"
                           onClick={openStoryProfile}
                           className="vnexus-story-name-button group-hover:text-[#F59E0B] transition-colors"
+                          style={STORY_NAME_BUTTON_STYLE}
                         >
-                          {limitDisplayText(v.name || "VTuber", 10)}
+                          <span className="vnexus-story-primary-line" style={STORY_PRIMARY_LINE_STYLE}>{getStoryCircleNameText(v, "VTuber")}</span>
+                          <span className="vnexus-story-secondary-line" style={STORY_SECONDARY_LINE_STYLE}>{getStoryCirclePreviewText(v, "動態")}</span>
                         </button>
                       </div>
                     );
@@ -5503,12 +5575,12 @@ const HomePage = ({
 
       {isFeedbackModalOpen && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          className="fixed inset-0 z-[2147483647] flex items-start justify-center px-4 pt-4 sm:pt-8 pb-6 bg-black/75 backdrop-blur-sm overflow-y-auto"
           onClick={() => !isSubmittingFeedback && setIsFeedbackModalOpen(false)}
         >
           <form
             onSubmit={handleFeedbackSubmit}
-            className="w-full max-w-lg bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden"
+            className="w-full max-w-lg mt-0 sm:mt-2 bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden max-h-[calc(100dvh-2rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#181B25] flex items-center justify-between gap-3">
@@ -8568,31 +8640,10 @@ function App() {
     });
 
   const handleNotifClick = (n) => {
-    const isBackup = n.message && n.message.startsWith("【寄件備份");
-    if (isBackup) {
-      if (!n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
-      setIsNotifOpen(false);
-      return;
-    }
-
-    const targetId = n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId;
-
-    // 🌟 修正：加上防呆，確保點擊通知時即使快取沒這個人，也能強制打開聊天室
-    const sender = realVtubers.find((v) => v.id === targetId) || {
-      id: targetId,
-      name: n.fromUserName || "新創作者",
-      avatar: n.fromUserAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetId}`
-    };
-
-    if (n.type === "chat_notification" || n.type === "collab_invite") {
-      setChatTarget(sender);
-    } else {
-      setSelectedVTuber(sender);
-      navigate(`profile/${sender.id}`);
-    }
-
-    if (!n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
+    // ✅ 小鈴鐺訊息列：點任何一則通知都直接進入「我的信箱」，避免誤跳名片或聊天室。
+    if (n && !n.read) updateDoc(doc(db, getPath("notifications"), n.id), { read: true }).catch(() => { });
     setIsNotifOpen(false);
+    navigate("inbox");
   };
 
   const handleNotifProfileNav = (userId) => {
@@ -13037,7 +13088,8 @@ function App() {
             const recentlyUpdatedUsers = [...realVtubers]
               .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
               .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
-            const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers, ...recentlyUpdatedUsers].slice(0, 24);
+            // 24H 動態牆上方 IG 欄位只顯示有 24H 動態的人，名稱下方改顯示動態文字。
+            const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers].slice(0, 24);
             const reactionProfileMap = new Map(realVtubers.map((v) => [v.id, v]));
             const findReactionProfile = (uid) => {
               if (!uid) return null;
@@ -13091,6 +13143,7 @@ function App() {
                 <div className="mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3">
                   <div
                     className="vnexus-story-strip flex gap-4 overflow-x-auto pb-5 vnexus-drag-scroll items-start"
+                    style={STORY_STRIP_STYLE}
                     onMouseDown={(e) => {
                       const el = e.currentTarget;
                       el.dataset.dragging = "1";
@@ -13147,6 +13200,7 @@ function App() {
                           <div
                             key={`story-ring-${v.id}`}
                             className="vnexus-story-item flex-shrink-0 w-20 text-center group"
+                            style={STORY_ITEM_STYLE}
                             title={titleText}
                           >
                             <button
@@ -13165,8 +13219,10 @@ function App() {
                               type="button"
                               onClick={() => { if (hasActiveStory) markStatusStoryViewed(v); setSelectedVTuber(v); navigate(`profile/${v.id}`); }}
                               className={`vnexus-story-name-button transition-colors ${hasActiveStory ? 'group-hover:text-[#F59E0B]' : 'group-hover:text-[#CBD5E1]'}`}
+                              style={STORY_NAME_BUTTON_STYLE}
                             >
-                              {limitDisplayText(v.name || "創作者", 10)}
+                              <span className="vnexus-story-primary-line" style={STORY_PRIMARY_LINE_STYLE}>{getStoryCircleNameText(v, "創作者")}</span>
+                              <span className="vnexus-story-secondary-line" style={STORY_SECONDARY_LINE_STYLE}>{hasActiveStory ? getStoryCirclePreviewText(v, "動態") : "近期更新"}</span>
                             </button>
                           </div>
                         );
