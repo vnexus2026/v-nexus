@@ -244,22 +244,181 @@ input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
     .vnexus-vtuber-grid-list { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
 }
 
-/* V-Nexus initial home fade: covers auth button layout jump during first render. */
-#root {
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity .55s ease-out, transform .55s ease-out;
-    will-change: opacity, transform;
+/* ✅ 限時動態圈文字固定顯示：手機橫向列底部保留空間，避免 10 字元動態文字被裁掉。 */
+.vnexus-story-name-label {
+  display: block !important;
+  min-height: 1.45rem !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+  word-break: break-word !important;
 }
-body.vnexus-app-ready #root,
-#root.vnexus-app-ready {
-    opacity: 1;
-    transform: translateY(0);
+
+/* ✅ 限時動態圈文字固定顯示：頭像與動態文字分離，避免手機橫向捲動區把文字裁掉。 */
+.vnexus-story-strip {
+  align-items: flex-start !important;
+  padding-bottom: 1.875rem !important;
+  min-height: 7.375rem !important;
+  overflow-x: auto !important;
 }
-@media (prefers-reduced-motion: reduce) {
-    #root {
-        opacity: 1;
-        transform: none;
-        transition: none;
-    }
+
+.vnexus-story-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 6rem !important;
+  flex: 0 0 6rem !important;
+  min-height: 6.875rem !important;
+  overflow: visible !important;
+}
+
+.vnexus-story-avatar-button {
+  display: block !important;
+  width: 100% !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+.vnexus-story-name-button,
+.vnexus-story-name-label {
+  display: block !important;
+  width: 100% !important;
+  min-height: 1.45rem !important;
+  max-height: none !important;
+  margin-top: .375rem !important;
+  padding: 0 .125rem !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #F8FAFC !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+}
+
+/* ✅ 2026-05 修正：功能回饋彈窗固定置頂，並確保限動 / IG 圈動態文字在手機與桌機都不會被裁掉。 */
+.vnexus-story-strip {
+  align-items: flex-start !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding-bottom: 30px !important;
+  min-height: 118px !important;
+}
+.vnexus-story-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 96px !important;
+  flex: 0 0 96px !important;
+  min-height: 110px !important;
+  overflow: visible !important;
+}
+.vnexus-story-name-button,
+.vnexus-story-name-label {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  min-height: 28px !important;
+  max-height: none !important;
+  margin-top: 6px !important;
+  padding: 0 2px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #F8FAFC !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* ✅ 2026-05 修正：限動 / IG 圈下方改為兩層資訊：名字（主）＋動態內容（副）。 */
+.vnexus-story-strip {
+  padding-bottom: 42px !important;
+  min-height: 142px !important;
+  overflow-y: visible !important;
+}
+.vnexus-story-item {
+  width: 104px !important;
+  flex: 0 0 104px !important;
+  min-height: 134px !important;
+  overflow: visible !important;
+}
+.vnexus-story-name-button,
+.vnexus-story-name-label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 2px !important;
+  min-height: 42px !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+.vnexus-story-primary-line {
+  display: block !important;
+  width: 100% !important;
+  color: #F8FAFC !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  font-weight: 900 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.vnexus-story-secondary-line {
+  display: block !important;
+  width: 100% !important;
+  color: #94A3B8 !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* ✅ 2026-05-02 compact story circles: reduce vertical whitespace to avatar + two text lines only. */
+.vnexus-story-strip {
+  align-items: flex-start !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  padding-top: 0 !important;
+  padding-bottom: 4px !important;
+  min-height: 0 !important;
+}
+.vnexus-story-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: 88px !important;
+  flex: 0 0 88px !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+.vnexus-story-name-button,
+.vnexus-story-name-label {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 1px !important;
+  min-height: 0 !important;
+  margin-top: 4px !important;
+  padding: 0 1px !important;
+}
+.vnexus-story-primary-line {
+  line-height: 1.15 !important;
+}
+.vnexus-story-secondary-line {
+  line-height: 1.15 !important;
 }
