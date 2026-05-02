@@ -3569,18 +3569,6 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                     React.createElement("div", { className: "bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3 text-center" },
                         React.createElement("p", { className: "text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1" }, "\u7DB2\u7AD9\u7E3D\u700F\u89BD\u4EBA\u6B21"),
                         React.createElement("p", { className: "text-xl sm:text-2xl font-black text-[#8B5CF6]" }, siteStats?.pageViews !== null ? React.createElement(AnimatedCounter, { value: siteStats.pageViews }) : React.createElement("i", { className: "fa-solid fa-spinner fa-spin text-lg" })))))),
-        recommendedVtubers.length > 0 && (React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up" },
-            React.createElement(SectionHeader, { icon: "fa-user-group", iconColor: "text-[#22C55E]", title: "\u4ECA\u65E5\u6D3B\u8E8D\u5275\u4F5C\u8005", desc: "\u5148\u770B\u770B\u6700\u8FD1\u9069\u5408\u8A8D\u8B58\u7684\u5275\u4F5C\u8005\uFF0C\u5F9E\u4E00\u5F35\u540D\u7247\u958B\u59CB\u627E\u5230\u806F\u52D5\u53EF\u80FD\u3002", action: React.createElement("button", { onClick: () => navigate("grid"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
-                    "\u63A2\u7D22\u66F4\u591A ",
-                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
-            React.createElement("div", { className: "flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 sm:overflow-visible custom-scrollbar" },
-                recommendedVtubers.map((v) => (React.createElement("div", { key: v.id, className: "flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto" },
-                    React.createElement(VTuberCard, { v: v, onSelect: () => {
-                            setSelectedVTuber(v);
-                            navigate(`profile/${v.id}`);
-                        }, onDislike: () => { } })))),
-                React.createElement("div", { className: "flex-shrink-0 w-[60vw] sm:hidden" },
-                    React.createElement(MobileMoreCard, { onClick: () => navigate("grid"), icon: "fa-magnifying-glass", text: "\u63A2\u7D22\u66F4\u591A\u5275\u4F5C\u8005", subText: "\u67E5\u770B\u5B8C\u6574 VTuber \u540D\u55AE" }))))),
         React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up" },
             React.createElement(SectionHeader, { icon: "fa-bullhorn", iconColor: "text-[#8B5CF6]", title: "\u6700\u8FD1\u63EA\u5718", desc: "\u6B63\u5728\u5C0B\u627E\u5925\u4F34\u7684\u4F01\u5283\uFF0C\u6216\u8A31\u5C31\u6709\u4F60\u611F\u8208\u8DA3\u7684\u3002", action: React.createElement("button", { onClick: goToBulletin, className: "hidden sm:flex bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap" },
                     "\u627E\u770B\u770B\u8AB0\u5728\u63EA\u5718 ",
@@ -3592,25 +3580,6 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 React.createElement("p", { className: "text-[#F8FAFC] font-bold text-lg" }, "\u9084\u6C92\u6709\u63EA\u5718\u4F01\u5283"),
                 React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u6210\u70BA\u7B2C\u4E00\u500B\u767C\u4E00\u500B\u62DB\u52DF\u4F01\u5283\u7684\u4EBA\u5427\uFF0C\u8B93\u5176\u4ED6 VTuber \u77E5\u9053\u4F60\u6B63\u5728\u627E\u5925\u4F34\u3002"),
                 React.createElement("button", { onClick: goToBulletin, className: "mt-5 inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors" }, "\u767C\u4E00\u500B\u62DB\u52DF\u4F01\u5283")))),
-        recommendedCreatorsForCommission.length > 0 && (React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full" },
-            React.createElement(SectionHeader, { icon: "fa-palette", iconColor: "text-[#38BDF8]", title: "\u63A8\u85A6\u7E6A\u5E2B / \u5EFA\u6A21\u5E2B / \u526A\u8F2F\u5E2B", desc: "\u770B\u770B\u53EF\u4EE5\u59D4\u8A17\u6216\u5408\u4F5C\u7684\u5275\u4F5C\u8005\uFF0C\u5148\u5F9E\u4F5C\u54C1\u8207\u540D\u7247\u958B\u59CB\u8A8D\u8B58\u3002", action: React.createElement("button", { onClick: () => navigate("commissions"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
-                    "\u67E5\u770B\u59D4\u8A17\u5C08\u5340 ",
-                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
-            React.createElement("div", { className: "flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar" },
-                recommendedCreatorsForCommission.map((v) => (React.createElement("div", { key: `home-commission-${v.id}`, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden text-left hover:bg-[#1D2130] transition-colors h-full" },
-                    React.createElement("button", { onClick: () => {
-                            setSelectedVTuber(v);
-                            navigate(`profile/${v.id}`);
-                        }, className: "block w-full text-left" },
-                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
-                        React.createElement("div", { className: "p-4" },
-                            React.createElement("div", { className: "flex items-center gap-3 mb-3" },
-                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }),
-                                React.createElement("div", { className: "min-w-0" },
-                                    React.createElement("h3", { className: "text-[#F8FAFC] font-extrabold truncate" }, v.name || "未命名創作者"),
-                                    React.createElement("div", { className: "flex flex-wrap gap-1 mt-1" }, (v.creatorRoles || []).slice(0, 2).map((role) => (React.createElement("span", { key: role, className: "text-[10px] font-bold text-[#38BDF8] bg-[#38BDF8]/10 border border-[#38BDF8]/25 rounded-full px-2 py-0.5" }, role)))))),
-                            React.createElement("p", { className: "text-[#94A3B8] text-sm line-clamp-2 leading-relaxed min-h-[2.5rem]" }, v.description || "這位創作者還沒有填寫作品介紹，先看看名片認識一下。")))))),
-                React.createElement(MobileMoreCard, { onClick: goToCommissionRequests, icon: "fa-palette", text: "\u67E5\u770B\u59D4\u8A17\u5C08\u5340", subText: "\u627E\u7E6A\u5E2B\u3001\u5EFA\u6A21\u5E2B\u8207\u526A\u8F2F\u5E2B" })))),
         React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up" },
             React.createElement(SectionHeader, { icon: "fa-clipboard-list", iconColor: "text-[#8B5CF6]", title: "\u59D4\u8A17\u4F48\u544A\u6B04", desc: "\u770B\u770B\u6700\u8FD1\u6709\u54EA\u4E9B\u59D4\u8A17\u9700\u6C42\u6B63\u5728\u5C0B\u627E\u7E6A\u5E2B\u3001\u5EFA\u6A21\u5E2B\u6216\u526A\u8F2F\u5E2B\uFF0C\u63A5\u6848\u524D\u5148\u78BA\u8A8D\u9700\u6C42\u8207\u9810\u7B97\u3002", action: React.createElement("button", { onClick: goToCommissionRequests, className: "hidden sm:flex bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors items-center gap-2 whitespace-nowrap" },
                     "\u67E5\u770B\u5168\u90E8\u59D4\u8A17 ",
@@ -3648,6 +3617,53 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 React.createElement("p", { className: "text-[#F8FAFC] font-bold text-lg" }, "\u76EE\u524D\u9084\u6C92\u6709\u516C\u958B\u59D4\u8A17\u9700\u6C42"),
                 React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u6709\u7E6A\u5716\u3001\u5EFA\u6A21\u6216\u526A\u8F2F\u9700\u6C42\u6642\uFF0C\u53EF\u4EE5\u76F4\u63A5\u767C\u5E03\u5230\u59D4\u8A17\u4F48\u544A\u6B04\u3002"),
                 React.createElement("button", { onClick: goToCommissionRequests, className: "mt-5 inline-flex items-center justify-center bg-[#8B5CF6] hover:bg-[#7C3AED] text-white px-5 py-2.5 rounded-xl font-bold transition-colors" }, "\u524D\u5F80\u59D4\u8A17\u4F48\u544A\u6B04")))),
+        React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full" },
+            React.createElement(SectionHeader, { icon: "fa-calendar-check", iconColor: "text-[#38BDF8]", title: "\u5373\u5C07\u806F\u52D5", desc: "\u770B\u770B\u6709\u54EA\u4E9B VTuber \u5373\u5C07\u5C55\u958B\u5408\u4F5C\uFF0C\u4E5F\u53EF\u4EE5\u5F9E\u4E2D\u8A8D\u8B58\u65B0\u5925\u4F34\u3002", action: React.createElement("button", { onClick: () => navigate("collabs"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
+                    "\u5B8C\u6574\u806F\u52D5\u8868 ",
+                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
+            randomCollabs.length > 0 ? (React.createElement("div", { className: "flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full" },
+                randomCollabs.map((c) => (React.createElement("div", { key: c.id, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full" },
+                    React.createElement(CollabCard, { c: c, isLive: c.startTimestamp &&
+                            currentTime >= c.startTimestamp &&
+                            currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000, vtuber: realVtubers.find((v) => v.id === c.userId), realVtubers: realVtubers, onNavigateProfile: (vt) => {
+                            setSelectedVTuber(vt);
+                            navigate(`profile/${vt.id}`);
+                        }, onShowParticipants: onShowParticipants })))),
+                React.createElement(MobileMoreCard, { onClick: () => navigate("collabs"), icon: "fa-calendar-check", text: "\u67E5\u770B\u5B8C\u6574\u806F\u52D5\u8868", subText: "\u638C\u63E1\u6240\u6709\u5373\u5C07\u5230\u4F86\u7684\u76F4\u64AD" }))) : (React.createElement("div", { className: "text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto" },
+                React.createElement("p", { className: "text-[#F8FAFC] font-bold text-lg" }, "\u9084\u6C92\u6709\u5373\u5C07\u516C\u958B\u7684\u806F\u52D5\u884C\u7A0B"),
+                React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u5B89\u6392\u597D\u5408\u4F5C\u5F8C\uFF0C\u628A\u5F85\u6A5F\u5BA4\u653E\u4E0A\u4F86\uFF0C\u5927\u5BB6\u5C31\u80FD\u4E00\u8D77\u4F86\u652F\u6301\u3002"),
+                React.createElement("button", { onClick: () => navigate("collabs"), className: "mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors" }, "\u67E5\u770B\u806F\u52D5\u8868")))),
+        recommendedVtubers.length > 0 && (React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up" },
+            React.createElement(SectionHeader, { icon: "fa-user-group", iconColor: "text-[#22C55E]", title: "\u4ECA\u65E5\u6D3B\u8E8D\u5275\u4F5C\u8005", desc: "\u5148\u770B\u770B\u6700\u8FD1\u9069\u5408\u8A8D\u8B58\u7684\u5275\u4F5C\u8005\uFF0C\u5F9E\u4E00\u5F35\u540D\u7247\u958B\u59CB\u627E\u5230\u806F\u52D5\u53EF\u80FD\u3002", action: React.createElement("button", { onClick: () => navigate("grid"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
+                    "\u63A2\u7D22\u66F4\u591A ",
+                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
+            React.createElement("div", { className: "flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 sm:overflow-visible custom-scrollbar" },
+                recommendedVtubers.map((v) => (React.createElement("div", { key: v.id, className: "flex-shrink-0 w-[75vw] sm:w-auto snap-center text-left h-auto" },
+                    React.createElement(VTuberCard, { v: v, onSelect: () => {
+                            setSelectedVTuber(v);
+                            navigate(`profile/${v.id}`);
+                        }, onDislike: () => { } })))),
+                React.createElement("div", { className: "flex-shrink-0 w-[60vw] sm:hidden" },
+                    React.createElement(MobileMoreCard, { onClick: () => navigate("grid"), icon: "fa-magnifying-glass", text: "\u63A2\u7D22\u66F4\u591A\u5275\u4F5C\u8005", subText: "\u67E5\u770B\u5B8C\u6574 VTuber \u540D\u55AE" }))))),
+        recommendedCreatorsForCommission.length > 0 && (React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full" },
+            React.createElement(SectionHeader, { icon: "fa-palette", iconColor: "text-[#38BDF8]", title: "\u63A8\u85A6\u7E6A\u5E2B / \u5EFA\u6A21\u5E2B / \u526A\u8F2F\u5E2B", desc: "\u770B\u770B\u53EF\u4EE5\u59D4\u8A17\u6216\u5408\u4F5C\u7684\u5275\u4F5C\u8005\uFF0C\u5148\u5F9E\u4F5C\u54C1\u8207\u540D\u7247\u958B\u59CB\u8A8D\u8B58\u3002", action: React.createElement("button", { onClick: () => navigate("commissions"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
+                    "\u67E5\u770B\u59D4\u8A17\u5C08\u5340 ",
+                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
+            React.createElement("div", { className: "flex items-stretch overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-visible custom-scrollbar" },
+                recommendedCreatorsForCommission.map((v) => (React.createElement("div", { key: `home-commission-${v.id}`, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center bg-[#181B25] border border-[#2A2F3D] rounded-2xl overflow-hidden text-left hover:bg-[#1D2130] transition-colors h-full" },
+                    React.createElement("button", { onClick: () => {
+                            setSelectedVTuber(v);
+                            navigate(`profile/${v.id}`);
+                        }, className: "block w-full text-left" },
+                        React.createElement("div", { className: "h-36 bg-[#11131C] overflow-hidden" }, v.banner ? (React.createElement("img", { src: sanitizeUrl(v.banner), alt: v.name || "creator", className: "vnexus-critical-avatar-img w-full h-full object-cover", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } })) : (React.createElement("div", { className: "w-full h-full bg-[#1D2130]" }))),
+                        React.createElement("div", { className: "p-4" },
+                            React.createElement("div", { className: "flex items-center gap-3 mb-3" },
+                                React.createElement("img", { src: sanitizeUrl(v.avatar), alt: v.name || "creator", className: "w-12 h-12 rounded-xl object-cover bg-[#1D2130] border border-[#2A2F3D]", onError: (e) => { applyVnexusImageFallback(e.currentTarget); } }),
+                                React.createElement("div", { className: "min-w-0" },
+                                    React.createElement("h3", { className: "text-[#F8FAFC] font-extrabold truncate" }, v.name || "未命名創作者"),
+                                    React.createElement("div", { className: "flex flex-wrap gap-1 mt-1" }, (v.creatorRoles || []).slice(0, 2).map((role) => (React.createElement("span", { key: role, className: "text-[10px] font-bold text-[#38BDF8] bg-[#38BDF8]/10 border border-[#38BDF8]/25 rounded-full px-2 py-0.5" }, role)))))),
+                            React.createElement("p", { className: "text-[#94A3B8] text-sm line-clamp-2 leading-relaxed min-h-[2.5rem]" }, v.description || "這位創作者還沒有填寫作品介紹，先看看名片認識一下。")))))),
+                React.createElement(MobileMoreCard, { onClick: goToCommissionRequests, icon: "fa-palette", text: "\u67E5\u770B\u59D4\u8A17\u5C08\u5340", subText: "\u627E\u7E6A\u5E2B\u3001\u5EFA\u6A21\u5E2B\u8207\u526A\u8F2F\u5E2B" })))),
         React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full animate-fade-in-up" },
             React.createElement(SectionHeader, { icon: "fa-compass", iconColor: "text-[#F59E0B]", title: "\u7B2C\u4E00\u6B21\u4F86 V-Nexus\uFF1F", desc: "\u7167\u8457\u9019\u56DB\u6B65\u8D70\uFF0C\u66F4\u5BB9\u6613\u627E\u5230\u9069\u5408\u4E00\u8D77\u5275\u4F5C\u7684\u5925\u4F34\u3002" }),
             React.createElement("div", { className: "bg-[#181B25] border border-[#2A2F3D] rounded-2xl p-5 md:p-6 mb-5 text-left" },
@@ -3670,22 +3686,6 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                 React.createElement(GuideCard, { icon: "fa-gamepad", title: "Step 2\uFF1A\u9078\u64C7\u806F\u52D5\u985E\u578B", desc: "\u9078\u597D\u60F3\u627E\u7684\u5408\u4F5C\u5167\u5BB9\uFF0C\u8B93\u9069\u5408\u7684\u4EBA\u66F4\u5BB9\u6613\u627E\u5230\u4F60\u3002", onClick: () => navigate("dashboard"), color: "#38BDF8" }),
                 React.createElement(GuideCard, { icon: "fa-calendar-days", title: "Step 3\uFF1A\u586B\u5BEB\u53EF\u806F\u52D5\u6642\u6BB5", desc: "\u6E05\u695A\u6A19\u793A\u6642\u9593\uFF0C\u53EF\u4EE5\u6E1B\u5C11\u4F86\u56DE\u8A62\u554F\uFF0C\u4E5F\u66F4\u5BB9\u6613\u6210\u529F\u7D04\u5230\u3002", onClick: () => navigate("dashboard"), color: "#F59E0B" }),
                 React.createElement(GuideCard, { icon: "fa-magnifying-glass", title: "Step 4\uFF1A\u958B\u59CB\u5C0B\u627EVTuber", desc: "\u770B\u770B\u8FD1\u671F\u6D3B\u8E8D\u7684\u4EBA\u3001\u62DB\u52DF\u4F01\u5283\uFF0C\u5F9E\u4E00\u500B\u8F15\u9B06\u7684\u9080\u8ACB\u958B\u59CB\u3002", onClick: () => navigate("grid"), color: "#22C55E" }))),
-        React.createElement("div", { className: "mt-10 pt-10 border-t border-[#2A2F3D] w-full" },
-            React.createElement(SectionHeader, { icon: "fa-calendar-check", iconColor: "text-[#38BDF8]", title: "\u5373\u5C07\u806F\u52D5", desc: "\u770B\u770B\u6709\u54EA\u4E9B VTuber \u5373\u5C07\u5C55\u958B\u5408\u4F5C\uFF0C\u4E5F\u53EF\u4EE5\u5F9E\u4E2D\u8A8D\u8B58\u65B0\u5925\u4F34\u3002", action: React.createElement("button", { onClick: () => navigate("collabs"), className: "hidden sm:flex bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors items-center gap-2 whitespace-nowrap" },
-                    "\u5B8C\u6574\u806F\u52D5\u8868 ",
-                    React.createElement("i", { className: "fa-solid fa-arrow-right text-[#38BDF8]" })) }),
-            randomCollabs.length > 0 ? (React.createElement("div", { className: "flex overflow-x-auto pb-6 gap-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible custom-scrollbar max-w-5xl mx-auto w-full" },
-                randomCollabs.map((c) => (React.createElement("div", { key: c.id, className: "flex-shrink-0 w-[85vw] md:w-auto snap-center text-left h-full" },
-                    React.createElement(CollabCard, { c: c, isLive: c.startTimestamp &&
-                            currentTime >= c.startTimestamp &&
-                            currentTime <= c.startTimestamp + 2 * 60 * 60 * 1000, vtuber: realVtubers.find((v) => v.id === c.userId), realVtubers: realVtubers, onNavigateProfile: (vt) => {
-                            setSelectedVTuber(vt);
-                            navigate(`profile/${vt.id}`);
-                        }, onShowParticipants: onShowParticipants })))),
-                React.createElement(MobileMoreCard, { onClick: () => navigate("collabs"), icon: "fa-calendar-check", text: "\u67E5\u770B\u5B8C\u6574\u806F\u52D5\u8868", subText: "\u638C\u63E1\u6240\u6709\u5373\u5C07\u5230\u4F86\u7684\u76F4\u64AD" }))) : (React.createElement("div", { className: "text-center py-12 px-6 bg-[#181B25] rounded-2xl border border-[#2A2F3D] max-w-4xl mx-auto" },
-                React.createElement("p", { className: "text-[#F8FAFC] font-bold text-lg" }, "\u9084\u6C92\u6709\u5373\u5C07\u516C\u958B\u7684\u806F\u52D5\u884C\u7A0B"),
-                React.createElement("p", { className: "text-[#94A3B8] text-sm mt-2" }, "\u5B89\u6392\u597D\u5408\u4F5C\u5F8C\uFF0C\u628A\u5F85\u6A5F\u5BA4\u653E\u4E0A\u4F86\uFF0C\u5927\u5BB6\u5C31\u80FD\u4E00\u8D77\u4F86\u652F\u6301\u3002"),
-                React.createElement("button", { onClick: () => navigate("collabs"), className: "mt-5 inline-flex items-center justify-center bg-[#181B25] hover:bg-[#1D2130] text-[#F8FAFC] px-5 py-2.5 rounded-xl font-bold border border-[#2A2F3D] transition-colors" }, "\u67E5\u770B\u806F\u52D5\u8868")))),
         isFeedbackModalOpen && (React.createElement("div", { className: "fixed inset-0 z-[2147483647] flex items-start justify-center px-4 pt-4 sm:pt-8 pb-6 bg-black/75 backdrop-blur-sm overflow-y-auto", onClick: () => !isSubmittingFeedback && setIsFeedbackModalOpen(false) },
             React.createElement("form", { onSubmit: handleFeedbackSubmit, className: "w-full max-w-lg mt-0 sm:mt-2 bg-[#11131C] border border-[#2A2F3D] rounded-2xl shadow-sm overflow-hidden max-h-[calc(100dvh-2rem)] overflow-y-auto", onClick: (e) => e.stopPropagation() },
                 React.createElement("div", { className: "px-5 py-4 border-b border-[#2A2F3D] bg-[#181B25] flex items-center justify-between gap-3" },
