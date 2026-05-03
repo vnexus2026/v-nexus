@@ -635,6 +635,213 @@ const initVnexusImageLoadingUX = (() => {
           font-weight: 700;
         }
 
+        /* ✅ 手機版尋找 VTuber 夥伴刷新 Critical CSS：Tailwind CDN / 動態樣式延遲時仍保持版面 */
+        @media (max-width: 1023px) {
+          html, body, #root {
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            background: #0F111A !important;
+            color: #E2E8F0 !important;
+          }
+          .vnexus-vtuber-grid-page,
+          .vnexus-vtuber-grid-page * {
+            box-sizing: border-box !important;
+          }
+          .vnexus-vtuber-grid-page {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding: 1rem !important;
+            gap: 1rem !important;
+            min-height: 100dvh !important;
+            overflow-x: hidden !important;
+            color: #E2E8F0 !important;
+            transform: none !important;
+          }
+          .vnexus-vtuber-filter-panel {
+            width: 100% !important;
+            flex-shrink: 0 !important;
+            min-width: 0 !important;
+            margin: 0 !important;
+          }
+          .vnexus-vtuber-filter-panel.hidden {
+            display: none !important;
+          }
+          .vnexus-vtuber-filter-panel.block,
+          .vnexus-vtuber-filter-panel:not(.hidden) {
+            display: block !important;
+          }
+          .vnexus-vtuber-filter-panel > div {
+            width: 100% !important;
+            background: rgba(24, 27, 37, .72) !important;
+            border: 1px solid #2A2F3D !important;
+            border-radius: 1rem !important;
+            padding: 1rem !important;
+            overflow: hidden !important;
+          }
+          .vnexus-vtuber-grid-main {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            width: 100% !important;
+          }
+          .vnexus-vtuber-grid-toolbar {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            gap: .85rem !important;
+            width: 100% !important;
+            margin-bottom: 1rem !important;
+          }
+          .vnexus-vtuber-grid-actions {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
+            gap: .55rem !important;
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .vnexus-vtuber-grid-actions h2 {
+            flex: 1 0 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: .5rem !important;
+            margin: 0 !important;
+            color: #FFFFFF !important;
+            font-size: 1.45rem !important;
+            line-height: 1.2 !important;
+            font-weight: 900 !important;
+            min-width: 0 !important;
+          }
+          .vnexus-vtuber-grid-actions button {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex: 1 1 calc(50% - .35rem) !important;
+            min-width: 0 !important;
+            min-height: 38px !important;
+            border-radius: .8rem !important;
+            padding: .52rem .62rem !important;
+            font-size: 12px !important;
+            line-height: 1.15 !important;
+            font-weight: 900 !important;
+            white-space: nowrap !important;
+          }
+          .vnexus-vtuber-grid-search-sort {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: .65rem !important;
+            width: 100% !important;
+            min-width: 0 !important;
+          }
+          .vnexus-vtuber-grid-search-sort input,
+          .vnexus-vtuber-filter-panel input,
+          .vnexus-vtuber-grid-page input {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 40px !important;
+            border-radius: .85rem !important;
+            border: 1px solid #2A2F3D !important;
+            background: #181B25 !important;
+            color: #FFFFFF !important;
+            padding-top: .55rem !important;
+            padding-bottom: .55rem !important;
+            font-size: 16px !important;
+            outline: none !important;
+          }
+          .vnexus-vtuber-grid-page select,
+          .vnexus-vtuber-grid-search-sort select,
+          .vnexus-vtuber-filter-panel select {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 34px !important;
+            height: 34px !important;
+            border-radius: .72rem !important;
+            border: 1px solid #2A2F3D !important;
+            background-color: #181B25 !important;
+            color: #FFFFFF !important;
+            padding: .35rem 1.85rem .35rem .65rem !important;
+            font-size: 12px !important;
+            line-height: 1.15 !important;
+            font-weight: 800 !important;
+            outline: none !important;
+          }
+          .vnexus-vtuber-grid-list {
+            display: grid !important;
+            grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+            gap: 1rem !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            align-items: stretch !important;
+          }
+          .vnexus-vtuber-card {
+            display: flex !important;
+            flex-direction: column !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+            border-radius: 1.25rem !important;
+            background: #181B25 !important;
+            border: 1px solid #2A2F3D !important;
+            color: #E2E8F0 !important;
+          }
+          .vnexus-vtuber-card-banner {
+            position: relative !important;
+            height: 5rem !important;
+            overflow: hidden !important;
+            background: #11131C !important;
+            border-bottom: 1px solid #2A2F3D !important;
+            flex-shrink: 0 !important;
+          }
+          .vnexus-vtuber-card-body {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            padding: 1rem !important;
+          }
+          .vnexus-vtuber-card img {
+            max-width: 100% !important;
+            object-fit: cover !important;
+          }
+          .line-clamp-2 {
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+          .line-clamp-3 {
+            display: -webkit-box !important;
+            -webkit-line-clamp: 3 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+          .line-clamp-4 {
+            display: -webkit-box !important;
+            -webkit-line-clamp: 4 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+        }
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .vnexus-vtuber-grid-page {
+            padding: 1.25rem !important;
+          }
+          .vnexus-vtuber-grid-list {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          .vnexus-vtuber-grid-actions button {
+            flex: 0 1 auto !important;
+          }
+        }
+
         /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
         @media (max-width: 639px) {
           .vnexus-commission-page * { box-sizing: border-box; }
@@ -1676,24 +1883,21 @@ const calculateCompatibility = (me, target) => {
 const isVisible = (v, currentUser) => {
     if (!v || !v.id)
         return false; // 確保 v 及其 id 存在
-    if (currentUser && v.id === currentUser.uid)
-        return true;
     if (String(v.id || "").startsWith("mock"))
         return true;
-    if (!v.isVerified || v.isBlacklisted)
+    // ✅ 審核退回名片不得出現在公開列表 / 揪團 / 隨機配對。
+    // 原本自己的名片會在未認證時被允許顯示，導致被管理員退回後仍可能在「尋找 VTuber 夥伴」看到自己名片，造成誤以為退回後又重新公開。
+    // 待審核名片仍可讓本人看見「隱藏中」狀態；退回名片請回個人頁修改後重新送審。
+    if (v.verificationStatus === "rejected")
+        return false;
+    if (currentUser && v.id === currentUser.uid)
+        return true;
+    if (v.isVerified !== true || v.isBlacklisted === true)
+        return false;
+    if (v.verificationStatus && v.verificationStatus !== "approved")
         return false;
     if (v.activityStatus === "sleep" || v.activityStatus === "graduated")
         return false;
-    // 修正：處理 Firebase Timestamp 物件轉換為數字
-    const getTime = (val) => {
-        if (!val)
-            return Date.now();
-        if (typeof val === "number")
-            return val;
-        if (val.toMillis)
-            return val.toMillis();
-        return Date.now();
-    };
     // ✅ 名片清單恢復原本完整頁數：不再因 30 天未更新就把已認證名片整張隱藏。
     // 休息 / 畢業 / 黑名單仍維持不顯示，這裡只移除「近期活躍」造成 24 頁縮成 13 頁的前端顯示限制。
     return true;
