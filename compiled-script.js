@@ -635,7 +635,7 @@ const initVnexusImageLoadingUX = (() => {
           font-weight: 700;
         }
 
-        /* ✅ 尋找 VTuber 夥伴：手機版不再常駐覆蓋原排版；只在 Tailwind 失效時由 vnexus-tailwind-fallback 接手。 */
+        /* ✅ 尋找 VTuber 夥伴：手機版維持原排版；路由穩定器只補齊基礎排版，不再啟用全站 fallback。 */
 
         /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
         @media (max-width: 639px) {
@@ -756,10 +756,9 @@ const initVnexusImageLoadingUX = (() => {
 })();
 initVnexusImageLoadingUX();
 
-const initVnexusMobileCssRecovery = (() => {
+const initVnexusMobileLayoutStability = (() => {
     let initialized = false;
-    let recoveryScriptLoaded = false;
-    let recoveryTimer = null;
+    let cleanupTimer = null;
     const isMobileViewport = () => {
         try {
             return window.matchMedia && window.matchMedia("(max-width: 1023px)").matches;
@@ -768,336 +767,212 @@ const initVnexusMobileCssRecovery = (() => {
             return (window.innerWidth || 0) <= 1023;
         }
     };
-    const installFallbackStyle = () => {
-        if (typeof document === "undefined" || document.getElementById("vnexus-mobile-css-recovery-style"))
+    const removeLegacyRecoveryState = () => {
+        if (typeof document === "undefined")
+            return;
+        // ✅ 徹查結論：舊版手機救援會在 Tailwind 偵測偶發失敗時加上 html.vnexus-tailwind-fallback，
+        // 並重載 Tailwind CDN。這會在「委託佈告欄 / 創作服務專區」手機刷新後，把首頁、尋找 VTuber、揪團、動態牆
+        // 變成救援版樣式，看起來像 CSS 消失。新版不再重載 Tailwind，也不再使用全站 fallback class。
+        document.documentElement.classList.remove("vnexus-tailwind-fallback");
+        document.body?.classList.remove("vnexus-tailwind-fallback");
+        const legacyStyle = document.getElementById("vnexus-mobile-css-recovery-style");
+        if (legacyStyle)
+            legacyStyle.remove();
+        const legacyLoader = document.getElementById("vnexus-tailwind-recovery-loader");
+        if (legacyLoader)
+            legacyLoader.remove();
+    };
+    const installStableRouteStyle = () => {
+        if (typeof document === "undefined" || document.getElementById("vnexus-mobile-route-stability-style"))
             return;
         const style = document.createElement("style");
-        style.id = "vnexus-mobile-css-recovery-style";
+        style.id = "vnexus-mobile-route-stability-style";
         style.textContent = `
-          /* ✅ V-Nexus 手機版 CSS 救援：只在 html.vnexus-tailwind-fallback 啟用時生效，不覆蓋 Tailwind 正常狀態。 */
+          /* ✅ V-Nexus 手機版路由穩定器
+             目的：不要再用全站 fallback / 重載 Tailwind。只補齊 SPA 手機刷新後最容易缺失的基礎排版能力。
+             範圍：只作用在 React main.vnexus-route-main 內，不覆蓋 SEO 入口頁與外部靜態頁。 */
           @media (max-width: 1023px) {
-            html.vnexus-tailwind-fallback,
-            html.vnexus-tailwind-fallback body,
-            html.vnexus-tailwind-fallback #root {
-              width: 100% !important;
-              max-width: 100% !important;
-              min-height: 100dvh !important;
-              overflow-x: hidden !important;
-              background: #0F111A !important;
-              color: #E2E8F0 !important;
-              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+            html, body, #root {
+              width: 100%;
+              max-width: 100%;
+              min-height: 100dvh;
+              overflow-x: hidden;
+              background: #0F111A;
+              color: #E2E8F0;
             }
-            html.vnexus-tailwind-fallback body {
-              margin: 0 !important;
+            body { margin: 0; }
+            .vnexus-route-main,
+            .vnexus-route-main * { box-sizing: border-box; }
+            .vnexus-route-main {
+              display: block;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              overflow-x: hidden;
+              color: #E2E8F0;
             }
-            html.vnexus-tailwind-fallback *,
-            html.vnexus-tailwind-fallback *::before,
-            html.vnexus-tailwind-fallback *::after {
-              box-sizing: border-box !important;
+            .vnexus-route-main img,
+            .vnexus-route-main video {
+              max-width: 100%;
             }
-            html.vnexus-tailwind-fallback img,
-            html.vnexus-tailwind-fallback video {
-              max-width: 100% !important;
-              height: auto;
+            .vnexus-route-main button,
+            .vnexus-route-main input,
+            .vnexus-route-main textarea,
+            .vnexus-route-main select {
+              font: inherit;
             }
-            html.vnexus-tailwind-fallback button,
-            html.vnexus-tailwind-fallback input,
-            html.vnexus-tailwind-fallback textarea,
-            html.vnexus-tailwind-fallback select {
-              font: inherit !important;
+
+            /* Scoped mini utility fallback：避免 Tailwind CDN 在手機刷新瞬間漏產生時變成裸文字。 */
+            .vnexus-route-main .block { display: block; }
+            .vnexus-route-main .inline-block { display: inline-block; }
+            .vnexus-route-main .inline-flex { display: inline-flex; }
+            .vnexus-route-main .flex { display: flex; }
+            .vnexus-route-main .grid { display: grid; }
+            .vnexus-route-main .hidden { display: none; }
+            .vnexus-route-main .relative { position: relative; }
+            .vnexus-route-main .absolute { position: absolute; }
+            .vnexus-route-main .fixed { position: fixed; }
+            .vnexus-route-main .inset-0 { inset: 0; }
+            .vnexus-route-main .top-0 { top: 0; }
+            .vnexus-route-main .right-0 { right: 0; }
+            .vnexus-route-main .bottom-0 { bottom: 0; }
+            .vnexus-route-main .left-0 { left: 0; }
+            .vnexus-route-main .z-0 { z-index: 0; }
+            .vnexus-route-main .z-10 { z-index: 10; }
+            .vnexus-route-main .z-20 { z-index: 20; }
+            .vnexus-route-main .z-30 { z-index: 30; }
+            .vnexus-route-main .z-40 { z-index: 40; }
+            .vnexus-route-main .z-50 { z-index: 50; }
+            .vnexus-route-main .flex-col { flex-direction: column; }
+            .vnexus-route-main .flex-row { flex-direction: row; }
+            .vnexus-route-main .flex-wrap { flex-wrap: wrap; }
+            .vnexus-route-main .flex-nowrap { flex-wrap: nowrap; }
+            .vnexus-route-main .items-center { align-items: center; }
+            .vnexus-route-main .items-start { align-items: flex-start; }
+            .vnexus-route-main .items-end { align-items: flex-end; }
+            .vnexus-route-main .justify-center { justify-content: center; }
+            .vnexus-route-main .justify-between { justify-content: space-between; }
+            .vnexus-route-main .justify-end { justify-content: flex-end; }
+            .vnexus-route-main .flex-1 { flex: 1 1 0%; }
+            .vnexus-route-main .flex-shrink-0 { flex-shrink: 0; }
+            .vnexus-route-main .min-w-0 { min-width: 0; }
+            .vnexus-route-main .w-full { width: 100%; }
+            .vnexus-route-main .h-full { height: 100%; }
+            .vnexus-route-main .min-h-screen,
+            .vnexus-route-main .min-h-\[100dvh\] { min-height: 100dvh; }
+            .vnexus-route-main .max-w-7xl,
+            .vnexus-route-main .max-w-6xl,
+            .vnexus-route-main .max-w-5xl,
+            .vnexus-route-main .max-w-4xl,
+            .vnexus-route-main .max-w-3xl { max-width: 100%; }
+            .vnexus-route-main .mx-auto { margin-left: auto; margin-right: auto; }
+            .vnexus-route-main .overflow-hidden { overflow: hidden; }
+            .vnexus-route-main .overflow-x-hidden { overflow-x: hidden; }
+            .vnexus-route-main .overflow-x-auto { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .vnexus-route-main .overflow-y-auto { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .vnexus-route-main .object-cover { object-fit: cover; }
+            .vnexus-route-main .text-center { text-align: center; }
+            .vnexus-route-main .text-left { text-align: left; }
+            .vnexus-route-main .font-bold { font-weight: 700; }
+            .vnexus-route-main .font-extrabold,
+            .vnexus-route-main .font-black { font-weight: 900; }
+            .vnexus-route-main .whitespace-nowrap { white-space: nowrap; }
+            .vnexus-route-main .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .vnexus-route-main .line-clamp-2,
+            .vnexus-route-main .line-clamp-3,
+            .vnexus-route-main .line-clamp-4 {
+              display: -webkit-box;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
             }
-            html.vnexus-tailwind-fallback .hidden { display: none !important; }
-            html.vnexus-tailwind-fallback .block { display: block !important; }
-            html.vnexus-tailwind-fallback .flex { display: flex !important; }
-            html.vnexus-tailwind-fallback .inline-flex { display: inline-flex !important; }
-            html.vnexus-tailwind-fallback .grid { display: grid !important; }
-            html.vnexus-tailwind-fallback .relative { position: relative !important; }
-            html.vnexus-tailwind-fallback .absolute { position: absolute !important; }
-            html.vnexus-tailwind-fallback .fixed { position: fixed !important; }
-            html.vnexus-tailwind-fallback .sticky { position: sticky !important; }
-            html.vnexus-tailwind-fallback .inset-0 { inset: 0 !important; }
-            html.vnexus-tailwind-fallback .top-0 { top: 0 !important; }
-            html.vnexus-tailwind-fallback .left-0 { left: 0 !important; }
-            html.vnexus-tailwind-fallback .right-0 { right: 0 !important; }
-            html.vnexus-tailwind-fallback .bottom-0 { bottom: 0 !important; }
-            html.vnexus-tailwind-fallback .flex-col { flex-direction: column !important; }
-            html.vnexus-tailwind-fallback .flex-row { flex-direction: row !important; }
-            html.vnexus-tailwind-fallback .flex-wrap { flex-wrap: wrap !important; }
-            html.vnexus-tailwind-fallback .flex-nowrap { flex-wrap: nowrap !important; }
-            html.vnexus-tailwind-fallback .items-center { align-items: center !important; }
-            html.vnexus-tailwind-fallback .items-start { align-items: flex-start !important; }
-            html.vnexus-tailwind-fallback .items-end { align-items: flex-end !important; }
-            html.vnexus-tailwind-fallback .justify-center { justify-content: center !important; }
-            html.vnexus-tailwind-fallback .justify-between { justify-content: space-between !important; }
-            html.vnexus-tailwind-fallback .justify-end { justify-content: flex-end !important; }
-            html.vnexus-tailwind-fallback .flex-1 { flex: 1 1 0% !important; }
-            html.vnexus-tailwind-fallback .flex-shrink-0 { flex-shrink: 0 !important; }
-            html.vnexus-tailwind-fallback .min-w-0 { min-width: 0 !important; }
-            html.vnexus-tailwind-fallback .w-full { width: 100% !important; }
-            html.vnexus-tailwind-fallback .h-full { height: 100% !important; }
-            html.vnexus-tailwind-fallback .min-h-screen,
-            html.vnexus-tailwind-fallback .min-h-[100dvh] { min-height: 100dvh !important; }
-            html.vnexus-tailwind-fallback .overflow-hidden { overflow: hidden !important; }
-            html.vnexus-tailwind-fallback .overflow-x-hidden { overflow-x: hidden !important; }
-            html.vnexus-tailwind-fallback .overflow-y-auto { overflow-y: auto !important; }
-            html.vnexus-tailwind-fallback .text-center { text-align: center !important; }
-            html.vnexus-tailwind-fallback .text-left { text-align: left !important; }
-            html.vnexus-tailwind-fallback .font-bold { font-weight: 700 !important; }
-            html.vnexus-tailwind-fallback .font-extrabold,
-            html.vnexus-tailwind-fallback .font-black { font-weight: 900 !important; }
-            html.vnexus-tailwind-fallback .truncate {
-              overflow: hidden !important;
-              text-overflow: ellipsis !important;
-              white-space: nowrap !important;
+            .vnexus-route-main .line-clamp-2 { -webkit-line-clamp: 2; }
+            .vnexus-route-main .line-clamp-3 { -webkit-line-clamp: 3; }
+            .vnexus-route-main .line-clamp-4 { -webkit-line-clamp: 4; }
+            .vnexus-route-main .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+            .vnexus-route-main .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .vnexus-route-main .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .vnexus-route-main .gap-1 { gap: .25rem; }
+            .vnexus-route-main .gap-2 { gap: .5rem; }
+            .vnexus-route-main .gap-3 { gap: .75rem; }
+            .vnexus-route-main .gap-4 { gap: 1rem; }
+            .vnexus-route-main .gap-5 { gap: 1.25rem; }
+            .vnexus-route-main .gap-6 { gap: 1.5rem; }
+            .vnexus-route-main .gap-8 { gap: 2rem; }
+            .vnexus-route-main .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: .75rem; }
+            .vnexus-route-main .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+            .vnexus-route-main .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem; }
+            .vnexus-route-main .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
+            .vnexus-route-main .rounded-lg { border-radius: .5rem; }
+            .vnexus-route-main .rounded-xl { border-radius: .75rem; }
+            .vnexus-route-main .rounded-2xl { border-radius: 1rem; }
+            .vnexus-route-main .rounded-3xl { border-radius: 1.5rem; }
+            .vnexus-route-main .rounded-full { border-radius: 9999px; }
+            .vnexus-route-main .border { border-width: 1px; border-style: solid; }
+            .vnexus-route-main .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+            .vnexus-route-main .border-t { border-top-width: 1px; border-top-style: solid; }
+            .vnexus-route-main .border-\[\#2A2F3D\] { border-color: #2A2F3D; }
+            .vnexus-route-main .bg-\[\#0F111A\] { background-color: #0F111A; }
+            .vnexus-route-main .bg-\[\#11131C\] { background-color: #11131C; }
+            .vnexus-route-main .bg-\[\#181B25\] { background-color: #181B25; }
+            .vnexus-route-main .bg-\[\#1D2130\] { background-color: #1D2130; }
+            .vnexus-route-main .text-white { color: #FFFFFF; }
+            .vnexus-route-main .text-\[\#F8FAFC\] { color: #F8FAFC; }
+            .vnexus-route-main .text-\[\#E2E8F0\] { color: #E2E8F0; }
+            .vnexus-route-main .text-\[\#CBD5E1\] { color: #CBD5E1; }
+            .vnexus-route-main .text-\[\#94A3B8\] { color: #94A3B8; }
+            .vnexus-route-main .text-\[\#64748B\] { color: #64748B; }
+            .vnexus-route-main .text-\[\#A78BFA\] { color: #A78BFA; }
+            .vnexus-route-main .text-\[\#38BDF8\] { color: #38BDF8; }
+            .vnexus-route-main .text-\[\#22C55E\] { color: #22C55E; }
+            .vnexus-route-main .text-\[\#F59E0B\] { color: #F59E0B; }
+            .vnexus-route-main .text-\[\#EF4444\] { color: #EF4444; }
+
+            /* 後來新增的兩個委託分頁：保留既有風格，但不外溢到其他分頁。 */
+            .vnexus-route-main[data-vnexus-view="commissions"] .vnexus-commission-page,
+            .vnexus-route-main[data-vnexus-view="commission-board"] .vnexus-commission-page {
+              width: 100%;
+              max-width: 100%;
+              margin-left: auto;
+              margin-right: auto;
+              overflow-x: hidden;
             }
-            html.vnexus-tailwind-fallback .line-clamp-2,
-            html.vnexus-tailwind-fallback .line-clamp-3,
-            html.vnexus-tailwind-fallback .line-clamp-4 {
-              display: -webkit-box !important;
-              -webkit-box-orient: vertical !important;
-              overflow: hidden !important;
+            .vnexus-route-main[data-vnexus-view="commissions"] .vnexus-commission-grid,
+            .vnexus-route-main[data-vnexus-view="commission-board"] .vnexus-commission-grid {
+              display: grid;
+              grid-template-columns: repeat(1, minmax(0, 1fr));
+              gap: 1rem;
             }
-            html.vnexus-tailwind-fallback .line-clamp-2 { -webkit-line-clamp: 2 !important; }
-            html.vnexus-tailwind-fallback .line-clamp-3 { -webkit-line-clamp: 3 !important; }
-            html.vnexus-tailwind-fallback .line-clamp-4 { -webkit-line-clamp: 4 !important; }
-            html.vnexus-tailwind-fallback .rounded-lg { border-radius: .5rem !important; }
-            html.vnexus-tailwind-fallback .rounded-xl { border-radius: .75rem !important; }
-            html.vnexus-tailwind-fallback .rounded-2xl { border-radius: 1rem !important; }
-            html.vnexus-tailwind-fallback .rounded-full { border-radius: 9999px !important; }
-            html.vnexus-tailwind-fallback .object-cover { object-fit: cover !important; }
-            html.vnexus-tailwind-fallback .transition-colors,
-            html.vnexus-tailwind-fallback .transition-all,
-            html.vnexus-tailwind-fallback .animate-fade-in-up {
-              animation: none !important;
-              transition-property: none !important;
-              opacity: 1 !important;
-              transform: none !important;
+
+            /* 從委託頁刷新後切到其他分頁時，避免深捲動、寬卡片或橫向容器把新分頁撐壞。 */
+            .vnexus-route-main[data-vnexus-view="home"] section,
+            .vnexus-route-main[data-vnexus-view="bulletin"] section,
+            .vnexus-route-main[data-vnexus-view="status_wall"] section,
+            .vnexus-route-main[data-vnexus-view="grid"] section,
+            .vnexus-route-main[data-vnexus-view="home"] > div,
+            .vnexus-route-main[data-vnexus-view="bulletin"] > div,
+            .vnexus-route-main[data-vnexus-view="status_wall"] > div,
+            .vnexus-route-main[data-vnexus-view="grid"] > div {
+              max-width: 100%;
+              min-width: 0;
+              overflow-x: hidden;
             }
-            html.vnexus-tailwind-fallback header,
-            html.vnexus-tailwind-fallback nav {
-              background: rgba(15,17,26,.96) !important;
-              border-color: #2A2F3D !important;
-              color: #E2E8F0 !important;
-            }
-            html.vnexus-tailwind-fallback main,
-            html.vnexus-tailwind-fallback .max-w-7xl,
-            html.vnexus-tailwind-fallback .max-w-6xl,
-            html.vnexus-tailwind-fallback .max-w-5xl,
-            html.vnexus-tailwind-fallback .max-w-4xl,
-            html.vnexus-tailwind-fallback .max-w-3xl {
-              width: 100% !important;
-              max-width: 100% !important;
-              margin-left: auto !important;
-              margin-right: auto !important;
-              padding-left: 1rem !important;
-              padding-right: 1rem !important;
-            }
-            html.vnexus-tailwind-fallback section,
-            html.vnexus-tailwind-fallback .vnexus-home-section,
-            html.vnexus-tailwind-fallback .vnexus-section {
-              width: 100% !important;
-              min-width: 0 !important;
-              overflow-x: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .custom-scrollbar,
-            html.vnexus-tailwind-fallback .overflow-x-auto {
-              overflow-x: auto !important;
-              -webkit-overflow-scrolling: touch !important;
-            }
-            html.vnexus-tailwind-fallback .grid-cols-1,
-            html.vnexus-tailwind-fallback .sm\:grid-cols-2,
-            html.vnexus-tailwind-fallback .md\:grid-cols-3,
-            html.vnexus-tailwind-fallback .lg\:grid-cols-3,
-            html.vnexus-tailwind-fallback .xl\:grid-cols-3 {
-              grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-page {
-              display: block !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              margin: 0 auto !important;
-              padding: 1rem !important;
-              min-height: 100dvh !important;
-              overflow-x: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-hero,
-            html.vnexus-tailwind-fallback .vnexus-commission-controls {
-              width: 100% !important;
-              background: #181B25 !important;
-              border: 1px solid #2A2F3D !important;
-              border-radius: 1.25rem !important;
-              padding: 1rem !important;
-              margin-bottom: 1rem !important;
-              overflow: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-controls { background: #11131C !important; }
-            html.vnexus-tailwind-fallback .vnexus-commission-hero h2 {
-              color: #FFFFFF !important;
-              font-size: 1.45rem !important;
-              line-height: 1.18 !important;
-              margin: 0 !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-hero-actions,
-            html.vnexus-tailwind-fallback .vnexus-commission-controls-grid,
-            html.vnexus-tailwind-fallback .vnexus-critical-actions {
-              display: grid !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              gap: .5rem !important;
-              width: 100% !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-role-row,
-            html.vnexus-tailwind-fallback .vnexus-commission-filter-scroll {
-              display: flex !important;
-              flex-wrap: nowrap !important;
-              gap: .375rem !important;
-              overflow-x: auto !important;
-              padding-bottom: .25rem !important;
-              scrollbar-width: none !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-commission-grid,
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-list {
-              display: grid !important;
-              grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-              gap: 1rem !important;
-              width: 100% !important;
-              min-width: 0 !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-creator-market-card,
-            html.vnexus-tailwind-fallback .vnexus-vtuber-card,
-            html.vnexus-tailwind-fallback .bg-\[\#181B25\],
-            html.vnexus-tailwind-fallback .bg-\[\#1D2130\] {
-              background: #181B25 !important;
-              border: 1px solid #2A2F3D !important;
-              color: #E2E8F0 !important;
-              border-radius: 1.25rem !important;
-              overflow: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-critical-card {
-              display: flex !important;
-              flex-direction: column !important;
-              background: #151923 !important;
-              border: 1px solid #2A2F3D !important;
-              border-radius: 1.5rem !important;
-              overflow: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-critical-visual {
-              position: relative !important;
-              width: 100% !important;
-              aspect-ratio: 1 / 1 !important;
-              background: #11131C !important;
-              overflow: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-critical-body {
-              padding: 1.25rem !important;
-              background: #151923 !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-page {
-              display: flex !important;
-              flex-direction: column !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              margin: 0 auto !important;
-              padding: 1rem !important;
-              gap: 1rem !important;
-              overflow-x: hidden !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel.hidden { display: none !important; }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel.block,
-            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel:not(.hidden) { display: block !important; }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-toolbar,
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions,
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-search-sort {
-              display: flex !important;
-              flex-direction: column !important;
-              gap: .75rem !important;
-              width: 100% !important;
-              min-width: 0 !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions {
-              flex-direction: row !important;
-              flex-wrap: wrap !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions h2 {
-              flex: 1 0 100% !important;
-              margin: 0 !important;
-              color: #fff !important;
-              font-size: 1.45rem !important;
-              font-weight: 900 !important;
-            }
-            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions button,
-            html.vnexus-tailwind-fallback button {
-              display: inline-flex !important;
-              align-items: center !important;
-              justify-content: center !important;
-              min-height: 38px !important;
-              border-radius: .85rem !important;
-              padding: .55rem .75rem !important;
-              border: 1px solid #2A2F3D !important;
-            }
-            html.vnexus-tailwind-fallback input,
-            html.vnexus-tailwind-fallback textarea,
-            html.vnexus-tailwind-fallback select {
-              display: block !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              border-radius: .875rem !important;
-              border: 1px solid #2A2F3D !important;
-              background: #181B25 !important;
-              color: #FFFFFF !important;
-              outline: none !important;
-            }
-            html.vnexus-tailwind-fallback input,
-            html.vnexus-tailwind-fallback select { min-height: 38px !important; }
-            html.vnexus-tailwind-fallback textarea { min-height: 7rem !important; }
-            html.vnexus-tailwind-fallback a { color: inherit; }
           }
         `;
         document.head.appendChild(style);
     };
-    const hasTailwindUtilities = () => {
-        if (typeof document === "undefined" || !document.body)
-            return true;
-        const holder = document.createElement("div");
-        holder.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;";
-        const hiddenProbe = document.createElement("div");
-        hiddenProbe.className = "hidden";
-        const flexProbe = document.createElement("div");
-        flexProbe.className = "flex";
-        holder.appendChild(hiddenProbe);
-        holder.appendChild(flexProbe);
-        document.body.appendChild(holder);
-        const hiddenOk = window.getComputedStyle(hiddenProbe).display === "none";
-        const flexOk = window.getComputedStyle(flexProbe).display === "flex";
-        holder.remove();
-        return hiddenOk && flexOk;
-    };
-    const tryReloadTailwind = () => {
-        if (recoveryScriptLoaded || typeof document === "undefined")
+    const stabilize = () => {
+        removeLegacyRecoveryState();
+        installStableRouteStyle();
+        if (typeof document === "undefined")
             return;
-        recoveryScriptLoaded = true;
-        const script = document.createElement("script");
-        script.id = "vnexus-tailwind-recovery-loader";
-        script.src = "https://cdn.tailwindcss.com?recover=" + Date.now();
-        script.async = true;
-        script.onload = () => setTimeout(checkAndApply, 250);
-        script.onerror = () => console.warn("V-Nexus: Tailwind CDN recovery load failed; using fallback CSS.");
-        document.head.appendChild(script);
+        document.documentElement.style.overflowX = "hidden";
+        if (document.body)
+            document.body.style.overflowX = "hidden";
     };
-    const checkAndApply = () => {
-        if (!isMobileViewport()) {
-            document.documentElement.classList.remove("vnexus-tailwind-fallback");
-            return;
-        }
-        installFallbackStyle();
-        const ok = hasTailwindUtilities();
-        document.documentElement.classList.toggle("vnexus-tailwind-fallback", !ok);
-        if (!ok)
-            tryReloadTailwind();
-    };
-    const scheduleCheck = (delay = 60) => {
-        if (recoveryTimer)
-            clearTimeout(recoveryTimer);
-        recoveryTimer = setTimeout(checkAndApply, delay);
+    const scheduleStabilize = (delay = 0) => {
+        if (cleanupTimer)
+            clearTimeout(cleanupTimer);
+        cleanupTimer = setTimeout(stabilize, Math.max(0, Number(delay) || 0));
     };
     return () => {
         if (initialized || typeof window === "undefined" || typeof document === "undefined")
@@ -1108,26 +983,18 @@ const initVnexusMobileCssRecovery = (() => {
                 history.scrollRestoration = "manual";
         }
         catch (error) { }
-        window.vnexusRecheckMobileCss = scheduleCheck;
-        installFallbackStyle();
-        scheduleCheck(0);
+        window.vnexusRecheckMobileCss = scheduleStabilize;
+        stabilize();
         ["DOMContentLoaded", "load", "pageshow", "hashchange", "orientationchange", "resize"].forEach((eventName) => {
-            window.addEventListener(eventName, () => scheduleCheck(eventName === "resize" ? 160 : 40), { passive: true });
+            window.addEventListener(eventName, () => scheduleStabilize(eventName === "resize" ? 160 : 30), { passive: true });
         });
         document.addEventListener("visibilitychange", () => {
             if (!document.hidden)
-                scheduleCheck(60);
+                scheduleStabilize(30);
         }, { passive: true });
-        let attempts = 0;
-        const interval = setInterval(() => {
-            attempts += 1;
-            scheduleCheck(0);
-            if (attempts >= 12 || hasTailwindUtilities())
-                clearInterval(interval);
-        }, 800);
     };
 })();
-initVnexusMobileCssRecovery();
+initVnexusMobileLayoutStability();
 
 const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) => {
     const safeSrc = sanitizeUrl(src);
@@ -3390,13 +3257,62 @@ const ProfileEditorForm = ({ form, updateForm, onSubmit, onCancel, isAdmin, show
 };
 const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDeleteAll, onNavigateProfile, onBraveResponse, onOpenChat, }) => {
     const [page, setPage] = useState(1);
+    const [activeCategory, setActiveCategory] = useState("all");
     const itemsPerPage = 10;
-    const totalPages = Math.ceil(notifications.length / itemsPerPage);
-    const displayNotifications = notifications.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+    const getNotificationCategory = (n) => {
+        switch (n?.type) {
+            case "brave_invite":
+            case "brave_response":
+                return { id: "brave", label: "勇敢邀請", icon: "fa-heart", cls: "text-[#F472B6] bg-[#F472B6]/10 border-[#F472B6]/25" };
+            case "chat_notification":
+                return { id: "chat", label: "私訊通知", icon: "fa-comments", cls: "text-[#A78BFA] bg-[#8B5CF6]/10 border-[#8B5CF6]/25" };
+            case "collab_invite":
+            case "collab_invite_sent":
+            case "collab_added":
+                return { id: "collab", label: "邀約聯動通知", icon: "fa-handshake", cls: "text-[#38BDF8] bg-[#38BDF8]/10 border-[#38BDF8]/25" };
+            case "commission_apply":
+                return { id: "commission", label: "委託通知", icon: "fa-briefcase", cls: "text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/25" };
+            case "bulletin_apply":
+                return { id: "bulletin", label: "揪團通知", icon: "fa-bullhorn", cls: "text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/25" };
+            case "status_reaction":
+            case "status_comment":
+                return { id: "status", label: "動態牆通知", icon: "fa-bolt", cls: "text-[#FBBF24] bg-[#F59E0B]/10 border-[#F59E0B]/25" };
+            case "system_notice":
+            case "test_push":
+                return { id: "system", label: "系統通知", icon: "fa-circle-info", cls: "text-[#94A3B8] bg-[#94A3B8]/10 border-[#94A3B8]/25" };
+            default:
+                return { id: "other", label: "其他通知", icon: "fa-inbox", cls: "text-[#CBD5E1] bg-[#1D2130] border-[#2A2F3D]" };
+        }
+    };
+    const categoryDefinitions = [
+        { id: "all", label: "全部", icon: "fa-inbox" },
+        { id: "brave", label: "勇敢邀請", icon: "fa-heart" },
+        { id: "chat", label: "私訊通知", icon: "fa-comments" },
+        { id: "collab", label: "邀約聯動通知", icon: "fa-handshake" },
+        { id: "commission", label: "委託通知", icon: "fa-briefcase" },
+        { id: "bulletin", label: "揪團通知", icon: "fa-bullhorn" },
+        { id: "status", label: "動態牆通知", icon: "fa-bolt" },
+        { id: "system", label: "系統通知", icon: "fa-circle-info" },
+        { id: "other", label: "其他通知", icon: "fa-ellipsis" },
+    ];
+    const categoryOptions = categoryDefinitions
+        .map((cat) => ({
+        ...cat,
+        count: cat.id === "all" ? notifications.length : notifications.filter((n) => getNotificationCategory(n).id === cat.id).length,
+    }))
+        .filter((cat) => cat.id === "all" || cat.count > 0);
+    const filteredNotifications = activeCategory === "all"
+        ? notifications
+        : notifications.filter((n) => getNotificationCategory(n).id === activeCategory);
+    const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
+    const displayNotifications = filteredNotifications.slice((page - 1) * itemsPerPage, page * itemsPerPage);
     useEffect(() => {
         if (page > totalPages && totalPages > 0)
             setPage(totalPages);
-    }, [notifications.length, totalPages, page]);
+    }, [filteredNotifications.length, totalPages, page]);
+    useEffect(() => {
+        setPage(1);
+    }, [activeCategory, notifications.length]);
     return (React.createElement("div", { className: "max-w-4xl mx-auto px-4 py-10 animate-fade-in-up" },
         React.createElement("div", { className: "flex flex-col sm:flex-row sm:justify-between sm:items-end mb-8 border-b border-[#2A2F3D] pb-4 gap-4" },
             React.createElement("div", null,
@@ -3412,15 +3328,23 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDelet
                 notifications.length > 0 && (React.createElement("button", { onClick: onDeleteAll, className: "text-sm font-bold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 px-4 py-2 rounded-xl" },
                     React.createElement("i", { className: "fa-solid fa-trash-can mr-1" }),
                     " \u4E00\u9375\u522A\u9664\u5168\u90E8")))),
-        notifications.length === 0 ? (React.createElement("div", { className: "text-center py-24 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]/50 shadow-md" },
+        notifications.length > 0 && (React.createElement("div", { className: "mb-6 bg-[#181B25]/70 border border-[#2A2F3D] rounded-2xl p-3 shadow-sm" },
+            React.createElement("div", { className: "vnexus-commission-filter-scroll flex flex-nowrap gap-2 overflow-x-auto pb-1" }, categoryOptions.map((cat) => (React.createElement("button", { key: cat.id, onClick: () => setActiveCategory(cat.id), className: `flex-shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-extrabold border transition-colors ${activeCategory === cat.id ? "bg-[#8B5CF6] text-white border-[#8B5CF6] shadow-md" : "bg-[#0F111A] text-[#CBD5E1] border-[#2A2F3D] hover:border-[#8B5CF6]/50"}` },
+                React.createElement("i", { className: `fa-solid ${cat.icon}` }),
+                React.createElement("span", null, cat.label),
+                React.createElement("span", { className: `px-1.5 py-0.5 rounded-full text-[10px] ${activeCategory === cat.id ? "bg-white/20 text-white" : "bg-[#1D2130] text-[#94A3B8]"}` }, cat.count))))))),
+        filteredNotifications.length === 0 ? (React.createElement("div", { className: "text-center py-24 bg-[#181B25]/40 rounded-2xl border border-[#2A2F3D]/50 shadow-md" },
             React.createElement("i", { className: "fa-regular fa-envelope-open text-6xl text-gray-600 mb-6" }),
-            React.createElement("p", { className: "text-[#94A3B8] font-bold text-lg" }, "\u4FE1\u7BB1\u76EE\u524D\u7A7A\u7A7A\u5982\u4E5F\uFF01"))) : (React.createElement("div", { className: "space-y-4" }, displayNotifications.map((n) => (React.createElement("div", { key: n.id, className: `p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? "bg-[#181B25]/60 border-[#2A2F3D]" : "bg-[#181B25] border-white/10 shadow-sm"}` },
+            React.createElement("p", { className: "text-[#94A3B8] font-bold text-lg" }, activeCategory === "all" ? "信箱目前空空如也！" : "這個分類目前沒有通知。"))) : (React.createElement("div", { className: "space-y-4" }, displayNotifications.map((n) => (React.createElement("div", { key: n.id, className: `p-5 sm:p-6 rounded-2xl border transition-all ${n.read ? "bg-[#181B25]/60 border-[#2A2F3D]" : "bg-[#181B25] border-white/10 shadow-sm"}` },
             React.createElement("div", { className: "flex items-start gap-4 sm:gap-5" },
                 React.createElement("img", { src: sanitizeUrl(n.fromUserAvatar ||
                         "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"), onClick: () => onNavigateProfile(n.type === "collab_invite_sent" ? n.targetUserId : n.fromUserId), className: "w-14 h-14 rounded-full border border-[#2A2F3D] bg-[#0F111A] object-cover cursor-pointer hover:border-[#A78BFA]" }),
                 React.createElement("div", { className: "col-span-2 xl:col-span-1 min-w-0" },
                     React.createElement("div", { className: "flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2" },
                         React.createElement("h4", { className: "font-bold text-white text-lg flex flex-wrap items-center gap-2" },
+                            (() => { const meta = getNotificationCategory(n); return React.createElement("span", { className: `inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-extrabold whitespace-nowrap ${meta.cls}` },
+                                React.createElement("i", { className: `fa-solid ${meta.icon}` }),
+                                meta.label); })(),
                             React.createElement("span", { onClick: () => onNavigateProfile(n.fromUserId), className: "cursor-pointer hover:text-[#A78BFA]" }, n.fromUserName),
                             !n.read && (React.createElement("span", { className: "bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap" }, "\u65B0\u901A\u77E5"))),
                         React.createElement("span", { className: "text-xs text-[#64748B] font-medium whitespace-nowrap" },
@@ -3438,6 +3362,9 @@ const InboxPage = ({ notifications, markAllAsRead, onMarkRead, onDelete, onDelet
                         (n.type === "chat_notification" || n.type === "collab_invite") && (React.createElement("button", { onClick: () => onOpenChat(n), className: "text-xs font-bold text-white bg-[#8B5CF6] hover:bg-[#8B5CF6] px-4 py-2 rounded-lg flex items-center shadow-md transition-transform" },
                             React.createElement("i", { className: "fa-solid fa-comments mr-2" }),
                             " \u67E5\u770B\u804A\u5929\u5BA4")),
+                        (n.type === "status_reaction" || n.type === "status_comment") && (React.createElement("button", { onClick: () => { if (!n.read) onMarkRead(n.id); window.location.hash = "status_wall"; }, className: "text-xs font-bold text-[#0F111A] bg-[#F59E0B] hover:bg-[#D97706] px-4 py-2 rounded-lg flex items-center shadow-md transition-transform" },
+                            React.createElement("i", { className: "fa-solid fa-bolt mr-2" }),
+                            " \u67E5\u770B\u52D5\u614B\u7246")),
                         React.createElement("button", { onClick: () => onNavigateProfile(n.fromUserId), className: "text-xs font-bold text-[#CBD5E1] bg-[#1D2130] hover:bg-[#2A2F3D] px-4 py-2 rounded-lg flex items-center shadow-md" },
                             React.createElement("i", { className: "fa-solid fa-address-card mr-2" }),
                             " \u67E5\u770B\u540D\u7247"),
@@ -5155,6 +5082,23 @@ function App() {
     useEffect(() => {
         applyVnexusSeoMeta(currentView, selectedVTuber);
     }, [currentView, selectedVTuber]);
+    useEffect(() => {
+        if (typeof document === "undefined")
+            return;
+        document.documentElement.setAttribute("data-vnexus-view", currentView || "home");
+        document.documentElement.classList.remove("vnexus-tailwind-fallback");
+        document.body?.classList.remove("vnexus-tailwind-fallback");
+        const legacyStyle = document.getElementById("vnexus-mobile-css-recovery-style");
+        if (legacyStyle)
+            legacyStyle.remove();
+        const legacyLoader = document.getElementById("vnexus-tailwind-recovery-loader");
+        if (legacyLoader)
+            legacyLoader.remove();
+        document.documentElement.style.overflowX = "hidden";
+        if (document.body)
+            document.body.style.overflowX = "hidden";
+        window.vnexusRecheckMobileCss?.(0);
+    }, [currentView]);
     const [user, setUser] = useState(null);
     const [realVtubers, setRealVtubers] = useState(() => {
         const cached = localStorage.getItem(VTUBER_CACHE_KEY);
@@ -8436,7 +8380,7 @@ function App() {
         return { user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers };
     }, [user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers]);
     return (React.createElement(AppContext.Provider, { value: contextValue },
-        React.createElement("div", { className: "flex flex-col min-h-screen relative" },
+        React.createElement("div", { className: "vnexus-app-shell flex flex-col min-h-screen relative", "data-vnexus-current-view": currentView },
             toastMsg && (React.createElement("div", { className: "fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#181B25] border border-[#8B5CF6] text-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3 font-bold text-sm" },
                 React.createElement("i", { className: "fa-solid fa-circle-info text-[#A78BFA]" }),
                 " ",
@@ -8581,7 +8525,7 @@ function App() {
                             React.createElement("i", { className: "fa-solid fa-shield-halved w-5" }),
                             " \u7CFB\u7D71\u7BA1\u7406\u54E1"),
                         (pendingVtubersCount > 0 || realArticles.filter(a => a.status === 'pending').length > 0) && (React.createElement("span", { className: "bg-[#EF4444] text-white text-[10px] px-2 py-0.5 rounded-full" }, pendingVtubersCount + realArticles.filter(a => a.status === 'pending').length))))))),
-            React.createElement("main", { className: "flex-1 pb-10" },
+            React.createElement("main", { className: `vnexus-route-main vnexus-view-${currentView} flex-1 pb-10`, "data-vnexus-view": currentView },
                 currentView === "home" && (React.createElement(HomePage, { navigate: navigate, onOpenRules: () => setIsRulesModalOpen(true), onOpenUpdates: () => setIsUpdatesModalOpen(true), hasUnreadUpdates: hasUnreadUpdates, siteStats: siteStats, realCollabs: realCollabs, displayCollabs: displayCollabs, currentTime: currentTime, 
                     // 這裡改為檢查 realBulletins 是否有資料，來決定統計數字是否顯示轉圈圈
                     isLoadingCollabs: realBulletins.length === 0, goToBulletin: goToBulletin, 
