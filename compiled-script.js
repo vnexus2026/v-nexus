@@ -897,6 +897,315 @@ const initVnexusImageLoadingUX = (() => {
           }
         }
 
+
+        /* ✅ 手機版尋找 VTuber 夥伴穩定器：不再依賴 Tailwind CDN 即時產生 CSS */
+        @media (max-width: 1023px) {
+          #root > div {
+            min-height: 100dvh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            background: #0F111A !important;
+          }
+          main {
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            max-width: 80rem !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding-bottom: 2.5rem !important;
+            overflow-x: hidden !important;
+          }
+          nav {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 40 !important;
+            background: rgba(15, 17, 26, .96) !important;
+            border-bottom: 1px solid #2A2F3D !important;
+            box-shadow: 0 10px 26px rgba(0,0,0,.22) !important;
+            backdrop-filter: blur(14px) !important;
+            -webkit-backdrop-filter: blur(14px) !important;
+          }
+          nav > div {
+            width: 100% !important;
+            max-width: 80rem !important;
+            margin: 0 auto !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+          }
+          nav > div > div {
+            height: 4rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: .75rem !important;
+          }
+          nav button {
+            border: 0 !important;
+            border-radius: 999px !important;
+            font-weight: 800 !important;
+            white-space: nowrap !important;
+          }
+          .vnexus-vtuber-grid-page .relative { position: relative !important; }
+          .vnexus-vtuber-grid-page .absolute { position: absolute !important; }
+          .vnexus-vtuber-grid-page .inset-0 { inset: 0 !important; }
+          .vnexus-vtuber-grid-page .z-10 { z-index: 10 !important; }
+          .vnexus-vtuber-grid-page .w-full { width: 100% !important; }
+          .vnexus-vtuber-grid-page .h-full { height: 100% !important; }
+          .vnexus-vtuber-grid-page .h-20 { height: 5rem !important; }
+          .vnexus-vtuber-grid-page .w-16 { width: 4rem !important; }
+          .vnexus-vtuber-grid-page .h-16 { height: 4rem !important; }
+          .vnexus-vtuber-grid-page .w-4 { width: 1rem !important; }
+          .vnexus-vtuber-grid-page .h-2 { height: .5rem !important; }
+          .vnexus-vtuber-grid-page .flex { display: flex !important; }
+          .vnexus-vtuber-grid-page .grid { display: grid !important; }
+          .vnexus-vtuber-grid-page .hidden { display: none !important; }
+          .vnexus-vtuber-grid-page .block { display: block !important; }
+          .vnexus-vtuber-grid-page .inline-flex { display: inline-flex !important; }
+          .vnexus-vtuber-grid-page .flex-col { flex-direction: column !important; }
+          .vnexus-vtuber-grid-page .flex-wrap { flex-wrap: wrap !important; }
+          .vnexus-vtuber-grid-page .items-center { align-items: center !important; }
+          .vnexus-vtuber-grid-page .items-start { align-items: flex-start !important; }
+          .vnexus-vtuber-grid-page .justify-between { justify-content: space-between !important; }
+          .vnexus-vtuber-grid-page .justify-center { justify-content: center !important; }
+          .vnexus-vtuber-grid-page .flex-1 { flex: 1 1 0% !important; }
+          .vnexus-vtuber-grid-page .flex-shrink-0 { flex-shrink: 0 !important; }
+          .vnexus-vtuber-grid-page .min-w-0 { min-width: 0 !important; }
+          .vnexus-vtuber-grid-page .overflow-hidden { overflow: hidden !important; }
+          .vnexus-vtuber-grid-page .object-cover { object-fit: cover !important; }
+          .vnexus-vtuber-grid-page .truncate {
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+          .vnexus-vtuber-grid-page .cursor-pointer { cursor: pointer !important; }
+          .vnexus-vtuber-grid-page [class*="gap-1"] { gap: .375rem !important; }
+          .vnexus-vtuber-grid-page [class*="gap-2"] { gap: .5rem !important; }
+          .vnexus-vtuber-grid-page [class*="gap-3"] { gap: .75rem !important; }
+          .vnexus-vtuber-grid-page [class*="gap-4"] { gap: 1rem !important; }
+          .vnexus-vtuber-grid-page [class*="grid-cols-1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+          .vnexus-vtuber-grid-page [class*="grid-cols-2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .vnexus-vtuber-grid-page [class*="rounded-full"] { border-radius: 999px !important; }
+          .vnexus-vtuber-grid-page [class*="rounded-2xl"] { border-radius: 1rem !important; }
+          .vnexus-vtuber-grid-page [class*="rounded-xl"] { border-radius: .75rem !important; }
+          .vnexus-vtuber-grid-page [class*="rounded-lg"] { border-radius: .5rem !important; }
+          .vnexus-vtuber-grid-page [class*="border"] { border-style: solid !important; border-width: 1px !important; }
+          .vnexus-vtuber-grid-page [class*="border-[#2A2F3D]"] { border-color: #2A2F3D !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#0F111A]"] { background-color: #0F111A !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#11131C]"] { background-color: #11131C !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#181B25]"] { background-color: #181B25 !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#1D2130]"] { background-color: #1D2130 !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#8B5CF6]"] { background-color: #8B5CF6 !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#22C55E]"] { background-color: #22C55E !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#38BDF8]"] { background-color: #38BDF8 !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#EF4444]"] { background-color: #EF4444 !important; }
+          .vnexus-vtuber-grid-page [class*="bg-[#F59E0B]"] { background-color: #F59E0B !important; }
+          .vnexus-vtuber-grid-page [class*="text-white"] { color: #FFFFFF !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#F8FAFC]"] { color: #F8FAFC !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#CBD5E1]"] { color: #CBD5E1 !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#94A3B8]"] { color: #94A3B8 !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#64748B]"] { color: #64748B !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#8B5CF6]"] { color: #8B5CF6 !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#A78BFA]"] { color: #A78BFA !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#38BDF8]"] { color: #38BDF8 !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#22C55E]"] { color: #22C55E !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#EF4444]"] { color: #EF4444 !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#F59E0B]"] { color: #F59E0B !important; }
+          .vnexus-vtuber-grid-page [class*="text-[#F472B6]"] { color: #F472B6 !important; }
+          .vnexus-vtuber-grid-page [class*="text-xs"] { font-size: .75rem !important; line-height: 1rem !important; }
+          .vnexus-vtuber-grid-page [class*="text-sm"] { font-size: .875rem !important; line-height: 1.25rem !important; }
+          .vnexus-vtuber-grid-page [class*="text-2xl"] { font-size: 1.5rem !important; line-height: 2rem !important; }
+          .vnexus-vtuber-grid-page [class*="font-bold"] { font-weight: 700 !important; }
+          .vnexus-vtuber-grid-page [class*="font-semibold"] { font-weight: 600 !important; }
+          .vnexus-vtuber-grid-page [class*="font-extrabold"] { font-weight: 800 !important; }
+          .vnexus-vtuber-grid-page [class*="leading-tight"] { line-height: 1.25 !important; }
+          .vnexus-vtuber-grid-page [class*="leading-relaxed"] { line-height: 1.625 !important; }
+          .vnexus-vtuber-grid-page [class*="mb-1"] { margin-bottom: .25rem !important; }
+          .vnexus-vtuber-grid-page [class*="mb-2"] { margin-bottom: .5rem !important; }
+          .vnexus-vtuber-grid-page [class*="mb-3"] { margin-bottom: .75rem !important; }
+          .vnexus-vtuber-grid-page [class*="mb-4"] { margin-bottom: 1rem !important; }
+          .vnexus-vtuber-grid-page [class*="mb-6"] { margin-bottom: 1.5rem !important; }
+          .vnexus-vtuber-grid-page [class*="mt-0.5"] { margin-top: .125rem !important; }
+          .vnexus-vtuber-grid-page [class*="mt-2"] { margin-top: .5rem !important; }
+          .vnexus-vtuber-grid-page [class*="mt-12"] { margin-top: 3rem !important; }
+          .vnexus-vtuber-grid-page [class*="-mt-10"] { margin-top: -2.5rem !important; }
+          .vnexus-vtuber-grid-page [class*="p-1"] { padding: .25rem !important; }
+          .vnexus-vtuber-grid-page [class*="p-4"] { padding: 1rem !important; }
+          .vnexus-vtuber-grid-page [class*="p-5"] { padding: 1.25rem !important; }
+          .vnexus-vtuber-grid-page [class*="px-2"] { padding-left: .5rem !important; padding-right: .5rem !important; }
+          .vnexus-vtuber-grid-page [class*="px-2.5"] { padding-left: .625rem !important; padding-right: .625rem !important; }
+          .vnexus-vtuber-grid-page [class*="px-3"] { padding-left: .75rem !important; padding-right: .75rem !important; }
+          .vnexus-vtuber-grid-page [class*="py-1"] { padding-top: .25rem !important; padding-bottom: .25rem !important; }
+          .vnexus-vtuber-grid-page [class*="py-1.5"] { padding-top: .375rem !important; padding-bottom: .375rem !important; }
+          .vnexus-vtuber-grid-page [class*="pt-3"] { padding-top: .75rem !important; }
+          .vnexus-vtuber-grid-page [class*="pt-8"] { padding-top: 2rem !important; }
+          .vnexus-vtuber-grid-page [class*="border-t"] { border-top: 1px solid #2A2F3D !important; }
+          .vnexus-vtuber-grid-page [class*="border-b"] { border-bottom: 1px solid #2A2F3D !important; }
+          .vnexus-vtuber-grid-page [class*="opacity-45"] { opacity: .45 !important; }
+          .vnexus-vtuber-grid-page [class*="opacity-0"] { opacity: 0 !important; }
+          .vnexus-vtuber-grid-page [class*="opacity-100"] { opacity: 1 !important; }
+
+          .vnexus-vtuber-filter-panel h3 {
+            margin: 0 0 1rem 0 !important;
+            padding-bottom: .5rem !important;
+            border-bottom: 1px solid #2A2F3D !important;
+            color: #CBD5E1 !important;
+            font-size: .95rem !important;
+            font-weight: 900 !important;
+          }
+          .vnexus-vtuber-filter-panel p {
+            color: #64748B !important;
+            font-size: .75rem !important;
+            line-height: 1rem !important;
+            margin: 0 0 .5rem 0 !important;
+            font-weight: 800 !important;
+          }
+          .vnexus-vtuber-filter-panel button,
+          .vnexus-vtuber-filter-panel span[role="button"],
+          .vnexus-vtuber-filter-panel span[onclick] {
+            min-height: 32px !important;
+          }
+          .vnexus-vtuber-filter-panel button {
+            border: 0 !important;
+            border-radius: .55rem !important;
+            background: transparent !important;
+            color: #94A3B8 !important;
+            font-size: .75rem !important;
+            font-weight: 900 !important;
+            padding: .45rem .5rem !important;
+          }
+          .vnexus-vtuber-filter-panel button[class*="bg-[#8B5CF6]"] {
+            background: #8B5CF6 !important;
+            color: #FFFFFF !important;
+          }
+          .vnexus-vtuber-filter-panel [class*="rounded-full"] {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 30px !important;
+            border-radius: 999px !important;
+            padding: .35rem .7rem !important;
+            font-size: .75rem !important;
+            font-weight: 800 !important;
+            border: 1px solid #2A2F3D !important;
+            background: #181B25 !important;
+            color: #CBD5E1 !important;
+          }
+          .vnexus-vtuber-filter-panel [class*="bg-[#8B5CF6]"][class*="rounded-full"] {
+            background: #8B5CF6 !important;
+            border-color: rgba(139,92,246,.65) !important;
+            color: #FFFFFF !important;
+          }
+
+          .vnexus-vtuber-card-banner-image {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background: #11131C !important;
+          }
+          .vnexus-vtuber-card-avatar-image {
+            width: 4rem !important;
+            height: 4rem !important;
+            border-radius: 1rem !important;
+            border: 1px solid #2A2F3D !important;
+            background: #11131C !important;
+            flex-shrink: 0 !important;
+          }
+          .vnexus-vtuber-card img {
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+          }
+          .vnexus-vtuber-card-body > div:first-child {
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: .75rem !important;
+            margin-top: -2.5rem !important;
+            margin-bottom: .75rem !important;
+            position: relative !important;
+            z-index: 10 !important;
+          }
+          .vnexus-vtuber-card-body > div:first-child > div:last-child {
+            min-width: 0 !important;
+            flex: 1 1 0% !important;
+            padding-top: 2rem !important;
+          }
+          .vnexus-vtuber-card-body > div:nth-child(2) {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: .75rem !important;
+            margin-bottom: .75rem !important;
+          }
+          .vnexus-vtuber-card-body h3 {
+            margin: 0 !important;
+            color: #F8FAFC !important;
+            font-weight: 900 !important;
+            font-size: 1rem !important;
+            line-height: 1.2 !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+            text-overflow: ellipsis !important;
+          }
+          .vnexus-vtuber-card-body p {
+            margin-top: .125rem !important;
+            margin-bottom: 0 !important;
+          }
+          .vnexus-vtuber-card-body span {
+            max-width: 100% !important;
+          }
+          .vnexus-vtuber-card-body [class*="inline-flex"] {
+            display: inline-flex !important;
+            align-items: center !important;
+          }
+          .vnexus-vtuber-card-body [class*="rounded-full"] {
+            border-radius: 999px !important;
+          }
+          .vnexus-vtuber-card-body [class*="min-h-[2.5rem]"] {
+            min-height: 2.5rem !important;
+          }
+          .vnexus-vtuber-card-body [class*="min-h-[1.75rem]"] {
+            min-height: 1.75rem !important;
+          }
+          .vnexus-vtuber-card-body [class*="mt-auto"] {
+            margin-top: auto !important;
+          }
+          .vnexus-vtuber-card-body [class*="space-y-2"] > * + * {
+            margin-top: .5rem !important;
+          }
+          .vnexus-vtuber-card-body [aria-label^="契合度"] {
+            height: .5rem !important;
+            border-radius: 999px !important;
+            background: #0F111A !important;
+            border: 1px solid #2A2F3D !important;
+            overflow: hidden !important;
+          }
+          .vnexus-vtuber-card-body [aria-label^="契合度"] > div {
+            height: 100% !important;
+            border-radius: 999px !important;
+            background: linear-gradient(90deg, #F472B6, #EC4899) !important;
+          }
+          .vnexus-vtuber-grid-list + div,
+          .vnexus-vtuber-grid-page [class*="justify-center"][class*="mt-12"] {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: .75rem !important;
+          }
+          .vnexus-vtuber-grid-list + div button {
+            min-height: 40px !important;
+            border-radius: .75rem !important;
+            border: 1px solid #2A2F3D !important;
+            background: #181B25 !important;
+            color: #FFFFFF !important;
+            font-weight: 900 !important;
+            padding: .55rem .9rem !important;
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .vnexus-image-skeleton,
           img:not(.vnexus-image-loaded):not(.vnexus-image-error) {
@@ -2090,11 +2399,11 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
     const platformLabel = v.mainPlatform || (v.twitchUrl ? 'Twitch' : 'YouTube');
     return (React.createElement("article", { onClick: onSelect, className: "vnexus-vtuber-card group h-full bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] hover:border-[#8B5CF6]/40 rounded-2xl overflow-hidden cursor-pointer transition-colors flex flex-col" },
         React.createElement("div", { className: "vnexus-vtuber-card-banner h-20 relative overflow-hidden bg-[#11131C] border-b border-[#2A2F3D]" },
-            React.createElement(LazyImage, { src: sanitizeUrl(v.banner), containerCls: "absolute inset-0 w-full h-full", imgCls: "opacity-45 group-hover:opacity-55 transition-opacity", alt: `${v.name || 'VTuber'} 橫幅` }),
+            React.createElement(LazyImage, { src: sanitizeUrl(v.banner), containerCls: "vnexus-vtuber-card-banner-image absolute inset-0 w-full h-full", imgCls: "opacity-45 group-hover:opacity-55 transition-opacity", alt: `${v.name || 'VTuber'} 橫幅` }),
             React.createElement("div", { className: "absolute inset-0 bg-[#0F111A]/35" })),
         React.createElement("div", { className: "vnexus-vtuber-card-body p-4 flex-1 flex flex-col" },
             React.createElement("div", { className: "flex items-start gap-3 -mt-10 mb-3 relative z-10" },
-                React.createElement(LazyImage, { src: sanitizeUrl(v.avatar), containerCls: "w-16 h-16 rounded-2xl border border-[#2A2F3D] bg-[#11131C] flex-shrink-0", imgCls: "rounded-2xl", alt: `${v.name || 'VTuber'} 頭像` }),
+                React.createElement(LazyImage, { src: sanitizeUrl(v.avatar), containerCls: "vnexus-vtuber-card-avatar-image w-16 h-16 rounded-2xl border border-[#2A2F3D] bg-[#11131C] flex-shrink-0", imgCls: "rounded-2xl", alt: `${v.name || 'VTuber'} 頭像` }),
                 React.createElement("div", { className: "min-w-0 flex-1 pt-8" },
                     React.createElement("div", { className: "flex items-center gap-1.5 min-w-0" },
                         React.createElement("h3", { className: "font-bold text-[#F8FAFC] truncate leading-tight" }, v.name || '未命名創作者'),
