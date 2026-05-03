@@ -759,9 +759,6 @@ initVnexusImageLoadingUX();
 const initVnexusMobileLayoutStability = (() => {
     let initialized = false;
     let cleanupTimer = null;
-    let utilityTimer = null;
-    let observer = null;
-    const ROUTE_STYLE_VERSION = "2026-05-03-mobile-refresh-v3";
     const isMobileViewport = () => {
         try {
             return window.matchMedia && window.matchMedia("(max-width: 1023px)").matches;
@@ -769,351 +766,6 @@ const initVnexusMobileLayoutStability = (() => {
         catch (error) {
             return (window.innerWidth || 0) <= 1023;
         }
-    };
-    const cssEscape = (value) => {
-        try {
-            if (window.CSS && typeof window.CSS.escape === "function")
-                return window.CSS.escape(value);
-        }
-        catch (error) { }
-        return String(value || "").replace(/[^a-zA-Z0-9_-]/g, (char) => `\\${char}`);
-    };
-    const spacingScale = {
-        "0": "0px", "0.5": "0.125rem", "1": "0.25rem", "1.5": "0.375rem", "2": "0.5rem", "2.5": "0.625rem",
-        "3": "0.75rem", "3.5": "0.875rem", "4": "1rem", "5": "1.25rem", "6": "1.5rem", "7": "1.75rem",
-        "8": "2rem", "9": "2.25rem", "10": "2.5rem", "11": "2.75rem", "12": "3rem", "14": "3.5rem",
-        "16": "4rem", "20": "5rem", "24": "6rem", "28": "7rem", "32": "8rem", "36": "9rem", "40": "10rem",
-        "44": "11rem", "48": "12rem", "52": "13rem", "56": "14rem", "60": "15rem", "64": "16rem"
-    };
-    const namedColors = {
-        black: "#000000", white: "#FFFFFF", transparent: "transparent",
-        "gray-600": "#4B5563", "gray-900": "#111827",
-        "slate-200": "#E2E8F0", "slate-300": "#CBD5E1", "slate-400": "#94A3B8", "slate-700": "#334155",
-        "cyan-300": "#67E8F9", "cyan-400": "#22D3EE", "cyan-500": "#06B6D4",
-        "blue-900": "#1E3A8A", "indigo-200": "#C7D2FE", "indigo-300": "#A5B4FC", "indigo-500": "#6366F1", "indigo-900": "#312E81",
-        "violet-300": "#C4B5FD", "violet-400": "#A78BFA", "violet-500": "#8B5CF6", "purple-400": "#C084FC", "purple-900": "#581C87",
-        "pink-300": "#F9A8D4", "pink-400": "#F472B6", "pink-500": "#EC4899", "rose-500": "#F43F5E", "rose-600": "#E11D48",
-        "red-200": "#FECACA", "red-400": "#F87171", "red-600": "#DC2626", "red-900": "#7F1D1D",
-        "orange-300": "#FDBA74", "orange-900": "#7C2D12", "amber-300": "#FCD34D", "yellow-900": "#713F12",
-        "green-400": "#4ADE80", "green-600": "#16A34A"
-    };
-    const textSizeMap = {
-        xs: ["0.75rem", "1rem"], sm: ["0.875rem", "1.25rem"], base: ["1rem", "1.5rem"], lg: ["1.125rem", "1.75rem"],
-        xl: ["1.25rem", "1.75rem"], "2xl": ["1.5rem", "2rem"], "3xl": ["1.875rem", "2.25rem"], "4xl": ["2.25rem", "2.5rem"],
-        "5xl": ["3rem", "1"], "6xl": ["3.75rem", "1"]
-    };
-    const maxWidthMap = {
-        xs: "20rem", sm: "24rem", md: "28rem", lg: "32rem", xl: "36rem", "2xl": "42rem", "3xl": "48rem", "4xl": "56rem",
-        "5xl": "64rem", "6xl": "72rem", "7xl": "80rem", full: "100%", none: "none"
-    };
-    const normalizeArbitrary = (value) => {
-        if (!value)
-            return "";
-        if (value.startsWith("[") && value.endsWith("]"))
-            return value.slice(1, -1).replace(/_/g, " ");
-        return "";
-    };
-    const readSpace = (value) => {
-        if (!value)
-            return "";
-        if (value === "auto")
-            return "auto";
-        const arbitrary = normalizeArbitrary(value);
-        if (arbitrary)
-            return arbitrary;
-        return spacingScale[value] || "";
-    };
-    const readSize = (value) => {
-        if (!value)
-            return "";
-        if (value === "full")
-            return "100%";
-        if (value === "screen")
-            return "100vw";
-        if (value === "fit")
-            return "fit-content";
-        if (value === "auto")
-            return "auto";
-        const arbitrary = normalizeArbitrary(value);
-        if (arbitrary)
-            return arbitrary;
-        const fraction = value.match(/^(\d+)\/(\d+)$/);
-        if (fraction)
-            return `${(Number(fraction[1]) / Number(fraction[2])) * 100}%`;
-        return spacingScale[value] || "";
-    };
-    const splitColorAlpha = (value) => {
-        const slashIndex = value.lastIndexOf("/");
-        if (slashIndex > -1) {
-            return [value.slice(0, slashIndex), value.slice(slashIndex + 1)];
-        }
-        return [value, ""];
-    };
-    const alphaToNumber = (alpha) => {
-        if (!alpha)
-            return 1;
-        const cleaned = alpha.startsWith("[") && alpha.endsWith("]") ? alpha.slice(1, -1) : alpha;
-        const num = Number(cleaned);
-        if (!Number.isFinite(num))
-            return 1;
-        return num > 1 ? Math.max(0, Math.min(1, num / 100)) : Math.max(0, Math.min(1, num));
-    };
-    const hexToRgba = (hex, alpha = 1) => {
-        if (!hex || hex === "transparent")
-            return "transparent";
-        let clean = hex.replace("#", "").trim();
-        if (clean.length === 3)
-            clean = clean.split("").map((char) => char + char).join("");
-        if (!/^[0-9a-fA-F]{6}$/.test(clean))
-            return hex;
-        const r = parseInt(clean.slice(0, 2), 16);
-        const g = parseInt(clean.slice(2, 4), 16);
-        const b = parseInt(clean.slice(4, 6), 16);
-        return alpha >= 1 ? `rgb(${r} ${g} ${b})` : `rgb(${r} ${g} ${b} / ${alpha})`;
-    };
-    const parseColor = (value) => {
-        if (!value)
-            return "";
-        const [rawBase, rawAlpha] = splitColorAlpha(value);
-        let base = rawBase;
-        let color = "";
-        if (base.startsWith("[") && base.endsWith("]")) {
-            color = base.slice(1, -1);
-        }
-        else {
-            color = namedColors[base] || "";
-        }
-        if (!color)
-            return "";
-        if (color === "transparent")
-            return "transparent";
-        if (color.startsWith("#"))
-            return hexToRgba(color, alphaToNumber(rawAlpha));
-        return color;
-    };
-    const addImportant = (declarations) => declarations
-        .split(";")
-        .map((decl) => decl.trim())
-        .filter(Boolean)
-        .map((decl) => /!important$/.test(decl) ? `${decl};` : `${decl} !important;`)
-        .join(" ");
-    const transformDecl = (varName, value) => `${varName}: ${value}; transform: translate(var(--tw-translate-x, 0), var(--tw-translate-y, 0)) rotate(var(--tw-rotate, 0)) skewX(var(--tw-skew-x, 0)) skewY(var(--tw-skew-y, 0)) scaleX(var(--tw-scale-x, 1)) scaleY(var(--tw-scale-y, 1));`;
-    const styleForUtility = (token) => {
-        if (!token || token.includes(":"))
-            return "";
-        const exact = {
-            block: "display:block", "inline-block": "display:inline-block", "inline-flex": "display:inline-flex", flex: "display:flex", grid: "display:grid", hidden: "display:none",
-            relative: "position:relative", absolute: "position:absolute", fixed: "position:fixed", sticky: "position:sticky",
-            "flex-col": "flex-direction:column", "flex-row": "flex-direction:row", "flex-wrap": "flex-wrap:wrap", "flex-nowrap": "flex-wrap:nowrap",
-            "items-center": "align-items:center", "items-start": "align-items:flex-start", "items-end": "align-items:flex-end", "items-stretch": "align-items:stretch",
-            "justify-center": "justify-content:center", "justify-between": "justify-content:space-between", "justify-end": "justify-content:flex-end",
-            "justify-items-center": "justify-items:center", "justify-self-end": "justify-self:end",
-            "flex-1": "flex:1 1 0%", "flex-shrink-0": "flex-shrink:0", "min-w-0": "min-width:0", "w-full": "width:100%", "h-full": "height:100%",
-            "overflow-hidden": "overflow:hidden", "overflow-x-hidden": "overflow-x:hidden", "overflow-x-auto": "overflow-x:auto;-webkit-overflow-scrolling:touch", "overflow-y-auto": "overflow-y:auto;-webkit-overflow-scrolling:touch",
-            "object-cover": "object-fit:cover", "object-contain": "object-fit:contain", "text-center": "text-align:center", "text-left": "text-align:left", "text-right": "text-align:right",
-            "font-medium": "font-weight:500", "font-semibold": "font-weight:600", "font-bold": "font-weight:700", "font-extrabold": "font-weight:800", "font-black": "font-weight:900",
-            "whitespace-nowrap": "white-space:nowrap", truncate: "overflow:hidden;text-overflow:ellipsis;white-space:nowrap", "pointer-events-none": "pointer-events:none", "cursor-pointer": "cursor:pointer",
-            "select-none": "user-select:none", "bg-transparent": "background-color:transparent", "text-transparent": "color:transparent", "bg-clip-text": "background-clip:text;-webkit-background-clip:text;color:transparent",
-            border: "border-width:1px;border-style:solid", "border-0": "border-width:0", "border-2": "border-width:2px;border-style:solid", "border-4": "border-width:4px;border-style:solid",
-            "border-b": "border-bottom-width:1px;border-bottom-style:solid", "border-t": "border-top-width:1px;border-top-style:solid", "border-l": "border-left-width:1px;border-left-style:solid", "border-y": "border-top-width:1px;border-bottom-width:1px;border-style:solid",
-            "border-dashed": "border-style:dashed", "rounded-full": "border-radius:9999px", rounded: "border-radius:0.25rem", "rounded-md": "border-radius:0.375rem", "rounded-lg": "border-radius:0.5rem", "rounded-xl": "border-radius:0.75rem", "rounded-2xl": "border-radius:1rem", "rounded-3xl": "border-radius:1.5rem",
-            "shadow-sm": "box-shadow:0 1px 2px 0 rgb(0 0 0 / .25)", "shadow-md": "box-shadow:0 4px 10px rgb(0 0 0 / .25)", "shadow-lg": "box-shadow:0 10px 20px rgb(0 0 0 / .25)", "shadow-xl": "box-shadow:0 20px 25px rgb(0 0 0 / .25)", "shadow-2xl": "box-shadow:0 25px 50px rgb(0 0 0 / .32)", "shadow-none": "box-shadow:none",
-            "leading-none": "line-height:1", "leading-tight": "line-height:1.25", "leading-snug": "line-height:1.375", "leading-normal": "line-height:1.5", "leading-relaxed": "line-height:1.625", "tracking-widest": "letter-spacing:.1em", "tracking-tight": "letter-spacing:-.025em",
-            "mt-auto": "margin-top:auto", "mx-auto": "margin-left:auto;margin-right:auto", "ml-auto": "margin-left:auto", "mr-auto": "margin-right:auto", "z-0": "z-index:0", "z-10": "z-index:10", "z-20": "z-index:20", "z-30": "z-index:30", "z-40": "z-index:40", "z-50": "z-index:50"
-        };
-        if (exact[token])
-            return exact[token];
-        if (token.startsWith("z-")) {
-            const raw = token.replace("z-", "");
-            const arbitrary = normalizeArbitrary(raw);
-            if (/^-?\d+$/.test(raw) || arbitrary)
-                return `z-index:${arbitrary || raw}`;
-        }
-        if (token.startsWith("flex-[")) {
-            const arbitrary = normalizeArbitrary(token.replace("flex-", ""));
-            if (arbitrary)
-                return `flex:${arbitrary}`;
-        }
-        if (token.startsWith("rounded-[")) {
-            const arbitrary = normalizeArbitrary(token.replace("rounded-", ""));
-            if (arbitrary)
-                return `border-radius:${arbitrary}`;
-        }
-        if (token.startsWith("line-clamp-")) {
-            const count = token.replace("line-clamp-", "");
-            if (/^\d+$/.test(count))
-                return `display:-webkit-box;-webkit-line-clamp:${count};-webkit-box-orient:vertical;overflow:hidden`;
-        }
-        if (token === "aspect-square")
-            return "aspect-ratio:1 / 1";
-        if (token.startsWith("aspect-")) {
-            const value = normalizeArbitrary(token.replace("aspect-", ""));
-            if (value)
-                return `aspect-ratio:${value}`;
-        }
-        const spacingMatch = token.match(/^(-)?(p|px|py|pt|pr|pb|pl|m|mx|my|mt|mr|mb|ml)-(.+)$/);
-        if (spacingMatch) {
-            const negative = Boolean(spacingMatch[1]);
-            const type = spacingMatch[2];
-            const value = readSpace(spacingMatch[3]);
-            if (!value)
-                return "";
-            const finalValue = negative && value !== "0px" && value !== "auto" ? `-${value}` : value;
-            const propMap = {
-                p: ["padding"], px: ["padding-left", "padding-right"], py: ["padding-top", "padding-bottom"], pt: ["padding-top"], pr: ["padding-right"], pb: ["padding-bottom"], pl: ["padding-left"],
-                m: ["margin"], mx: ["margin-left", "margin-right"], my: ["margin-top", "margin-bottom"], mt: ["margin-top"], mr: ["margin-right"], mb: ["margin-bottom"], ml: ["margin-left"]
-            };
-            return propMap[type].map((prop) => `${prop}:${finalValue}`).join(";");
-        }
-        const sizeMatch = token.match(/^(w|h|min-w|min-h|max-w|max-h)-(.+)$/);
-        if (sizeMatch) {
-            const type = sizeMatch[1];
-            const raw = sizeMatch[2];
-            let value = "";
-            if (type === "max-w" && maxWidthMap[raw])
-                value = maxWidthMap[raw];
-            else if (raw === "screen" && type === "min-h")
-                value = "100dvh";
-            else if (raw === "full" && type === "min-h")
-                value = "100%";
-            else
-                value = readSize(raw);
-            if (!value)
-                return "";
-            const prop = { w: "width", h: "height", "min-w": "min-width", "min-h": "min-height", "max-w": "max-width", "max-h": "max-height" }[type];
-            return `${prop}:${value}`;
-        }
-        const posMatch = token.match(/^(inset|top|right|bottom|left)-(.+)$/);
-        if (posMatch) {
-            const prop = posMatch[1];
-            const raw = posMatch[2];
-            const value = raw === "1/2" ? "50%" : readSize(raw);
-            if (!value)
-                return "";
-            return `${prop}:${value}`;
-        }
-        if (token.startsWith("grid-cols-")) {
-            const raw = token.replace("grid-cols-", "");
-            if (/^\d+$/.test(raw))
-                return `grid-template-columns:repeat(${raw},minmax(0,1fr))`;
-            const arbitrary = normalizeArbitrary(raw);
-            if (arbitrary)
-                return `grid-template-columns:${arbitrary}`;
-        }
-        const gapMatch = token.match(/^(gap|gap-x|gap-y)-(.+)$/);
-        if (gapMatch) {
-            const value = readSpace(gapMatch[2]);
-            if (!value)
-                return "";
-            const prop = gapMatch[1] === "gap-x" ? "column-gap" : gapMatch[1] === "gap-y" ? "row-gap" : "gap";
-            return `${prop}:${value}`;
-        }
-        if (token.startsWith("text-")) {
-            const raw = token.replace("text-", "");
-            const arbitrary = normalizeArbitrary(raw);
-            if (arbitrary)
-                return `font-size:${arbitrary}`;
-            if (textSizeMap[raw])
-                return `font-size:${textSizeMap[raw][0]};line-height:${textSizeMap[raw][1]}`;
-            const color = parseColor(raw);
-            if (color)
-                return `color:${color}`;
-        }
-        if (token.startsWith("bg-gradient-to-")) {
-            const direction = token.replace("bg-gradient-to-", "");
-            const map = { r: "to right", l: "to left", t: "to top", b: "to bottom", br: "to bottom right", bl: "to bottom left", tr: "to top right", tl: "to top left" };
-            return `background-image:linear-gradient(${map[direction] || "to right"},var(--vnexus-gradient-from,#8B5CF6),var(--vnexus-gradient-to,#38BDF8))`;
-        }
-        if (token.startsWith("from-")) {
-            const color = parseColor(token.replace("from-", ""));
-            if (color)
-                return `--vnexus-gradient-from:${color}`;
-        }
-        if (token.startsWith("via-")) {
-            const color = parseColor(token.replace("via-", ""));
-            if (color)
-                return `--vnexus-gradient-via:${color}`;
-        }
-        if (token.startsWith("to-")) {
-            const color = parseColor(token.replace("to-", ""));
-            if (color)
-                return `--vnexus-gradient-to:${color}`;
-        }
-        if (token.startsWith("bg-")) {
-            const color = parseColor(token.replace("bg-", ""));
-            if (color)
-                return `background-color:${color}`;
-        }
-        if (token.startsWith("border-")) {
-            const raw = token.replace("border-", "");
-            const color = parseColor(raw);
-            if (color)
-                return `border-color:${color}`;
-        }
-        if (token.startsWith("opacity-")) {
-            const raw = token.replace("opacity-", "");
-            const value = Number(raw);
-            if (Number.isFinite(value))
-                return `opacity:${value / 100}`;
-        }
-        if (token === "transform")
-            return "transform:translate(var(--tw-translate-x,0),var(--tw-translate-y,0)) rotate(var(--tw-rotate,0)) skewX(var(--tw-skew-x,0)) skewY(var(--tw-skew-y,0)) scaleX(var(--tw-scale-x,1)) scaleY(var(--tw-scale-y,1))";
-        if (token === "-translate-x-1/2")
-            return transformDecl("--tw-translate-x", "-50%");
-        if (token === "-translate-y-1/2")
-            return transformDecl("--tw-translate-y", "-50%");
-        if (token.startsWith("scale-")) {
-            const raw = token.replace("scale-", "");
-            const arbitrary = normalizeArbitrary(raw);
-            const scale = arbitrary || (raw === "105" ? "1.05" : raw === "100" ? "1" : raw === "95" ? ".95" : "");
-            if (scale)
-                return transformDecl("--tw-scale-x", scale) + transformDecl("--tw-scale-y", scale);
-        }
-        if (token.startsWith("col-span-")) {
-            const raw = token.replace("col-span-", "");
-            if (/^\d+$/.test(raw))
-                return `grid-column:span ${raw} / span ${raw}`;
-        }
-        return "";
-    };
-    const rebuildMobileUtilityCss = () => {
-        if (typeof document === "undefined")
-            return;
-        let style = document.getElementById("vnexus-mobile-utility-fallback-style");
-        if (!style) {
-            style = document.createElement("style");
-            style.id = "vnexus-mobile-utility-fallback-style";
-            document.head.appendChild(style);
-        }
-        const main = document.querySelector(".vnexus-route-main");
-        if (!main || !isMobileViewport()) {
-            if (style.textContent)
-                style.textContent = "";
-            return;
-        }
-        const tokens = new Set();
-        [main, ...main.querySelectorAll("[class]")].forEach((node) => {
-            if (!node || !node.classList)
-                return;
-            node.classList.forEach((cls) => tokens.add(cls));
-        });
-        const rules = [];
-        tokens.forEach((token) => {
-            const declarations = styleForUtility(token);
-            if (declarations)
-                rules.push(`.vnexus-route-main .${cssEscape(token)}{${addImportant(declarations)}}`);
-        });
-        const nextCss = `@media (max-width: 1023px){${rules.join("\n")}}`;
-        if (style.textContent !== nextCss)
-            style.textContent = nextCss;
-    };
-    const scheduleUtilityCssRebuild = (delay = 0) => {
-        if (utilityTimer)
-            clearTimeout(utilityTimer);
-        utilityTimer = setTimeout(() => {
-            rebuildMobileUtilityCss();
-            requestAnimationFrame(() => rebuildMobileUtilityCss());
-        }, Math.max(0, Number(delay) || 0));
     };
     const removeLegacyRecoveryState = () => {
         if (typeof document === "undefined")
@@ -1131,17 +783,10 @@ const initVnexusMobileLayoutStability = (() => {
             legacyLoader.remove();
     };
     const installStableRouteStyle = () => {
-        if (typeof document === "undefined")
+        if (typeof document === "undefined" || document.getElementById("vnexus-mobile-route-stability-style"))
             return;
-        let style = document.getElementById("vnexus-mobile-route-stability-style");
-        if (style && style.dataset.vnexusVersion === ROUTE_STYLE_VERSION)
-            return;
-        if (!style) {
-            style = document.createElement("style");
-            style.id = "vnexus-mobile-route-stability-style";
-            document.head.appendChild(style);
-        }
-        style.dataset.vnexusVersion = ROUTE_STYLE_VERSION;
+        const style = document.createElement("style");
+        style.id = "vnexus-mobile-route-stability-style";
         style.textContent = `
           /* ✅ V-Nexus 手機版路由穩定器
              目的：不要再用全站 fallback / 重載 Tailwind。只補齊 SPA 手機刷新後最容易缺失的基礎排版能力。
@@ -1176,6 +821,63 @@ const initVnexusMobileLayoutStability = (() => {
             .vnexus-route-main select {
               font: inherit;
             }
+
+            /* Scoped mini utility fallback：避免 Tailwind CDN 在手機刷新瞬間漏產生時變成裸文字。 */
+            .vnexus-route-main .block { display: block; }
+            .vnexus-route-main .inline-block { display: inline-block; }
+            .vnexus-route-main .inline-flex { display: inline-flex; }
+            .vnexus-route-main .flex { display: flex; }
+            .vnexus-route-main .grid { display: grid; }
+            .vnexus-route-main .hidden { display: none; }
+            .vnexus-route-main .relative { position: relative; }
+            .vnexus-route-main .absolute { position: absolute; }
+            .vnexus-route-main .fixed { position: fixed; }
+            .vnexus-route-main .inset-0 { inset: 0; }
+            .vnexus-route-main .top-0 { top: 0; }
+            .vnexus-route-main .right-0 { right: 0; }
+            .vnexus-route-main .bottom-0 { bottom: 0; }
+            .vnexus-route-main .left-0 { left: 0; }
+            .vnexus-route-main .z-0 { z-index: 0; }
+            .vnexus-route-main .z-10 { z-index: 10; }
+            .vnexus-route-main .z-20 { z-index: 20; }
+            .vnexus-route-main .z-30 { z-index: 30; }
+            .vnexus-route-main .z-40 { z-index: 40; }
+            .vnexus-route-main .z-50 { z-index: 50; }
+            .vnexus-route-main .flex-col { flex-direction: column; }
+            .vnexus-route-main .flex-row { flex-direction: row; }
+            .vnexus-route-main .flex-wrap { flex-wrap: wrap; }
+            .vnexus-route-main .flex-nowrap { flex-wrap: nowrap; }
+            .vnexus-route-main .items-center { align-items: center; }
+            .vnexus-route-main .items-start { align-items: flex-start; }
+            .vnexus-route-main .items-end { align-items: flex-end; }
+            .vnexus-route-main .justify-center { justify-content: center; }
+            .vnexus-route-main .justify-between { justify-content: space-between; }
+            .vnexus-route-main .justify-end { justify-content: flex-end; }
+            .vnexus-route-main .flex-1 { flex: 1 1 0%; }
+            .vnexus-route-main .flex-shrink-0 { flex-shrink: 0; }
+            .vnexus-route-main .min-w-0 { min-width: 0; }
+            .vnexus-route-main .w-full { width: 100%; }
+            .vnexus-route-main .h-full { height: 100%; }
+            .vnexus-route-main .min-h-screen,
+            .vnexus-route-main .min-h-\[100dvh\] { min-height: 100dvh; }
+            .vnexus-route-main .max-w-7xl,
+            .vnexus-route-main .max-w-6xl,
+            .vnexus-route-main .max-w-5xl,
+            .vnexus-route-main .max-w-4xl,
+            .vnexus-route-main .max-w-3xl { max-width: 100%; }
+            .vnexus-route-main .mx-auto { margin-left: auto; margin-right: auto; }
+            .vnexus-route-main .overflow-hidden { overflow: hidden; }
+            .vnexus-route-main .overflow-x-hidden { overflow-x: hidden; }
+            .vnexus-route-main .overflow-x-auto { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .vnexus-route-main .overflow-y-auto { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .vnexus-route-main .object-cover { object-fit: cover; }
+            .vnexus-route-main .text-center { text-align: center; }
+            .vnexus-route-main .text-left { text-align: left; }
+            .vnexus-route-main .font-bold { font-weight: 700; }
+            .vnexus-route-main .font-extrabold,
+            .vnexus-route-main .font-black { font-weight: 900; }
+            .vnexus-route-main .whitespace-nowrap { white-space: nowrap; }
+            .vnexus-route-main .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .vnexus-route-main .line-clamp-2,
             .vnexus-route-main .line-clamp-3,
             .vnexus-route-main .line-clamp-4 {
@@ -1186,6 +888,44 @@ const initVnexusMobileLayoutStability = (() => {
             .vnexus-route-main .line-clamp-2 { -webkit-line-clamp: 2; }
             .vnexus-route-main .line-clamp-3 { -webkit-line-clamp: 3; }
             .vnexus-route-main .line-clamp-4 { -webkit-line-clamp: 4; }
+            .vnexus-route-main .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+            .vnexus-route-main .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .vnexus-route-main .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .vnexus-route-main .gap-1 { gap: .25rem; }
+            .vnexus-route-main .gap-2 { gap: .5rem; }
+            .vnexus-route-main .gap-3 { gap: .75rem; }
+            .vnexus-route-main .gap-4 { gap: 1rem; }
+            .vnexus-route-main .gap-5 { gap: 1.25rem; }
+            .vnexus-route-main .gap-6 { gap: 1.5rem; }
+            .vnexus-route-main .gap-8 { gap: 2rem; }
+            .vnexus-route-main .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: .75rem; }
+            .vnexus-route-main .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+            .vnexus-route-main .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem; }
+            .vnexus-route-main .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
+            .vnexus-route-main .rounded-lg { border-radius: .5rem; }
+            .vnexus-route-main .rounded-xl { border-radius: .75rem; }
+            .vnexus-route-main .rounded-2xl { border-radius: 1rem; }
+            .vnexus-route-main .rounded-3xl { border-radius: 1.5rem; }
+            .vnexus-route-main .rounded-full { border-radius: 9999px; }
+            .vnexus-route-main .border { border-width: 1px; border-style: solid; }
+            .vnexus-route-main .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+            .vnexus-route-main .border-t { border-top-width: 1px; border-top-style: solid; }
+            .vnexus-route-main .border-\[\#2A2F3D\] { border-color: #2A2F3D; }
+            .vnexus-route-main .bg-\[\#0F111A\] { background-color: #0F111A; }
+            .vnexus-route-main .bg-\[\#11131C\] { background-color: #11131C; }
+            .vnexus-route-main .bg-\[\#181B25\] { background-color: #181B25; }
+            .vnexus-route-main .bg-\[\#1D2130\] { background-color: #1D2130; }
+            .vnexus-route-main .text-white { color: #FFFFFF; }
+            .vnexus-route-main .text-\[\#F8FAFC\] { color: #F8FAFC; }
+            .vnexus-route-main .text-\[\#E2E8F0\] { color: #E2E8F0; }
+            .vnexus-route-main .text-\[\#CBD5E1\] { color: #CBD5E1; }
+            .vnexus-route-main .text-\[\#94A3B8\] { color: #94A3B8; }
+            .vnexus-route-main .text-\[\#64748B\] { color: #64748B; }
+            .vnexus-route-main .text-\[\#A78BFA\] { color: #A78BFA; }
+            .vnexus-route-main .text-\[\#38BDF8\] { color: #38BDF8; }
+            .vnexus-route-main .text-\[\#22C55E\] { color: #22C55E; }
+            .vnexus-route-main .text-\[\#F59E0B\] { color: #F59E0B; }
+            .vnexus-route-main .text-\[\#EF4444\] { color: #EF4444; }
 
             /* 後來新增的兩個委託分頁：保留既有風格，但不外溢到其他分頁。 */
             .vnexus-route-main[data-vnexus-view="commissions"] .vnexus-commission-page,
@@ -1203,26 +943,31 @@ const initVnexusMobileLayoutStability = (() => {
               gap: 1rem;
             }
 
-            /* 從任何分頁刷新或從委託頁切回其他分頁時，避免深捲動、寬卡片或橫向容器把新分頁撐壞。 */
-            .vnexus-route-main > div,
-            .vnexus-route-main section {
+            /* 從委託頁刷新後切到其他分頁時，避免深捲動、寬卡片或橫向容器把新分頁撐壞。 */
+            .vnexus-route-main[data-vnexus-view="home"] section,
+            .vnexus-route-main[data-vnexus-view="bulletin"] section,
+            .vnexus-route-main[data-vnexus-view="status_wall"] section,
+            .vnexus-route-main[data-vnexus-view="grid"] section,
+            .vnexus-route-main[data-vnexus-view="home"] > div,
+            .vnexus-route-main[data-vnexus-view="bulletin"] > div,
+            .vnexus-route-main[data-vnexus-view="status_wall"] > div,
+            .vnexus-route-main[data-vnexus-view="grid"] > div {
               max-width: 100%;
               min-width: 0;
               overflow-x: hidden;
             }
           }
         `;
+        document.head.appendChild(style);
     };
     const stabilize = () => {
         removeLegacyRecoveryState();
         installStableRouteStyle();
         if (typeof document === "undefined")
             return;
-        document.documentElement.setAttribute("data-vnexus-mobile-layout-stable", ROUTE_STYLE_VERSION);
         document.documentElement.style.overflowX = "hidden";
         if (document.body)
             document.body.style.overflowX = "hidden";
-        scheduleUtilityCssRebuild(0);
     };
     const scheduleStabilize = (delay = 0) => {
         if (cleanupTimer)
@@ -1239,7 +984,6 @@ const initVnexusMobileLayoutStability = (() => {
         }
         catch (error) { }
         window.vnexusRecheckMobileCss = scheduleStabilize;
-        window.vnexusRebuildMobileUtilityCss = scheduleUtilityCssRebuild;
         stabilize();
         ["DOMContentLoaded", "load", "pageshow", "hashchange", "orientationchange", "resize"].forEach((eventName) => {
             window.addEventListener(eventName, () => scheduleStabilize(eventName === "resize" ? 160 : 30), { passive: true });
@@ -1248,16 +992,9 @@ const initVnexusMobileLayoutStability = (() => {
             if (!document.hidden)
                 scheduleStabilize(30);
         }, { passive: true });
-        if (typeof MutationObserver !== "undefined") {
-            observer = new MutationObserver(() => scheduleUtilityCssRebuild(20));
-            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "data-vnexus-view"] });
-        }
-        setTimeout(() => scheduleStabilize(60), 60);
-        setTimeout(() => scheduleStabilize(300), 300);
     };
 })();
 initVnexusMobileLayoutStability();
-
 
 const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) => {
     const safeSrc = sanitizeUrl(src);
