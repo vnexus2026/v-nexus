@@ -635,212 +635,7 @@ const initVnexusImageLoadingUX = (() => {
           font-weight: 700;
         }
 
-        /* ✅ 手機版尋找 VTuber 夥伴刷新 Critical CSS：Tailwind CDN / 動態樣式延遲時仍保持版面 */
-        @media (max-width: 1023px) {
-          html, body, #root {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow-x: hidden !important;
-            background: #0F111A !important;
-            color: #E2E8F0 !important;
-          }
-          .vnexus-vtuber-grid-page,
-          .vnexus-vtuber-grid-page * {
-            box-sizing: border-box !important;
-          }
-          .vnexus-vtuber-grid-page {
-            display: flex !important;
-            flex-direction: column !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            padding: 1rem !important;
-            gap: 1rem !important;
-            min-height: 100dvh !important;
-            overflow-x: hidden !important;
-            color: #E2E8F0 !important;
-            transform: none !important;
-          }
-          .vnexus-vtuber-filter-panel {
-            width: 100% !important;
-            flex-shrink: 0 !important;
-            min-width: 0 !important;
-            margin: 0 !important;
-          }
-          .vnexus-vtuber-filter-panel.hidden {
-            display: none !important;
-          }
-          .vnexus-vtuber-filter-panel.block,
-          .vnexus-vtuber-filter-panel:not(.hidden) {
-            display: block !important;
-          }
-          .vnexus-vtuber-filter-panel > div {
-            width: 100% !important;
-            background: rgba(24, 27, 37, .72) !important;
-            border: 1px solid #2A2F3D !important;
-            border-radius: 1rem !important;
-            padding: 1rem !important;
-            overflow: hidden !important;
-          }
-          .vnexus-vtuber-grid-main {
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-            width: 100% !important;
-          }
-          .vnexus-vtuber-grid-toolbar {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: stretch !important;
-            justify-content: flex-start !important;
-            gap: .85rem !important;
-            width: 100% !important;
-            margin-bottom: 1rem !important;
-          }
-          .vnexus-vtuber-grid-actions {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            align-items: center !important;
-            gap: .55rem !important;
-            width: 100% !important;
-            min-width: 0 !important;
-          }
-          .vnexus-vtuber-grid-actions h2 {
-            flex: 1 0 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: .5rem !important;
-            margin: 0 !important;
-            color: #FFFFFF !important;
-            font-size: 1.45rem !important;
-            line-height: 1.2 !important;
-            font-weight: 900 !important;
-            min-width: 0 !important;
-          }
-          .vnexus-vtuber-grid-actions button {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            flex: 1 1 calc(50% - .35rem) !important;
-            min-width: 0 !important;
-            min-height: 38px !important;
-            border-radius: .8rem !important;
-            padding: .52rem .62rem !important;
-            font-size: 12px !important;
-            line-height: 1.15 !important;
-            font-weight: 900 !important;
-            white-space: nowrap !important;
-          }
-          .vnexus-vtuber-grid-search-sort {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: .65rem !important;
-            width: 100% !important;
-            min-width: 0 !important;
-          }
-          .vnexus-vtuber-grid-search-sort input,
-          .vnexus-vtuber-filter-panel input,
-          .vnexus-vtuber-grid-page input {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-height: 40px !important;
-            border-radius: .85rem !important;
-            border: 1px solid #2A2F3D !important;
-            background: #181B25 !important;
-            color: #FFFFFF !important;
-            padding-top: .55rem !important;
-            padding-bottom: .55rem !important;
-            font-size: 16px !important;
-            outline: none !important;
-          }
-          .vnexus-vtuber-grid-page select,
-          .vnexus-vtuber-grid-search-sort select,
-          .vnexus-vtuber-filter-panel select {
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            min-height: 34px !important;
-            height: 34px !important;
-            border-radius: .72rem !important;
-            border: 1px solid #2A2F3D !important;
-            background-color: #181B25 !important;
-            color: #FFFFFF !important;
-            padding: .35rem 1.85rem .35rem .65rem !important;
-            font-size: 12px !important;
-            line-height: 1.15 !important;
-            font-weight: 800 !important;
-            outline: none !important;
-          }
-          .vnexus-vtuber-grid-list {
-            display: grid !important;
-            grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-            gap: 1rem !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            align-items: stretch !important;
-          }
-          .vnexus-vtuber-card {
-            display: flex !important;
-            flex-direction: column !important;
-            min-width: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: hidden !important;
-            border-radius: 1.25rem !important;
-            background: #181B25 !important;
-            border: 1px solid #2A2F3D !important;
-            color: #E2E8F0 !important;
-          }
-          .vnexus-vtuber-card-banner {
-            position: relative !important;
-            height: 5rem !important;
-            overflow: hidden !important;
-            background: #11131C !important;
-            border-bottom: 1px solid #2A2F3D !important;
-            flex-shrink: 0 !important;
-          }
-          .vnexus-vtuber-card-body {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 1 auto !important;
-            min-width: 0 !important;
-            padding: 1rem !important;
-          }
-          .vnexus-vtuber-card img {
-            max-width: 100% !important;
-            object-fit: cover !important;
-          }
-          .line-clamp-2 {
-            display: -webkit-box !important;
-            -webkit-line-clamp: 2 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
-          }
-          .line-clamp-3 {
-            display: -webkit-box !important;
-            -webkit-line-clamp: 3 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
-          }
-          .line-clamp-4 {
-            display: -webkit-box !important;
-            -webkit-line-clamp: 4 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
-          }
-        }
-        @media (min-width: 640px) and (max-width: 1023px) {
-          .vnexus-vtuber-grid-page {
-            padding: 1.25rem !important;
-          }
-          .vnexus-vtuber-grid-list {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          }
-          .vnexus-vtuber-grid-actions button {
-            flex: 0 1 auto !important;
-          }
-        }
+        /* ✅ 尋找 VTuber 夥伴：手機版不再常駐覆蓋原排版；只在 Tailwind 失效時由 vnexus-tailwind-fallback 接手。 */
 
         /* ✅ 手機刷新 Critical CSS：頂部說明、創作者身份、進階風格篩選、聊天室滿版 */
         @media (max-width: 639px) {
@@ -960,6 +755,380 @@ const initVnexusImageLoadingUX = (() => {
     };
 })();
 initVnexusImageLoadingUX();
+
+const initVnexusMobileCssRecovery = (() => {
+    let initialized = false;
+    let recoveryScriptLoaded = false;
+    let recoveryTimer = null;
+    const isMobileViewport = () => {
+        try {
+            return window.matchMedia && window.matchMedia("(max-width: 1023px)").matches;
+        }
+        catch (error) {
+            return (window.innerWidth || 0) <= 1023;
+        }
+    };
+    const installFallbackStyle = () => {
+        if (typeof document === "undefined" || document.getElementById("vnexus-mobile-css-recovery-style"))
+            return;
+        const style = document.createElement("style");
+        style.id = "vnexus-mobile-css-recovery-style";
+        style.textContent = `
+          /* ✅ V-Nexus 手機版 CSS 救援：只在 html.vnexus-tailwind-fallback 啟用時生效，不覆蓋 Tailwind 正常狀態。 */
+          @media (max-width: 1023px) {
+            html.vnexus-tailwind-fallback,
+            html.vnexus-tailwind-fallback body,
+            html.vnexus-tailwind-fallback #root {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-height: 100dvh !important;
+              overflow-x: hidden !important;
+              background: #0F111A !important;
+              color: #E2E8F0 !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+            }
+            html.vnexus-tailwind-fallback body {
+              margin: 0 !important;
+            }
+            html.vnexus-tailwind-fallback *,
+            html.vnexus-tailwind-fallback *::before,
+            html.vnexus-tailwind-fallback *::after {
+              box-sizing: border-box !important;
+            }
+            html.vnexus-tailwind-fallback img,
+            html.vnexus-tailwind-fallback video {
+              max-width: 100% !important;
+              height: auto;
+            }
+            html.vnexus-tailwind-fallback button,
+            html.vnexus-tailwind-fallback input,
+            html.vnexus-tailwind-fallback textarea,
+            html.vnexus-tailwind-fallback select {
+              font: inherit !important;
+            }
+            html.vnexus-tailwind-fallback .hidden { display: none !important; }
+            html.vnexus-tailwind-fallback .block { display: block !important; }
+            html.vnexus-tailwind-fallback .flex { display: flex !important; }
+            html.vnexus-tailwind-fallback .inline-flex { display: inline-flex !important; }
+            html.vnexus-tailwind-fallback .grid { display: grid !important; }
+            html.vnexus-tailwind-fallback .relative { position: relative !important; }
+            html.vnexus-tailwind-fallback .absolute { position: absolute !important; }
+            html.vnexus-tailwind-fallback .fixed { position: fixed !important; }
+            html.vnexus-tailwind-fallback .sticky { position: sticky !important; }
+            html.vnexus-tailwind-fallback .inset-0 { inset: 0 !important; }
+            html.vnexus-tailwind-fallback .top-0 { top: 0 !important; }
+            html.vnexus-tailwind-fallback .left-0 { left: 0 !important; }
+            html.vnexus-tailwind-fallback .right-0 { right: 0 !important; }
+            html.vnexus-tailwind-fallback .bottom-0 { bottom: 0 !important; }
+            html.vnexus-tailwind-fallback .flex-col { flex-direction: column !important; }
+            html.vnexus-tailwind-fallback .flex-row { flex-direction: row !important; }
+            html.vnexus-tailwind-fallback .flex-wrap { flex-wrap: wrap !important; }
+            html.vnexus-tailwind-fallback .flex-nowrap { flex-wrap: nowrap !important; }
+            html.vnexus-tailwind-fallback .items-center { align-items: center !important; }
+            html.vnexus-tailwind-fallback .items-start { align-items: flex-start !important; }
+            html.vnexus-tailwind-fallback .items-end { align-items: flex-end !important; }
+            html.vnexus-tailwind-fallback .justify-center { justify-content: center !important; }
+            html.vnexus-tailwind-fallback .justify-between { justify-content: space-between !important; }
+            html.vnexus-tailwind-fallback .justify-end { justify-content: flex-end !important; }
+            html.vnexus-tailwind-fallback .flex-1 { flex: 1 1 0% !important; }
+            html.vnexus-tailwind-fallback .flex-shrink-0 { flex-shrink: 0 !important; }
+            html.vnexus-tailwind-fallback .min-w-0 { min-width: 0 !important; }
+            html.vnexus-tailwind-fallback .w-full { width: 100% !important; }
+            html.vnexus-tailwind-fallback .h-full { height: 100% !important; }
+            html.vnexus-tailwind-fallback .min-h-screen,
+            html.vnexus-tailwind-fallback .min-h-[100dvh] { min-height: 100dvh !important; }
+            html.vnexus-tailwind-fallback .overflow-hidden { overflow: hidden !important; }
+            html.vnexus-tailwind-fallback .overflow-x-hidden { overflow-x: hidden !important; }
+            html.vnexus-tailwind-fallback .overflow-y-auto { overflow-y: auto !important; }
+            html.vnexus-tailwind-fallback .text-center { text-align: center !important; }
+            html.vnexus-tailwind-fallback .text-left { text-align: left !important; }
+            html.vnexus-tailwind-fallback .font-bold { font-weight: 700 !important; }
+            html.vnexus-tailwind-fallback .font-extrabold,
+            html.vnexus-tailwind-fallback .font-black { font-weight: 900 !important; }
+            html.vnexus-tailwind-fallback .truncate {
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+            }
+            html.vnexus-tailwind-fallback .line-clamp-2,
+            html.vnexus-tailwind-fallback .line-clamp-3,
+            html.vnexus-tailwind-fallback .line-clamp-4 {
+              display: -webkit-box !important;
+              -webkit-box-orient: vertical !important;
+              overflow: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .line-clamp-2 { -webkit-line-clamp: 2 !important; }
+            html.vnexus-tailwind-fallback .line-clamp-3 { -webkit-line-clamp: 3 !important; }
+            html.vnexus-tailwind-fallback .line-clamp-4 { -webkit-line-clamp: 4 !important; }
+            html.vnexus-tailwind-fallback .rounded-lg { border-radius: .5rem !important; }
+            html.vnexus-tailwind-fallback .rounded-xl { border-radius: .75rem !important; }
+            html.vnexus-tailwind-fallback .rounded-2xl { border-radius: 1rem !important; }
+            html.vnexus-tailwind-fallback .rounded-full { border-radius: 9999px !important; }
+            html.vnexus-tailwind-fallback .object-cover { object-fit: cover !important; }
+            html.vnexus-tailwind-fallback .transition-colors,
+            html.vnexus-tailwind-fallback .transition-all,
+            html.vnexus-tailwind-fallback .animate-fade-in-up {
+              animation: none !important;
+              transition-property: none !important;
+              opacity: 1 !important;
+              transform: none !important;
+            }
+            html.vnexus-tailwind-fallback header,
+            html.vnexus-tailwind-fallback nav {
+              background: rgba(15,17,26,.96) !important;
+              border-color: #2A2F3D !important;
+              color: #E2E8F0 !important;
+            }
+            html.vnexus-tailwind-fallback main,
+            html.vnexus-tailwind-fallback .max-w-7xl,
+            html.vnexus-tailwind-fallback .max-w-6xl,
+            html.vnexus-tailwind-fallback .max-w-5xl,
+            html.vnexus-tailwind-fallback .max-w-4xl,
+            html.vnexus-tailwind-fallback .max-w-3xl {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+              padding-left: 1rem !important;
+              padding-right: 1rem !important;
+            }
+            html.vnexus-tailwind-fallback section,
+            html.vnexus-tailwind-fallback .vnexus-home-section,
+            html.vnexus-tailwind-fallback .vnexus-section {
+              width: 100% !important;
+              min-width: 0 !important;
+              overflow-x: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .custom-scrollbar,
+            html.vnexus-tailwind-fallback .overflow-x-auto {
+              overflow-x: auto !important;
+              -webkit-overflow-scrolling: touch !important;
+            }
+            html.vnexus-tailwind-fallback .grid-cols-1,
+            html.vnexus-tailwind-fallback .sm\:grid-cols-2,
+            html.vnexus-tailwind-fallback .md\:grid-cols-3,
+            html.vnexus-tailwind-fallback .lg\:grid-cols-3,
+            html.vnexus-tailwind-fallback .xl\:grid-cols-3 {
+              grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-page {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 auto !important;
+              padding: 1rem !important;
+              min-height: 100dvh !important;
+              overflow-x: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-hero,
+            html.vnexus-tailwind-fallback .vnexus-commission-controls {
+              width: 100% !important;
+              background: #181B25 !important;
+              border: 1px solid #2A2F3D !important;
+              border-radius: 1.25rem !important;
+              padding: 1rem !important;
+              margin-bottom: 1rem !important;
+              overflow: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-controls { background: #11131C !important; }
+            html.vnexus-tailwind-fallback .vnexus-commission-hero h2 {
+              color: #FFFFFF !important;
+              font-size: 1.45rem !important;
+              line-height: 1.18 !important;
+              margin: 0 !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-hero-actions,
+            html.vnexus-tailwind-fallback .vnexus-commission-controls-grid,
+            html.vnexus-tailwind-fallback .vnexus-critical-actions {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              gap: .5rem !important;
+              width: 100% !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-role-row,
+            html.vnexus-tailwind-fallback .vnexus-commission-filter-scroll {
+              display: flex !important;
+              flex-wrap: nowrap !important;
+              gap: .375rem !important;
+              overflow-x: auto !important;
+              padding-bottom: .25rem !important;
+              scrollbar-width: none !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-commission-grid,
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-list {
+              display: grid !important;
+              grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+              gap: 1rem !important;
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-creator-market-card,
+            html.vnexus-tailwind-fallback .vnexus-vtuber-card,
+            html.vnexus-tailwind-fallback .bg-\[\#181B25\],
+            html.vnexus-tailwind-fallback .bg-\[\#1D2130\] {
+              background: #181B25 !important;
+              border: 1px solid #2A2F3D !important;
+              color: #E2E8F0 !important;
+              border-radius: 1.25rem !important;
+              overflow: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-critical-card {
+              display: flex !important;
+              flex-direction: column !important;
+              background: #151923 !important;
+              border: 1px solid #2A2F3D !important;
+              border-radius: 1.5rem !important;
+              overflow: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-critical-visual {
+              position: relative !important;
+              width: 100% !important;
+              aspect-ratio: 1 / 1 !important;
+              background: #11131C !important;
+              overflow: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-critical-body {
+              padding: 1.25rem !important;
+              background: #151923 !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-page {
+              display: flex !important;
+              flex-direction: column !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 auto !important;
+              padding: 1rem !important;
+              gap: 1rem !important;
+              overflow-x: hidden !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel.hidden { display: none !important; }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel.block,
+            html.vnexus-tailwind-fallback .vnexus-vtuber-filter-panel:not(.hidden) { display: block !important; }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-toolbar,
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions,
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-search-sort {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: .75rem !important;
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions {
+              flex-direction: row !important;
+              flex-wrap: wrap !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions h2 {
+              flex: 1 0 100% !important;
+              margin: 0 !important;
+              color: #fff !important;
+              font-size: 1.45rem !important;
+              font-weight: 900 !important;
+            }
+            html.vnexus-tailwind-fallback .vnexus-vtuber-grid-actions button,
+            html.vnexus-tailwind-fallback button {
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              min-height: 38px !important;
+              border-radius: .85rem !important;
+              padding: .55rem .75rem !important;
+              border: 1px solid #2A2F3D !important;
+            }
+            html.vnexus-tailwind-fallback input,
+            html.vnexus-tailwind-fallback textarea,
+            html.vnexus-tailwind-fallback select {
+              display: block !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              border-radius: .875rem !important;
+              border: 1px solid #2A2F3D !important;
+              background: #181B25 !important;
+              color: #FFFFFF !important;
+              outline: none !important;
+            }
+            html.vnexus-tailwind-fallback input,
+            html.vnexus-tailwind-fallback select { min-height: 38px !important; }
+            html.vnexus-tailwind-fallback textarea { min-height: 7rem !important; }
+            html.vnexus-tailwind-fallback a { color: inherit; }
+          }
+        `;
+        document.head.appendChild(style);
+    };
+    const hasTailwindUtilities = () => {
+        if (typeof document === "undefined" || !document.body)
+            return true;
+        const holder = document.createElement("div");
+        holder.style.cssText = "position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;pointer-events:none;";
+        const hiddenProbe = document.createElement("div");
+        hiddenProbe.className = "hidden";
+        const flexProbe = document.createElement("div");
+        flexProbe.className = "flex";
+        holder.appendChild(hiddenProbe);
+        holder.appendChild(flexProbe);
+        document.body.appendChild(holder);
+        const hiddenOk = window.getComputedStyle(hiddenProbe).display === "none";
+        const flexOk = window.getComputedStyle(flexProbe).display === "flex";
+        holder.remove();
+        return hiddenOk && flexOk;
+    };
+    const tryReloadTailwind = () => {
+        if (recoveryScriptLoaded || typeof document === "undefined")
+            return;
+        recoveryScriptLoaded = true;
+        const script = document.createElement("script");
+        script.id = "vnexus-tailwind-recovery-loader";
+        script.src = "https://cdn.tailwindcss.com?recover=" + Date.now();
+        script.async = true;
+        script.onload = () => setTimeout(checkAndApply, 250);
+        script.onerror = () => console.warn("V-Nexus: Tailwind CDN recovery load failed; using fallback CSS.");
+        document.head.appendChild(script);
+    };
+    const checkAndApply = () => {
+        if (!isMobileViewport()) {
+            document.documentElement.classList.remove("vnexus-tailwind-fallback");
+            return;
+        }
+        installFallbackStyle();
+        const ok = hasTailwindUtilities();
+        document.documentElement.classList.toggle("vnexus-tailwind-fallback", !ok);
+        if (!ok)
+            tryReloadTailwind();
+    };
+    const scheduleCheck = (delay = 60) => {
+        if (recoveryTimer)
+            clearTimeout(recoveryTimer);
+        recoveryTimer = setTimeout(checkAndApply, delay);
+    };
+    return () => {
+        if (initialized || typeof window === "undefined" || typeof document === "undefined")
+            return;
+        initialized = true;
+        try {
+            if ("scrollRestoration" in history)
+                history.scrollRestoration = "manual";
+        }
+        catch (error) { }
+        window.vnexusRecheckMobileCss = scheduleCheck;
+        installFallbackStyle();
+        scheduleCheck(0);
+        ["DOMContentLoaded", "load", "pageshow", "hashchange", "orientationchange", "resize"].forEach((eventName) => {
+            window.addEventListener(eventName, () => scheduleCheck(eventName === "resize" ? 160 : 40), { passive: true });
+        });
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden)
+                scheduleCheck(60);
+        }, { passive: true });
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attempts += 1;
+            scheduleCheck(0);
+            if (attempts >= 12 || hasTailwindUtilities())
+                clearInterval(interval);
+        }, 800);
+    };
+})();
+initVnexusMobileCssRecovery();
+
 const LazyImage = ({ src, containerCls = "", imgCls = "", alt = "", onClick, }) => {
     const safeSrc = sanitizeUrl(src);
     const [loaded, setLoaded] = useState(false);
@@ -5764,6 +5933,7 @@ function App() {
             window.history.pushState(null, null, "#" + view);
         }
         setIsMobileMenuOpen(false);
+        window.vnexusRecheckMobileCss?.(40);
         if (!preserveScroll) {
             setTimeout(() => window.scrollTo(0, 0), 10);
         }
@@ -5805,7 +5975,11 @@ function App() {
             else {
                 setProfileIdFromHash(null);
                 setCurrentView(hash === "profile" ? "grid" : hash || "home");
+                if (!hash.startsWith("profile/")) {
+                    setTimeout(() => window.scrollTo(0, 0), 0);
+                }
             }
+            window.vnexusRecheckMobileCss?.(60);
         };
         handleHashChange();
         window.addEventListener("hashchange", handleHashChange);
