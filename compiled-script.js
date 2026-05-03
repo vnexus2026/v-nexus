@@ -758,221 +758,26 @@ initVnexusImageLoadingUX();
 
 const initVnexusMobileLayoutStability = (() => {
     let initialized = false;
-    let cleanupTimer = null;
-    const isMobileViewport = () => {
-        try {
-            return window.matchMedia && window.matchMedia("(max-width: 1023px)").matches;
-        }
-        catch (error) {
-            return (window.innerWidth || 0) <= 1023;
-        }
-    };
-    const removeLegacyRecoveryState = () => {
+    const cleanupLegacyMobileFallback = () => {
         if (typeof document === "undefined")
             return;
-        // ✅ 徹查結論：舊版手機救援會在 Tailwind 偵測偶發失敗時加上 html.vnexus-tailwind-fallback，
-        // 並重載 Tailwind CDN。這會在「委託佈告欄 / 創作服務專區」手機刷新後，把首頁、尋找 VTuber、揪團、動態牆
-        // 變成救援版樣式，看起來像 CSS 消失。新版不再重載 Tailwind，也不再使用全站 fallback class。
+        // ✅ Safari 手機跑版根因修正：不再用 JS 動態注入「全站救援 CSS」或重新載入 Tailwind CDN。
+        // 先前的救援樣式在 Safari 快取 / pageshow / hashchange 交錯時，會把首頁、揪團佈告欄、24H 動態牆套成半套 fallback，造成看起來像 CSS 消失。
+        // 目前改由 index.html 載入本機靜態 vnexus-static-tailwind.css 作為穩定樣式來源；這裡只清掉舊殘留狀態，不碰功能邏輯。
         document.documentElement.classList.remove("vnexus-tailwind-fallback");
         document.body?.classList.remove("vnexus-tailwind-fallback");
-        const legacyStyle = document.getElementById("vnexus-mobile-css-recovery-style");
-        if (legacyStyle)
-            legacyStyle.remove();
-        const legacyLoader = document.getElementById("vnexus-tailwind-recovery-loader");
-        if (legacyLoader)
-            legacyLoader.remove();
-    };
-    const installStableRouteStyle = () => {
-        if (typeof document === "undefined" || document.getElementById("vnexus-mobile-route-stability-style"))
-            return;
-        const style = document.createElement("style");
-        style.id = "vnexus-mobile-route-stability-style";
-        style.textContent = `
-          /* ✅ V-Nexus 手機版路由穩定器
-             目的：不要再用全站 fallback / 重載 Tailwind。只補齊 SPA 手機刷新後最容易缺失的基礎排版能力。
-             範圍：只作用在 React main.vnexus-route-main 內，不覆蓋 SEO 入口頁與外部靜態頁。 */
-          @media (max-width: 1023px) {
-            html, body, #root {
-              width: 100%;
-              max-width: 100%;
-              min-height: 100dvh;
-              overflow-x: hidden;
-              background: #0F111A;
-              color: #E2E8F0;
-            }
-            body { margin: 0; }
-            .vnexus-route-main,
-            .vnexus-route-main * { box-sizing: border-box; }
-            .vnexus-route-main {
-              display: block;
-              width: 100%;
-              max-width: 100%;
-              min-width: 0;
-              overflow-x: hidden;
-              color: #E2E8F0;
-            }
-            .vnexus-route-main img,
-            .vnexus-route-main video {
-              max-width: 100%;
-            }
-            .vnexus-route-main button,
-            .vnexus-route-main input,
-            .vnexus-route-main textarea,
-            .vnexus-route-main select {
-              font: inherit;
-            }
-
-            /* Scoped mini utility fallback：避免 Tailwind CDN 在手機刷新瞬間漏產生時變成裸文字。 */
-            .vnexus-route-main .block { display: block; }
-            .vnexus-route-main .inline-block { display: inline-block; }
-            .vnexus-route-main .inline-flex { display: inline-flex; }
-            .vnexus-route-main .flex { display: flex; }
-            .vnexus-route-main .grid { display: grid; }
-            .vnexus-route-main .hidden { display: none; }
-            .vnexus-route-main .relative { position: relative; }
-            .vnexus-route-main .absolute { position: absolute; }
-            .vnexus-route-main .fixed { position: fixed; }
-            .vnexus-route-main .inset-0 { inset: 0; }
-            .vnexus-route-main .top-0 { top: 0; }
-            .vnexus-route-main .right-0 { right: 0; }
-            .vnexus-route-main .bottom-0 { bottom: 0; }
-            .vnexus-route-main .left-0 { left: 0; }
-            .vnexus-route-main .z-0 { z-index: 0; }
-            .vnexus-route-main .z-10 { z-index: 10; }
-            .vnexus-route-main .z-20 { z-index: 20; }
-            .vnexus-route-main .z-30 { z-index: 30; }
-            .vnexus-route-main .z-40 { z-index: 40; }
-            .vnexus-route-main .z-50 { z-index: 50; }
-            .vnexus-route-main .flex-col { flex-direction: column; }
-            .vnexus-route-main .flex-row { flex-direction: row; }
-            .vnexus-route-main .flex-wrap { flex-wrap: wrap; }
-            .vnexus-route-main .flex-nowrap { flex-wrap: nowrap; }
-            .vnexus-route-main .items-center { align-items: center; }
-            .vnexus-route-main .items-start { align-items: flex-start; }
-            .vnexus-route-main .items-end { align-items: flex-end; }
-            .vnexus-route-main .justify-center { justify-content: center; }
-            .vnexus-route-main .justify-between { justify-content: space-between; }
-            .vnexus-route-main .justify-end { justify-content: flex-end; }
-            .vnexus-route-main .flex-1 { flex: 1 1 0%; }
-            .vnexus-route-main .flex-shrink-0 { flex-shrink: 0; }
-            .vnexus-route-main .min-w-0 { min-width: 0; }
-            .vnexus-route-main .w-full { width: 100%; }
-            .vnexus-route-main .h-full { height: 100%; }
-            .vnexus-route-main .min-h-screen,
-            .vnexus-route-main .min-h-\[100dvh\] { min-height: 100dvh; }
-            .vnexus-route-main .max-w-7xl,
-            .vnexus-route-main .max-w-6xl,
-            .vnexus-route-main .max-w-5xl,
-            .vnexus-route-main .max-w-4xl,
-            .vnexus-route-main .max-w-3xl { max-width: 100%; }
-            .vnexus-route-main .mx-auto { margin-left: auto; margin-right: auto; }
-            .vnexus-route-main .overflow-hidden { overflow: hidden; }
-            .vnexus-route-main .overflow-x-hidden { overflow-x: hidden; }
-            .vnexus-route-main .overflow-x-auto { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            .vnexus-route-main .overflow-y-auto { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-            .vnexus-route-main .object-cover { object-fit: cover; }
-            .vnexus-route-main .text-center { text-align: center; }
-            .vnexus-route-main .text-left { text-align: left; }
-            .vnexus-route-main .font-bold { font-weight: 700; }
-            .vnexus-route-main .font-extrabold,
-            .vnexus-route-main .font-black { font-weight: 900; }
-            .vnexus-route-main .whitespace-nowrap { white-space: nowrap; }
-            .vnexus-route-main .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .vnexus-route-main .line-clamp-2,
-            .vnexus-route-main .line-clamp-3,
-            .vnexus-route-main .line-clamp-4 {
-              display: -webkit-box;
-              -webkit-box-orient: vertical;
-              overflow: hidden;
-            }
-            .vnexus-route-main .line-clamp-2 { -webkit-line-clamp: 2; }
-            .vnexus-route-main .line-clamp-3 { -webkit-line-clamp: 3; }
-            .vnexus-route-main .line-clamp-4 { -webkit-line-clamp: 4; }
-            .vnexus-route-main .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-            .vnexus-route-main .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .vnexus-route-main .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .vnexus-route-main .gap-1 { gap: .25rem; }
-            .vnexus-route-main .gap-2 { gap: .5rem; }
-            .vnexus-route-main .gap-3 { gap: .75rem; }
-            .vnexus-route-main .gap-4 { gap: 1rem; }
-            .vnexus-route-main .gap-5 { gap: 1.25rem; }
-            .vnexus-route-main .gap-6 { gap: 1.5rem; }
-            .vnexus-route-main .gap-8 { gap: 2rem; }
-            .vnexus-route-main .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: .75rem; }
-            .vnexus-route-main .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
-            .vnexus-route-main .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.25rem; }
-            .vnexus-route-main .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.5rem; }
-            .vnexus-route-main .rounded-lg { border-radius: .5rem; }
-            .vnexus-route-main .rounded-xl { border-radius: .75rem; }
-            .vnexus-route-main .rounded-2xl { border-radius: 1rem; }
-            .vnexus-route-main .rounded-3xl { border-radius: 1.5rem; }
-            .vnexus-route-main .rounded-full { border-radius: 9999px; }
-            .vnexus-route-main .border { border-width: 1px; border-style: solid; }
-            .vnexus-route-main .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
-            .vnexus-route-main .border-t { border-top-width: 1px; border-top-style: solid; }
-            .vnexus-route-main .border-\[\#2A2F3D\] { border-color: #2A2F3D; }
-            .vnexus-route-main .bg-\[\#0F111A\] { background-color: #0F111A; }
-            .vnexus-route-main .bg-\[\#11131C\] { background-color: #11131C; }
-            .vnexus-route-main .bg-\[\#181B25\] { background-color: #181B25; }
-            .vnexus-route-main .bg-\[\#1D2130\] { background-color: #1D2130; }
-            .vnexus-route-main .text-white { color: #FFFFFF; }
-            .vnexus-route-main .text-\[\#F8FAFC\] { color: #F8FAFC; }
-            .vnexus-route-main .text-\[\#E2E8F0\] { color: #E2E8F0; }
-            .vnexus-route-main .text-\[\#CBD5E1\] { color: #CBD5E1; }
-            .vnexus-route-main .text-\[\#94A3B8\] { color: #94A3B8; }
-            .vnexus-route-main .text-\[\#64748B\] { color: #64748B; }
-            .vnexus-route-main .text-\[\#A78BFA\] { color: #A78BFA; }
-            .vnexus-route-main .text-\[\#38BDF8\] { color: #38BDF8; }
-            .vnexus-route-main .text-\[\#22C55E\] { color: #22C55E; }
-            .vnexus-route-main .text-\[\#F59E0B\] { color: #F59E0B; }
-            .vnexus-route-main .text-\[\#EF4444\] { color: #EF4444; }
-
-            /* 後來新增的兩個委託分頁：保留既有風格，但不外溢到其他分頁。 */
-            .vnexus-route-main[data-vnexus-view="commissions"] .vnexus-commission-page,
-            .vnexus-route-main[data-vnexus-view="commission-board"] .vnexus-commission-page {
-              width: 100%;
-              max-width: 100%;
-              margin-left: auto;
-              margin-right: auto;
-              overflow-x: hidden;
-            }
-            .vnexus-route-main[data-vnexus-view="commissions"] .vnexus-commission-grid,
-            .vnexus-route-main[data-vnexus-view="commission-board"] .vnexus-commission-grid {
-              display: grid;
-              grid-template-columns: repeat(1, minmax(0, 1fr));
-              gap: 1rem;
-            }
-
-            /* 從委託頁刷新後切到其他分頁時，避免深捲動、寬卡片或橫向容器把新分頁撐壞。 */
-            .vnexus-route-main[data-vnexus-view="home"] section,
-            .vnexus-route-main[data-vnexus-view="bulletin"] section,
-            .vnexus-route-main[data-vnexus-view="status_wall"] section,
-            .vnexus-route-main[data-vnexus-view="grid"] section,
-            .vnexus-route-main[data-vnexus-view="home"] > div,
-            .vnexus-route-main[data-vnexus-view="bulletin"] > div,
-            .vnexus-route-main[data-vnexus-view="status_wall"] > div,
-            .vnexus-route-main[data-vnexus-view="grid"] > div {
-              max-width: 100%;
-              min-width: 0;
-              overflow-x: hidden;
-            }
-          }
-        `;
-        document.head.appendChild(style);
-    };
-    const stabilize = () => {
-        removeLegacyRecoveryState();
-        installStableRouteStyle();
-        if (typeof document === "undefined")
-            return;
+        [
+            "vnexus-mobile-css-recovery-style",
+            "vnexus-mobile-route-stability-style",
+            "vnexus-tailwind-recovery-loader",
+        ].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el)
+                el.remove();
+        });
         document.documentElement.style.overflowX = "hidden";
         if (document.body)
             document.body.style.overflowX = "hidden";
-    };
-    const scheduleStabilize = (delay = 0) => {
-        if (cleanupTimer)
-            clearTimeout(cleanupTimer);
-        cleanupTimer = setTimeout(stabilize, Math.max(0, Number(delay) || 0));
     };
     return () => {
         if (initialized || typeof window === "undefined" || typeof document === "undefined")
@@ -983,14 +788,14 @@ const initVnexusMobileLayoutStability = (() => {
                 history.scrollRestoration = "manual";
         }
         catch (error) { }
-        window.vnexusRecheckMobileCss = scheduleStabilize;
-        stabilize();
+        window.vnexusRecheckMobileCss = cleanupLegacyMobileFallback;
+        cleanupLegacyMobileFallback();
         ["DOMContentLoaded", "load", "pageshow", "hashchange", "orientationchange", "resize"].forEach((eventName) => {
-            window.addEventListener(eventName, () => scheduleStabilize(eventName === "resize" ? 160 : 30), { passive: true });
+            window.addEventListener(eventName, cleanupLegacyMobileFallback, { passive: true });
         });
         document.addEventListener("visibilitychange", () => {
             if (!document.hidden)
-                scheduleStabilize(30);
+                cleanupLegacyMobileFallback();
         }, { passive: true });
     };
 })();
