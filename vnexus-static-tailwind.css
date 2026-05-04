@@ -3071,22 +3071,34 @@ html,body,#root{width:100%;min-height:100dvh;background:#0F111A;color:#E2E8F0;}b
 
 
 
-/* V-Nexus patch: keep mobile toast messages centered even when Safari falls back to static CSS. */
+/* V-Nexus patch: keep mobile toast messages centered even when Safari falls back to static CSS.
+   Tailwind v4 static CSS uses the independent translate property for -translate-x-1/2.
+   The toast uses transform directly, so translate must be neutralized to avoid a double left shift on iOS Safari. */
 .vnexus-toast-message{
+  position:fixed!important;
   left:50%!important;
   right:auto!important;
-  transform:translateX(-50%)!important;
+  translate:none!important;
+  transform:translate3d(-50%,0,0)!important;
+  width:min(32rem,calc(100vw - 2rem))!important;
   max-width:calc(100vw - 2rem)!important;
   text-align:center!important;
   justify-content:center!important;
+  align-items:center!important;
   box-sizing:border-box!important;
+  white-space:normal!important;
 }
 @media (max-width:639px){
   .vnexus-toast-message{
-    top:5rem!important;
+    top:calc(env(safe-area-inset-top,0px) + 5rem)!important;
+    left:50%!important;
+    translate:none!important;
+    transform:translate3d(-50%,0,0)!important;
+    width:calc(100vw - 2rem)!important;
     padding-left:1rem!important;
     padding-right:1rem!important;
     line-height:1.5!important;
+    border-radius:1rem!important;
   }
 }
 

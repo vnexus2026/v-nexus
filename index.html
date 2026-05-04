@@ -27,7 +27,7 @@
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-toast-home-button-fix">
+  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-mobile-toast-center-fix">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -240,22 +240,33 @@
 
   
 
-    /* Toast centering patch: prevents mobile Safari static-CSS fallback from showing notifications off-center. */
+    /* Toast centering patch: prevents mobile Safari static-CSS fallback from showing notifications off-center.
+       Important: do not combine Tailwind -translate-x-1/2 with transform here. Tailwind v4 static CSS uses the independent translate property, which can double-shift the toast left on iOS Safari. */
     .vnexus-toast-message {
+      position: fixed !important;
       left: 50% !important;
       right: auto !important;
-      transform: translateX(-50%) !important;
+      translate: none !important;
+      transform: translate3d(-50%, 0, 0) !important;
+      width: min(32rem, calc(100vw - 2rem)) !important;
       max-width: calc(100vw - 2rem) !important;
       text-align: center !important;
       justify-content: center !important;
+      align-items: center !important;
       box-sizing: border-box !important;
+      white-space: normal !important;
     }
     @media (max-width: 639px) {
       .vnexus-toast-message {
-        top: 5rem !important;
+        top: calc(env(safe-area-inset-top, 0px) + 5rem) !important;
+        left: 50% !important;
+        translate: none !important;
+        transform: translate3d(-50%, 0, 0) !important;
+        width: calc(100vw - 2rem) !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         line-height: 1.5 !important;
+        border-radius: 1rem !important;
       }
     }
 
@@ -287,7 +298,7 @@
 
   <div id="root"></div>
 
-  <script src="compiled-script.js?v=20260504-toast-home-button-fix" type="module"></script>
+  <script src="compiled-script.js?v=20260504-mobile-toast-center-fix" type="module"></script>
 
 </body>
 
