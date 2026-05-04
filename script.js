@@ -1976,8 +1976,8 @@ const VTuberCard = React.memo(({ v, onSelect, onDislike }) => {
                             compatibilityScore,
                             "%"),
                         compatibilityReason && (React.createElement("span", { className: "ml-auto max-w-[70%] text-right text-[11px] text-[#FBCFE8] bg-[#F472B6]/10 border border-[#F472B6]/20 rounded-full px-2.5 py-1 truncate min-w-0" }, compatibilityReason))),
-                    React.createElement("div", { className: "h-2 rounded-full bg-[#0F111A] border border-[#2A2F3D] overflow-hidden", "aria-label": `契合度 ${compatibilityScore}%` },
-                        React.createElement("div", { className: "h-full rounded-full bg-gradient-to-r from-[#F472B6] to-[#EC4899]", style: { width: `${Math.max(8, Math.min(100, compatibilityScore))}%` } }))))))));
+                    React.createElement("div", { className: "vnexus-compatibility-progress-track h-2 rounded-full bg-[#0F111A] border border-[#2A2F3D] overflow-hidden", "aria-label": `契合度 ${compatibilityScore}%` },
+                        React.createElement("div", { className: "vnexus-compatibility-progress-fill h-full rounded-full bg-gradient-to-r from-[#F472B6] to-[#EC4899]", style: { width: `${Math.max(8, Math.min(100, compatibilityScore))}%` } }))))))));
 }, (prevProps, nextProps) => {
     return (prevProps.v.updatedAt === nextProps.v.updatedAt &&
         prevProps.v.likes === nextProps.v.likes &&

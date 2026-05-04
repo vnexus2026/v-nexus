@@ -3110,3 +3110,27 @@ html,body,#root{width:100%;min-height:100dvh;background:#0F111A;color:#E2E8F0;}b
 @media (max-width: 639px) {
   .vnexus-commission-hero-actions button.hidden { display: none !important; }
 }
+
+
+/* ✅ V-Nexus：契合度粉紅色進度條固定樣式
+   目的：避免手機 Safari / 靜態 Tailwind 備援 CSS 未完整套用 gradient 時，契合度進度條變成透明或消失。 */
+.vnexus-compatibility-progress-track {
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  height: 0.5rem !important;
+  min-height: 0.5rem !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  background: #0F111A !important;
+  border: 1px solid #2A2F3D !important;
+}
+.vnexus-compatibility-progress-fill {
+  display: block !important;
+  height: 100% !important;
+  min-width: 8% !important;
+  border-radius: 9999px !important;
+  background-color: #EC4899 !important;
+  background-image: linear-gradient(90deg, #F472B6 0%, #EC4899 100%) !important;
+  box-shadow: 0 0 14px rgba(236, 72, 153, 0.24) !important;
+}

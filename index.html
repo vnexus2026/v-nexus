@@ -27,7 +27,7 @@
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-mobile-toast-center-fix">
+  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-compatibility-progress-fix">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -271,6 +271,30 @@
       }
     }
 
+  
+
+    /* ✅ V-Nexus：契合度粉紅色進度條固定樣式（Critical CSS） */
+    .vnexus-compatibility-progress-track {
+      display: block !important;
+      position: relative !important;
+      width: 100% !important;
+      height: 0.5rem !important;
+      min-height: 0.5rem !important;
+      border-radius: 9999px !important;
+      overflow: hidden !important;
+      background: #0F111A !important;
+      border: 1px solid #2A2F3D !important;
+    }
+    .vnexus-compatibility-progress-fill {
+      display: block !important;
+      height: 100% !important;
+      min-width: 8% !important;
+      border-radius: 9999px !important;
+      background-color: #EC4899 !important;
+      background-image: linear-gradient(90deg, #F472B6 0%, #EC4899 100%) !important;
+      box-shadow: 0 0 14px rgba(236, 72, 153, 0.24) !important;
+    }
+
   </style>
 </head>
 
@@ -299,7 +323,7 @@
 
   <div id="root"></div>
 
-  <script src="compiled-script.js?v=20260504-mobile-toast-center-fix" type="module"></script>
+  <script src="compiled-script.js?v=20260504-compatibility-progress-fix" type="module"></script>
 
 </body>
 
