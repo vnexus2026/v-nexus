@@ -647,6 +647,7 @@ const initVnexusImageLoadingUX = (() => {
           .vnexus-commission-hero p:not(:first-child) { color: #94A3B8 !important; font-size: .875rem !important; line-height: 1.7 !important; margin: .5rem 0 0 0 !important; max-width: 100% !important; }
           .vnexus-commission-hero-actions { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: .5rem !important; width: 100% !important; }
           .vnexus-commission-hero-actions button { display: inline-flex !important; align-items: center !important; justify-content: center !important; min-height: 42px !important; border-radius: .875rem !important; border: 0 !important; padding: .625rem .75rem !important; font-size: .875rem !important; line-height: 1.2 !important; font-weight: 900 !important; white-space: nowrap !important; }
+          .vnexus-commission-hero-actions button.hidden { display: none !important; }
           .vnexus-commission-controls { width: 100% !important; background: #11131C !important; border: 1px solid #2A2F3D !important; border-radius: 1.25rem !important; padding: .75rem !important; margin-bottom: 1rem !important; overflow: hidden !important; }
           .vnexus-commission-controls-grid { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; align-items: end !important; gap: .65rem !important; }
           .vnexus-commission-controls-grid > div:first-child { grid-column: 1 / -1 !important; min-width: 0 !important; }

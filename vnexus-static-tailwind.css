@@ -3106,3 +3106,7 @@ html,body,#root{width:100%;min-height:100dvh;background:#0F111A;color:#E2E8F0;}b
 .vnexus-mobile-bulletin-red-nav{
   min-height:3rem;
 }
+/* V-Nexus fix: mobile commission board keeps only the top creator button. */
+@media (max-width: 639px) {
+  .vnexus-commission-hero-actions button.hidden { display: none !important; }
+}
