@@ -3789,7 +3789,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                             React.createElement("i", { className: "fa-solid fa-triangle-exclamation mr-2" }),
                             "\u806F\u52D5\u898F\u7BC4")),
                     React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
-                        React.createElement("button", { onClick: () => goToBulletin ? goToBulletin() : navigate("bulletin"), className: " vnexus-mobile-bulletin-red-navh-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
+                        React.createElement("button", { onClick: () => goToBulletin ? goToBulletin() : navigate("bulletin"), className: "vnexus-mobile-bulletin-red-nav h-12 bg-rose-600 hover:bg-rose-500 border border-rose-500/50 text-white px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
                             React.createElement("i", { className: "fa-solid fa-bullhorn mr-2" }),
                             "\u63EA\u5718\u4F48\u544A\u6B04"),
                         React.createElement("button", { onClick: goToCommissionRequests, className: "h-12 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white border border-[#8B5CF6]/50 px-5 rounded-xl font-bold transition-colors flex items-center justify-center whitespace-nowrap shadow-md" },
@@ -8186,7 +8186,7 @@ function App() {
     }, [user, isVerifiedUser, isAdmin, showToast, realVtubers, onlineUsers]);
     return (React.createElement(AppContext.Provider, { value: contextValue },
         React.createElement("div", { className: "vnexus-app-shell flex flex-col min-h-screen relative", "data-vnexus-current-view": currentView },
-            toastMsg && (React.createElement("div", { className: "fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#181B25] border border-[#8B5CF6] text-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3 font-bold text-sm" },
+            toastMsg && (React.createElement("div", { className: "vnexus-toast-message fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#181B25] border border-[#8B5CF6] text-white px-6 py-3 rounded-full shadow-sm flex items-center gap-3 font-bold text-sm", style: { left: "50%", right: "auto", transform: "translateX(-50%)", maxWidth: "calc(100vw - 2rem)", textAlign: "center", justifyContent: "center", boxSizing: "border-box" } },
                 React.createElement("i", { className: "fa-solid fa-circle-info text-[#A78BFA]" }),
                 " ",
                 toastMsg)),

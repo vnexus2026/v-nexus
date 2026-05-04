@@ -27,7 +27,7 @@
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-bulletin-mobile-css-fix">
+  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-toast-home-button-fix">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -238,6 +238,27 @@
       animation-duration:1.05s;
     }
 
+  
+
+    /* Toast centering patch: prevents mobile Safari static-CSS fallback from showing notifications off-center. */
+    .vnexus-toast-message {
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%) !important;
+      max-width: calc(100vw - 2rem) !important;
+      text-align: center !important;
+      justify-content: center !important;
+      box-sizing: border-box !important;
+    }
+    @media (max-width: 639px) {
+      .vnexus-toast-message {
+        top: 5rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        line-height: 1.5 !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -266,7 +287,7 @@
 
   <div id="root"></div>
 
-  <script src="compiled-script.js?v=20260504-bulletin-mobile-css-fix" type="module"></script>
+  <script src="compiled-script.js?v=20260504-toast-home-button-fix" type="module"></script>
 
 </body>
 
