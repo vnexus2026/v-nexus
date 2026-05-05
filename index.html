@@ -27,7 +27,7 @@
   </script>
 
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260504-compatibility-progress-fix">
+  <link rel="stylesheet" href="vnexus-static-tailwind.css?v=20260505-profile-save-toast-fix">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -295,6 +295,207 @@
       box-shadow: 0 0 14px rgba(236, 72, 153, 0.24) !important;
     }
 
+
+/* V-Nexus homepage task-oriented entrance cards. */
+.vnexus-home-task-section{
+  margin-top:2.5rem;
+  padding-top:2.5rem;
+  border-top:1px solid #2A2F3D;
+  width:100%;
+}
+.vnexus-home-task-heading{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:.45rem;
+  margin-bottom:1.25rem;
+  text-align:left;
+}
+.vnexus-home-task-eyebrow{
+  color:#A78BFA;
+  background:rgba(139,92,246,.12);
+  border:1px solid rgba(139,92,246,.24);
+  border-radius:9999px;
+  padding:.35rem .7rem;
+  font-size:.7rem;
+  line-height:1;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  font-weight:900;
+}
+.vnexus-home-task-heading h2{
+  color:#F8FAFC;
+  font-size:clamp(1.65rem,4vw,2.35rem);
+  line-height:1.12;
+  font-weight:950;
+  letter-spacing:-.035em;
+  margin:0;
+}
+.vnexus-home-task-heading p:not(.vnexus-home-task-eyebrow){
+  color:#94A3B8;
+  font-size:.95rem;
+  line-height:1.7;
+  margin:0;
+  max-width:46rem;
+}
+.vnexus-home-task-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:1rem;
+}
+.vnexus-task-entry-card{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  min-height:14rem;
+  padding:1.25rem;
+  border-radius:1.35rem;
+  border:1px solid rgba(42,47,61,.95);
+  background:linear-gradient(180deg,rgba(24,27,37,.96),rgba(17,19,28,.98));
+  color:#F8FAFC;
+  text-align:left;
+  overflow:hidden;
+  box-shadow:0 14px 36px rgba(0,0,0,.18);
+  transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+  cursor:pointer;
+}
+.vnexus-task-entry-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at top right,var(--task-glow,rgba(139,92,246,.2)),transparent 58%);
+  opacity:.76;
+  pointer-events:none;
+}
+.vnexus-task-entry-card:hover{
+  transform:translateY(-3px);
+  border-color:var(--task-border,#8B5CF6);
+  box-shadow:0 18px 46px rgba(0,0,0,.26);
+}
+.vnexus-task-entry-icon{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:3rem;
+  height:3rem;
+  margin-bottom:1rem;
+  border-radius:1rem;
+  color:var(--task-color,#C4B5FD);
+  background:var(--task-soft,rgba(139,92,246,.16));
+  border:1px solid var(--task-soft-border,rgba(139,92,246,.26));
+  font-size:1.25rem;
+}
+.vnexus-task-entry-body{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  flex:1;
+}
+.vnexus-task-entry-title{
+  color:#F8FAFC;
+  font-size:1.05rem;
+  line-height:1.35;
+  font-weight:950;
+  margin:0 0 .45rem 0;
+  letter-spacing:-.015em;
+}
+.vnexus-task-entry-desc{
+  color:#94A3B8;
+  font-size:.86rem;
+  line-height:1.65;
+  margin:0 0 1rem 0;
+}
+.vnexus-task-entry-cta{
+  margin-top:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:.45rem;
+  width:max-content;
+  max-width:100%;
+  color:var(--task-color,#C4B5FD);
+  font-size:.82rem;
+  line-height:1.2;
+  font-weight:950;
+}
+.vnexus-task-entry-cta i{
+  font-size:.75rem;
+  transition:transform .18s ease;
+}
+.vnexus-task-entry-card:hover .vnexus-task-entry-cta i{
+  transform:translateX(3px);
+}
+.vnexus-task-entry-card--green{--task-color:#86EFAC;--task-glow:rgba(34,197,94,.24);--task-border:rgba(34,197,94,.55);--task-soft:rgba(34,197,94,.14);--task-soft-border:rgba(34,197,94,.28);}
+.vnexus-task-entry-card--rose{--task-color:#FDA4AF;--task-glow:rgba(244,63,94,.25);--task-border:rgba(244,63,94,.55);--task-soft:rgba(244,63,94,.14);--task-soft-border:rgba(244,63,94,.28);}
+.vnexus-task-entry-card--purple{--task-color:#C4B5FD;--task-glow:rgba(139,92,246,.28);--task-border:rgba(139,92,246,.58);--task-soft:rgba(139,92,246,.15);--task-soft-border:rgba(139,92,246,.3);}
+.vnexus-task-entry-card--sky{--task-color:#7DD3FC;--task-glow:rgba(56,189,248,.24);--task-border:rgba(56,189,248,.55);--task-soft:rgba(56,189,248,.13);--task-soft-border:rgba(56,189,248,.28);}
+
+.vnexus-home-bulletin-card-cta{
+  display:flex;
+  flex-direction:column;
+  flex-shrink:0;
+  gap:.45rem;
+  min-width:7.25rem;
+}
+.vnexus-home-bulletin-primary-cta,
+.vnexus-home-bulletin-secondary-cta{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:2.35rem;
+  border-radius:.9rem;
+  padding:.55rem .85rem;
+  font-size:.78rem;
+  line-height:1.15;
+  font-weight:950;
+  white-space:nowrap;
+  transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease;
+}
+.vnexus-home-bulletin-primary-cta{
+  color:#fff;
+  background:#8B5CF6;
+  border:1px solid rgba(139,92,246,.65);
+  box-shadow:0 10px 22px rgba(139,92,246,.22);
+}
+.vnexus-home-bulletin-primary-cta:hover{background:#7C3AED;transform:translateY(-1px);}
+.vnexus-home-bulletin-primary-cta.is-applied{
+  color:#CBD5E1;
+  background:#1D2130;
+  border-color:#2A2F3D;
+  box-shadow:none;
+}
+.vnexus-home-bulletin-secondary-cta{
+  color:#C4B5FD;
+  background:rgba(139,92,246,.1);
+  border:1px solid rgba(139,92,246,.28);
+}
+.vnexus-home-bulletin-secondary-cta:hover{background:rgba(139,92,246,.16);color:#F8FAFC;}
+@media (max-width:639px){
+  .vnexus-home-bulletin-card-cta{min-width:6.35rem;gap:.4rem;}
+  .vnexus-home-bulletin-primary-cta,
+  .vnexus-home-bulletin-secondary-cta{min-height:2.25rem;padding:.5rem .7rem;font-size:.74rem;border-radius:.8rem;}
+}
+
+@media (max-width:1023px){
+  .vnexus-home-task-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:639px){
+  .vnexus-home-task-section{margin-top:2rem;padding-top:2rem;}
+  .vnexus-home-task-heading{align-items:flex-start;margin-bottom:1rem;}
+  .vnexus-home-task-heading h2{font-size:1.55rem;}
+  .vnexus-home-task-heading p:not(.vnexus-home-task-eyebrow){font-size:.88rem;line-height:1.65;}
+  .vnexus-home-task-grid{grid-template-columns:1fr;gap:.85rem;}
+  .vnexus-task-entry-card{min-height:0;padding:1rem;border-radius:1.15rem;flex-direction:row;gap:.9rem;align-items:flex-start;}
+  .vnexus-task-entry-icon{width:2.65rem;height:2.65rem;margin-bottom:0;border-radius:.9rem;flex:0 0 auto;font-size:1.05rem;}
+  .vnexus-task-entry-title{font-size:1rem;margin-bottom:.25rem;}
+  .vnexus-task-entry-desc{font-size:.82rem;line-height:1.55;margin-bottom:.65rem;}
+  .vnexus-task-entry-cta{font-size:.78rem;}
+}
+
   </style>
 </head>
 
@@ -323,7 +524,7 @@
 
   <div id="root"></div>
 
-  <script src="compiled-script.js?v=20260504-compatibility-progress-fix" type="module"></script>
+  <script src="compiled-script.js?v=20260505-profile-save-toast-fix" type="module"></script>
 
 </body>
 
