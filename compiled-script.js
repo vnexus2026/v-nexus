@@ -227,9 +227,9 @@ const VNEXUS_SEO_ROUTES = {
     },
     status_wall: {
         url: `${VNEXUS_SITE_URL}/status-wall/`,
-        title: "今日活躍創作者｜24H 火速揪團｜V-Nexus",
+        title: "今日活躍創作者｜VTuber 動態牆｜V-Nexus",
         description: "查看 VTuber 與創作者的 24 小時動態、近況、聯動意願與創作狀態，掌握社群最新活躍資訊。",
-        keywords: "VTuber 揪團,24H 火速揪團,VTuber 社群,VTuber 近況"
+        keywords: "VTuber 動態,今日活躍創作者,VTuber 社群,VTuber 近況"
     },
     articles: {
         url: `${VNEXUS_SITE_URL}/articles/`,
@@ -634,25 +634,6 @@ const initVnexusImageLoadingUX = (() => {
           color: #FFFFFF;
           font-weight: 700;
         }
-        .vnexus-vtuber-filter-panel select {
-          min-height: 34px !important;
-          padding: 0.4rem 1.85rem 0.4rem 0.65rem !important;
-          font-size: 0.78rem !important;
-          line-height: 1.15 !important;
-          font-weight: 700 !important;
-          letter-spacing: 0 !important;
-        }
-        @media (max-width: 639px) {
-          .vnexus-vtuber-filter-panel select {
-            min-height: 34px !important;
-            font-size: 0.75rem !important;
-          }
-        }
-        @media (max-width: 1023px) {
-          .vnexus-vtuber-filter-panel {
-            scroll-margin-top: 76px;
-          }
-        }
 
         /* ✅ 尋找 VTuber 夥伴：手機版維持原排版；路由穩定器只補齊基礎排版，不再啟用全站 fallback。 */
 
@@ -782,7 +763,7 @@ const initVnexusMobileLayoutStability = (() => {
         if (typeof document === "undefined")
             return;
         // ✅ Safari 手機跑版根因修正：不再用 JS 動態注入「全站救援 CSS」或重新載入 Tailwind CDN。
-        // 先前的救援樣式在 Safari 快取 / pageshow / hashchange 交錯時，會把首頁、揪團佈告欄、24H 火速揪團套成半套 fallback，造成看起來像 CSS 消失。
+        // 先前的救援樣式在 Safari 快取 / pageshow / hashchange 交錯時，會把首頁、揪團佈告欄、24H 動態牆套成半套 fallback，造成看起來像 CSS 消失。
         // 目前改由 index.html 載入本機靜態 vnexus-static-tailwind.css 作為穩定樣式來源；這裡只清掉舊殘留狀態，不碰功能邏輯。
         document.documentElement.classList.remove("vnexus-tailwind-fallback");
         document.body?.classList.remove("vnexus-tailwind-fallback");
@@ -1489,7 +1470,7 @@ const limitDisplayText = (value, maxLength = 10) => {
         return "創作者";
     return Array.from(text).slice(0, maxLength).join("");
 };
-// ✅ IG 限動圈下方顯示兩層資訊：第一層「名字」、第二層「24H 火速揪團輸入的文字」。
+// ✅ IG 限動圈下方顯示兩層資訊：第一層「名字」、第二層「24H 動態牆輸入的文字」。
 // 直播動態會去掉開頭的 🔴，避免 10 字元額度被圖示吃掉。
 const getStoryCircleNameText = (v, fallback = "創作者") => {
     return limitDisplayText(v?.name || fallback, 10);
@@ -3916,7 +3897,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
                                     React.createElement("span", { className: "vnexus-story-secondary-line", style: STORY_SECONDARY_LINE_STYLE }, getStoryCirclePreviewText(v, "動態")))));
                         }))) : (React.createElement("button", { onClick: () => navigate("status_wall"), className: "w-full text-left bg-[#181B25] hover:bg-[#1D2130] border border-dashed border-[#2A2F3D] rounded-xl px-3 py-3 transition-colors" },
                             React.createElement("p", { className: "text-[#F8FAFC] text-sm font-bold" }, "\u9084\u6C92\u6709\u4EBA\u767C\u52D5\u614B"),
-                            React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u706B\u901F\u63EA\u5718\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
+                            React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1" }, "\u53BB 24H \u52D5\u614B\u7246\u767C\u4E00\u53E5\u8A71\uFF0C\u8B93\u5927\u5BB6\u66F4\u5BB9\u6613\u770B\u898B\u4F60\u3002"))))),
                 React.createElement("div", { className: "grid grid-cols-3 gap-2 sm:gap-3 mt-auto pt-6" },
                     React.createElement("div", { className: "bg-[#11131C] border border-[#2A2F3D] rounded-xl px-2 sm:px-4 py-3 text-center" },
                         React.createElement("p", { className: "text-[#94A3B8] text-[10px] sm:text-xs font-bold mb-1" }, "VTUBER\u4EBA\u6578"),
@@ -3934,7 +3915,8 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
         React.createElement("div", { className: "vnexus-home-task-section", "aria-label": "首頁快速任務入口" },
             React.createElement("div", { className: "vnexus-home-task-heading" },
                 React.createElement("p", { className: "vnexus-home-task-eyebrow" }, "Start Here"),
-                React.createElement("h2", null, "你今天想做什麼？")),
+                React.createElement("h2", null, "你今天想做什麼？"),
+                React.createElement("p", null, "依照目的快速前往對應功能，不用先研究每個分頁怎麼用。")),
             React.createElement("div", { className: "vnexus-home-task-grid" },
                 React.createElement(TaskEntryCard, { tone: "green", icon: "fa-user-group", title: "我要找聯動夥伴", desc: "查看 VTuber 名片、時段與興趣，找到適合一起開台或企劃的人。", cta: "進入尋找 VTuber 夥伴", onClick: () => navigate("grid") }),
                 React.createElement(TaskEntryCard, { tone: "rose", icon: "fa-bullhorn", title: "我要揪團 / 找人合作", desc: "發布招募企劃，讓有興趣的人直接表達意願並加入討論。", cta: "進入揪團佈告欄", onClick: () => goToBulletin ? goToBulletin() : navigate("bulletin") }),
@@ -4186,7 +4168,6 @@ massEmailLog, feedbackReports = [], onUpdateFeedbackReport, onDeleteFeedbackRepo
     const [adminSendCurrent, setAdminSendCurrent] = useState(0);
     const [adminSendTotal, setAdminSendTotal] = useState(0);
     const [adminSendLog, setAdminSendLog] = useState("");
-    const [feedbackReplySendingId, setFeedbackReplySendingId] = useState("");
     const getAdminSortTime = (v) => {
         const getTime = (val) => {
             if (!val)
@@ -4361,57 +4342,6 @@ massEmailLog, feedbackReports = [], onUpdateFeedbackReport, onDeleteFeedbackRepo
         catch (err) {
             console.error("Test Mail Error:", err);
             showToast("❌ 寫入失敗，請按 F12 查看錯誤。");
-        }
-    };
-    const handleReplyFeedbackReport = async (report) => {
-        const recipient = String(report?.userEmail || "").trim();
-        if (!recipient || !recipient.includes("@")) {
-            showToast("這則回報沒有可回覆的 Email");
-            return;
-        }
-        const defaultReply = report?.adminReply || "您好，您回報的問題我們已經處理完成，感謝協助讓 V-Nexus 變得更好！";
-        const replyText = prompt("請輸入要回覆給使用者的內容：", defaultReply);
-        if (replyText === null)
-            return;
-        const cleanReply = replyText.trim();
-        if (!cleanReply) {
-            showToast("回覆內容不能空白");
-            return;
-        }
-        setFeedbackReplySendingId(report.id);
-        try {
-            const sendSystemEmail = httpsCallable(functionsInstance, "sendSystemEmail");
-            const authToken = auth.currentUser ? await auth.currentUser.getIdToken(true) : "";
-            const originalMessage = String(report.message || "").slice(0, 500);
-            await sendSystemEmail({
-                authToken,
-                to: recipient,
-                subject: "[V-Nexus] 功能回饋處理回覆",
-                text: `${report.userName || "您好"}，您好：
-
-${cleanReply}
-
-您原本回報的內容：
-「${originalMessage}」
-
-感謝你協助改善 V-Nexus。
-V-Nexus 團隊`,
-            });
-            await onUpdateFeedbackReport?.(report.id, {
-                status: "resolved",
-                adminReply: cleanReply,
-                repliedAt: Date.now(),
-                replySent: true,
-                repliedTo: '',
-            });
-            showToast("✅ 已回覆使用者並標記為已處理");
-        }
-        catch (err) {
-            console.error("回覆功能回饋失敗:", err);
-            showToast(`❌ 回覆失敗：${err?.message || "請稍後再試"}`);
-        }
-        finally {
-            setFeedbackReplySendingId("");
         }
     };
     return (React.createElement(React.Fragment, null,
@@ -4754,25 +4684,20 @@ V-Nexus 團隊`,
                                         React.createElement("span", { className: "text-white font-black" }, report.userName || profile?.name || "使用者"),
                                         report.status === "resolved" ? (React.createElement("span", { className: "text-[10px] bg-[#22C55E]/15 text-[#86EFAC] border border-[#22C55E]/25 px-2 py-0.5 rounded-full font-bold" }, "\u5DF2\u8655\u7406")) : (React.createElement("span", { className: "text-[10px] bg-[#F59E0B]/15 text-[#FCD34D] border border-[#F59E0B]/25 px-2 py-0.5 rounded-full font-bold" }, "\u5F85\u8655\u7406"))),
                                     React.createElement("div", { className: "text-[#94A3B8] text-xs mt-1 space-x-2" },
-                                        React.createElement("span", null, formatTime(report.createdAt)))),
-                                React.createElement("div", { className: "flex items-center gap-2 flex-shrink-0 flex-wrap justify-end" },
+                                        React.createElement("span", null, formatTime(report.createdAt)),
+                                        report.userEmail && React.createElement("span", null, report.userEmail))),
+                                React.createElement("div", { className: "flex items-center gap-2 flex-shrink-0" },
                                     report.status !== "resolved" && (React.createElement("button", { onClick: () => onUpdateFeedbackReport?.(report.id, { status: "resolved" }), className: "px-3 py-1.5 rounded-lg bg-[#22C55E]/15 hover:bg-[#22C55E]/25 text-[#86EFAC] border border-[#22C55E]/25 text-xs font-bold transition-colors" }, "\u6A19\u8A18\u5DF2\u8655\u7406")),
-                                    React.createElement("button", { onClick: () => handleReplyFeedbackReport(report), disabled: feedbackReplySendingId === report.id || !report.userEmail, className: `px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${report.userEmail ? "bg-[#38BDF8]/15 hover:bg-[#38BDF8]/25 text-[#7DD3FC] border-[#38BDF8]/25" : "bg-[#1D2130] text-[#64748B] border-[#2A2F3D] cursor-not-allowed"}` }, feedbackReplySendingId === report.id ? (React.createElement(React.Fragment, null,
-                                        React.createElement("i", { className: "fa-solid fa-spinner fa-spin mr-1" }),
-                                        "寄送中")) : (report.userEmail ? "回覆使用者" : "無 Email")),
                                     React.createElement("button", { onClick: () => { if (confirm("確定要刪除這則回饋嗎？"))
                                             onDeleteFeedbackReport?.(report.id); }, className: "px-3 py-1.5 rounded-lg bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 text-xs font-bold transition-colors" }, "刪除"))),
                             React.createElement("p", { className: "text-[#E2E8F0] text-sm leading-relaxed whitespace-pre-wrap break-words" }, report.message),
-                            report.adminReply && (React.createElement("div", { className: "rounded-xl border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-3" },
-                                React.createElement("p", { className: "text-[11px] font-bold text-[#86EFAC] mb-1" }, "已回覆使用者"),
-                                React.createElement("p", { className: "text-sm text-[#D7FBE8] leading-relaxed whitespace-pre-wrap break-words" }, report.adminReply))),
                             React.createElement("div", { className: "text-[11px] text-[#64748B] flex flex-wrap gap-x-3 gap-y-1" },
+                                report.userId && React.createElement("span", null,
+                                    "UID\uFF1A",
+                                    report.userId),
                                 report.pagePath && React.createElement("span", null,
                                     "\u4F86\u6E90\uFF1A",
-                                    report.pagePath),
-                                report.repliedAt && React.createElement("span", null,
-                                    "回覆：",
-                                    formatTime(report.repliedAt)))));
+                                    report.pagePath))));
                     })))),
                 activeTab === "settings" && (React.createElement("div", { className: "space-y-8" },
                     React.createElement("div", null,
@@ -6779,36 +6704,6 @@ function App() {
             setTimeout(doScroll, 80);
         });
     };
-    const scrollVtuberFilterPanelToTop = () => {
-        const doScroll = () => {
-            const target = document.getElementById("vtuber-mobile-filter-panel") || document.getElementById("vtuber-partner-page-top");
-            if (!target)
-                return;
-            const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - 76);
-            window.scrollTo({ top, behavior: "auto" });
-            if (document.body)
-                document.body.scrollTop = top;
-            if (document.documentElement)
-                document.documentElement.scrollTop = top;
-        };
-        requestAnimationFrame(() => {
-            doScroll();
-            setTimeout(doScroll, 80);
-        });
-    };
-    const handleToggleMobileFilter = () => {
-        if (isMobileFilterOpen) {
-            setIsMobileFilterOpen(false);
-            scrollVtuberGridToTop();
-            return;
-        }
-        setIsMobileFilterOpen(true);
-        scrollVtuberFilterPanelToTop();
-    };
-    const handleCloseMobileFilter = () => {
-        setIsMobileFilterOpen(false);
-        scrollVtuberGridToTop();
-    };
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
             setCurrentPage(newPage);
@@ -8480,7 +8375,7 @@ function App() {
                             " \u5C0B\u627E VTuber \u5925\u4F34"),
                         React.createElement("button", { onClick: () => navigate("status_wall"), className: `flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold transition-colors text-sm whitespace-nowrap ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B] shadow-md border border-[#F59E0B]/50"}` },
                             React.createElement("i", { className: "fa-solid fa-bolt" }),
-                            " 24H\u706B\u901F\u63EA\u5718"),
+                            " 24H\u52D5\u614B\u7246"),
                         React.createElement("button", { onClick: () => navigate("bulletin"), className: `flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap ${currentView === "bulletin" ? "bg-rose-500 text-white shadow-sm" : "bg-rose-600 text-white hover:bg-rose-500 shadow-md border border-rose-500/50"}` },
                             React.createElement("i", { className: "fa-solid fa-bullhorn" }),
                             " \u63EA\u5718\u4F48\u544A\u6B04",
@@ -8509,7 +8404,7 @@ function App() {
                         " \u5C0B\u627E VTuber \u5925\u4F34"),
                     React.createElement("button", { onClick: () => navigate("status_wall"), className: `text-left px-4 py-3 rounded-xl font-bold flex items-center gap-3 ${currentView === "status_wall" ? "bg-[#F59E0B] text-[#0F111A] shadow-sm" : "bg-[#F59E0B] text-[#0F111A] hover:bg-[#F59E0B]"}` },
                         React.createElement("i", { className: "fa-solid fa-bolt w-5" }),
-                        " 24H\u706B\u901F\u63EA\u5718"),
+                        " 24H\u52D5\u614B\u7246"),
                     React.createElement("button", { onClick: () => {
                             if (!isVerifiedUser) {
                                 showToast("請先認證名片解鎖");
@@ -8616,18 +8511,14 @@ function App() {
                                 }
                             }, onApply: (id, isApplying) => handleApplyBulletin(id, isApplying, b.userId), onInvite: handleOpenCollabModal, onDeleteBulletin: handleDeleteBulletin, onEditBulletin: handleEditBulletin, openModalId: openBulletinModalId, onClearOpenModalId: () => setOpenBulletinModalId(null), currentView: currentView })))))))),
                 currentView === "grid" && (React.createElement("div", { id: "vtuber-partner-page-top", className: "vnexus-vtuber-grid-page w-full max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8 animate-fade-in-up overflow-x-hidden" },
-                    React.createElement("aside", { id: "vtuber-mobile-filter-panel", className: `vnexus-vtuber-filter-panel w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}` },
+                    React.createElement("aside", { className: `vnexus-vtuber-filter-panel w-full lg:w-72 flex-shrink-0 space-y-6 ${isMobileFilterOpen ? "block" : "hidden lg:block"}` },
                         React.createElement("div", { className: "hidden lg:block relative" },
                             React.createElement("i", { className: "fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" }),
                             React.createElement("input", { type: "text", placeholder: "\u641C\u5C0B VTuber...", value: searchQuery, onChange: (e) => setSearchQuery(e.target.value), className: "w-full bg-[#181B25]/50 border border-[#2A2F3D] rounded-xl py-3 pl-10 pr-4 text-[16px] sm:text-sm text-white outline-none focus:border-[#8B5CF6]" })),
                         React.createElement("div", { className: "bg-[#181B25]/30 border border-[#2A2F3D] rounded-xl p-5 space-y-5" },
-                            React.createElement("div", { className: "flex items-center justify-between gap-3 border-b border-[#2A2F3D] pb-3" },
-                                React.createElement("h3", { className: "font-bold text-[#CBD5E1] flex items-center gap-2" },
-                                    React.createElement("i", { className: "fa-solid fa-filter" }),
-                                    "\u9032\u968E\u7BE9\u9078"),
-                                React.createElement("button", { type: "button", onClick: handleCloseMobileFilter, className: "lg:hidden inline-flex items-center gap-1.5 rounded-lg border border-[#38BDF8]/30 bg-[#38BDF8]/10 px-3 py-1.5 text-xs font-black text-[#7DD3FC] active:scale-[0.98]", "aria-label": "收合進階篩選" },
-                                    React.createElement("i", { className: "fa-solid fa-xmark" }),
-                                    "\u6536\u5408")),
+                            React.createElement("h3", { className: "font-bold border-b border-[#2A2F3D] pb-2 text-[#CBD5E1]" },
+                                React.createElement("i", { className: "fa-solid fa-filter mr-2" }),
+                                "\u9032\u968E\u7BE9\u9078"),
                             React.createElement("div", { className: "lg:hidden mb-4" },
                                 React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u95DC\u9375\u5B57\u641C\u5C0B (\u5982: ASMR\u3001\u6B4C\u56DE\u3001\u4F01\u5283)"),
                                 React.createElement("div", { className: "relative" },
@@ -8642,23 +8533,23 @@ function App() {
                             React.createElement("div", { className: "grid grid-cols-2 gap-3" },
                                 React.createElement("div", null,
                                     React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u570B\u7C4D"),
-                                    React.createElement("select", { value: selectedNationality, onChange: (e) => setSelectedNationality(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-xs outline-none font-semibold tracking-normal" }, dynamicNationalities.map((n) => (React.createElement("option", { key: n, value: n }, n === "All" ? "全部" : n))))),
+                                    React.createElement("select", { value: selectedNationality, onChange: (e) => setSelectedNationality(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal" }, dynamicNationalities.map((n) => (React.createElement("option", { key: n, value: n }, n === "All" ? "全部" : n))))),
                                 React.createElement("div", null,
                                     React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u4E3B\u8981\u8A9E\u8A00"),
-                                    React.createElement("select", { value: selectedLanguage, onChange: (e) => setSelectedLanguage(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-xs outline-none font-semibold tracking-normal" }, dynamicLanguages.map((l) => (React.createElement("option", { key: l, value: l }, l === "All" ? "全部" : l)))))),
+                                    React.createElement("select", { value: selectedLanguage, onChange: (e) => setSelectedLanguage(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal" }, dynamicLanguages.map((l) => (React.createElement("option", { key: l, value: l }, l === "All" ? "全部" : l)))))),
                             React.createElement("div", null,
                                 React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u53EF\u806F\u52D5\u6642\u6BB5"),
-                                React.createElement("select", { value: selectedSchedule, onChange: (e) => setSelectedSchedule(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-xs outline-none font-semibold tracking-normal" }, dynamicSchedules.map((d) => (
+                                React.createElement("select", { value: selectedSchedule, onChange: (e) => setSelectedSchedule(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal" }, dynamicSchedules.map((d) => (
                                 // 🌟 優化：加上 bg-[#0F111A] text-white
                                 React.createElement("option", { key: d, value: d, className: "bg-[#0F111A] text-white" }, d === "All" ? "全部" : d))))),
                             React.createElement("div", null,
                                 React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u4EE3\u8868\u8272\u7CFB"),
-                                React.createElement("select", { value: selectedColor, onChange: (e) => setSelectedColor(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-xs outline-none font-semibold tracking-normal" },
+                                React.createElement("select", { value: selectedColor, onChange: (e) => setSelectedColor(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal" },
                                     React.createElement("option", { value: "All", className: "bg-[#0F111A] text-white" }, "\u5168\u90E8\u8272\u7CFB"),
                                     COLOR_OPTIONS.map((c) => (React.createElement("option", { key: c, value: c, className: "bg-[#0F111A] text-white" }, c))))),
                             React.createElement("div", null,
                                 React.createElement("p", { className: "text-xs text-[#64748B] mb-2" }, "\u661F\u5EA7"),
-                                React.createElement("select", { value: selectedZodiac, onChange: (e) => setSelectedZodiac(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-xs outline-none font-semibold tracking-normal" },
+                                React.createElement("select", { value: selectedZodiac, onChange: (e) => setSelectedZodiac(e.target.value), className: "w-full bg-[#0F111A] border border-[#2A2F3D] rounded-lg p-2 text-white text-[16px] sm:text-xs outline-none font-normal" },
                                     React.createElement("option", { value: "All", className: "bg-[#0F111A] text-white" }, "\u5168\u90E8\u661F\u5EA7"),
                                     ZODIAC_SIGNS.map((z) => (React.createElement("option", { key: z, value: z, className: "bg-[#0F111A] text-white" }, z))))),
                             React.createElement("div", { className: "flex flex-wrap gap-2 mt-2" },
@@ -8708,9 +8599,9 @@ function App() {
                                 React.createElement("button", { onClick: () => navigate('blacklist'), className: "vnexus-grid-btn-blacklist bg-[#3B171D]/50 text-[#EF4444] hover:bg-[#EF4444] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-[#EF4444]/50" },
                                     React.createElement("i", { className: "fa-solid fa-ban mr-1" }),
                                     " \u9ED1\u55AE\u907F\u96F7\u5340"),
-                                React.createElement("button", { onClick: handleToggleMobileFilter, "aria-expanded": isMobileFilterOpen, className: "vnexus-grid-btn-filter lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors" },
-                                    React.createElement("i", { className: `fa-solid ${isMobileFilterOpen ? "fa-xmark" : "fa-sliders"}` }),
-                                    isMobileFilterOpen ? " \u6536\u5408\u7BE9\u9078" : " \u9032\u968E\u7BE9\u9078")),
+                                React.createElement("button", { onClick: () => setIsMobileFilterOpen(!isMobileFilterOpen), className: "vnexus-grid-btn-filter lg:hidden bg-[#181B25] hover:bg-[#1D2130] border border-[#2A2F3D] text-[#CBD5E1] hover:text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors" },
+                                    React.createElement("i", { className: "fa-solid fa-filter" }),
+                                    " \u7BE9\u9078")),
                             React.createElement("div", { className: "vnexus-vtuber-grid-search-sort flex flex-col gap-3 w-full sm:w-auto" },
                                 React.createElement("div", { className: "block lg:hidden relative w-full" },
                                     React.createElement("i", { className: "fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" }),
@@ -9305,7 +9196,7 @@ function App() {
                     const recentlyUpdatedUsers = [...realVtubers]
                         .filter((v) => isStoryEligibleProfile(v) && !activeStoryIds.has(v.id) && (v.updatedAt || v.createdAt || v.submittedAt))
                         .sort((a, b) => Number(b.updatedAt || b.createdAt || b.submittedAt || 0) - Number(a.updatedAt || a.createdAt || a.submittedAt || 0));
-                    // 24H 火速揪團上方 IG 欄位只顯示有 24H 動態的人，名稱下方改顯示動態文字。
+                    // 24H 動態牆上方 IG 欄位只顯示有 24H 動態的人，名稱下方改顯示動態文字。
                     const storyRingUsers = [...unreadStoryUsers, ...viewedStoryUsers].slice(0, 24);
                     const reactionProfileMap = new Map(realVtubers.map((v) => [v.id, v]));
                     const findReactionProfile = (uid) => {
@@ -9341,7 +9232,7 @@ function App() {
                             React.createElement("div", { className: "min-w-0" },
                                 React.createElement("h2", { className: "text-lg sm:text-xl font-black text-white flex items-center gap-2" },
                                     React.createElement("i", { className: "fa-solid fa-bolt text-[#F59E0B]" }),
-                                    " 24H \u706B\u901F\u63EA\u5718"),
+                                    " 24H \u52D5\u614B\u7246"),
                                 React.createElement("p", { className: "text-[#94A3B8] text-xs mt-1 leading-relaxed max-w-xl" }, "\u770B\u770B\u8AB0\u6B63\u5728\u76F4\u64AD\u3001\u60F3\u63EA\u5718\u3001\u627E\u4EBA\u804A\u5929\u6216\u5206\u4EAB\u8FD1\u6CC1\u3002\u9EDE\u982D\u50CF\u5C31\u80FD\u5FEB\u901F\u9032\u5165\u5C0D\u65B9\u8CC7\u6599\u9032\u884C\u79C1\u8A0A\u4E92\u52D5\u3002"))),
                         React.createElement("div", { className: "mb-4 bg-[#181B25]/80 border border-[#2A2F3D] rounded-2xl px-4 py-3" },
                             React.createElement("div", { className: "vnexus-story-strip flex gap-4 overflow-x-auto pb-5 vnexus-drag-scroll items-start", style: STORY_STRIP_STYLE, onMouseDown: (e) => {
