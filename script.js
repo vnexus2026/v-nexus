@@ -1,13 +1,16 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc, orderBy, limit, writeBatch, deleteField, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app-check.js";
-import { getFunctions, httpsCallable, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
+import { initializeApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, } from "firebase/auth";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, updateDoc, increment, arrayUnion, arrayRemove, query, where, getDocs, getDoc, orderBy, limit, writeBatch, deleteField, } from "firebase/firestore";
+import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken, } from "firebase/app-check";
+import { getFunctions, httpsCallable, } from "firebase/functions";
 // --- 務必確認這行有在頂部 ---
-import { getMessaging, getToken, onMessage, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
+import { getMessaging, getToken, onMessage, } from "firebase/messaging";
 // --- API 金鑰設定區 (請在此填入您申請到的金鑰) ---
-import { getStorage, ref, uploadString, getDownloadURL, } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+import { getStorage, ref, uploadString, getDownloadURL, } from "firebase/storage";
+import { getAnalytics, logEvent } from "firebase/analytics";
 // --------------------------------------------------
 // 🌟 引入 createContext 與 useContext
 const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
@@ -1545,6 +1548,17 @@ const formatDateTimeLocalStr = (dtStr) => {
         return dtStr;
     return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
+const toDateTimePickerValue = (value) => {
+    if (!value)
+        return "";
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value))
+        return value.slice(0, 16);
+    const rawDate = value?.toDate ? value.toDate() : value;
+    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    if (isNaN(d.getTime()))
+        return "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
 const formatDateOnly = (value) => {
     if (!value)
         return "可討論";
@@ -2048,8 +2062,16 @@ const BulletinCard = React.memo(({ b, user, isVerifiedUser, onNavigateProfile, o
     const statusText = isReached ? "已有足夠意願，可等待發起人挑選" : "正在找一起聯動的人";
     const actionButtons = isAuthor
         ? React.createElement("div", { className: "flex gap-2 flex-shrink-0" },
-            React.createElement("button", { onClick: () => onEditBulletin && onEditBulletin(b), className: "bg-[#38BDF8]/15 hover:bg-[#38BDF8]/25 text-[#38BDF8] border border-[#38BDF8]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors" }, "編輯"),
-            React.createElement("button", { onClick: () => onDeleteBulletin && onDeleteBulletin(b.id), className: "bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors" }, "刪除"))
+            React.createElement("button", { onClick: (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onEditBulletin && onEditBulletin(b);
+                }, className: "bg-[#38BDF8]/15 hover:bg-[#38BDF8]/25 text-[#38BDF8] border border-[#38BDF8]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors" }, "編輯"),
+            React.createElement("button", { onClick: (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onDeleteBulletin && onDeleteBulletin(b.id);
+                }, className: "bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#FCA5A5] border border-[#EF4444]/25 px-3 py-2 rounded-xl text-xs font-bold transition-colors" }, "刪除"))
         : currentView === "home"
             ? React.createElement("div", { className: "vnexus-home-bulletin-card-cta" },
                 React.createElement("button", { onClick: (event) => {
@@ -7478,25 +7500,33 @@ function App() {
         }
     };
     const handleEditBulletin = (b) => {
-        const rEndD = new Date(b.recruitEndTime);
-        const rEndStr = `${rEndD.getFullYear()}-${String(rEndD.getMonth() + 1).padStart(2, "0")}-${String(rEndD.getDate()).padStart(2, "0")}T${String(rEndD.getHours()).padStart(2, "0")}:${String(rEndD.getMinutes()).padStart(2, "0")}`;
         setNewBulletin({
             id: b.id,
-            content: b.content,
+            content: b.content || "",
             collabType: PREDEFINED_COLLABS.includes(b.collabType)
                 ? b.collabType
                 : "其他",
             collabTypeOther: PREDEFINED_COLLABS.includes(b.collabType)
                 ? ""
-                : b.collabType,
-            collabSize: b.collabSize,
-            collabTime: b.collabTime,
-            recruitEndTime: rEndStr,
+                : b.collabType || "",
+            collabSize: b.collabSize || "",
+            collabTime: toDateTimePickerValue(b.collabTime),
+            recruitEndTime: toDateTimePickerValue(b.recruitEndTime),
             image: b.image || "",
         });
         setIsBulletinFormOpen(true);
-        navigate("bulletin");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        navigate("bulletin", true);
+        const scrollToBulletinForm = (attempt = 0) => {
+            const form = document.getElementById("bulletin-form");
+            if (!form) {
+                if (attempt < 6)
+                    setTimeout(() => scrollToBulletinForm(attempt + 1), 60);
+                return;
+            }
+            form.scrollIntoView({ behavior: "smooth", block: "start" });
+            form.querySelector("textarea, input, select")?.focus({ preventScroll: true });
+        };
+        setTimeout(scrollToBulletinForm, 0);
     };
     const handleApplyBulletin = async (bulletinId, isApplying, bulletinAuthorId) => {
         if (!user) {
@@ -9682,5 +9712,5 @@ function App() {
                         new Date().getFullYear(),
                         " V-Nexus. \u5C08\u70BA VTuber \u6253\u9020\u7684\u806F\u52D5\u5E73\u53F0\u3002"))))));
 }
-const root = ReactDOM.createRoot(document.getElementById("root"));
+const root = createRoot(document.getElementById("root"));
 root.render(React.createElement(App, null));
