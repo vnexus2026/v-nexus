@@ -1758,6 +1758,10 @@ const calculateCompatibility = (me, target) => {
         score += 5;
     return Math.min(99, score); // 最高 99%，保留一點真實感
 };
+const hasVerifiedMemberAccess = (profile) => Boolean(profile?.isVerified &&
+    !profile?.isBlacklisted &&
+    profile?.activityStatus !== "sleep" &&
+    profile?.activityStatus !== "graduated");
 const isVisible = (v, currentUser) => {
     if (!v || !v.id)
         return false; // 確保 v 及其 id 存在
@@ -3691,9 +3695,7 @@ const HomePage = ({ navigate, onOpenRules, onOpenUpdates, hasUnreadUpdates, site
     }, [safeDisplayCollabs.length]);
     const recommendedVtubers = useMemo(() => {
         const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
-        const isVerified = myProfile?.isVerified &&
-            !myProfile?.isBlacklisted &&
-            myProfile?.activityStatus === "active";
+        const isVerified = hasVerifiedMemberAccess(myProfile);
         const candidates = [...realVtubers].filter((v) => v.isVerified &&
             !v.isBlacklisted &&
             v.activityStatus !== "sleep" &&
@@ -5009,7 +5011,7 @@ function App() {
     });
     const isAdmin = user && user.email === "apex.dasa@gmail.com";
     const myProfile = user ? realVtubers.find((v) => v.id === user.uid) : null;
-    const isVerifiedUser = isAdmin || (myProfile?.isVerified && !myProfile?.isBlacklisted && myProfile?.activityStatus === "active");
+    const isVerifiedUser = isAdmin || hasVerifiedMemberAccess(myProfile);
     // 🌟 新增：限時動態 (Stories) 狀態
     const [realStories, setRealStories] = useState([]);
     const [feedbackReports, setFeedbackReports] = useState([]);

@@ -36,11 +36,16 @@ function copyDirRecursive(src, dest) {
 }
 
 function copyStaticPublishFiles() {
+  let outDir = "dist";
+
   return {
     name: "copy-static-publish-files",
+    configResolved(config) {
+      outDir = config.build.outDir;
+    },
     closeBundle() {
       const root = resolve(".");
-      const dist = resolve("dist");
+      const dist = resolve(outDir);
 
       staticFiles.forEach((file) => {
         const src = join(root, file);
